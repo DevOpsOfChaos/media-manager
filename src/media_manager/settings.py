@@ -9,7 +9,8 @@ APP_DIR_NAME = "media-manager"
 SETTINGS_FILE_NAME = "settings.json"
 CUSTOM_TEMPLATE_LABEL = "Custom"
 DEFAULT_TARGET_TEMPLATE = "{year}/{month}"
-DEFAULT_RENAME_TEMPLATE = "{year}{month}{day}_{hour}{minute}{second}_{stem}{suffix}"
+OLD_DEFAULT_RENAME_TEMPLATE = "{year}{month}{day}_{hour}{minute}{second}_{stem}{suffix}"
+DEFAULT_RENAME_TEMPLATE = "{day}.{month}.{year}-{hour}-{minute}-{second}_{stem}{suffix}"
 
 ORGANIZE_TEMPLATE_PRESETS = [
     {"label": "Year / Month", "template": "{year}/{month}"},
@@ -20,7 +21,11 @@ ORGANIZE_TEMPLATE_PRESETS = [
 ]
 
 RENAME_TEMPLATE_PRESETS = [
-    {"label": "DateTime + original name", "template": "{year}{month}{day}_{hour}{minute}{second}_{stem}{suffix}"},
+    {"label": "Readable date + original name", "template": DEFAULT_RENAME_TEMPLATE},
+    {"label": "Readable date only", "template": "{day}.{month}.{year}-{hour}-{minute}-{second}{suffix}"},
+    {"label": "Readable date + index", "template": "{day}.{month}.{year}-{hour}-{minute}-{second}_{index}{suffix}"},
+    {"label": "Original name + readable date", "template": "{stem}_{day}.{month}.{year}-{hour}-{minute}-{second}{suffix}"},
+    {"label": "DateTime + original name", "template": OLD_DEFAULT_RENAME_TEMPLATE},
     {"label": "Date + original name", "template": "{year}{month}{day}_{stem}{suffix}"},
     {"label": "DateTime only", "template": "{year}{month}{day}_{hour}{minute}{second}{suffix}"},
     {"label": "DateTime + index", "template": "{year}{month}{day}_{hour}{minute}{second}_{index}{suffix}"},

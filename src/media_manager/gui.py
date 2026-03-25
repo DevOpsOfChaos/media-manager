@@ -94,7 +94,7 @@ QLineEdit, QListWidget, QTableWidget, QComboBox {
     alternate-background-color: #101A2D;
 }
 QListWidget::item {
-    padding: 8px;
+    padding: 10px;
     border-radius: 8px;
 }
 QPushButton {
@@ -288,13 +288,6 @@ class MediaManagerWindow(QMainWindow):
         self.rename_results_table.verticalHeader().setVisible(False)
         self.rename_results_table.setAlternatingRowColors(True)
 
-        for table in [self.results_table, self.rename_results_table]:
-            table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-            table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-            table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-            table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-            table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-
         self.sources_card = StatCard("Sources", "0")
         self.target_card = StatCard("Target", "Not set")
         self.mode_card = StatCard("Mode", "Copy")
@@ -321,10 +314,15 @@ class MediaManagerWindow(QMainWindow):
 
         self._build_ui()
         self._populate_template_preset_combos()
+        self._apply_readability_styles()
         self._wire_signals()
         self._load_settings()
         self._refresh_summary_cards()
         self._refresh_rename_summary_cards()
+        self._refresh_source_list_height(self.source_list)
+        self._refresh_source_list_height(self.rename_source_list)
+        self._resize_result_columns(self.results_table)
+        self._resize_result_columns(self.rename_results_table)
         self._set_current_page(0)
 
     def _build_ui(self) -> None:
@@ -450,7 +448,6 @@ class MediaManagerWindow(QMainWindow):
         results_group = QGroupBox("Results")
         results_layout = QVBoxLayout(results_group)
         results_layout.setSpacing(10)
-        results_layout.addWidget(self.results_summary_label)
         results_layout.addWidget(self.results_table)
 
         content_layout.addWidget(controls_panel, 4)
@@ -499,7 +496,6 @@ class MediaManagerWindow(QMainWindow):
         results_group = QGroupBox("Results")
         results_layout = QVBoxLayout(results_group)
         results_layout.setSpacing(10)
-        results_layout.addWidget(self.rename_results_summary_label)
         results_layout.addWidget(self.rename_results_table)
 
         content_layout.addWidget(controls_panel, 4)
@@ -688,6 +684,20 @@ class MediaManagerWindow(QMainWindow):
             combo.addItem(preset["label"], preset["template"])
         combo.addItem(CUSTOM_TEMPLATE_LABEL, None)
 
+    def _apply_readability_styles(self) -> None:
+        table_font = QFont()
+        table_font.setPointSize(14)
+        list_font = QFont()
+        list_font.setPointSize(14)
+        for table in [self.results_table, self.rename_results_table]:
+            table.setFont(table_font)
+            table.horizontalHeader().setFont(table_font)
+            table.horizontalHeader().setStretchLastSection(True)
+            table.verticalHeader().setDefaultSectionSize(34)
+        for list_widget in [self.source_list, self.rename_source_list]:
+            list_widget.setFont(list_font)
+            list_widget.setSpacing(4)
+
     def _wire_signals(self) -> None:
         self.home_button.clicked.connect(lambda: self._set_current_page(0))
         self.organize_button.clicked.connect(lambda: self._set_current_page(1))
@@ -728,11 +738,22 @@ class MediaManagerWindow(QMainWindow):
         item.setData(Qt.ItemDataRole.UserRole, normalized)
         item.setToolTip(normalized)
         list_widget.addItem(item)
+        self._refresh_source_list_height(list_widget)
 
     def _populate_path_list(self, list_widget: QListWidget, source_dirs: list[str]) -> None:
         list_widget.clear()
         for raw_path in source_dirs:
             self._add_path_item(list_widget, Path(raw_path))
+        self._refresh_source_list_height(list_widget)
+
+    def _refresh_source_list_height(self, list_widget: QListWidget) -> None:
+        row_height = list_widget.sizeHintForRow(0)
+        if row_height <= 0:
+            row_height = 38
+        visible_rows = max(3, list_widget.count())
+        frame = list_widget.frameWidth() * 2
+        spacing = max(0, list_widget.spacing()) * max(0, visible_rows - 1)
+        list_widget.setMinimumHeight((row_height * visible_rows) + frame + spacing + 8)
 
     def _refresh_source_details(self) -> None:
         self._refresh_list_details(self.source_list, self.source_details_label)
@@ -905,15 +926,19 @@ class MediaManagerWindow(QMainWindow):
             widget.setEnabled(enabled)
         QApplication.processEvents()
 
-    def _handle_progress(self, label: QLabel, message: str) -> None:
-        label.setText(message)
+    def _handle_progress(self, _label: QLabel, message: str) -> None:
         self.status_bar.showMessage(message)
         QApplication.processEvents()
 
     def _resize_result_columns(self, table: QTableWidget) -> None:
+        if table.rowCount() == 0:
+            for column in range(table.columnCount()):
+                table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
+            return
+
         table.resizeColumnsToContents()
         for column in range(table.columnCount()):
-            table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+            table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
 
     def _make_result_item(self, display_value: str, tooltip_value: str, *, center: bool = False) -> QTableWidgetItem:
         item = QTableWidgetItem(display_value)
@@ -991,12 +1016,14 @@ class MediaManagerWindow(QMainWindow):
     def _remove_selected_sources(self) -> None:
         for item in self.source_list.selectedItems():
             self.source_list.takeItem(self.source_list.row(item))
+        self._refresh_source_list_height(self.source_list)
         self.status_bar.showMessage("Selected source folders removed")
         self._refresh_summary_cards()
         self._refresh_source_details()
 
     def _clear_sources(self) -> None:
         self.source_list.clear()
+        self._refresh_source_list_height(self.source_list)
         self.status_bar.showMessage("Source folder list cleared")
         self._refresh_summary_cards()
         self._refresh_source_details()
@@ -1013,12 +1040,14 @@ class MediaManagerWindow(QMainWindow):
     def _rename_remove_selected_sources(self) -> None:
         for item in self.rename_source_list.selectedItems():
             self.rename_source_list.takeItem(self.rename_source_list.row(item))
+        self._refresh_source_list_height(self.rename_source_list)
         self.status_bar.showMessage("Selected source folders removed")
         self._refresh_rename_summary_cards()
         self._refresh_rename_source_details()
 
     def _rename_clear_sources(self) -> None:
         self.rename_source_list.clear()
+        self._refresh_source_list_height(self.rename_source_list)
         self.status_bar.showMessage("Source folder list cleared")
         self._refresh_rename_summary_cards()
         self._refresh_rename_source_details()
@@ -1053,11 +1082,13 @@ class MediaManagerWindow(QMainWindow):
     def _clear_results(self) -> None:
         self.results_table.setRowCount(0)
         self.results_summary_label.setText("No run yet.")
+        self._resize_result_columns(self.results_table)
         self.status_bar.showMessage("Results cleared")
 
     def _rename_clear_results(self) -> None:
         self.rename_results_table.setRowCount(0)
         self.rename_results_summary_label.setText("No run yet.")
+        self._resize_result_columns(self.rename_results_table)
         self.status_bar.showMessage("Results cleared")
 
     def _collect_paths(self, list_widget: QListWidget) -> list[Path]:
@@ -1094,7 +1125,7 @@ class MediaManagerWindow(QMainWindow):
 
         self._save_settings()
         self.results_table.setRowCount(0)
-        self.results_summary_label.setText("Preparing organizer run ...")
+        self._resize_result_columns(self.results_table)
         self.status_bar.showMessage("Preparing organizer run ...")
         self._set_run_state(True)
         try:
@@ -1163,7 +1194,7 @@ class MediaManagerWindow(QMainWindow):
 
         self._save_settings()
         self.rename_results_table.setRowCount(0)
-        self.rename_results_summary_label.setText("Preparing rename run ...")
+        self._resize_result_columns(self.rename_results_table)
         self.status_bar.showMessage("Preparing rename run ...")
         self._set_run_state(True)
         try:

@@ -63,8 +63,8 @@ def test_template_preset_label_returns_matching_organize_preset() -> None:
 
 def test_template_preset_label_returns_matching_rename_preset() -> None:
     assert (
-        template_preset_label("{year}{month}{day}_{hour}{minute}{second}_{stem}{suffix}", RENAME_TEMPLATE_PRESETS)
-        == "DateTime + original name"
+        template_preset_label("{day}.{month}.{year}-{hour}-{minute}-{second}_{stem}{suffix}", RENAME_TEMPLATE_PRESETS)
+        == "Readable date + original name"
     )
 
 
