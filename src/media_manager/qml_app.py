@@ -1,0 +1,440 @@
+from __future__ import annotations
+
+import sys
+from importlib import resources
+from pathlib import Path
+
+from PySide6.QtCore import Property, QObject, QTimer, QUrl, Signal, Slot
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtQml import QQmlApplicationEngine
+
+TRANSLATIONS = {
+    "en": {
+        "app_title": "Media Manager",
+        "nav_subtitle": "Guided first. Manual when needed.",
+        "nav_home": "Home",
+        "nav_workflow": "Workflow",
+        "nav_duplicates": "Duplicates",
+        "nav_organize": "Organize",
+        "nav_rename": "Rename",
+        "home_title": "Media Manager",
+        "home_subtitle": "Choose your problem to start a guided workflow.",
+        "home_dismiss": "Dismiss",
+        "home_restart": "Start guided questionnaire",
+        "home_info_title": "How it works",
+        "home_info_body": "The workflow helps you clean duplicates first, then organize the result, then rename the remaining media. Manual tools remain available in the side menu if you already know exactly what you want to do.",
+        "problem_full_cleanup_label": "My folders are messy and I want a full cleanup",
+        "problem_full_cleanup_desc": "Duplicates, organize, and rename in one guided run.",
+        "problem_ready_for_sorting_label": "Duplicates are already handled, now I need sorting",
+        "problem_ready_for_sorting_desc": "Go directly toward folder structure and cleanup flow.",
+        "problem_ready_for_rename_label": "The structure is fine, I mostly need better names",
+        "problem_ready_for_rename_desc": "Start from a lighter workflow with naming as the main goal.",
+        "problem_exact_duplicates_only_label": "I only want to inspect exact duplicates right now",
+        "problem_exact_duplicates_only_desc": "Review only guaranteed byte-identical duplicates.",
+        "workflow_title": "Guided workflow",
+        "workflow_subtitle": "Everything important now happens here, step by step.",
+        "stage_sources_title": "Select your source folders",
+        "stage_sources_subtitle": "Start with the folders you want to clean. The app can already begin scanning and counting media in the background.",
+        "stage_sources_action": "Select source folders",
+        "stage_target_title": "Select your target folder",
+        "stage_target_subtitle": "Choose the place where the cleaned library should live. This target will later hold hidden workflow state as well.",
+        "stage_target_action": "Select target folder",
+        "stage_mode_title": "What should happen to the files?",
+        "stage_mode_subtitle": "You can still change this later before real execution.",
+        "mode_copy": "Copy",
+        "mode_move": "Move",
+        "mode_delete": "Delete",
+        "stage_duplicates_title": "Duplicate review preview",
+        "stage_duplicates_subtitle": "The scan already started in the background. The Start button mainly opens the visible review phase.",
+        "stage_duplicates_action": "Start duplicate review",
+        "stage_duplicates_hint": "This is a preview foundation. The final visual compare tool will be more powerful than this quick review screen.",
+        "table_name": "Name",
+        "table_size": "Size",
+        "table_date": "Date",
+        "table_matches": "Matches",
+        "table_score": "Score",
+        "table_action": "Action",
+        "table_show": "Show",
+        "stage_sorting_title": "Sorting setup preview",
+        "stage_sorting_subtitle": "Later this page will let the user define folder structure blocks like year / month / day and optional trip support.",
+        "stage_sorting_action": "Continue to rename",
+        "stage_rename_title": "Rename setup preview",
+        "stage_rename_subtitle": "Later this page will support readable templates, rename blocks, and preset patterns.",
+        "stage_rename_action": "Continue to summary",
+        "stage_done_title": "Congratulations",
+        "stage_done_subtitle": "This preview foundation shows the future shell: guided flow, bottom status bar, staged review, and a moderner entry point.",
+        "stage_done_action": "Finish preview",
+        "button_back": "Back",
+        "button_next": "Next",
+        "button_home": "Back to home",
+        "bottom_sources": "Sources",
+        "bottom_target": "Target",
+        "bottom_mode": "Mode",
+        "bottom_step": "Step",
+        "bottom_files": "Files found",
+        "tip_1": "Tip: exact duplicates are the safest cleanup wins.",
+        "tip_2": "Photography fact: JPEG and RAW from the same shot should be treated as related but not identical files.",
+        "tip_3": "Good cleanup workflows reduce chaos before folder sorting starts.",
+        "tip_4": "History: early digital cameras often produced vendor-specific side files next to the image itself.",
+        "manual_placeholder_title": "Manual tool page preview",
+        "manual_placeholder_body": "This page will later reuse the same workflow logic, but without the guided entry path.",
+        "manual_hint": "Use the guided workflow unless you already know exactly which tool you want.",
+        "language_tooltip": "Switch language",
+    },
+    "de": {
+        "app_title": "Media Manager",
+        "nav_subtitle": "Zuerst geführt. Manuell nur wenn nötig.",
+        "nav_home": "Start",
+        "nav_workflow": "Workflow",
+        "nav_duplicates": "Duplikate",
+        "nav_organize": "Sortieren",
+        "nav_rename": "Umbenennen",
+        "home_title": "Media Manager",
+        "home_subtitle": "Wähle dein Problem aus, um einen geführten Workflow zu starten.",
+        "home_dismiss": "Ausblenden",
+        "home_restart": "Geführte Umfrage starten",
+        "home_info_title": "How it works",
+        "home_info_body": "Der Workflow hilft zuerst beim Duplikat-Bereinigen, danach beim Sortieren und anschließend beim Umbenennen. Manuelle Werkzeuge bleiben in der Seitenleiste verfügbar, wenn du schon genau weißt, was du tun willst.",
+        "problem_full_cleanup_label": "Meine Ordner sind unordentlich und ich will eine komplette Bereinigung",
+        "problem_full_cleanup_desc": "Duplikate, Sortieren und Umbenennen in einem geführten Durchlauf.",
+        "problem_ready_for_sorting_label": "Duplikate sind schon erledigt, jetzt brauche ich Sortierung",
+        "problem_ready_for_sorting_desc": "Direkt in Richtung Ordnerstruktur und Bereinigung gehen.",
+        "problem_ready_for_rename_label": "Die Struktur passt, ich brauche vor allem bessere Namen",
+        "problem_ready_for_rename_desc": "Mit einem leichteren Workflow starten, bei dem Namen im Fokus stehen.",
+        "problem_exact_duplicates_only_label": "Ich will gerade nur exakte Duplikate prüfen",
+        "problem_exact_duplicates_only_desc": "Nur garantierte byte-identische Duplikate prüfen.",
+        "workflow_title": "Geführter Workflow",
+        "workflow_subtitle": "Ab hier findet alles Wichtige Schritt für Schritt statt.",
+        "stage_sources_title": "Wähle deine Quellordner aus",
+        "stage_sources_subtitle": "Beginne mit den Ordnern, die du bereinigen willst. Die App kann dabei schon im Hintergrund scannen und zählen.",
+        "stage_sources_action": "Quellordner auswählen",
+        "stage_target_title": "Wähle deinen Zielordner aus",
+        "stage_target_subtitle": "Wähle den Ort, an dem die bereinigte Bibliothek später liegen soll. Dort wird später auch der versteckte Workflow-Zustand abgelegt.",
+        "stage_target_action": "Zielordner auswählen",
+        "stage_mode_title": "Was soll mit den Dateien passieren?",
+        "stage_mode_subtitle": "Das kann vor der echten Ausführung später noch geändert werden.",
+        "mode_copy": "Kopieren",
+        "mode_move": "Verschieben",
+        "mode_delete": "Löschen",
+        "stage_duplicates_title": "Duplikat-Prüfung Vorschau",
+        "stage_duplicates_subtitle": "Der Scan läuft im Hintergrund bereits an. Der Start-Button öffnet hauptsächlich die sichtbare Review-Phase.",
+        "stage_duplicates_action": "Duplikat-Prüfung starten",
+        "stage_duplicates_hint": "Das ist nur das Grundgerüst. Das finale Vergleichstool wird deutlich stärker als diese schnelle Review-Ansicht.",
+        "table_name": "Name",
+        "table_size": "Größe",
+        "table_date": "Datum",
+        "table_matches": "Duplikate",
+        "table_score": "Übereinstimmung",
+        "table_action": "Aktion",
+        "table_show": "Anzeigen",
+        "stage_sorting_title": "Sortier-Setup Vorschau",
+        "stage_sorting_subtitle": "Später kann der Nutzer hier Ordner-Ebenen wie Jahr / Monat / Tag und optional eine Trip-Unterstützung definieren.",
+        "stage_sorting_action": "Weiter zu Umbenennen",
+        "stage_rename_title": "Umbenennen-Setup Vorschau",
+        "stage_rename_subtitle": "Später wird diese Seite lesbare Templates, Namensblöcke und Vorlagen unterstützen.",
+        "stage_rename_action": "Weiter zur Zusammenfassung",
+        "stage_done_title": "Glückwunsch",
+        "stage_done_subtitle": "Dieses Grundgerüst zeigt die künftige Hülle: geführter Ablauf, untere Statusleiste, gestufte Review und ein modernerer Einstiegspunkt.",
+        "stage_done_action": "Vorschau beenden",
+        "button_back": "Zurück",
+        "button_next": "Weiter",
+        "button_home": "Zurück zur Startseite",
+        "bottom_sources": "Quellen",
+        "bottom_target": "Ziel",
+        "bottom_mode": "Modus",
+        "bottom_step": "Schritt",
+        "bottom_files": "Dateien gefunden",
+        "tip_1": "Tipp: exakte Duplikate sind die sichersten Gewinne bei der Bereinigung.",
+        "tip_2": "Foto-Fakt: JPEG und RAW vom selben Foto sind zusammengehörig, aber nicht identisch.",
+        "tip_3": "Gute Bereinigungs-Workflows reduzieren das Chaos, bevor die Sortierung beginnt.",
+        "tip_4": "Geschichte: frühe Digitalkameras erzeugten oft herstellerspezifische Zusatzdateien neben dem Bild.",
+        "manual_placeholder_title": "Vorschau für manuelle Werkzeugseite",
+        "manual_placeholder_body": "Diese Seite wird später dieselbe Workflow-Logik nutzen, aber ohne geführten Einstiegspfad.",
+        "manual_hint": "Nutze den geführten Workflow, außer du weißt schon ganz genau, welches Werkzeug du willst.",
+        "language_tooltip": "Sprache wechseln",
+    },
+}
+
+PROBLEM_KEYS = [
+    "full_cleanup",
+    "ready_for_sorting",
+    "ready_for_rename",
+    "exact_duplicates_only",
+]
+
+STAGE_KEYS = ["sources", "target", "mode", "duplicates", "sorting", "rename", "done"]
+
+DUPLICATE_SAMPLE_ROWS = [
+    {"name": "IMG_4021.JPG", "size": "5.4 MB", "date": "2024-07-15", "matches": "3", "score": "100%"},
+    {"name": "DJI_1180.MP4", "size": "381 MB", "date": "2024-07-16", "matches": "2", "score": "100%"},
+    {"name": "IMG_4021.CR3", "size": "28 MB", "date": "2024-07-15", "matches": "1", "score": "100%"},
+    {"name": "IMG_5502.JPG", "size": "6.1 MB", "date": "2024-09-08", "matches": "2", "score": "82%"},
+    {"name": "IMG_5503.JPG", "size": "6.0 MB", "date": "2024-09-08", "matches": "2", "score": "74%"},
+]
+
+class QmlAppState(QObject):
+    languageChanged = Signal()
+    pageChanged = Signal()
+    wizardVisibleChanged = Signal()
+    selectedProblemChanged = Signal()
+    workflowChanged = Signal()
+    liveStatsChanged = Signal()
+    tipChanged = Signal()
+    duplicateRowsChanged = Signal()
+    flagPathChanged = Signal()
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._language = "en"
+        self._current_page = "home"
+        self._wizard_visible = True
+        self._selected_problem = "full_cleanup"
+        self._workflow_stage_index = 0
+        self._source_count = 0
+        self._target_label = "-"
+        self._operation_mode = "copy"
+        self._discovered_file_count = 0
+        self._tip_index = 0
+        self._duplicate_started = False
+        self._duplicate_progress = 0
+        self._duplicate_rows_visible = 0
+        self._status_text = ""
+        self._tips = ["tip_1", "tip_2", "tip_3", "tip_4"]
+
+        self._tip_timer = QTimer(self)
+        self._tip_timer.timeout.connect(self._advance_tip)
+        self._tip_timer.start(3200)
+
+        self._live_timer = QTimer(self)
+        self._live_timer.timeout.connect(self._advance_live_scan)
+        self._live_timer.start(250)
+
+        self._duplicate_timer = QTimer(self)
+        self._duplicate_timer.timeout.connect(self._advance_duplicate_preview)
+        self._duplicate_timer.start(180)
+
+    def _flag_path(self, language: str) -> str:
+        asset_path = resources.files("media_manager").joinpath(f"qml/assets/{language}_flag.svg")
+        return QUrl.fromLocalFile(str(asset_path)).toString()
+
+    @Slot(str, result=str)
+    def text(self, key: str) -> str:
+        return TRANSLATIONS[self._language].get(key, key)
+
+    @Slot(str, result=str)
+    def problemLabel(self, key: str) -> str:
+        return self.text(f"problem_{key}_label")
+
+    @Slot(str, result=str)
+    def problemDescription(self, key: str) -> str:
+        return self.text(f"problem_{key}_desc")
+
+    @Property(str, notify=languageChanged)
+    def language(self) -> str:
+        return self._language
+
+    @Property(str, notify=flagPathChanged)
+    def flagPath(self) -> str:
+        return self._flag_path(self._language)
+
+    @Property(str, notify=pageChanged)
+    def currentPage(self) -> str:
+        return self._current_page
+
+    @Property(bool, notify=wizardVisibleChanged)
+    def wizardVisible(self) -> bool:
+        return self._wizard_visible
+
+    @Property(str, notify=selectedProblemChanged)
+    def selectedProblem(self) -> str:
+        return self._selected_problem
+
+    @Property(int, notify=liveStatsChanged)
+    def sourceCount(self) -> int:
+        return self._source_count
+
+    @Property(str, notify=liveStatsChanged)
+    def targetLabel(self) -> str:
+        return self._target_label
+
+    @Property(str, notify=workflowChanged)
+    def operationMode(self) -> str:
+        return self._operation_mode
+
+    @Property(int, notify=workflowChanged)
+    def workflowStageIndex(self) -> int:
+        return self._workflow_stage_index
+
+    @Property(int, notify=workflowChanged)
+    def workflowTotalSteps(self) -> int:
+        return len(STAGE_KEYS)
+
+    @Property(str, notify=workflowChanged)
+    def workflowStageKey(self) -> str:
+        return STAGE_KEYS[self._workflow_stage_index]
+
+    @Property(str, notify=workflowChanged)
+    def workflowStageTitle(self) -> str:
+        return self.text(f"stage_{self.workflowStageKey}_title")
+
+    @Property(str, notify=workflowChanged)
+    def workflowStageSubtitle(self) -> str:
+        return self.text(f"stage_{self.workflowStageKey}_subtitle")
+
+    @Property(int, notify=liveStatsChanged)
+    def discoveredFileCount(self) -> int:
+        return self._discovered_file_count
+
+    @Property(str, notify=tipChanged)
+    def currentTip(self) -> str:
+        return self.text(self._tips[self._tip_index])
+
+    @Property(str, notify=workflowChanged)
+    def statusText(self) -> str:
+        return self._status_text
+
+    @Property(int, notify=duplicateRowsChanged)
+    def duplicateProgress(self) -> int:
+        return self._duplicate_progress
+
+    @Property("QVariantList", notify=duplicateRowsChanged)
+    def duplicateRows(self) -> list[dict[str, str]]:
+        return DUPLICATE_SAMPLE_ROWS[: self._duplicate_rows_visible]
+
+    @Property(bool, notify=workflowChanged)
+    def canAdvanceWorkflow(self) -> bool:
+        key = self.workflowStageKey
+        if key == "sources":
+            return self._source_count > 0
+        if key == "target":
+            return self._target_label != "-"
+        if key == "mode":
+            return True
+        if key == "duplicates":
+            return self._duplicate_progress >= 100
+        return True
+
+    @Slot()
+    def toggleLanguage(self) -> None:
+        self._language = "de" if self._language == "en" else "en"
+        self.languageChanged.emit()
+        self.flagPathChanged.emit()
+        self.tipChanged.emit()
+        self.workflowChanged.emit()
+        self.pageChanged.emit()
+        self.selectedProblemChanged.emit()
+
+    @Slot(str)
+    def setPage(self, page: str) -> None:
+        if page == self._current_page:
+            return
+        self._current_page = page
+        self.pageChanged.emit()
+
+    @Slot()
+    def dismissWizard(self) -> None:
+        self._wizard_visible = False
+        self.wizardVisibleChanged.emit()
+
+    @Slot()
+    def restartWizard(self) -> None:
+        self._wizard_visible = True
+        self.wizardVisibleChanged.emit()
+
+    @Slot(str)
+    def selectProblemAndStart(self, key: str) -> None:
+        self._selected_problem = key
+        self._workflow_stage_index = 0
+        self._status_text = self.problemLabel(key)
+        self._current_page = "workflow"
+        self.selectedProblemChanged.emit()
+        self.workflowChanged.emit()
+        self.pageChanged.emit()
+
+    @Slot(str)
+    def setOperationMode(self, mode: str) -> None:
+        self._operation_mode = mode
+        self._status_text = self.text(f"mode_{mode}")
+        self.workflowChanged.emit()
+
+    @Slot()
+    def simulateSourceSelection(self) -> None:
+        self._source_count = 3 if self._source_count == 0 else self._source_count + 1
+        self._status_text = self.text("stage_sources_action")
+        self.liveStatsChanged.emit()
+        self.workflowChanged.emit()
+
+    @Slot()
+    def simulateTargetSelection(self) -> None:
+        self._target_label = "Clean Library"
+        self._status_text = self.text("stage_target_action")
+        self.liveStatsChanged.emit()
+        self.workflowChanged.emit()
+
+    @Slot()
+    def workflowNext(self) -> None:
+        if not self.canAdvanceWorkflow:
+            return
+        if self._workflow_stage_index < len(STAGE_KEYS) - 1:
+            self._workflow_stage_index += 1
+            self._status_text = self.workflowStageTitle
+            self.workflowChanged.emit()
+
+    @Slot()
+    def workflowBack(self) -> None:
+        if self._workflow_stage_index > 0:
+            self._workflow_stage_index -= 1
+            self._status_text = self.workflowStageTitle
+            self.workflowChanged.emit()
+        else:
+            self._current_page = "home"
+            self.pageChanged.emit()
+
+    @Slot()
+    def startDuplicatePreview(self) -> None:
+        self._duplicate_started = True
+        self._status_text = self.text("stage_duplicates_action")
+        self.workflowChanged.emit()
+
+    @Slot()
+    def backToHome(self) -> None:
+        self._current_page = "home"
+        self.pageChanged.emit()
+
+    def _advance_tip(self) -> None:
+        self._tip_index = (self._tip_index + 1) % len(self._tips)
+        self.tipChanged.emit()
+
+    def _advance_live_scan(self) -> None:
+        if self._current_page != "workflow":
+            return
+        if self._source_count == 0:
+            return
+        if self._discovered_file_count < 48213:
+            self._discovered_file_count += 137
+            self.liveStatsChanged.emit()
+
+    def _advance_duplicate_preview(self) -> None:
+        if not self._duplicate_started:
+            return
+        if self._duplicate_progress < 100:
+            self._duplicate_progress += 4
+            if self._duplicate_rows_visible < len(DUPLICATE_SAMPLE_ROWS) and self._duplicate_progress % 16 == 0:
+                self._duplicate_rows_visible += 1
+            self.duplicateRowsChanged.emit()
+            self.workflowChanged.emit()
+
+
+def main() -> int:
+    app = QGuiApplication(sys.argv)
+    app.setApplicationName("Media Manager QML")
+
+    engine = QQmlApplicationEngine()
+    state = QmlAppState()
+    engine.rootContext().setContextProperty("appState", state)
+
+    qml_file = resources.files("media_manager").joinpath("qml/Main.qml")
+    engine.load(QUrl.fromLocalFile(str(qml_file)))
+    if not engine.rootObjects():
+        return 1
+    return app.exec()
