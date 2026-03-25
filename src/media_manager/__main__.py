@@ -1,1 +1,33 @@
-ZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IHN5cwoKZnJvbSBtZWRpYV9tYW5hZ2VyLmNsaSBpbXBvcnQgbWFpbiBhcyBjbGlfbWFpbgoKCmRlZiBydW5fZ3VpKCkgLT4gaW50OgogICAgdHJ5OgogICAgICAgIGZyb20gbWVkaWFfbWFuYWdlci5ndWlfcmV2aWV3IGltcG9ydCBtYWluIGFzIGd1aV9tYWluCiAgICBleGNlcHQgTW9kdWxlTm90Rm91bmRFcnJvciBhcyBleGM6CiAgICAgICAgaWYgZXhjLm5hbWUgPT0gIlB5U2lkZTYiOgogICAgICAgICAgICBwcmludCgKICAgICAgICAgICAgICAgICJQeVNpZGU2IGlzIG5vdCBhdmFpbGFibGUgaW4gdGhpcyBQeXRob24gaW5zdGFsbGF0aW9uLlxuIgogICAgICAgICAgICAgICAgIkluc3RhbGwgcHJvamVjdCBkZXBlbmRlbmNpZXMgYWdhaW4gYW5kIHRoZW4gcmV0cnkgdGhlIEdVSS5cblxuIgogICAgICAgICAgICAgICAgIkV4YW1wbGU6XG4iCiAgICAgICAgICAgICAgICAiICBwaXAgaW5zdGFsbCAtZSAuW2Rldl1cblxuIgogICAgICAgICAgICAgICAgIkNMSSBleGFtcGxlOlxuIgogICAgICAgICAgICAgICAgIiAgcHl0aG9uIC1tIG1lZGlhX21hbmFnZXIgb3JnYW5pemUgLS1zb3VyY2UgPFNPVVJDRT4gLS10YXJnZXQgPFRBUkdFVD4gLS1hcHBseSAtLWNvcHlcbiIKICAgICAgICAgICAgKQogICAgICAgICAgICByZXR1cm4gMgogICAgICAgIHJhaXNlCiAgICByZXR1cm4gZ3VpX21haW4oKQoKCmRlZiBtYWluKCkgLT4gaW50OgogICAgaWYgbGVuKHN5cy5hcmd2KSA9PSAxOgogICAgICAgIHJldHVybiBydW5fZ3VpKCkKICAgIHJldHVybiBjbGlfbWFpbigpCgoKaWYgX19uYW1lX18gPT0gIl9fbWFpbl9fIjoKICAgIHJhaXNlIFN5c3RlbUV4aXQobWFpbigpKQo=
+from __future__ import annotations
+
+import sys
+
+from media_manager.cli import main as cli_main
+
+
+def run_gui() -> int:
+    try:
+        from media_manager.gui_workflow import main as gui_main
+    except ModuleNotFoundError as exc:
+        if exc.name == "PySide6":
+            print(
+                "PySide6 is not available in this Python installation.\n"
+                "Install project dependencies again and then retry the GUI.\n\n"
+                "Example:\n"
+                "  pip install -e .[dev]\n\n"
+                "CLI example:\n"
+                "  python -m media_manager organize --source <SOURCE> --target <TARGET> --apply --copy\n"
+            )
+            return 2
+        raise
+    return gui_main()
+
+
+def main() -> int:
+    if len(sys.argv) == 1:
+        return run_gui()
+    return cli_main()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
