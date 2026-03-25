@@ -39,3 +39,20 @@ def test_organize_media_processes_multiple_source_directories(tmp_path: Path) ->
     assert result.organized == 2
     assert result.errors == 0
     assert {entry.source.name for entry in result.entries} == {"first.jpg", "second.jpg"}
+
+
+def test_organize_media_deduplicates_repeated_source_directory_input(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+
+    (source / "photo.jpg").write_bytes(b"x")
+
+    config = SortConfig(source_dirs=[source, source], target_dir=target, dry_run=True, mode="copy")
+    result = organize_media(config)
+
+    assert result.processed == 1
+    assert result.organized == 1
+    assert result.errors == 0
+    assert result.entries[0].source.name == "photo.jpg"

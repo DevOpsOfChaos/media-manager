@@ -17,6 +17,9 @@ The format is based on Keep a Changelog, and the project aims to follow Semantic
 - PySide6 desktop baseline for the organizer workflow
 - Multi-source folder support for the organizer workflow
 - Implementation protocol for the v0.3 baseline
+- Organizer dashboard-style summary cards and improved GUI layout
+- Open-target-folder action in the organizer GUI
+- Additional organizer tests for repeated source-path input
 
 ### Changed
 - README rewritten to present the repository as a public project front door
@@ -27,6 +30,7 @@ The format is based on Keep a Changelog, and the project aims to follow Semantic
 - Repository and application default language standardized to English
 - Core sorting configuration now supports multiple source folders
 - CLI updated to use repeatable `--source` flags and explicit `--target`
+- Organizer GUI refined with a more structured modern layout and clearer run feedback
 
 ### Notes
 - The project remains in pre-alpha.

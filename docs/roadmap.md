@@ -11,6 +11,7 @@
 
 ## Phase 2 — better organizer workflow
 
+- [x] Improve the organizer GUI layout and feedback loop
 - [ ] Saved import sets for reusable source-folder groups
 - [ ] Template-based renaming
 - [ ] Flexible sorting rules

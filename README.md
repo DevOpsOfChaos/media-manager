@@ -39,6 +39,7 @@ This repository fixes that foundation first.
   - an explicit CLI / GUI path
   - common Windows install paths
 - PySide6 desktop GUI baseline
+- Organizer dashboard-style summary cards and result table
 - CLI entry point
 - Automated tests for core date and sorting logic
 
@@ -173,7 +174,8 @@ See also:
 - [Contributing guide](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Support](SUPPORT.md)
-- [v0.3 implementation protocol](docs/protocol/2026-03-25-v0.3-pyside6-multisource.md)
+- [v0.3 baseline protocol](docs/protocol/2026-03-25-v0.3-pyside6-multisource.md)
+- [v0.3.1 organizer GUI polish protocol](docs/protocol/2026-03-25-v0.3.1-organizer-gui-polish.md)
 
 ## Honest scope statement
 
