@@ -876,7 +876,7 @@ class MediaManagerWindow(QMainWindow):
                 target_tooltip = str(entry.target)
 
             values = [
-                (self._format_status(entry.action), entry.action, True, True),
+                (self._format_status(entry.action), entry.action, False, True),
                 (entry.source.name, str(entry.source), False, False),
                 (entry.source.parent.name or str(entry.source.parent), str(entry.source.parent), False, False),
                 (target_value, target_tooltip, False, False),
