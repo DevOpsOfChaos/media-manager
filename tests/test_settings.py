@@ -1,4 +1,13 @@
-from media_manager.settings import get_import_set, list_import_sets, remove_import_set, upsert_import_set
+from media_manager.settings import (
+    CUSTOM_TEMPLATE_LABEL,
+    ORGANIZE_TEMPLATE_PRESETS,
+    RENAME_TEMPLATE_PRESETS,
+    get_import_set,
+    list_import_sets,
+    remove_import_set,
+    template_preset_label,
+    upsert_import_set,
+)
 
 
 def test_upsert_import_set_normalizes_and_sorts() -> None:
@@ -46,3 +55,18 @@ def test_get_and_remove_import_set() -> None:
 
     cleaned = remove_import_set(data, "trip")
     assert list_import_sets(cleaned) == []
+
+
+def test_template_preset_label_returns_matching_organize_preset() -> None:
+    assert template_preset_label("{year}/{month}", ORGANIZE_TEMPLATE_PRESETS) == "Year / Month"
+
+
+def test_template_preset_label_returns_matching_rename_preset() -> None:
+    assert (
+        template_preset_label("{year}{month}{day}_{hour}{minute}{second}_{stem}{suffix}", RENAME_TEMPLATE_PRESETS)
+        == "DateTime + original name"
+    )
+
+
+def test_template_preset_label_returns_custom_for_unknown_template() -> None:
+    assert template_preset_label("{year}/custom/{month}", ORGANIZE_TEMPLATE_PRESETS) == CUSTOM_TEMPLATE_LABEL

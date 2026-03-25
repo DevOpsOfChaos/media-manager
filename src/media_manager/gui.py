@@ -38,13 +38,17 @@ from PySide6.QtWidgets import (
 from .exiftool import resolve_exiftool_path
 from .renamer import RenameConfig, rename_media
 from .settings import (
+    CUSTOM_TEMPLATE_LABEL,
     DEFAULT_RENAME_TEMPLATE,
     DEFAULT_TARGET_TEMPLATE,
+    ORGANIZE_TEMPLATE_PRESETS,
+    RENAME_TEMPLATE_PRESETS,
     get_import_set,
     list_import_sets,
     load_app_settings,
     remove_import_set,
     save_app_settings,
+    template_preset_label,
     upsert_import_set,
 )
 from .sorter import SortConfig, organize_media
@@ -229,6 +233,8 @@ class MediaManagerWindow(QMainWindow):
         self.target_input.setPlaceholderText("Target folder")
         self.exiftool_input = QLineEdit()
         self.exiftool_input.setPlaceholderText("Auto-detect when empty")
+        self.template_preset_combo = QComboBox()
+        self.template_preset_combo.setMinimumWidth(240)
         self.template_input = QLineEdit(DEFAULT_TARGET_TEMPLATE)
         self.apply_checkbox = QCheckBox("Apply")
         self.import_set_combo = QComboBox()
@@ -262,6 +268,8 @@ class MediaManagerWindow(QMainWindow):
         self.rename_source_details_label = QLabel("No source folder selected.")
         self.rename_source_details_label.setWordWrap(True)
         self.rename_source_details_label.setStyleSheet("color: #94A3B8;")
+        self.rename_template_preset_combo = QComboBox()
+        self.rename_template_preset_combo.setMinimumWidth(240)
         self.rename_template_input = QLineEdit(DEFAULT_RENAME_TEMPLATE)
         self.rename_apply_checkbox = QCheckBox("Apply")
         self.rename_results_summary_label = QLabel("No run yet.")
@@ -307,6 +315,7 @@ class MediaManagerWindow(QMainWindow):
         self.rename_button.setProperty("variant", "secondary")
 
         self._build_ui()
+        self._populate_template_preset_combos()
         self._wire_signals()
         self._load_settings()
         self._refresh_summary_cards()
@@ -601,8 +610,11 @@ class MediaManagerWindow(QMainWindow):
         layout.addWidget(self.exiftool_input, 1, 1)
         layout.addWidget(self.exiftool_browse_button, 1, 2)
 
-        layout.addWidget(QLabel("Template"), 2, 0)
-        layout.addWidget(self.template_input, 2, 1, 1, 2)
+        layout.addWidget(QLabel("Template preset"), 2, 0)
+        layout.addWidget(self.template_preset_combo, 2, 1, 1, 2)
+
+        layout.addWidget(QLabel("Template"), 3, 0)
+        layout.addWidget(self.template_input, 3, 1, 1, 2)
 
         mode_row = QHBoxLayout()
         mode_row.addWidget(QLabel("Mode"))
@@ -611,8 +623,8 @@ class MediaManagerWindow(QMainWindow):
         mode_row.addSpacing(16)
         mode_row.addWidget(self.apply_checkbox)
         mode_row.addStretch(1)
-        layout.addLayout(mode_row, 3, 0, 1, 3)
-        layout.addWidget(self.open_target_button, 4, 2)
+        layout.addLayout(mode_row, 4, 0, 1, 3)
+        layout.addWidget(self.open_target_button, 5, 2)
         return group
 
     def _build_rename_options_group(self) -> QGroupBox:
@@ -621,14 +633,18 @@ class MediaManagerWindow(QMainWindow):
         layout.setHorizontalSpacing(10)
         layout.setVerticalSpacing(10)
         layout.setColumnStretch(1, 1)
-        layout.addWidget(QLabel("Template"), 0, 0)
-        layout.addWidget(self.rename_template_input, 0, 1)
-        layout.addWidget(self.rename_apply_checkbox, 1, 1)
+
+        layout.addWidget(QLabel("Template preset"), 0, 0)
+        layout.addWidget(self.rename_template_preset_combo, 0, 1)
+
+        layout.addWidget(QLabel("Template"), 1, 0)
+        layout.addWidget(self.rename_template_input, 1, 1)
+        layout.addWidget(self.rename_apply_checkbox, 2, 1)
 
         hint = QLabel("Template fields: {year} {month} {day} {hour} {minute} {second} {stem} {suffix} {index}")
         hint.setWordWrap(True)
         hint.setStyleSheet("color: #94A3B8;")
-        layout.addWidget(hint, 2, 0, 1, 2)
+        layout.addWidget(hint, 3, 0, 1, 2)
         return group
 
     def _build_run_group(self) -> QGroupBox:
@@ -661,17 +677,30 @@ class MediaManagerWindow(QMainWindow):
         layout.addLayout(row)
         return group
 
+    def _populate_template_preset_combos(self) -> None:
+        self._fill_template_combo(self.template_preset_combo, ORGANIZE_TEMPLATE_PRESETS)
+        self._fill_template_combo(self.rename_template_preset_combo, RENAME_TEMPLATE_PRESETS)
+
+    def _fill_template_combo(self, combo: QComboBox, presets: list[dict[str, str]]) -> None:
+        combo.clear()
+        for preset in presets:
+            combo.addItem(preset["label"], preset["template"])
+        combo.addItem(CUSTOM_TEMPLATE_LABEL, None)
+
     def _wire_signals(self) -> None:
         self.home_button.clicked.connect(lambda: self._set_current_page(0))
         self.organize_button.clicked.connect(lambda: self._set_current_page(1))
         self.rename_button.clicked.connect(lambda: self._set_current_page(2))
         self.target_input.textChanged.connect(self._refresh_summary_cards)
+        self.template_input.textChanged.connect(self._on_organize_template_changed)
+        self.template_preset_combo.currentIndexChanged.connect(self._on_organize_template_preset_changed)
         self.apply_checkbox.stateChanged.connect(self._refresh_summary_cards)
         self.copy_radio.toggled.connect(self._refresh_summary_cards)
         self.move_radio.toggled.connect(self._refresh_summary_cards)
         self.source_list.itemSelectionChanged.connect(self._refresh_source_details)
         self.rename_source_list.itemSelectionChanged.connect(self._refresh_rename_source_details)
-        self.rename_template_input.textChanged.connect(self._refresh_rename_summary_cards)
+        self.rename_template_input.textChanged.connect(self._on_rename_template_changed)
+        self.rename_template_preset_combo.currentIndexChanged.connect(self._on_rename_template_preset_changed)
         self.rename_apply_checkbox.stateChanged.connect(self._refresh_rename_summary_cards)
 
     def _set_current_page(self, index: int) -> None:
@@ -720,11 +749,36 @@ class MediaManagerWindow(QMainWindow):
             return
         label.setText(f"{len(selected_items)} source folders selected.")
 
+    def _sync_template_preset_combo(self, combo: QComboBox, template: str, presets: list[dict[str, str]]) -> None:
+        label = template_preset_label(template, presets)
+        index = combo.findText(label)
+        if index >= 0 and combo.currentIndex() != index:
+            combo.blockSignals(True)
+            combo.setCurrentIndex(index)
+            combo.blockSignals(False)
+
+    def _on_organize_template_changed(self) -> None:
+        self._sync_template_preset_combo(self.template_preset_combo, self.template_input.text(), ORGANIZE_TEMPLATE_PRESETS)
+
+    def _on_rename_template_changed(self) -> None:
+        self._refresh_rename_summary_cards()
+        self._sync_template_preset_combo(self.rename_template_preset_combo, self.rename_template_input.text(), RENAME_TEMPLATE_PRESETS)
+
+    def _on_organize_template_preset_changed(self, index: int) -> None:
+        template = self.template_preset_combo.itemData(index)
+        if isinstance(template, str):
+            self.template_input.setText(template)
+
+    def _on_rename_template_preset_changed(self, index: int) -> None:
+        template = self.rename_template_preset_combo.itemData(index)
+        if isinstance(template, str):
+            self.rename_template_input.setText(template)
+
     def _refresh_summary_cards(self) -> None:
         source_count = self.source_list.count()
         self.sources_card.set_value(f"{source_count} folder" if source_count == 1 else f"{source_count} folders")
         target_text = self.target_input.text().strip()
-        self.target_card.set_value(Path(target_text).name if target_text else "Not set")
+        self.target_card.set_value((Path(target_text).name or target_text) if target_text else "Not set")
         self.mode_card.set_value("Move" if self.move_radio.isChecked() else "Copy")
         self.run_mode_card.set_value("Apply" if self.apply_checkbox.isChecked() else "Preview")
 
@@ -771,6 +825,8 @@ class MediaManagerWindow(QMainWindow):
             if auto_path is not None:
                 self.exiftool_input.setText(str(auto_path))
         self._refresh_import_set_combo()
+        self._sync_template_preset_combo(self.template_preset_combo, self.template_input.text(), ORGANIZE_TEMPLATE_PRESETS)
+        self._sync_template_preset_combo(self.rename_template_preset_combo, self.rename_template_input.text(), RENAME_TEMPLATE_PRESETS)
 
     def _save_settings(self) -> None:
         updated = dict(self.app_settings)
@@ -799,6 +855,7 @@ class MediaManagerWindow(QMainWindow):
             self.clear_sources_button,
             self.target_input,
             self.exiftool_input,
+            self.template_preset_combo,
             self.template_input,
             self.apply_checkbox,
             self.copy_radio,
@@ -813,6 +870,7 @@ class MediaManagerWindow(QMainWindow):
             self.rename_remove_source_button,
             self.rename_clear_sources_button,
             self.rename_source_list,
+            self.rename_template_preset_combo,
             self.rename_template_input,
             self.rename_apply_checkbox,
             self.home_button,

@@ -7,8 +7,26 @@ from typing import Any
 
 APP_DIR_NAME = "media-manager"
 SETTINGS_FILE_NAME = "settings.json"
+CUSTOM_TEMPLATE_LABEL = "Custom"
 DEFAULT_TARGET_TEMPLATE = "{year}/{month}"
 DEFAULT_RENAME_TEMPLATE = "{year}{month}{day}_{hour}{minute}{second}_{stem}{suffix}"
+
+ORGANIZE_TEMPLATE_PRESETS = [
+    {"label": "Year / Month", "template": "{year}/{month}"},
+    {"label": "Year / Month / Day", "template": "{year}/{month}/{day}"},
+    {"label": "Year-Month", "template": "{year}-{month}"},
+    {"label": "Year-Month-Day", "template": "{year}-{month}-{day}"},
+    {"label": "Year", "template": "{year}"},
+]
+
+RENAME_TEMPLATE_PRESETS = [
+    {"label": "DateTime + original name", "template": "{year}{month}{day}_{hour}{minute}{second}_{stem}{suffix}"},
+    {"label": "Date + original name", "template": "{year}{month}{day}_{stem}{suffix}"},
+    {"label": "DateTime only", "template": "{year}{month}{day}_{hour}{minute}{second}{suffix}"},
+    {"label": "DateTime + index", "template": "{year}{month}{day}_{hour}{minute}{second}_{index}{suffix}"},
+    {"label": "Original name + date", "template": "{stem}_{year}{month}{day}{suffix}"},
+    {"label": "Original name + date time", "template": "{stem}_{year}{month}{day}_{hour}{minute}{second}{suffix}"},
+]
 
 
 def get_settings_dir() -> Path:
@@ -44,6 +62,14 @@ def _normalize_source_dirs(raw_sources: list[Any]) -> list[str]:
     return cleaned
 
 
+def template_preset_label(template: str, presets: list[dict[str, str]]) -> str:
+    clean_template = template.strip()
+    for preset in presets:
+        if clean_template == preset["template"]:
+            return preset["label"]
+    return CUSTOM_TEMPLATE_LABEL
+
+
 def list_import_sets(data: dict[str, Any]) -> list[dict[str, Any]]:
     raw_sets = data.get("import_sets", [])
     if not isinstance(raw_sets, list):
@@ -65,8 +91,7 @@ def list_import_sets(data: dict[str, Any]) -> list[dict[str, Any]]:
                 "name": name,
                 "source_dirs": source_dirs,
                 "target_dir": str(item.get("target_dir", "")).strip(),
-                "target_template": str(item.get("target_template", DEFAULT_TARGET_TEMPLATE)).strip()
-                or DEFAULT_TARGET_TEMPLATE,
+                "target_template": str(item.get("target_template", DEFAULT_TARGET_TEMPLATE)).strip() or DEFAULT_TARGET_TEMPLATE,
             }
         )
 
