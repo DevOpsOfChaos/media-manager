@@ -45,6 +45,17 @@ class MediaManagerWindow(BaseMediaManagerWindow):
         if isinstance(title_widget, QLabel):
             title_widget.setText(title)
 
+    def _preferred_duplicate_keep_path(self, paths: list[Path]) -> Path:
+        strategy = getattr(self, "duplicate_keep_strategy", "first")
+        if strategy == "newest":
+            return newest_keep_path(paths)
+        if strategy == "oldest":
+            return oldest_keep_path(paths)
+        return default_keep_path(paths)
+
+    def _duplicate_decision_label(self, is_keep: bool) -> str:
+        return "Keep" if is_keep else "Remove"
+
     def _install_duplicate_review_panel(self) -> None:
         review_group = QGroupBox("Review and apply")
         review_layout = QVBoxLayout(review_group)
@@ -211,7 +222,7 @@ class MediaManagerWindow(BaseMediaManagerWindow):
         if context is None:
             return
         group_index, _ = context
-        keep_path = default_keep_path(self.duplicate_groups[group_index].files)
+        keep_path = self._preferred_duplicate_keep_path(self.duplicate_groups[group_index].files)
         self._set_duplicate_keep_path(group_index, keep_path)
         self.status_bar.showMessage(f"Group {group_index + 1}: reset keep decision")
 
@@ -269,13 +280,13 @@ class MediaManagerWindow(BaseMediaManagerWindow):
         self.duplicates_results_table.setRowCount(total_rows)
         row_index = 0
         for group_index, group in enumerate(self.duplicate_groups):
-            keep_path = self.duplicate_keep_paths.get(group_index, default_keep_path(group.files))
+            keep_path = self.duplicate_keep_paths.get(group_index, self._preferred_duplicate_keep_path(group.files))
             note = (
                 f"{len(group.files)} files | same name: {'yes' if group.same_name else 'no'} | same suffix: {'yes' if group.same_suffix else 'no'}"
             )
             size_label = format_file_size(group.file_size)
             for path in group.files:
-                decision = "Keep" if path == keep_path else "Remove"
+                decision = self._duplicate_decision_label(path == keep_path)
                 values = [
                     (str(group_index + 1), str(group_index + 1), True),
                     (decision, decision, True),
@@ -342,7 +353,7 @@ class MediaManagerWindow(BaseMediaManagerWindow):
 
         self.duplicate_groups = result.exact_groups
         self.duplicate_keep_paths = {
-            index: default_keep_path(group.files)
+            index: self._preferred_duplicate_keep_path(group.files)
             for index, group in enumerate(self.duplicate_groups)
         }
         self._populate_duplicates_results_table()
