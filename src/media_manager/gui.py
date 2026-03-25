@@ -757,12 +757,7 @@ class MediaManagerWindow(QMainWindow):
                 (entry.reason or "-", entry.reason or "-", False, False),
             ]
             for column_index, (display_value, tooltip_value, emphasize, center) in enumerate(values):
-                item = self._make_result_item(
-                    display_value,
-                    tooltip_value,
-                    emphasize=emphasize,
-                    center=center,
-                )
+                item = self._make_result_item(display_value, tooltip_value, emphasize=emphasize, center=center)
                 self.results_table.setItem(row_index, column_index, item)
 
         self._resize_result_columns()

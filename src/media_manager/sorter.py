@@ -131,8 +131,5 @@ def organize_media(config: SortConfig, progress_callback: ProgressCallback | Non
                 )
             )
 
-    _emit_progress(
-        progress_callback,
-        f"Finished. {result.organized} action(s), {result.errors} error(s).",
-    )
+    _emit_progress(progress_callback, f"Finished. {result.organized} action(s), {result.errors} error(s).")
     return result
