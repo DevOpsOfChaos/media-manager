@@ -8,10 +8,12 @@
 - [x] Separate core logic from UI-specific code
 - [x] Switch the desktop baseline to PySide6
 - [x] Support multiple source folders and one target folder
+- [x] Improve the organizer GUI layout and feedback loop
+- [x] Add a basic app shell with a home page and an organizer page
 
 ## Phase 2 — better organizer workflow
 
-- [x] Improve the organizer GUI layout and feedback loop
+- [x] Auto-fill and persist organizer defaults where useful
 - [ ] Saved import sets for reusable source-folder groups
 - [ ] Template-based renaming
 - [ ] Flexible sorting rules

@@ -46,8 +46,15 @@ Its job is only to:
 - collect user input
 - call core behavior
 - display results and errors
+- manage application-level presentation state
 
 It should not become the place where business logic silently accumulates.
+
+### 4. Settings layer
+
+`settings.py` stores lightweight application defaults such as the ExifTool path or target folder.
+
+This layer should remain small and focused. It is not a substitute for future project data models such as saved import sets.
 
 ## Product modules
 

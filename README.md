@@ -38,8 +38,10 @@ This repository fixes that foundation first.
   - `EXIFTOOL_PATH`
   - an explicit CLI / GUI path
   - common Windows install paths
-- PySide6 desktop GUI baseline
-- Organizer dashboard-style summary cards and result table
+- Auto-fill and persist organizer defaults such as ExifTool path and target folder
+- PySide6 app shell with a home page and organizer page
+- More compact organizer UI with reduced text noise
+- Readable organizer result table with tooltips for full paths
 - CLI entry point
 - Automated tests for core date and sorting logic
 
@@ -80,6 +82,7 @@ media-manager/
 │       ├── dates.py
 │       ├── exiftool.py
 │       ├── gui.py
+│       ├── settings.py
 │       └── sorter.py
 ├── tests/
 ├── pyproject.toml
@@ -176,6 +179,7 @@ See also:
 - [Support](SUPPORT.md)
 - [v0.3 baseline protocol](docs/protocol/2026-03-25-v0.3-pyside6-multisource.md)
 - [v0.3.1 organizer GUI polish protocol](docs/protocol/2026-03-25-v0.3.1-organizer-gui-polish.md)
+- [v0.3.2 app shell and readability protocol](docs/protocol/2026-03-25-v0.3.2-app-shell-and-readability.md)
 
 ## Honest scope statement
 

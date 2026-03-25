@@ -20,6 +20,9 @@ The format is based on Keep a Changelog, and the project aims to follow Semantic
 - Organizer dashboard-style summary cards and improved GUI layout
 - Open-target-folder action in the organizer GUI
 - Additional organizer tests for repeated source-path input
+- Application settings persistence for organizer defaults
+- App shell with a home page and organizer page
+- Compact source-folder list with full-path details
 
 ### Changed
 - README rewritten to present the repository as a public project front door
@@ -30,7 +33,8 @@ The format is based on Keep a Changelog, and the project aims to follow Semantic
 - Repository and application default language standardized to English
 - Core sorting configuration now supports multiple source folders
 - CLI updated to use repeatable `--source` flags and explicit `--target`
-- Organizer GUI refined with a more structured modern layout and clearer run feedback
+- Organizer GUI refined with a cleaner app shell, less text, and more readable results
+- Organizer GUI now auto-fills the ExifTool path when it can be resolved
 
 ### Notes
 - The project remains in pre-alpha.
