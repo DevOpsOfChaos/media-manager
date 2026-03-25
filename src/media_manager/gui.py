@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .duplicates import DuplicateScanConfig, scan_exact_duplicates
 from .exiftool import resolve_exiftool_path
 from .renamer import RenameConfig, rename_media
 from .settings import (
@@ -221,6 +222,16 @@ def relative_target_folder(target_path: Path, target_root: Path) -> str:
         return str(target_path.parent)
 
 
+def format_file_size(size: int) -> str:
+    if size < 1024:
+        return f"{size} B"
+    if size < 1024 * 1024:
+        return f"{size / 1024:.1f} KiB"
+    if size < 1024 * 1024 * 1024:
+        return f"{size / (1024 * 1024):.2f} MiB"
+    return f"{size / (1024 * 1024 * 1024):.2f} GiB"
+
+
 class MediaManagerWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -288,6 +299,20 @@ class MediaManagerWindow(QMainWindow):
         self.rename_results_table.verticalHeader().setVisible(False)
         self.rename_results_table.setAlternatingRowColors(True)
 
+        self.duplicates_source_list = QListWidget()
+        self.duplicates_source_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.duplicates_source_list.setAlternatingRowColors(True)
+        self.duplicates_source_details_label = QLabel("No source folder selected.")
+        self.duplicates_source_details_label.setWordWrap(True)
+        self.duplicates_source_details_label.setStyleSheet("color: #94A3B8;")
+        self.duplicates_results_table = QTableWidget(0, 5)
+        self.duplicates_results_table.setHorizontalHeaderLabels(["Group", "File", "Folder", "Size", "Notes"])
+        self.duplicates_results_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.duplicates_results_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.duplicates_results_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.duplicates_results_table.verticalHeader().setVisible(False)
+        self.duplicates_results_table.setAlternatingRowColors(True)
+
         self.sources_card = StatCard("Sources", "0")
         self.target_card = StatCard("Target", "Not set")
         self.mode_card = StatCard("Mode", "Copy")
@@ -296,6 +321,10 @@ class MediaManagerWindow(QMainWindow):
         self.rename_template_card = StatCard("Template", DEFAULT_RENAME_TEMPLATE)
         self.rename_run_mode_card = StatCard("Run", "Pre-run")
         self.rename_status_card = StatCard("Module", "Rename")
+        self.duplicates_sources_card = StatCard("Sources", "0")
+        self.duplicates_groups_card = StatCard("Exact groups", "-")
+        self.duplicates_files_card = StatCard("Duplicate files", "-")
+        self.duplicates_extra_card = StatCard("Extra duplicates", "-")
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -311,6 +340,9 @@ class MediaManagerWindow(QMainWindow):
         self.rename_button = QPushButton("Rename")
         self.rename_button.setProperty("nav", "true")
         self.rename_button.setProperty("variant", "secondary")
+        self.duplicates_button = QPushButton("Duplicates")
+        self.duplicates_button.setProperty("nav", "true")
+        self.duplicates_button.setProperty("variant", "secondary")
 
         self._build_ui()
         self._populate_template_preset_combos()
@@ -319,10 +351,13 @@ class MediaManagerWindow(QMainWindow):
         self._load_settings()
         self._refresh_summary_cards()
         self._refresh_rename_summary_cards()
+        self._refresh_duplicates_summary_cards()
         self._refresh_source_list_height(self.source_list)
         self._refresh_source_list_height(self.rename_source_list)
+        self._refresh_source_list_height(self.duplicates_source_list)
         self._resize_result_columns(self.results_table)
         self._resize_result_columns(self.rename_results_table)
+        self._resize_result_columns(self.duplicates_results_table)
         self._set_current_page(0)
 
     def _build_ui(self) -> None:
@@ -353,11 +388,13 @@ class MediaManagerWindow(QMainWindow):
         nav_layout.addWidget(self.home_button)
         nav_layout.addWidget(self.organize_button)
         nav_layout.addWidget(self.rename_button)
+        nav_layout.addWidget(self.duplicates_button)
         nav_layout.addStretch(1)
 
         self.stack.addWidget(self._build_home_page())
         self.stack.addWidget(self._build_organize_page())
         self.stack.addWidget(self._build_rename_page())
+        self.stack.addWidget(self._build_duplicates_page())
 
         root_layout.addWidget(nav)
         root_layout.addWidget(self.stack, 1)
@@ -381,7 +418,7 @@ class MediaManagerWindow(QMainWindow):
         title_font.setBold(True)
         title.setFont(title_font)
 
-        subtitle = QLabel("Start in Organize or Rename now. The remaining modules stay visible so the product direction is clear.")
+        subtitle = QLabel("Start in Organize, Rename, or Duplicates now. The remaining comparison workflow comes later.")
         subtitle.setWordWrap(True)
         subtitle.setStyleSheet("color: #94A3B8;")
         header_layout.addWidget(title)
@@ -397,8 +434,9 @@ class MediaManagerWindow(QMainWindow):
         organize_card.button.clicked.connect(lambda: self._set_current_page(1))
         rename_card = ModuleCard("Rename", "Rename media in place from one or more source folders using a template.", "Open")
         rename_card.button.clicked.connect(lambda: self._set_current_page(2))
-        duplicates_card = ModuleCard("Duplicates", "Exact duplicate review and keep decisions will live here.", "Planned", enabled=False)
-        compare_card = ModuleCard("Compare", "Visual image and video comparison workflows will live here.", "Planned", enabled=False)
+        duplicates_card = ModuleCard("Duplicates", "Scan exact duplicate media across one or more source folders.", "Open")
+        duplicates_card.button.clicked.connect(lambda: self._set_current_page(3))
+        compare_card = ModuleCard("Compare", "Visual similarity and quality comparison workflows will live here.", "Planned", enabled=False)
 
         grid.addWidget(organize_card, 0, 0)
         grid.addWidget(rename_card, 0, 1)
@@ -504,6 +542,53 @@ class MediaManagerWindow(QMainWindow):
         outer_layout.addLayout(content_layout)
         return page
 
+    def _build_duplicates_page(self) -> QWidget:
+        page = QWidget()
+        outer_layout = QVBoxLayout(page)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(16)
+
+        header = QFrame()
+        header.setObjectName("Card")
+        header_layout = QVBoxLayout(header)
+        header_layout.setContentsMargins(18, 18, 18, 18)
+        header_layout.setSpacing(6)
+
+        title = QLabel("Duplicates")
+        title_font = QFont()
+        title_font.setPointSize(20)
+        title_font.setBold(True)
+        title.setFont(title_font)
+
+        subtitle = QLabel("Exact duplicate scan across multiple sources. 100% means byte-identical only.")
+        subtitle.setStyleSheet("color: #94A3B8;")
+        header_layout.addWidget(title)
+        header_layout.addWidget(subtitle)
+
+        outer_layout.addWidget(header)
+        outer_layout.addLayout(self._build_duplicates_summary_row())
+
+        content_layout = QHBoxLayout()
+        content_layout.setSpacing(16)
+        controls_panel = QWidget()
+        controls_layout = QVBoxLayout(controls_panel)
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+        controls_layout.setSpacing(14)
+        controls_layout.addWidget(self._build_duplicates_sources_group())
+        controls_layout.addWidget(self._build_duplicates_run_group())
+        controls_layout.addStretch(1)
+
+        results_group = QGroupBox("Results")
+        results_layout = QVBoxLayout(results_group)
+        results_layout.setSpacing(10)
+        results_layout.addWidget(self.duplicates_results_table)
+
+        content_layout.addWidget(controls_panel, 4)
+        content_layout.addWidget(results_group, 7)
+
+        outer_layout.addLayout(content_layout)
+        return page
+
     def _build_summary_row(self) -> QHBoxLayout:
         row = QHBoxLayout()
         row.setSpacing(12)
@@ -520,6 +605,15 @@ class MediaManagerWindow(QMainWindow):
         row.addWidget(self.rename_template_card)
         row.addWidget(self.rename_run_mode_card)
         row.addWidget(self.rename_status_card)
+        return row
+
+    def _build_duplicates_summary_row(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(12)
+        row.addWidget(self.duplicates_sources_card)
+        row.addWidget(self.duplicates_groups_card)
+        row.addWidget(self.duplicates_files_card)
+        row.addWidget(self.duplicates_extra_card)
         return row
 
     def _build_sources_group(self) -> QGroupBox:
@@ -581,6 +675,29 @@ class MediaManagerWindow(QMainWindow):
         buttons_row.addWidget(self.rename_add_source_button)
         buttons_row.addWidget(self.rename_remove_source_button)
         buttons_row.addWidget(self.rename_clear_sources_button)
+        buttons_row.addStretch(1)
+        layout.addLayout(buttons_row)
+        return group
+
+    def _build_duplicates_sources_group(self) -> QGroupBox:
+        group = QGroupBox("Source folders")
+        layout = QVBoxLayout(group)
+        layout.setSpacing(10)
+        layout.addWidget(self.duplicates_source_list)
+        layout.addWidget(self.duplicates_source_details_label)
+
+        buttons_row = QHBoxLayout()
+        self.duplicates_add_source_button = QPushButton("Add")
+        self.duplicates_remove_source_button = QPushButton("Remove")
+        self.duplicates_clear_sources_button = QPushButton("Clear")
+        self.duplicates_remove_source_button.setProperty("variant", "secondary")
+        self.duplicates_clear_sources_button.setProperty("variant", "secondary")
+        self.duplicates_add_source_button.clicked.connect(self._duplicates_add_source_folder)
+        self.duplicates_remove_source_button.clicked.connect(self._duplicates_remove_selected_sources)
+        self.duplicates_clear_sources_button.clicked.connect(self._duplicates_clear_sources)
+        buttons_row.addWidget(self.duplicates_add_source_button)
+        buttons_row.addWidget(self.duplicates_remove_source_button)
+        buttons_row.addWidget(self.duplicates_clear_sources_button)
         buttons_row.addStretch(1)
         layout.addLayout(buttons_row)
         return group
@@ -674,6 +791,21 @@ class MediaManagerWindow(QMainWindow):
         layout.addLayout(row)
         return group
 
+    def _build_duplicates_run_group(self) -> QGroupBox:
+        group = QGroupBox("Run")
+        layout = QVBoxLayout(group)
+        row = QHBoxLayout()
+        self.duplicates_run_button = QPushButton("Scan")
+        self.duplicates_clear_results_button = QPushButton("Clear results")
+        self.duplicates_clear_results_button.setProperty("variant", "secondary")
+        self.duplicates_run_button.clicked.connect(self._run_duplicates)
+        self.duplicates_clear_results_button.clicked.connect(self._duplicates_clear_results)
+        row.addWidget(self.duplicates_run_button)
+        row.addWidget(self.duplicates_clear_results_button)
+        row.addStretch(1)
+        layout.addLayout(row)
+        return group
+
     def _populate_template_preset_combos(self) -> None:
         self._fill_template_combo(self.template_preset_combo, ORGANIZE_TEMPLATE_PRESETS)
         self._fill_template_combo(self.rename_template_preset_combo, RENAME_TEMPLATE_PRESETS)
@@ -689,12 +821,12 @@ class MediaManagerWindow(QMainWindow):
         table_font.setPointSize(14)
         list_font = QFont()
         list_font.setPointSize(14)
-        for table in [self.results_table, self.rename_results_table]:
+        for table in [self.results_table, self.rename_results_table, self.duplicates_results_table]:
             table.setFont(table_font)
             table.horizontalHeader().setFont(table_font)
             table.horizontalHeader().setStretchLastSection(True)
             table.verticalHeader().setDefaultSectionSize(34)
-        for list_widget in [self.source_list, self.rename_source_list]:
+        for list_widget in [self.source_list, self.rename_source_list, self.duplicates_source_list]:
             list_widget.setFont(list_font)
             list_widget.setSpacing(4)
 
@@ -702,6 +834,7 @@ class MediaManagerWindow(QMainWindow):
         self.home_button.clicked.connect(lambda: self._set_current_page(0))
         self.organize_button.clicked.connect(lambda: self._set_current_page(1))
         self.rename_button.clicked.connect(lambda: self._set_current_page(2))
+        self.duplicates_button.clicked.connect(lambda: self._set_current_page(3))
         self.target_input.textChanged.connect(self._refresh_summary_cards)
         self.template_input.textChanged.connect(self._on_organize_template_changed)
         self.template_preset_combo.currentIndexChanged.connect(self._on_organize_template_preset_changed)
@@ -710,6 +843,7 @@ class MediaManagerWindow(QMainWindow):
         self.move_radio.toggled.connect(self._refresh_summary_cards)
         self.source_list.itemSelectionChanged.connect(self._refresh_source_details)
         self.rename_source_list.itemSelectionChanged.connect(self._refresh_rename_source_details)
+        self.duplicates_source_list.itemSelectionChanged.connect(self._refresh_duplicates_source_details)
         self.rename_template_input.textChanged.connect(self._on_rename_template_changed)
         self.rename_template_preset_combo.currentIndexChanged.connect(self._on_rename_template_preset_changed)
         self.rename_apply_checkbox.stateChanged.connect(self._refresh_rename_summary_cards)
@@ -720,6 +854,7 @@ class MediaManagerWindow(QMainWindow):
             self.home_button: index == 0,
             self.organize_button: index == 1,
             self.rename_button: index == 2,
+            self.duplicates_button: index == 3,
         }
         for button, active in button_states.items():
             button.setProperty("variant", None if active else "secondary")
@@ -760,6 +895,9 @@ class MediaManagerWindow(QMainWindow):
 
     def _refresh_rename_source_details(self) -> None:
         self._refresh_list_details(self.rename_source_list, self.rename_source_details_label)
+
+    def _refresh_duplicates_source_details(self) -> None:
+        self._refresh_list_details(self.duplicates_source_list, self.duplicates_source_details_label)
 
     def _refresh_list_details(self, list_widget: QListWidget, label: QLabel) -> None:
         selected_items = list_widget.selectedItems()
@@ -832,6 +970,16 @@ class MediaManagerWindow(QMainWindow):
         run_label = "Run" if self.rename_apply_checkbox.isChecked() else "Pre-run"
         self.rename_run_mode_card.set_value(run_label)
         self.rename_run_button.setText(run_label)
+
+    def _refresh_duplicates_summary_cards(self, groups: int | None = None, duplicate_files: int | None = None, extra_duplicates: int | None = None) -> None:
+        source_count = self.duplicates_source_list.count()
+        self.duplicates_sources_card.set_value(f"{source_count} folder" if source_count == 1 else f"{source_count} folders")
+        if groups is not None:
+            self.duplicates_groups_card.set_value(str(groups))
+        if duplicate_files is not None:
+            self.duplicates_files_card.set_value(str(duplicate_files))
+        if extra_duplicates is not None:
+            self.duplicates_extra_card.set_value(str(extra_duplicates))
 
     def _refresh_import_set_combo(self, selected_name: str | None = None) -> None:
         import_sets = list_import_sets(self.app_settings)
@@ -919,9 +1067,16 @@ class MediaManagerWindow(QMainWindow):
             self.rename_template_preset_combo,
             self.rename_template_input,
             self.rename_apply_checkbox,
+            self.duplicates_run_button,
+            self.duplicates_clear_results_button,
+            self.duplicates_add_source_button,
+            self.duplicates_remove_source_button,
+            self.duplicates_clear_sources_button,
+            self.duplicates_source_list,
             self.home_button,
             self.organize_button,
             self.rename_button,
+            self.duplicates_button,
         ]:
             widget.setEnabled(enabled)
         QApplication.processEvents()
@@ -935,8 +1090,6 @@ class MediaManagerWindow(QMainWindow):
             for column in range(table.columnCount()):
                 table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
             return
-
-        table.resizeColumnsToContents()
         for column in range(table.columnCount()):
             table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
 
@@ -1052,6 +1205,30 @@ class MediaManagerWindow(QMainWindow):
         self._refresh_rename_summary_cards()
         self._refresh_rename_source_details()
 
+    def _duplicates_add_source_folder(self) -> None:
+        selected = QFileDialog.getExistingDirectory(self, "Select source folder")
+        if not selected:
+            return
+        path = Path(selected)
+        self._add_path_item(self.duplicates_source_list, path)
+        self.status_bar.showMessage(f"Added source folder: {path}")
+        self._refresh_duplicates_summary_cards()
+
+    def _duplicates_remove_selected_sources(self) -> None:
+        for item in self.duplicates_source_list.selectedItems():
+            self.duplicates_source_list.takeItem(self.duplicates_source_list.row(item))
+        self._refresh_source_list_height(self.duplicates_source_list)
+        self.status_bar.showMessage("Selected source folders removed")
+        self._refresh_duplicates_summary_cards()
+        self._refresh_duplicates_source_details()
+
+    def _duplicates_clear_sources(self) -> None:
+        self.duplicates_source_list.clear()
+        self._refresh_source_list_height(self.duplicates_source_list)
+        self.status_bar.showMessage("Source folder list cleared")
+        self._refresh_duplicates_summary_cards()
+        self._refresh_duplicates_source_details()
+
     def _choose_target_folder(self) -> None:
         selected = QFileDialog.getExistingDirectory(self, "Select target folder")
         if selected:
@@ -1089,6 +1266,12 @@ class MediaManagerWindow(QMainWindow):
         self.rename_results_table.setRowCount(0)
         self.rename_results_summary_label.setText("No run yet.")
         self._resize_result_columns(self.rename_results_table)
+        self.status_bar.showMessage("Results cleared")
+
+    def _duplicates_clear_results(self) -> None:
+        self.duplicates_results_table.setRowCount(0)
+        self._resize_result_columns(self.duplicates_results_table)
+        self._refresh_duplicates_summary_cards(groups=0, duplicate_files=0, extra_duplicates=0)
         self.status_bar.showMessage("Results cleared")
 
     def _collect_paths(self, list_widget: QListWidget) -> list[Path]:
@@ -1237,6 +1420,59 @@ class MediaManagerWindow(QMainWindow):
             self.status_bar.showMessage(
                 f"Run finished | Processed: {results.processed} | Executed: {results.renamed} | Skipped: {results.skipped} | Errors: {results.errors}"
             )
+
+    def _run_duplicates(self) -> None:
+        source_dirs = self._collect_paths(self.duplicates_source_list)
+        if not source_dirs:
+            QMessageBox.critical(self, "Error", "Please add at least one source folder.")
+            return
+        invalid_sources = [path for path in source_dirs if not path.is_dir()]
+        if invalid_sources:
+            QMessageBox.critical(self, "Error", "The following source folders are invalid:\n- " + "\n- ".join(str(path) for path in invalid_sources))
+            return
+
+        config = DuplicateScanConfig(source_dirs=source_dirs)
+        self.duplicates_results_table.setRowCount(0)
+        self._resize_result_columns(self.duplicates_results_table)
+        self._refresh_duplicates_summary_cards(groups=0, duplicate_files=0, extra_duplicates=0)
+        self.status_bar.showMessage("Preparing duplicate scan ...")
+        self._set_run_state(True)
+        try:
+            result = scan_exact_duplicates(config, progress_callback=lambda message: self._handle_progress(self.results_summary_label, message))
+        except Exception as exc:  # pragma: no cover - GUI fallback
+            QMessageBox.critical(self, "Error", str(exc))
+            self.status_bar.showMessage("An error occurred")
+            return
+        finally:
+            self._set_run_state(False)
+
+        row_count = sum(len(group.files) for group in result.exact_groups)
+        self.duplicates_results_table.setRowCount(row_count)
+        row_index = 0
+        for group_index, group in enumerate(result.exact_groups, start=1):
+            note = f"{len(group.files)} files | same name: {'yes' if group.same_name else 'no'} | same suffix: {'yes' if group.same_suffix else 'no'}"
+            size_label = format_file_size(group.file_size)
+            for path in group.files:
+                values = [
+                    (str(group_index), str(group_index), True),
+                    (path.name, str(path), False),
+                    (path.parent.name or str(path.parent), str(path.parent), False),
+                    (size_label, str(group.file_size), True),
+                    (note, note, False),
+                ]
+                for column_index, (display_value, tooltip_value, center) in enumerate(values):
+                    self.duplicates_results_table.setItem(row_index, column_index, self._make_result_item(display_value, tooltip_value, center=center))
+                row_index += 1
+
+        self._resize_result_columns(self.duplicates_results_table)
+        self._refresh_duplicates_summary_cards(
+            groups=len(result.exact_groups),
+            duplicate_files=result.exact_duplicate_files,
+            extra_duplicates=result.exact_duplicates,
+        )
+        self.status_bar.showMessage(
+            f"Duplicate scan finished | Scanned: {result.scanned_files} | Exact groups: {len(result.exact_groups)} | Duplicate files: {result.exact_duplicate_files} | Extra duplicates: {result.exact_duplicates} | Errors: {result.errors}"
+        )
 
 
 def main() -> int:
