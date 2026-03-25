@@ -21,6 +21,7 @@ The format is based on Keep a Changelog, and the project aims to follow Semantic
 - Project metadata improved in `pyproject.toml`
 - Test workflow expanded to Python 3.11 and 3.12
 - `.gitignore` extended for common Python build and cache artifacts
+- Repository and application default language standardized to English
 
 ### Notes
 - The project remains in pre-alpha.

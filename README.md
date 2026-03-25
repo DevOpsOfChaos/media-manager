@@ -8,6 +8,16 @@ Open-source desktop foundation for organizing photos and videos by metadata and 
 
 > **Project status:** pre-alpha. The current focus is a reliable core, not feature breadth or polished UI.
 
+## Project language
+
+English is the default language for:
+
+- repository documentation
+- issues and pull requests
+- application UI and runtime messages
+
+Additional localizations may be added later. German is a likely secondary language, but it is not the default.
+
 ## Why this repository exists
 
 The project started from a script that already handled media sorting well.  
@@ -39,6 +49,7 @@ This repository fixes that foundation first.
 - SQLite-backed media index
 - Faster processing for large libraries
 - Modern desktop UI
+- Optional localization
 - Windows packaging / installer
 - Releases
 

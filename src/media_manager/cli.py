@@ -16,11 +16,11 @@ def build_parser() -> argparse.ArgumentParser:
     organize.add_argument(
         "--template",
         default="{year}/{month}",
-        help="Target path template relative to target dir (default: {year}/{month})",
+        help="Target path template relative to the target directory (default: {year}/{month})",
     )
     mode_group = organize.add_mutually_exclusive_group()
-    mode_group.add_argument("--copy", action="store_true", help="Copy files instead of moving")
-    mode_group.add_argument("--move", action="store_true", help="Move files instead of copying")
+    mode_group.add_argument("--copy", action="store_true", help="Copy files instead of moving them")
+    mode_group.add_argument("--move", action="store_true", help="Move files instead of copying them")
     organize.add_argument(
         "--apply",
         action="store_true",
@@ -30,7 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--exiftool-path",
         type=Path,
         default=None,
-        help="Optional explicit path to exiftool executable",
+        help="Optional explicit path to the exiftool executable",
     )
 
     return parser
@@ -42,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "organize":
         if not args.source.is_dir():
-            parser.error(f"Quellordner existiert nicht oder ist kein Ordner: {args.source}")
+            parser.error(f"Source directory does not exist or is not a directory: {args.source}")
         args.target.mkdir(parents=True, exist_ok=True)
 
         mode = "copy"
@@ -59,10 +59,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         results = organize_media(config)
         print(
-            f"Verarbeitet: {results.processed} | Geplant/Ausgeführt: {results.organized} | "
-            f"Übersprungen: {results.skipped} | Fehler: {results.errors}"
+            f"Processed: {results.processed} | Planned/Executed: {results.organized} | "
+            f"Skipped: {results.skipped} | Errors: {results.errors}"
         )
         return 0 if results.errors == 0 else 1
 
-    parser.error("Unbekannter Befehl")
+    parser.error("Unknown command")
     return 2

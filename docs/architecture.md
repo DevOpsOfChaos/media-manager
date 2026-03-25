@@ -64,6 +64,7 @@ The intended long-term direction is:
 3. improve test coverage
 4. replace the temporary GUI layer with a more modern UI stack
 5. add packaging and releases
+6. add optional localization without mixing translations into the core logic
 
 ## Non-goals for now
 

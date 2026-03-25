@@ -9,10 +9,10 @@ def _run_gui() -> int:
     except ModuleNotFoundError as exc:
         if exc.name == "tkinter":
             print(
-                "Tkinter ist in dieser Python-Installation nicht verfügbar.\n"
-                "Nutze vorerst die CLI oder installiere eine Python-Version mit Tcl/Tk-Unterstützung.\n\n"
-                "CLI-Beispiel:\n"
-                "  python -m media_manager organize <QUELLE> <ZIEL> --apply --copy\n"
+                "Tkinter is not available in this Python installation.\n"
+                "Use the CLI for now or install a Python build with Tcl/Tk support.\n\n"
+                "CLI example:\n"
+                "  python -m media_manager organize <SOURCE> <TARGET> --apply --copy\n"
             )
             return 2
         raise

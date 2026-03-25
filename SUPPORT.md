@@ -27,6 +27,7 @@ Please include:
 - the exact command or action you ran
 - the full error message or traceback
 - whether you used GUI or CLI
+- use English when opening public issues unless the topic is specifically about localization
 
 ## Where to ask
 

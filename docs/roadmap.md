@@ -26,6 +26,7 @@
 ## Phase 4 — productization
 
 - [ ] Modern desktop UI on top of the existing core
+- [ ] Optional localization support
 - [ ] Windows packaging
 - [ ] Installer
 - [ ] Signed releases

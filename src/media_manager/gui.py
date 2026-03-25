@@ -20,7 +20,7 @@ class MediaManagerApp:
         self.template_var = tk.StringVar(value="{year}/{month}")
         self.mode_var = tk.StringVar(value="copy")
         self.apply_var = tk.BooleanVar(value=False)
-        self.status_var = tk.StringVar(value="Bereit")
+        self.status_var = tk.StringVar(value="Ready")
 
         self._build_ui()
 
@@ -42,45 +42,45 @@ class MediaManagerApp:
         )
         ttk.Label(
             header,
-            text="Desktop-Basis für das Sortieren von Fotos und Videos nach Datum.",
+            text="Desktop foundation for sorting photos and videos by date.",
         ).grid(row=1, column=0, sticky="w", pady=(4, 0))
 
-        form = ttk.LabelFrame(main, text="Eingaben", padding=12)
+        form = ttk.LabelFrame(main, text="Inputs", padding=12)
         form.grid(row=1, column=0, sticky="ew")
         form.columnconfigure(1, weight=1)
 
-        self._add_path_row(form, 0, "Quellordner", self.source_var, self._choose_source_dir)
-        self._add_path_row(form, 1, "Zielordner", self.target_var, self._choose_target_dir)
+        self._add_path_row(form, 0, "Source folder", self.source_var, self._choose_source_dir)
+        self._add_path_row(form, 1, "Target folder", self.target_var, self._choose_target_dir)
         self._add_path_row(form, 2, "ExifTool", self.exiftool_var, self._choose_exiftool)
 
-        ttk.Label(form, text="Ziel-Template").grid(row=3, column=0, sticky="w", pady=(10, 0))
+        ttk.Label(form, text="Target template").grid(row=3, column=0, sticky="w", pady=(10, 0))
         ttk.Entry(form, textvariable=self.template_var).grid(
             row=3, column=1, columnspan=2, sticky="ew", pady=(10, 0)
         )
 
         mode_frame = ttk.Frame(form)
         mode_frame.grid(row=4, column=0, columnspan=3, sticky="w", pady=(10, 0))
-        ttk.Label(mode_frame, text="Modus:").pack(side="left")
-        ttk.Radiobutton(mode_frame, text="Kopieren", variable=self.mode_var, value="copy").pack(
+        ttk.Label(mode_frame, text="Mode:").pack(side="left")
+        ttk.Radiobutton(mode_frame, text="Copy", variable=self.mode_var, value="copy").pack(
             side="left", padx=(10, 0)
         )
-        ttk.Radiobutton(mode_frame, text="Verschieben", variable=self.mode_var, value="move").pack(
+        ttk.Radiobutton(mode_frame, text="Move", variable=self.mode_var, value="move").pack(
             side="left", padx=(10, 0)
         )
         ttk.Checkbutton(
             mode_frame,
-            text="Änderungen wirklich anwenden",
+            text="Apply changes for real",
             variable=self.apply_var,
         ).pack(side="left", padx=(20, 0))
 
         actions = ttk.Frame(main)
         actions.grid(row=2, column=0, sticky="ew", pady=12)
-        ttk.Button(actions, text="Vorschau / Ausführen", command=self._run).pack(side="left")
-        ttk.Button(actions, text="Ergebnisliste leeren", command=self._clear_results).pack(
+        ttk.Button(actions, text="Preview / Run", command=self._run).pack(side="left")
+        ttk.Button(actions, text="Clear results", command=self._clear_results).pack(
             side="left", padx=(8, 0)
         )
 
-        results_frame = ttk.LabelFrame(main, text="Ergebnisse", padding=8)
+        results_frame = ttk.LabelFrame(main, text="Results", padding=8)
         results_frame.grid(row=3, column=0, sticky="nsew")
         results_frame.columnconfigure(0, weight=1)
         results_frame.rowconfigure(0, weight=1)
@@ -88,9 +88,9 @@ class MediaManagerApp:
         columns = ("status", "source", "target", "reason")
         self.tree = ttk.Treeview(results_frame, columns=columns, show="headings")
         self.tree.heading("status", text="Status")
-        self.tree.heading("source", text="Quelle")
-        self.tree.heading("target", text="Ziel")
-        self.tree.heading("reason", text="Hinweis")
+        self.tree.heading("source", text="Source")
+        self.tree.heading("target", text="Target")
+        self.tree.heading("reason", text="Details")
         self.tree.column("status", width=110, anchor="center")
         self.tree.column("source", width=280)
         self.tree.column("target", width=280)
@@ -113,26 +113,26 @@ class MediaManagerApp:
             padx=(10, 10),
             pady=(0 if row == 0 else 10, 0),
         )
-        ttk.Button(parent, text="Auswählen", command=command).grid(
+        ttk.Button(parent, text="Browse", command=command).grid(
             row=row,
             column=2,
             pady=(0 if row == 0 else 10, 0),
         )
 
     def _choose_source_dir(self) -> None:
-        selected = filedialog.askdirectory(title="Quellordner auswählen")
+        selected = filedialog.askdirectory(title="Select source folder")
         if selected:
             self.source_var.set(selected)
 
     def _choose_target_dir(self) -> None:
-        selected = filedialog.askdirectory(title="Zielordner auswählen")
+        selected = filedialog.askdirectory(title="Select target folder")
         if selected:
             self.target_var.set(selected)
 
     def _choose_exiftool(self) -> None:
         selected = filedialog.askopenfilename(
-            title="ExifTool auswählen",
-            filetypes=[("Executable", "*.exe"), ("Alle Dateien", "*.*")],
+            title="Select ExifTool executable",
+            filetypes=[("Executable", "*.exe"), ("All files", "*.*")],
         )
         if selected:
             self.exiftool_var.set(selected)
@@ -140,7 +140,7 @@ class MediaManagerApp:
     def _clear_results(self) -> None:
         for item in self.tree.get_children():
             self.tree.delete(item)
-        self.status_var.set("Ergebnisliste geleert")
+        self.status_var.set("Results cleared")
 
     def _run(self) -> None:
         source = Path(self.source_var.get().strip()) if self.source_var.get().strip() else None
@@ -148,10 +148,10 @@ class MediaManagerApp:
         exiftool = Path(self.exiftool_var.get().strip()) if self.exiftool_var.get().strip() else None
 
         if source is None or not source.is_dir():
-            messagebox.showerror("Fehler", "Bitte einen gültigen Quellordner auswählen.")
+            messagebox.showerror("Error", "Please select a valid source folder.")
             return
         if target is None:
-            messagebox.showerror("Fehler", "Bitte einen Zielordner auswählen.")
+            messagebox.showerror("Error", "Please select a target folder.")
             return
 
         target.mkdir(parents=True, exist_ok=True)
@@ -166,12 +166,12 @@ class MediaManagerApp:
         )
 
         try:
-            self.status_var.set("Verarbeitung läuft ...")
+            self.status_var.set("Processing ...")
             self.root.update_idletasks()
             results = organize_media(config)
         except Exception as exc:  # pragma: no cover - GUI fallback
-            messagebox.showerror("Fehler", str(exc))
-            self.status_var.set("Fehler aufgetreten")
+            messagebox.showerror("Error", str(exc))
+            self.status_var.set("An error occurred")
             return
 
         self._clear_results()
@@ -182,8 +182,8 @@ class MediaManagerApp:
             self.tree.insert("", "end", values=(entry.action, source_text, target_text, reason_text))
 
         self.status_var.set(
-            f"Verarbeitet: {results.processed} | Geplant/Ausgeführt: {results.organized} | "
-            f"Übersprungen: {results.skipped} | Fehler: {results.errors}"
+            f"Processed: {results.processed} | Planned/Executed: {results.organized} | "
+            f"Skipped: {results.skipped} | Errors: {results.errors}"
         )
 
 

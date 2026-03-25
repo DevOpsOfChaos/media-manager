@@ -14,6 +14,7 @@ This repository is still in pre-alpha. The core is being stabilized, the UI will
 - document user-visible behavior changes
 - add or update tests when logic changes
 - do not commit private data, local binaries, or machine-specific paths
+- use English for issues, pull requests, and documentation changes unless the change is explicitly about localization
 
 ## Before opening an issue
 
