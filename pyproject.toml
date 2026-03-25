@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "media-manager"
-version = "0.3.6"
+version = "0.3.7"
 description = "Desktop-ready foundation for organizing photos and videos by metadata"
 readme = "README.md"
 requires-python = ">=3.11"
