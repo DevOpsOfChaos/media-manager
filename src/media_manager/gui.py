@@ -235,6 +235,7 @@ class MediaManagerWindow(QMainWindow):
         self.exiftool_input.setPlaceholderText("Auto-detect when empty")
         self.template_preset_combo = QComboBox()
         self.template_preset_combo.setMinimumWidth(240)
+        self.organize_template_label = QLabel("Template")
         self.template_input = QLineEdit(DEFAULT_TARGET_TEMPLATE)
         self.apply_checkbox = QCheckBox("Apply")
         self.import_set_combo = QComboBox()
@@ -270,8 +271,12 @@ class MediaManagerWindow(QMainWindow):
         self.rename_source_details_label.setStyleSheet("color: #94A3B8;")
         self.rename_template_preset_combo = QComboBox()
         self.rename_template_preset_combo.setMinimumWidth(240)
+        self.rename_template_label = QLabel("Template")
         self.rename_template_input = QLineEdit(DEFAULT_RENAME_TEMPLATE)
         self.rename_apply_checkbox = QCheckBox("Apply")
+        self.rename_template_hint = QLabel("Template fields: {year} {month} {day} {hour} {minute} {second} {stem} {suffix} {index}")
+        self.rename_template_hint.setWordWrap(True)
+        self.rename_template_hint.setStyleSheet("color: #94A3B8;")
         self.rename_results_summary_label = QLabel("No run yet.")
         self.rename_results_summary_label.setWordWrap(True)
         self.rename_results_summary_label.setStyleSheet("color: #94A3B8;")
@@ -293,10 +298,10 @@ class MediaManagerWindow(QMainWindow):
         self.sources_card = StatCard("Sources", "0")
         self.target_card = StatCard("Target", "Not set")
         self.mode_card = StatCard("Mode", "Copy")
-        self.run_mode_card = StatCard("Run", "Preview")
+        self.run_mode_card = StatCard("Run", "Pre-run")
         self.rename_sources_card = StatCard("Sources", "0")
         self.rename_template_card = StatCard("Template", DEFAULT_RENAME_TEMPLATE)
-        self.rename_run_mode_card = StatCard("Run", "Preview")
+        self.rename_run_mode_card = StatCard("Run", "Pre-run")
         self.rename_status_card = StatCard("Module", "Rename")
 
         self.status_bar = QStatusBar()
@@ -613,7 +618,7 @@ class MediaManagerWindow(QMainWindow):
         layout.addWidget(QLabel("Template preset"), 2, 0)
         layout.addWidget(self.template_preset_combo, 2, 1, 1, 2)
 
-        layout.addWidget(QLabel("Template"), 3, 0)
+        layout.addWidget(self.organize_template_label, 3, 0)
         layout.addWidget(self.template_input, 3, 1, 1, 2)
 
         mode_row = QHBoxLayout()
@@ -637,21 +642,17 @@ class MediaManagerWindow(QMainWindow):
         layout.addWidget(QLabel("Template preset"), 0, 0)
         layout.addWidget(self.rename_template_preset_combo, 0, 1)
 
-        layout.addWidget(QLabel("Template"), 1, 0)
+        layout.addWidget(self.rename_template_label, 1, 0)
         layout.addWidget(self.rename_template_input, 1, 1)
         layout.addWidget(self.rename_apply_checkbox, 2, 1)
-
-        hint = QLabel("Template fields: {year} {month} {day} {hour} {minute} {second} {stem} {suffix} {index}")
-        hint.setWordWrap(True)
-        hint.setStyleSheet("color: #94A3B8;")
-        layout.addWidget(hint, 3, 0, 1, 2)
+        layout.addWidget(self.rename_template_hint, 3, 0, 1, 2)
         return group
 
     def _build_run_group(self) -> QGroupBox:
         group = QGroupBox("Run")
         layout = QVBoxLayout(group)
         row = QHBoxLayout()
-        self.run_button = QPushButton("Run")
+        self.run_button = QPushButton("Pre-run")
         self.clear_results_button = QPushButton("Clear results")
         self.clear_results_button.setProperty("variant", "secondary")
         self.run_button.clicked.connect(self._run)
@@ -666,7 +667,7 @@ class MediaManagerWindow(QMainWindow):
         group = QGroupBox("Run")
         layout = QVBoxLayout(group)
         row = QHBoxLayout()
-        self.rename_run_button = QPushButton("Run")
+        self.rename_run_button = QPushButton("Pre-run")
         self.rename_clear_results_button = QPushButton("Clear results")
         self.rename_clear_results_button.setProperty("variant", "secondary")
         self.rename_run_button.clicked.connect(self._run_rename)
@@ -757,22 +758,40 @@ class MediaManagerWindow(QMainWindow):
             combo.setCurrentIndex(index)
             combo.blockSignals(False)
 
+    def _is_custom_selected(self, combo: QComboBox) -> bool:
+        return combo.currentText() == CUSTOM_TEMPLATE_LABEL
+
+    def _update_organize_template_visibility(self) -> None:
+        visible = self._is_custom_selected(self.template_preset_combo)
+        self.organize_template_label.setVisible(visible)
+        self.template_input.setVisible(visible)
+
+    def _update_rename_template_visibility(self) -> None:
+        visible = self._is_custom_selected(self.rename_template_preset_combo)
+        self.rename_template_label.setVisible(visible)
+        self.rename_template_input.setVisible(visible)
+        self.rename_template_hint.setVisible(visible)
+
     def _on_organize_template_changed(self) -> None:
         self._sync_template_preset_combo(self.template_preset_combo, self.template_input.text(), ORGANIZE_TEMPLATE_PRESETS)
+        self._update_organize_template_visibility()
 
     def _on_rename_template_changed(self) -> None:
         self._refresh_rename_summary_cards()
         self._sync_template_preset_combo(self.rename_template_preset_combo, self.rename_template_input.text(), RENAME_TEMPLATE_PRESETS)
+        self._update_rename_template_visibility()
 
     def _on_organize_template_preset_changed(self, index: int) -> None:
         template = self.template_preset_combo.itemData(index)
         if isinstance(template, str):
             self.template_input.setText(template)
+        self._update_organize_template_visibility()
 
     def _on_rename_template_preset_changed(self, index: int) -> None:
         template = self.rename_template_preset_combo.itemData(index)
         if isinstance(template, str):
             self.rename_template_input.setText(template)
+        self._update_rename_template_visibility()
 
     def _refresh_summary_cards(self) -> None:
         source_count = self.source_list.count()
@@ -780,14 +799,18 @@ class MediaManagerWindow(QMainWindow):
         target_text = self.target_input.text().strip()
         self.target_card.set_value((Path(target_text).name or target_text) if target_text else "Not set")
         self.mode_card.set_value("Move" if self.move_radio.isChecked() else "Copy")
-        self.run_mode_card.set_value("Apply" if self.apply_checkbox.isChecked() else "Preview")
+        run_label = "Run" if self.apply_checkbox.isChecked() else "Pre-run"
+        self.run_mode_card.set_value(run_label)
+        self.run_button.setText(run_label)
 
     def _refresh_rename_summary_cards(self) -> None:
         source_count = self.rename_source_list.count()
         self.rename_sources_card.set_value(f"{source_count} folder" if source_count == 1 else f"{source_count} folders")
         template_text = self.rename_template_input.text().strip() or DEFAULT_RENAME_TEMPLATE
         self.rename_template_card.set_value(template_text if len(template_text) <= 30 else template_text[:27] + "...")
-        self.rename_run_mode_card.set_value("Apply" if self.rename_apply_checkbox.isChecked() else "Preview")
+        run_label = "Run" if self.rename_apply_checkbox.isChecked() else "Pre-run"
+        self.rename_run_mode_card.set_value(run_label)
+        self.rename_run_button.setText(run_label)
 
     def _refresh_import_set_combo(self, selected_name: str | None = None) -> None:
         import_sets = list_import_sets(self.app_settings)
@@ -827,6 +850,8 @@ class MediaManagerWindow(QMainWindow):
         self._refresh_import_set_combo()
         self._sync_template_preset_combo(self.template_preset_combo, self.template_input.text(), ORGANIZE_TEMPLATE_PRESETS)
         self._sync_template_preset_combo(self.rename_template_preset_combo, self.rename_template_input.text(), RENAME_TEMPLATE_PRESETS)
+        self._update_organize_template_visibility()
+        self._update_rename_template_visibility()
 
     def _save_settings(self) -> None:
         updated = dict(self.app_settings)
@@ -1042,6 +1067,7 @@ class MediaManagerWindow(QMainWindow):
         source_dirs = self._collect_paths(self.source_list)
         target_text = self.target_input.text().strip()
         exiftool_text = self.exiftool_input.text().strip()
+        is_prerun = not self.apply_checkbox.isChecked()
 
         if not source_dirs:
             QMessageBox.critical(self, "Error", "Please add at least one source folder.")
@@ -1061,7 +1087,7 @@ class MediaManagerWindow(QMainWindow):
             source_dirs=source_dirs,
             target_dir=target_dir,
             target_template=self.template_input.text().strip() or DEFAULT_TARGET_TEMPLATE,
-            dry_run=not self.apply_checkbox.isChecked(),
+            dry_run=is_prerun,
             mode="move" if self.move_radio.isChecked() else "copy",
             exiftool_path=exiftool_path,
         )
@@ -1098,13 +1124,28 @@ class MediaManagerWindow(QMainWindow):
             for column_index, (display_value, tooltip_value, center) in enumerate(values):
                 self.results_table.setItem(row_index, column_index, self._make_result_item(display_value, tooltip_value, center=center))
         self._resize_result_columns(self.results_table)
-        mode_label = "Apply" if self.apply_checkbox.isChecked() else "Preview"
-        self.results_summary_label.setText(f"{mode_label} finished — {results.processed} file(s), {results.organized} action(s), {results.errors} error(s).")
-        self.status_bar.showMessage(f"Processed: {results.processed} | Planned/Executed: {results.organized} | Skipped: {results.skipped} | Errors: {results.errors}")
+
+        if is_prerun:
+            self.apply_checkbox.setChecked(True)
+            self.results_summary_label.setText(
+                f"Pre-run finished — {results.processed} file(s), {results.organized} action(s), {results.errors} error(s). Apply is now enabled."
+            )
+            self.status_bar.showMessage(
+                f"Pre-run finished | Processed: {results.processed} | Planned: {results.organized} | Errors: {results.errors} | Apply enabled"
+            )
+        else:
+            self.results_summary_label.setText(
+                f"Run finished — {results.processed} file(s), {results.organized} action(s), {results.errors} error(s)."
+            )
+            self.status_bar.showMessage(
+                f"Run finished | Processed: {results.processed} | Executed: {results.organized} | Skipped: {results.skipped} | Errors: {results.errors}"
+            )
 
     def _run_rename(self) -> None:
         source_dirs = self._collect_paths(self.rename_source_list)
         exiftool_text = self.exiftool_input.text().strip()
+        is_prerun = not self.rename_apply_checkbox.isChecked()
+
         if not source_dirs:
             QMessageBox.critical(self, "Error", "Please add at least one source folder.")
             return
@@ -1116,7 +1157,7 @@ class MediaManagerWindow(QMainWindow):
         config = RenameConfig(
             source_dirs=source_dirs,
             template=self.rename_template_input.text().strip() or DEFAULT_RENAME_TEMPLATE,
-            dry_run=not self.rename_apply_checkbox.isChecked(),
+            dry_run=is_prerun,
             exiftool_path=Path(exiftool_text) if exiftool_text else None,
         )
 
@@ -1149,9 +1190,22 @@ class MediaManagerWindow(QMainWindow):
             for column_index, (display_value, tooltip_value, center) in enumerate(values):
                 self.rename_results_table.setItem(row_index, column_index, self._make_result_item(display_value, tooltip_value, center=center))
         self._resize_result_columns(self.rename_results_table)
-        mode_label = "Apply" if self.rename_apply_checkbox.isChecked() else "Preview"
-        self.rename_results_summary_label.setText(f"{mode_label} finished — {results.processed} file(s), {results.renamed} rename action(s), {results.errors} error(s).")
-        self.status_bar.showMessage(f"Processed: {results.processed} | Rename actions: {results.renamed} | Skipped: {results.skipped} | Errors: {results.errors}")
+
+        if is_prerun:
+            self.rename_apply_checkbox.setChecked(True)
+            self.rename_results_summary_label.setText(
+                f"Pre-run finished — {results.processed} file(s), {results.renamed} rename action(s), {results.errors} error(s). Apply is now enabled."
+            )
+            self.status_bar.showMessage(
+                f"Pre-run finished | Processed: {results.processed} | Planned: {results.renamed} | Errors: {results.errors} | Apply enabled"
+            )
+        else:
+            self.rename_results_summary_label.setText(
+                f"Run finished — {results.processed} file(s), {results.renamed} rename action(s), {results.errors} error(s)."
+            )
+            self.status_bar.showMessage(
+                f"Run finished | Processed: {results.processed} | Executed: {results.renamed} | Skipped: {results.skipped} | Errors: {results.errors}"
+            )
 
 
 def main() -> int:
