@@ -171,3 +171,12 @@ Diese Reihenfolge ist sinnvoll:
 3. Duplikaterkennung ergänzen
 4. Bibliotheksindex auf SQLite-Basis einführen
 5. erst dann moderne UI mit PySide6 oder Web-Frontend evaluieren
+
+
+## Windows-Hinweise
+
+- Alter bekannter ExifTool-Standardpfad aus dem Ursprungsskript:
+  `C:\Program Files\exiftool\exiftool.exe`
+- Fallback aus dem Ursprungsskript:
+  `C:\Program Files\exiftool\exiftool(-k).exe`
+- Wenn `python -m media_manager` mit `No module named tkinter` endet, enthält deine aktuelle Python-Installation kein Tkinter. Die CLI funktioniert dann trotzdem weiter.
