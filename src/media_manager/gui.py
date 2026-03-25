@@ -129,14 +129,6 @@ QPushButton[variant="secondary"] {
 QPushButton[variant="secondary"]:hover {
     background: #18283E;
 }
-QPushButton[variant="ghost"] {
-    background: transparent;
-    color: #A9C3FF;
-    border: 1px solid #31455F;
-}
-QPushButton[variant="ghost"]:hover {
-    background: #102038;
-}
 QPushButton[nav="true"] {
     text-align: left;
     padding: 12px 14px;
@@ -197,7 +189,6 @@ class StatCard(QFrame):
         super().__init__()
         self.setObjectName("Card")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 16, 18, 16)
         layout.setSpacing(6)
@@ -209,7 +200,6 @@ class StatCard(QFrame):
         value_font.setPointSize(14)
         value_font.setBold(True)
         self.value_label.setFont(value_font)
-
         layout.addWidget(title_label)
         layout.addWidget(self.value_label)
 
@@ -277,6 +267,31 @@ class WorkflowStepCard(QFrame):
 
     def set_status(self, value: str) -> None:
         self.status_label.setText(value)
+
+
+class ProblemCard(QFrame):
+    def __init__(self, title: str, description: str, button_text: str) -> None:
+        super().__init__()
+        self.setObjectName("Card")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(10)
+
+        title_label = QLabel(title)
+        title_font = QFont()
+        title_font.setPointSize(15)
+        title_font.setBold(True)
+        title_label.setFont(title_font)
+
+        description_label = QLabel(description)
+        description_label.setWordWrap(True)
+        description_label.setStyleSheet("color: #AFC1D9;")
+
+        self.button = QPushButton(button_text)
+        layout.addWidget(title_label)
+        layout.addWidget(description_label)
+        layout.addStretch(1)
+        layout.addWidget(self.button)
 
 
 def compact_path_label(path: Path) -> str:
@@ -551,20 +566,29 @@ class MediaManagerWindow(QMainWindow):
         guided_group = QGroupBox("Guided mode")
         guided_layout = QVBoxLayout(guided_group)
         guided_layout.setSpacing(12)
-        guided_layout.addWidget(self.guided_problem_combo)
-        guided_layout.addWidget(self.guided_problem_hint_label)
+        guided_intro = QLabel("Choose the situation that matches your real problem right now.")
+        guided_intro.setWordWrap(True)
+        guided_intro.setStyleSheet("color: #93A8C6;")
+        guided_layout.addWidget(guided_intro)
 
-        guided_actions = QHBoxLayout()
-        guided_actions.addWidget(self.guided_start_button)
-        guided_actions.addWidget(self.guided_workflow_board_button)
-        guided_actions.addStretch(1)
-        guided_layout.addLayout(guided_actions)
+        guided_grid = QGridLayout()
+        guided_grid.setHorizontalSpacing(14)
+        guided_grid.setVerticalSpacing(14)
+        for index, item in enumerate(GUIDED_PROBLEMS):
+            card = ProblemCard(item["label"], item["description"], "Use this path")
+            card.button.clicked.connect(lambda _checked=False, key=item["key"]: self._start_problem_from_home(key))
+            guided_grid.addWidget(card, index // 2, index % 2)
+        guided_layout.addLayout(guided_grid)
+
+        extra_actions = QHBoxLayout()
+        extra_actions.addWidget(self.guided_workflow_board_button)
+        extra_actions.addStretch(1)
+        guided_layout.addLayout(extra_actions)
 
         manual_group = QGroupBox("Manual mode")
         manual_layout = QVBoxLayout(manual_group)
         manual_layout.setSpacing(12)
-
-        manual_hint = QLabel("Use this when you already know exactly which workspace you want. Same functionality, less hand-holding.")
+        manual_hint = QLabel("Use this only when you already know exactly which workspace you want. Same functionality, less guidance.")
         manual_hint.setWordWrap(True)
         manual_hint.setStyleSheet("color: #93A8C6;")
         manual_layout.addWidget(manual_hint)
@@ -572,14 +596,14 @@ class MediaManagerWindow(QMainWindow):
         manual_grid = QGridLayout()
         manual_grid.setHorizontalSpacing(14)
         manual_grid.setVerticalSpacing(14)
-        organize_card = ModuleCard("Organize", "Sort media from one or more source folders into one target folder.", "Open")
-        organize_card.button.clicked.connect(lambda: self._set_current_page(2))
-        rename_card = ModuleCard("Rename", "Rename media in place from one or more source folders using a template.", "Open")
-        rename_card.button.clicked.connect(lambda: self._set_current_page(3))
-        duplicates_card = ModuleCard("Duplicates", "Scan exact duplicate media across one or more source folders.", "Open")
-        duplicates_card.button.clicked.connect(lambda: self._set_current_page(4))
         workflow_card = ModuleCard("Workflow board", "Open the central guided board with setup, current step and progress tracking.", "Open")
         workflow_card.button.clicked.connect(lambda: self._set_current_page(1))
+        organize_card = ModuleCard("Organize", "Sort media from one or more source folders into one target folder.", "Open")
+        organize_card.button.clicked.connect(lambda: self._set_current_page(2))
+        duplicates_card = ModuleCard("Duplicates", "Scan exact duplicate media across one or more source folders.", "Open")
+        duplicates_card.button.clicked.connect(lambda: self._set_current_page(4))
+        rename_card = ModuleCard("Rename", "Rename media in place from one or more source folders using a template.", "Open")
+        rename_card.button.clicked.connect(lambda: self._set_current_page(3))
         manual_grid.addWidget(workflow_card, 0, 0)
         manual_grid.addWidget(organize_card, 0, 1)
         manual_grid.addWidget(duplicates_card, 1, 0)
@@ -821,6 +845,13 @@ class MediaManagerWindow(QMainWindow):
         group = QGroupBox("Workflow setup")
         layout = QVBoxLayout(group)
         layout.setSpacing(10)
+
+        problem_row = QVBoxLayout()
+        problem_row.addWidget(QLabel("Current situation"))
+        problem_row.addWidget(self.guided_problem_combo)
+        problem_row.addWidget(self.guided_problem_hint_label)
+        layout.addLayout(problem_row)
+
         layout.addWidget(self.workflow_source_list)
         layout.addWidget(self.workflow_source_details_label)
 
@@ -1102,7 +1133,6 @@ class MediaManagerWindow(QMainWindow):
         self.rename_button.clicked.connect(lambda: self._set_current_page(3))
         self.duplicates_button.clicked.connect(lambda: self._set_current_page(4))
         self.guided_problem_combo.currentIndexChanged.connect(self._update_guided_problem_hint)
-        self.guided_start_button.clicked.connect(self._start_from_home_problem)
         self.guided_workflow_board_button.clicked.connect(lambda: self._set_current_page(1))
         self.target_input.textChanged.connect(self._on_target_changed)
         self.workflow_target_input.textChanged.connect(self._on_workflow_target_changed)
@@ -1121,6 +1151,7 @@ class MediaManagerWindow(QMainWindow):
         self.workflow_duplicates_step_card.button.clicked.connect(self._open_duplicates_from_workflow)
         self.workflow_organize_step_card.button.clicked.connect(self._open_organize_from_workflow)
         self.workflow_rename_step_card.button.clicked.connect(self._open_rename_from_workflow)
+        self.guided_start_button.clicked.connect(lambda: self._start_problem_from_home(self._current_guided_problem_key()))
 
     def _set_current_page(self, index: int) -> None:
         self.stack.setCurrentIndex(index)
@@ -1149,6 +1180,14 @@ class MediaManagerWindow(QMainWindow):
     def _update_guided_problem_hint(self) -> None:
         key = self._current_guided_problem_key()
         self.guided_problem_hint_label.setText(self._guided_problem_description(key))
+        self.workflow_mode_hint_label.setText(self._guided_problem_description(key))
+
+    def _set_guided_problem(self, key: str) -> None:
+        index = self.guided_problem_combo.findData(key)
+        if index >= 0:
+            self.guided_problem_combo.setCurrentIndex(index)
+        self.workflow_selected_problem = key
+        self._update_guided_problem_hint()
 
     def _reset_workflow_state(self) -> None:
         self.workflow_step_statuses = {
@@ -1169,11 +1208,10 @@ class MediaManagerWindow(QMainWindow):
         elif problem_key == "exact_duplicates_only":
             self.workflow_step_statuses["organize"] = "Optional"
             self.workflow_step_statuses["rename"] = "Optional"
-        self.workflow_mode_hint_label.setText(self._guided_problem_description(problem_key))
         self._refresh_workflow_summary_cards()
 
-    def _start_from_home_problem(self) -> None:
-        problem_key = self._current_guided_problem_key()
+    def _start_problem_from_home(self, problem_key: str) -> None:
+        self._set_guided_problem(problem_key)
         self._prepare_guided_problem(problem_key)
 
         if problem_key == "ready_for_rename":
@@ -1186,14 +1224,13 @@ class MediaManagerWindow(QMainWindow):
                 self.status_bar.showMessage("Guided path opened at rename")
                 return
 
-        if problem_key == "exact_duplicates_only":
-            if self._workflow_source_dirs():
-                self._apply_workflow_setup_to_duplicates()
-                self.workflow_current_step = "Duplicates"
-                self._refresh_workflow_summary_cards()
-                self._set_current_page(4)
-                self.status_bar.showMessage("Guided path opened at exact duplicates")
-                return
+        if problem_key == "exact_duplicates_only" and self._workflow_source_dirs():
+            self._apply_workflow_setup_to_duplicates()
+            self.workflow_current_step = "Duplicates"
+            self._refresh_workflow_summary_cards()
+            self._set_current_page(4)
+            self.status_bar.showMessage("Guided path opened at exact duplicates")
+            return
 
         if problem_key == "ready_for_sorting" and self._workflow_source_dirs() and self._workflow_target_text():
             self._apply_workflow_setup_to_modules()
@@ -1881,7 +1918,7 @@ class MediaManagerWindow(QMainWindow):
         self._set_run_state(True)
         try:
             results = organize_media(config, progress_callback=self._handle_progress)
-        except Exception as exc:  # pragma: no cover - GUI fallback
+        except Exception as exc:
             QMessageBox.critical(self, "Error", str(exc))
             self.status_bar.showMessage("An error occurred")
             return
@@ -1913,13 +1950,9 @@ class MediaManagerWindow(QMainWindow):
 
         if is_prerun:
             self.apply_checkbox.setChecked(True)
-            self.status_bar.showMessage(
-                f"Pre-run finished | Processed: {results.processed} | Planned: {results.organized} | Errors: {results.errors} | Apply enabled"
-            )
+            self.status_bar.showMessage(f"Pre-run finished | Processed: {results.processed} | Planned: {results.organized} | Errors: {results.errors} | Apply enabled")
         else:
-            self.status_bar.showMessage(
-                f"Run finished | Processed: {results.processed} | Executed: {results.organized} | Skipped: {results.skipped} | Errors: {results.errors}"
-            )
+            self.status_bar.showMessage(f"Run finished | Processed: {results.processed} | Executed: {results.organized} | Skipped: {results.skipped} | Errors: {results.errors}")
 
     def _run_rename(self) -> None:
         source_dirs = self._collect_paths(self.rename_source_list)
@@ -1948,7 +1981,7 @@ class MediaManagerWindow(QMainWindow):
         self._set_run_state(True)
         try:
             results = rename_media(config, progress_callback=self._handle_progress)
-        except Exception as exc:  # pragma: no cover - GUI fallback
+        except Exception as exc:
             QMessageBox.critical(self, "Error", str(exc))
             self.status_bar.showMessage("An error occurred")
             return
@@ -1975,13 +2008,9 @@ class MediaManagerWindow(QMainWindow):
 
         if is_prerun:
             self.rename_apply_checkbox.setChecked(True)
-            self.status_bar.showMessage(
-                f"Pre-run finished | Processed: {results.processed} | Planned: {results.renamed} | Errors: {results.errors} | Apply enabled"
-            )
+            self.status_bar.showMessage(f"Pre-run finished | Processed: {results.processed} | Planned: {results.renamed} | Errors: {results.errors} | Apply enabled")
         else:
-            self.status_bar.showMessage(
-                f"Run finished | Processed: {results.processed} | Executed: {results.renamed} | Skipped: {results.skipped} | Errors: {results.errors}"
-            )
+            self.status_bar.showMessage(f"Run finished | Processed: {results.processed} | Executed: {results.renamed} | Skipped: {results.skipped} | Errors: {results.errors}")
 
     def _run_duplicates(self) -> None:
         source_dirs = self._collect_paths(self.duplicates_source_list)
@@ -2001,7 +2030,7 @@ class MediaManagerWindow(QMainWindow):
         self._set_run_state(True)
         try:
             result = scan_exact_duplicates(config, progress_callback=self._handle_progress)
-        except Exception as exc:  # pragma: no cover - GUI fallback
+        except Exception as exc:
             QMessageBox.critical(self, "Error", str(exc))
             self.status_bar.showMessage("An error occurred")
             return
@@ -2027,17 +2056,11 @@ class MediaManagerWindow(QMainWindow):
                 row_index += 1
 
         self._resize_result_columns(self.duplicates_results_table)
-        self._refresh_duplicates_summary_cards(
-            groups=len(result.exact_groups),
-            duplicate_files=result.exact_duplicate_files,
-            extra_duplicates=result.exact_duplicates,
-        )
+        self._refresh_duplicates_summary_cards(groups=len(result.exact_groups), duplicate_files=result.exact_duplicate_files, extra_duplicates=result.exact_duplicates)
         self._set_workflow_step_status("duplicates", f"Done ({len(result.exact_groups)} groups)")
         self.workflow_current_step = "Organize"
         self._refresh_workflow_summary_cards()
-        self.status_bar.showMessage(
-            f"Duplicate scan finished | Scanned: {result.scanned_files} | Exact groups: {len(result.exact_groups)} | Duplicate files: {result.exact_duplicate_files} | Extra duplicates: {result.exact_duplicates} | Errors: {result.errors}"
-        )
+        self.status_bar.showMessage(f"Duplicate scan finished | Scanned: {result.scanned_files} | Exact groups: {len(result.exact_groups)} | Duplicate files: {result.exact_duplicate_files} | Extra duplicates: {result.exact_duplicates} | Errors: {result.errors}")
 
 
 def main() -> int:
