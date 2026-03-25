@@ -1,29 +1,28 @@
 # Roadmap
 
-## Phase 1 – solide CLI-Basis
+## Phase 1: belastbare Basis
 
-- [x] Medien nach Datum sortieren
-- [x] Dry-Run als Standard
-- [x] ExifTool sauber integrieren
+- [x] Kernlogik für Sortierung nach Metadaten
+- [x] Dry-Run und sichere Ausführung
+- [x] Desktop-GUI mit Tkinter
 - [x] Tests für Kernlogik
 
-## Phase 2 – produktiv brauchbar
+## Phase 2: echte Nutzerfunktionen
 
-- [ ] Umbenennen nach Vorlagen wie `{date}_{camera}_{sequence}`
-- [ ] konfigurierbare Regeln per JSON oder YAML
-- [ ] Hash-basierte Duplikaterkennung
-- [ ] Erkennung ähnlicher Bilder
-- [ ] Export eines Prüfberichts
+- [ ] Umbenennen nach Vorlage
+- [ ] flexible Sortierregeln
+- [ ] Ausschlussregeln und Filter
+- [ ] Duplikaterkennung über Hashing
 
-## Phase 3 – echter Media Manager
+## Phase 3: Skalierung
 
-- [ ] Bibliotheksindex mit SQLite
-- [ ] Vorschaubilder und Metadaten-Cache
-- [ ] Video-Metadaten und Frame-Scans
-- [ ] Such- und Filterfunktionen
-- [ ] Weboberfläche
-- [ ] GitHub Actions für Tests und Linting
+- [ ] SQLite-Index
+- [ ] schnellere Metadatenverarbeitung
+- [ ] Batch-Verarbeitung großer Bibliotheken
 
-## Strategische Priorität
+## Phase 4: Produktisierung
 
-Nicht sofort eine GUI bauen. Das ist typischer Anfängerfehler. Erst muss die Kernlogik stabil, testbar und dateisicher sein. Sonst baust du nur eine hübsche Oberfläche über unzuverlässigen Dateischrott.
+- [ ] moderne Oberfläche auf Basis PySide6
+- [ ] Build als Desktop-App
+- [ ] Installer für Windows
+- [ ] GitHub Releases

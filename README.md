@@ -1,123 +1,152 @@
 # Media Manager
 
-Saubere Python-Basis für einen öffentlichen Foto- und Medienmanager.
+Solide Desktop-Basis für einen später öffentlich nutzbaren Foto- und Medienmanager.
 
-Der aktuelle Stand ist bewusst fokussiert:
-- Medien per Metadaten analysieren
-- Bilder und Videos nach Datum in Zielordner sortieren
-- sichere Vorschau per Dry-Run als Standard
-- modularer Aufbau für spätere Features wie Umbenennen, Duplikaterkennung und Video-Analyse
+Der Stand ist absichtlich pragmatisch:
+- bewährte Kernlogik für Medien-Sortierung beibehalten
+- Desktop-Oberfläche mit Tkinter für sofort nutzbare Bedienung
+- CLI bleibt erhalten
+- Architektur bleibt so getrennt, dass später eine moderne Oberfläche darauf aufsetzen kann
 
-## Bereits enthalten
+## Was bereits funktioniert
 
-- CLI mit `organize`-Befehl
+- Fotos und Videos per Metadaten nach Datum sortieren
+- Vorschau ohne Änderungen
+- echtes Kopieren oder Verschieben
 - ExifTool-Erkennung über PATH, Umgebungsvariable oder expliziten Pfad
-- Datumswahl über priorisierte Metadaten-Tags
 - Fallback auf Dateisystem-Zeitstempel
-- konfigurierbares Zielpfad-Template
 - Kollisionserkennung bei Dateinamen
-- Unit-Tests für Datumsparser und Zielpfadaufbau
+- Desktop-GUI mit Ordnerauswahl und Ergebnisliste
+- Tests für Datumsparser und Sortierlogik
 
-## Noch nicht enthalten
+## Was bewusst noch fehlt
 
-- intelligentes Umbenennen nach Vorlage
-- echte Duplikaterkennung über Hashing/Perceptual Hash
-- Video-Frame-Analyse
-- GUI/Weboberfläche
-- Datenbankindex für große Bibliotheken
+- Umbenennen nach Vorlage
+- Duplikaterkennung
+- Datenbankindex
+- Video-Inhaltsanalyse
+- moderne professionelle UI
+- Installer/Setup-Paket
 
-## Projektstruktur
+## Architektur
 
 ```text
 media-manager/
 ├── docs/
 ├── src/
 │   └── media_manager/
+│       ├── cli.py
+│       ├── gui.py
+│       ├── sorter.py
+│       ├── exiftool.py
+│       └── dates.py
 ├── tests/
-├── .gitignore
 ├── pyproject.toml
 └── README.md
 ```
 
+Die Logik ist absichtlich **nicht** in die GUI eingebrannt. Das ist wichtig, weil Tkinter nur die Startbasis ist.
+Wenn du später auf **PySide6** wechselst, bleibt die Kernlogik nutzbar.
+
 ## Voraussetzungen
 
+- Windows
 - Python 3.11+
-- [ExifTool](https://exiftool.org/) installiert
-- Windows PowerShell oder Terminal
+- ExifTool
 
-## Installation
+## Saubere Einschätzung zu deinem bisherigen Stand
 
-### 1. Repository anlegen
+Dein altes Skript war nicht das Problem. Die Kernlogik scheint bereits gut zu funktionieren.
+Das eigentliche Defizit lag bei Projektstruktur, Setup, Fehlerbehandlung und fehlender Oberfläche.
+Genau das behebt diese Basis.
+
+## Installation auf deinem Windows-Rechner
+
+Du hast bereits gezeigt, dass `python` bei dir funktioniert.
+Also **nicht weiter Zeit mit `py -3.11` verschwenden**, solange dein Launcher nicht sauber eingerichtet ist.
+
+### 1. In den Projektordner wechseln
 
 ```powershell
-mkdir C:\Users\mries\Documents\LocalRepos\media-manager
 cd C:\Users\mries\Documents\LocalRepos\media-manager
 ```
 
-### 2. Dateien aus dem ZIP entpacken
+### 2. ZIP hier entpacken
 
-Das ZIP in diesen Ordner entpacken.
+Danach sollten `README.md`, `pyproject.toml`, `src`, `tests` direkt in diesem Ordner liegen.
 
 ### 3. Virtuelle Umgebung anlegen
 
 ```powershell
-py -3.11 -m venv .venv
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-pip install -e .
+pip install -e ".[dev]"
 ```
 
-### 4. ExifTool prüfen
+Falls `Activate.ps1` wegen der Execution Policy blockiert wird:
 
-Variante A: ExifTool liegt im PATH.
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+```
+
+### 4. ExifTool installieren
+
+ExifTool muss real vorhanden sein. Eine Umgebungsvariable auf einen nicht existierenden Pfad zu setzen bringt gar nichts.
+
+Danach entweder:
 
 ```powershell
 exiftool -ver
 ```
 
-Variante B: Pfad per Umgebungsvariable setzen.
+oder explizit in der GUI/CLI den Pfad setzen, z. B.:
 
 ```powershell
-$env:EXIFTOOL_PATH = 'C:\Program Files\exiftool\exiftool.exe'
+$env:EXIFTOOL_PATH = "C:\Tools\ExifTool\exiftool.exe"
 ```
 
-## Verwendung
-
-### Sicherer Testlauf
+## GUI starten
 
 ```powershell
-python -m media_manager organize "D:\Fotos\Unsortiert" "D:\Fotos\Sortiert"
+python -m media_manager
 ```
 
-Standard ist Dry-Run. Es wird also nur angezeigt, was passieren würde.
-
-### Wirklich kopieren
+oder:
 
 ```powershell
-python -m media_manager organize "D:\Fotos\Unsortiert" "D:\Fotos\Sortiert" --apply --copy
+media-manager-gui
 ```
 
-### Wirklich verschieben
+## CLI weiter benutzen
+
+Vorschau:
 
 ```powershell
-python -m media_manager organize "D:\Fotos\Unsortiert" "D:\Fotos\Sortiert" --apply --move
+python -m media_manager organize "C:\Pfad\Zu\Unsortiert" "C:\Pfad\Zu\Sortiert"
 ```
 
-### Eigenes Ordner-Template
+Wirklich kopieren:
 
 ```powershell
-python -m media_manager organize "D:\Fotos\Unsortiert" "D:\Fotos\Sortiert" --apply --copy --template "{year}/{month_num}-{month_name}/{day}"
+python -m media_manager organize "C:\Pfad\Zu\Unsortiert" "C:\Pfad\Zu\Sortiert" --apply --copy
 ```
 
-Verfügbare Platzhalter:
+Wirklich verschieben:
 
-- `{year}`
-- `{month_num}`
-- `{month_name}`
-- `{day}`
-- `{hour}`
-- `{minute}`
-- `{ext}`
+```powershell
+python -m media_manager organize "C:\Pfad\Zu\Unsortiert" "C:\Pfad\Zu\Sortiert" --apply --move
+```
+
+## Wichtige Korrektur zu deinem letzten Versuch
+
+Drei Dinge waren bei deinem Test kein echter Programmfehler:
+
+1. `py -3.11` schlug fehl, weil dein Python-Launcher nicht passend eingerichtet ist.
+   Das heißt nicht, dass Python fehlt.
+2. `D:\Fotos\Unsortiert` war nur ein Beispielpfad. Wenn der Ordner nicht existiert, **muss** das Programm abbrechen.
+3. `https://github.com/DEINNAME/media-manager.git` war ein Platzhalter. Natürlich kann man darauf nicht pushen.
 
 ## Tests
 
@@ -128,12 +157,17 @@ pytest
 ## Git-Start
 
 ```powershell
-git init
-git branch -M main
 git add .
-git commit -m "chore: initial public media manager foundation"
+git commit -m "feat: add desktop gui foundation for media manager"
 ```
 
-## Ehrliche Einschätzung
+## Strategisch richtiger nächster Schritt
 
-Dein ursprüngliches Skript war ein brauchbarer Start, aber als öffentliches Projekt zu roh. Die Kernprobleme waren ein hart kodierter ExifTool-Pfad, eine monolithische Struktur und fehlende Sicherheitsmechanismen für destructive operations. Diese Basis behebt genau das und verschiebt die Komplexität dorthin, wo sie hingehört: in saubere Module.
+Nicht sofort in zehn Features verzetteln.
+
+Diese Reihenfolge ist sinnvoll:
+1. GUI-Basis stabilisieren
+2. Umbenennen nach Vorlage ergänzen
+3. Duplikaterkennung ergänzen
+4. Bibliotheksindex auf SQLite-Basis einführen
+5. erst dann moderne UI mit PySide6 oder Web-Frontend evaluieren

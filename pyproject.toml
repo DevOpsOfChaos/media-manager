@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "media-manager"
-version = "0.1.0"
-description = "Foundational media manager for organizing photos and videos by metadata"
+version = "0.2.0"
+description = "Desktop-ready foundation for organizing photos and videos by metadata"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
@@ -21,6 +21,7 @@ dev = [
 
 [project.scripts]
 media-manager = "media_manager.cli:main"
+media-manager-gui = "media_manager.gui:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

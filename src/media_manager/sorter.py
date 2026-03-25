@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 import shutil
-from typing import Iterable, Literal
+from typing import Callable, Iterable, Literal
 
 from media_manager.constants import DEFAULT_NO_DATE_DIR, DEFAULT_TEMPLATE, GERMAN_MONTHS, MEDIA_EXTENSIONS
 from media_manager.exiftool import ExifToolClient, pick_best_date
@@ -27,6 +27,7 @@ class OrganizeSummary:
     applied_files: int = 0
     skipped_files: int = 0
     no_date_files: int = 0
+    errors: int = 0
 
 
 def iter_media_files(source_dir: Path) -> Iterable[Path]:
@@ -115,6 +116,9 @@ def organize(
     action: Mode = "copy",
     apply_changes: bool = False,
     fallback_to_file_time: bool = True,
+    on_decision: Callable[[MediaDecision], None] | None = None,
+    on_error: Callable[[Path, Exception], None] | None = None,
+    on_info: Callable[[str], None] | None = None,
 ) -> OrganizeSummary:
     summary = OrganizeSummary()
 
@@ -122,26 +126,39 @@ def organize(
     summary.total_files = len(files)
 
     for file_path in files:
-        decision = build_decision(
-            file_path=file_path,
-            target_root=target_dir,
-            exiftool=exiftool,
-            template=template,
-            action=action,
-            fallback_to_file_time=fallback_to_file_time,
-        )
+        try:
+            decision = build_decision(
+                file_path=file_path,
+                target_root=target_dir,
+                exiftool=exiftool,
+                template=template,
+                action=action,
+                fallback_to_file_time=fallback_to_file_time,
+            )
+        except Exception as exc:
+            summary.errors += 1
+            if on_error:
+                on_error(file_path, exc)
+            else:
+                print(f"FEHLER: {file_path} -> {exc}")
+            continue
 
         if decision.date_source == "missing":
             summary.no_date_files += 1
 
-        print(f"{decision.action.upper()}: {decision.source} -> {decision.destination}")
-        print(f"  Datumsquelle: {decision.date_source}")
-        if decision.date_value:
-            print(f"  Datumswert:   {decision.date_value}")
+        if on_decision:
+            on_decision(decision)
+        else:
+            print(f"{decision.action.upper()}: {decision.source} -> {decision.destination}")
+            print(f"  Datumsquelle: {decision.date_source}")
+            if decision.date_value:
+                print(f"  Datumswert:   {decision.date_value}")
 
         if apply_changes:
             apply_decision(decision)
             summary.applied_files += 1
+            if on_info:
+                on_info(f"Ausgeführt: {decision.source.name}")
         else:
             summary.skipped_files += 1
 
