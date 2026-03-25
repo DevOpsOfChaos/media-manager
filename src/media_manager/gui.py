@@ -198,8 +198,8 @@ class MediaManagerWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Media Manager")
-        self.resize(1280, 800)
-        self.setMinimumSize(1080, 720)
+        self.resize(1440, 920)
+        self.setMinimumSize(1220, 820)
 
         self.target_input = QLineEdit()
         self.target_input.setPlaceholderText("Target folder")
