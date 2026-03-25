@@ -25,6 +25,8 @@ The format is based on Keep a Changelog, and the project aims to follow Semantic
 - Compact source-folder list with full-path details
 - Live organizer progress feedback during processing
 - Organizer test coverage for progress callback reporting
+- Saved import sets for reusable source-folder groups in the organizer GUI
+- Organizer test coverage for import-set settings helpers
 
 ### Changed
 - README rewritten to present the repository as a public project front door
@@ -39,6 +41,7 @@ The format is based on Keep a Changelog, and the project aims to follow Semantic
 - Organizer GUI now auto-fills the ExifTool path when it can be resolved
 - Organizer run flow now disables conflicting UI actions while processing
 - Result-table columns now resize to content more aggressively and the status column is visually stronger
+- Organizer settings persistence now stores reusable import sets alongside defaults
 
 ### Notes
 - The project remains in pre-alpha.

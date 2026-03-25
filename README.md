@@ -33,6 +33,7 @@ This repository fixes that foundation first.
 - Copy or move files
 - Detect filename collisions
 - Organize from multiple source folders into one target folder
+- Save, load, and delete reusable import sets for organizer source/target combinations
 - Resolve ExifTool through:
   - `PATH`
   - `EXIFTOOL_PATH`
@@ -48,7 +49,6 @@ This repository fixes that foundation first.
 
 ## Planned capabilities
 
-- Saved import sets for reusable folder groups
 - Template-based renaming
 - Duplicate detection
 - Keep-source / keep-target / keep-both decisions for exact duplicates
@@ -182,6 +182,7 @@ See also:
 - [v0.3.1 organizer GUI polish protocol](docs/protocol/2026-03-25-v0.3.1-organizer-gui-polish.md)
 - [v0.3.2 app shell and readability protocol](docs/protocol/2026-03-25-v0.3.2-app-shell-and-readability.md)
 - [v0.3.3 processing feedback and table sizing protocol](docs/protocol/2026-03-25-v0.3.3-processing-feedback-and-table-sizing.md)
+- [v0.3.4 import sets protocol](docs/protocol/2026-03-25-v0.3.4-import-sets.md)
 
 ## Honest scope statement
 

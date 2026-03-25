@@ -10,12 +10,14 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QButtonGroup,
     QCheckBox,
+    QComboBox,
     QFileDialog,
     QFrame,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -34,7 +36,15 @@ from PySide6.QtWidgets import (
 )
 
 from .exiftool import resolve_exiftool_path
-from .settings import load_app_settings, save_app_settings
+from .settings import (
+    DEFAULT_TARGET_TEMPLATE,
+    get_import_set,
+    list_import_sets,
+    load_app_settings,
+    remove_import_set,
+    save_app_settings,
+    upsert_import_set,
+)
 from .sorter import SortConfig, organize_media
 
 APP_STYLESHEET = """
@@ -69,7 +79,7 @@ QGroupBox::title {
     color: #F9FAFB;
     font-weight: 600;
 }
-QLineEdit, QListWidget, QTableWidget {
+QLineEdit, QListWidget, QTableWidget, QComboBox {
     background: #0F172A;
     border: 1px solid #334155;
     border-radius: 12px;
@@ -208,13 +218,17 @@ class MediaManagerWindow(QMainWindow):
         self.setWindowTitle("Media Manager")
         self.resize(1560, 980)
         self.setMinimumSize(1360, 860)
+        self.app_settings: dict[str, object] = {}
 
         self.target_input = QLineEdit()
         self.target_input.setPlaceholderText("Target folder")
         self.exiftool_input = QLineEdit()
         self.exiftool_input.setPlaceholderText("Auto-detect when empty")
-        self.template_input = QLineEdit("{year}/{month}")
+        self.template_input = QLineEdit(DEFAULT_TARGET_TEMPLATE)
         self.apply_checkbox = QCheckBox("Apply")
+
+        self.import_set_combo = QComboBox()
+        self.import_set_combo.setMinimumWidth(260)
 
         self.source_list = QListWidget()
         self.source_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
@@ -414,6 +428,22 @@ class MediaManagerWindow(QMainWindow):
         group = QGroupBox("Source folders")
         layout = QVBoxLayout(group)
         layout.setSpacing(10)
+
+        import_sets_row = QHBoxLayout()
+        self.save_import_set_button = QPushButton("Save set")
+        self.load_import_set_button = QPushButton("Load")
+        self.delete_import_set_button = QPushButton("Delete")
+        self.load_import_set_button.setProperty("variant", "secondary")
+        self.delete_import_set_button.setProperty("variant", "secondary")
+        self.save_import_set_button.clicked.connect(self._save_import_set)
+        self.load_import_set_button.clicked.connect(self._load_import_set)
+        self.delete_import_set_button.clicked.connect(self._delete_import_set)
+        import_sets_row.addWidget(self.import_set_combo, 1)
+        import_sets_row.addWidget(self.save_import_set_button)
+        import_sets_row.addWidget(self.load_import_set_button)
+        import_sets_row.addWidget(self.delete_import_set_button)
+
+        layout.addLayout(import_sets_row)
         layout.addWidget(self.source_list)
         layout.addWidget(self.source_details_label)
 
@@ -513,6 +543,23 @@ class MediaManagerWindow(QMainWindow):
     def _path_from_item(self, item: QListWidgetItem) -> Path:
         return Path(item.data(Qt.ItemDataRole.UserRole))
 
+    def _add_source_item(self, path: Path) -> None:
+        normalized = str(path)
+        existing = {self._path_from_item(self.source_list.item(index)) for index in range(self.source_list.count())}
+        if path in existing:
+            return
+        item = QListWidgetItem(compact_path_label(path))
+        item.setData(Qt.ItemDataRole.UserRole, normalized)
+        item.setToolTip(normalized)
+        self.source_list.addItem(item)
+
+    def _populate_source_list(self, source_dirs: list[str]) -> None:
+        self.source_list.clear()
+        for raw_path in source_dirs:
+            self._add_source_item(Path(raw_path))
+        self._refresh_summary_cards()
+        self._refresh_source_details()
+
     def _refresh_source_details(self) -> None:
         selected_items = self.source_list.selectedItems()
         if not selected_items:
@@ -536,31 +583,48 @@ class MediaManagerWindow(QMainWindow):
         self.mode_card.set_value("Move" if self.move_radio.isChecked() else "Copy")
         self.run_mode_card.set_value("Apply" if self.apply_checkbox.isChecked() else "Preview")
 
+    def _refresh_import_set_combo(self, selected_name: str | None = None) -> None:
+        import_sets = list_import_sets(self.app_settings)
+        self.import_set_combo.blockSignals(True)
+        self.import_set_combo.clear()
+        if not import_sets:
+            self.import_set_combo.addItem("No saved set", None)
+            self.load_import_set_button.setEnabled(False)
+            self.delete_import_set_button.setEnabled(False)
+        else:
+            for item in import_sets:
+                self.import_set_combo.addItem(item["name"], item["name"])
+            target_name = selected_name or import_sets[0]["name"]
+            index = self.import_set_combo.findData(target_name)
+            self.import_set_combo.setCurrentIndex(index if index >= 0 else 0)
+            self.load_import_set_button.setEnabled(True)
+            self.delete_import_set_button.setEnabled(True)
+        self.import_set_combo.blockSignals(False)
+
     def _load_settings(self) -> None:
-        settings = load_app_settings()
-        target_text = settings.get("target_dir", "")
-        exiftool_text = settings.get("exiftool_path", "")
-        template_text = settings.get("target_template", "{year}/{month}")
+        self.app_settings = load_app_settings()
+        target_text = str(self.app_settings.get("target_dir", "")).strip()
+        exiftool_text = str(self.app_settings.get("exiftool_path", "")).strip()
+        template_text = str(self.app_settings.get("target_template", DEFAULT_TARGET_TEMPLATE)).strip() or DEFAULT_TARGET_TEMPLATE
 
         if target_text:
             self.target_input.setText(target_text)
-        if template_text:
-            self.template_input.setText(template_text)
+        self.template_input.setText(template_text)
         if exiftool_text and Path(exiftool_text).is_file():
             self.exiftool_input.setText(exiftool_text)
         else:
             auto_path = resolve_exiftool_path()
             if auto_path is not None:
                 self.exiftool_input.setText(str(auto_path))
+        self._refresh_import_set_combo()
 
     def _save_settings(self) -> None:
-        save_app_settings(
-            {
-                "target_dir": self.target_input.text().strip(),
-                "exiftool_path": self.exiftool_input.text().strip(),
-                "target_template": self.template_input.text().strip() or "{year}/{month}",
-            }
-        )
+        updated = dict(self.app_settings)
+        updated["target_dir"] = self.target_input.text().strip()
+        updated["exiftool_path"] = self.exiftool_input.text().strip()
+        updated["target_template"] = self.template_input.text().strip() or DEFAULT_TARGET_TEMPLATE
+        save_app_settings(updated)
+        self.app_settings = updated
 
     def closeEvent(self, event) -> None:  # pragma: no cover - GUI runtime
         self._save_settings()
@@ -571,6 +635,10 @@ class MediaManagerWindow(QMainWindow):
         for widget in [
             self.run_button,
             self.clear_results_button,
+            self.save_import_set_button,
+            self.load_import_set_button,
+            self.delete_import_set_button,
+            self.import_set_combo,
             self.add_source_button,
             self.remove_source_button,
             self.clear_sources_button,
@@ -626,21 +694,79 @@ class MediaManagerWindow(QMainWindow):
     def _format_status(self, action: str) -> str:
         return STATUS_LABELS.get(action, action.replace("-", " ").title())
 
+    def _save_import_set(self) -> None:
+        source_dirs = [str(path) for path in self._collect_source_dirs()]
+        if not source_dirs:
+            QMessageBox.information(self, "Save import set", "Add at least one source folder first.")
+            return
+
+        target_text = self.target_input.text().strip()
+        if not target_text:
+            QMessageBox.information(self, "Save import set", "Select a target folder first.")
+            return
+
+        name, accepted = QInputDialog.getText(self, "Save import set", "Name")
+        if not accepted or not name.strip():
+            return
+
+        try:
+            self.app_settings = upsert_import_set(
+                self.app_settings,
+                name,
+                source_dirs,
+                target_text,
+                self.template_input.text().strip() or DEFAULT_TARGET_TEMPLATE,
+            )
+        except ValueError as exc:
+            QMessageBox.information(self, "Save import set", str(exc))
+            return
+
+        self._save_settings()
+        self._refresh_import_set_combo(selected_name=name.strip())
+        self.status_bar.showMessage(f"Saved import set: {name.strip()}")
+
+    def _load_import_set(self) -> None:
+        selected_name = self.import_set_combo.currentData()
+        if not selected_name:
+            return
+
+        item = get_import_set(self.app_settings, str(selected_name))
+        if item is None:
+            return
+
+        self._populate_source_list(item["source_dirs"])
+        self.target_input.setText(item["target_dir"])
+        self.template_input.setText(item["target_template"])
+        self._refresh_summary_cards()
+        self.status_bar.showMessage(f"Loaded import set: {item['name']}")
+
+    def _delete_import_set(self) -> None:
+        selected_name = self.import_set_combo.currentData()
+        if not selected_name:
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Delete import set",
+            f"Delete '{selected_name}'?",
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        self.app_settings = remove_import_set(self.app_settings, str(selected_name))
+        self._save_settings()
+        self._refresh_import_set_combo()
+        self.status_bar.showMessage(f"Deleted import set: {selected_name}")
+
     def _add_source_folder(self) -> None:
         selected = QFileDialog.getExistingDirectory(self, "Select source folder")
         if not selected:
             return
 
         path = Path(selected)
-        normalized = str(path)
-        existing = {self._path_from_item(self.source_list.item(index)) for index in range(self.source_list.count())}
-        if path not in existing:
-            item = QListWidgetItem(compact_path_label(path))
-            item.setData(Qt.ItemDataRole.UserRole, normalized)
-            item.setToolTip(normalized)
-            self.source_list.addItem(item)
-            self.status_bar.showMessage(f"Added source folder: {normalized}")
-            self._refresh_summary_cards()
+        self._add_source_item(path)
+        self.status_bar.showMessage(f"Added source folder: {path}")
+        self._refresh_summary_cards()
 
     def _remove_selected_sources(self) -> None:
         for item in self.source_list.selectedItems():
@@ -719,7 +845,7 @@ class MediaManagerWindow(QMainWindow):
         config = SortConfig(
             source_dirs=source_dirs,
             target_dir=target_dir,
-            target_template=self.template_input.text().strip() or "{year}/{month}",
+            target_template=self.template_input.text().strip() or DEFAULT_TARGET_TEMPLATE,
             dry_run=not self.apply_checkbox.isChecked(),
             mode="move" if self.move_radio.isChecked() else "copy",
             exiftool_path=exiftool_path,

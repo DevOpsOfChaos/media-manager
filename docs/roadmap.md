@@ -14,7 +14,7 @@
 ## Phase 2 — better organizer workflow
 
 - [x] Auto-fill and persist organizer defaults where useful
-- [ ] Saved import sets for reusable source-folder groups
+- [x] Saved import sets for reusable source-folder groups
 - [ ] Template-based renaming
 - [ ] Flexible sorting rules
 - [ ] Exclusion rules and filters
