@@ -206,6 +206,40 @@ class ModuleCard(QFrame):
         layout.addWidget(self.button)
 
 
+class WorkflowStepCard(QFrame):
+    def __init__(self, title: str, description: str, button_text: str) -> None:
+        super().__init__()
+        self.setObjectName("Card")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setSpacing(8)
+
+        title_label = QLabel(title)
+        title_font = QFont()
+        title_font.setPointSize(15)
+        title_font.setBold(True)
+        title_label.setFont(title_font)
+
+        self.status_label = QLabel("Pending")
+        self.status_label.setStyleSheet("color: #93C5FD;")
+
+        description_label = QLabel(description)
+        description_label.setWordWrap(True)
+        description_label.setStyleSheet("color: #94A3B8;")
+
+        self.button = QPushButton(button_text)
+        self.button.setProperty("variant", "secondary")
+
+        layout.addWidget(title_label)
+        layout.addWidget(self.status_label)
+        layout.addWidget(description_label)
+        layout.addStretch(1)
+        layout.addWidget(self.button)
+
+    def set_status(self, value: str) -> None:
+        self.status_label.setText(value)
+
+
 def compact_path_label(path: Path) -> str:
     name = path.name or str(path)
     parent = path.parent.name or path.anchor or str(path.parent)
@@ -236,9 +270,15 @@ class MediaManagerWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Media Manager")
-        self.resize(1560, 980)
-        self.setMinimumSize(1360, 860)
+        self.resize(1600, 1000)
+        self.setMinimumSize(1400, 900)
         self.app_settings: dict[str, object] = {}
+        self.workflow_current_step = "Setup"
+        self.workflow_step_statuses = {
+            "duplicates": "Pending",
+            "organize": "Pending",
+            "rename": "Pending",
+        }
 
         self.target_input = QLineEdit()
         self.target_input.setPlaceholderText("Target folder")
@@ -257,15 +297,15 @@ class MediaManagerWindow(QMainWindow):
         self.source_details_label = QLabel("No source folder selected.")
         self.source_details_label.setWordWrap(True)
         self.source_details_label.setStyleSheet("color: #94A3B8;")
+        self.organize_workflow_hint_label = QLabel("No workflow setup connected yet.")
+        self.organize_workflow_hint_label.setWordWrap(True)
+        self.organize_workflow_hint_label.setStyleSheet("color: #94A3B8;")
         self.copy_radio = QRadioButton("Copy")
         self.move_radio = QRadioButton("Move")
         self.copy_radio.setChecked(True)
         self.mode_group = QButtonGroup(self)
         self.mode_group.addButton(self.copy_radio)
         self.mode_group.addButton(self.move_radio)
-        self.results_summary_label = QLabel("No run yet.")
-        self.results_summary_label.setWordWrap(True)
-        self.results_summary_label.setStyleSheet("color: #94A3B8;")
         self.results_table = QTableWidget(0, 5)
         self.results_table.setHorizontalHeaderLabels(["Status", "File", "Source", "Target", "Details"])
         self.results_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -280,6 +320,9 @@ class MediaManagerWindow(QMainWindow):
         self.rename_source_details_label = QLabel("No source folder selected.")
         self.rename_source_details_label.setWordWrap(True)
         self.rename_source_details_label.setStyleSheet("color: #94A3B8;")
+        self.rename_target_hint_label = QLabel("No suggested source from the previous target yet.")
+        self.rename_target_hint_label.setWordWrap(True)
+        self.rename_target_hint_label.setStyleSheet("color: #94A3B8;")
         self.rename_template_preset_combo = QComboBox()
         self.rename_template_preset_combo.setMinimumWidth(240)
         self.rename_template_label = QLabel("Template")
@@ -288,9 +331,6 @@ class MediaManagerWindow(QMainWindow):
         self.rename_template_hint = QLabel("Template fields: {year} {month} {day} {hour} {minute} {second} {stem} {suffix} {index}")
         self.rename_template_hint.setWordWrap(True)
         self.rename_template_hint.setStyleSheet("color: #94A3B8;")
-        self.rename_results_summary_label = QLabel("No run yet.")
-        self.rename_results_summary_label.setWordWrap(True)
-        self.rename_results_summary_label.setStyleSheet("color: #94A3B8;")
         self.rename_results_table = QTableWidget(0, 5)
         self.rename_results_table.setHorizontalHeaderLabels(["Status", "Current", "New", "Folder", "Details"])
         self.rename_results_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -305,6 +345,9 @@ class MediaManagerWindow(QMainWindow):
         self.duplicates_source_details_label = QLabel("No source folder selected.")
         self.duplicates_source_details_label.setWordWrap(True)
         self.duplicates_source_details_label.setStyleSheet("color: #94A3B8;")
+        self.duplicates_workflow_hint_label = QLabel("No workflow source set linked yet.")
+        self.duplicates_workflow_hint_label.setWordWrap(True)
+        self.duplicates_workflow_hint_label.setStyleSheet("color: #94A3B8;")
         self.duplicates_results_table = QTableWidget(0, 5)
         self.duplicates_results_table.setHorizontalHeaderLabels(["Group", "File", "Folder", "Size", "Notes"])
         self.duplicates_results_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -312,6 +355,21 @@ class MediaManagerWindow(QMainWindow):
         self.duplicates_results_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.duplicates_results_table.verticalHeader().setVisible(False)
         self.duplicates_results_table.setAlternatingRowColors(True)
+
+        self.workflow_source_list = QListWidget()
+        self.workflow_source_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.workflow_source_list.setAlternatingRowColors(True)
+        self.workflow_source_details_label = QLabel("No source folder selected.")
+        self.workflow_source_details_label.setWordWrap(True)
+        self.workflow_source_details_label.setStyleSheet("color: #94A3B8;")
+        self.workflow_target_input = QLineEdit()
+        self.workflow_target_input.setPlaceholderText("Final target folder")
+        self.workflow_hint_label = QLabel("Guided workflow: 1) review exact duplicates, 2) organize into target, 3) rename inside the target.")
+        self.workflow_hint_label.setWordWrap(True)
+        self.workflow_hint_label.setStyleSheet("color: #94A3B8;")
+        self.workflow_duplicates_step_card = WorkflowStepCard("Step 1 — Duplicates", "Review exact byte-identical duplicates first. This reduces clutter before the real processing starts.", "Open duplicates")
+        self.workflow_organize_step_card = WorkflowStepCard("Step 2 — Organize", "Sort the remaining material into the chosen target folder.", "Open organize")
+        self.workflow_rename_step_card = WorkflowStepCard("Step 3 — Rename", "Rename the organized files inside the target folder with readable templates.", "Open rename")
 
         self.sources_card = StatCard("Sources", "0")
         self.target_card = StatCard("Target", "Not set")
@@ -325,6 +383,10 @@ class MediaManagerWindow(QMainWindow):
         self.duplicates_groups_card = StatCard("Exact groups", "-")
         self.duplicates_files_card = StatCard("Duplicate files", "-")
         self.duplicates_extra_card = StatCard("Extra duplicates", "-")
+        self.workflow_sources_card = StatCard("Sources", "0")
+        self.workflow_target_card = StatCard("Target", "Not set")
+        self.workflow_status_card = StatCard("Current step", "Setup")
+        self.workflow_next_card = StatCard("Next action", "Start workflow")
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -334,6 +396,9 @@ class MediaManagerWindow(QMainWindow):
         self.home_button = QPushButton("Home")
         self.home_button.setProperty("nav", "true")
         self.home_button.setProperty("variant", "secondary")
+        self.workflow_button = QPushButton("Workflow")
+        self.workflow_button.setProperty("nav", "true")
+        self.workflow_button.setProperty("variant", "secondary")
         self.organize_button = QPushButton("Organize")
         self.organize_button.setProperty("nav", "true")
         self.organize_button.setProperty("variant", "secondary")
@@ -352,9 +417,10 @@ class MediaManagerWindow(QMainWindow):
         self._refresh_summary_cards()
         self._refresh_rename_summary_cards()
         self._refresh_duplicates_summary_cards()
-        self._refresh_source_list_height(self.source_list)
-        self._refresh_source_list_height(self.rename_source_list)
-        self._refresh_source_list_height(self.duplicates_source_list)
+        self._refresh_workflow_summary_cards()
+        for list_widget in [self.source_list, self.rename_source_list, self.duplicates_source_list, self.workflow_source_list]:
+            self._refresh_source_list_height(list_widget)
+        self._update_cross_module_suggestions()
         self._resize_result_columns(self.results_table)
         self._resize_result_columns(self.rename_results_table)
         self._resize_result_columns(self.duplicates_results_table)
@@ -386,12 +452,14 @@ class MediaManagerWindow(QMainWindow):
         nav_layout.addWidget(app_subtitle)
         nav_layout.addSpacing(12)
         nav_layout.addWidget(self.home_button)
+        nav_layout.addWidget(self.workflow_button)
         nav_layout.addWidget(self.organize_button)
         nav_layout.addWidget(self.rename_button)
         nav_layout.addWidget(self.duplicates_button)
         nav_layout.addStretch(1)
 
         self.stack.addWidget(self._build_home_page())
+        self.stack.addWidget(self._build_workflow_page())
         self.stack.addWidget(self._build_organize_page())
         self.stack.addWidget(self._build_rename_page())
         self.stack.addWidget(self._build_duplicates_page())
@@ -418,7 +486,7 @@ class MediaManagerWindow(QMainWindow):
         title_font.setBold(True)
         title.setFont(title_font)
 
-        subtitle = QLabel("Start in Organize, Rename, or Duplicates now. The remaining comparison workflow comes later.")
+        subtitle = QLabel("You can work module by module or start a guided full workflow from one setup screen.")
         subtitle.setWordWrap(True)
         subtitle.setStyleSheet("color: #94A3B8;")
         header_layout.addWidget(title)
@@ -430,20 +498,70 @@ class MediaManagerWindow(QMainWindow):
         grid.setHorizontalSpacing(14)
         grid.setVerticalSpacing(14)
 
+        workflow_card = ModuleCard("Workflow", "Set sources and target once, then move through Duplicates → Organize → Rename with carried-over suggestions.", "Start")
+        workflow_card.button.clicked.connect(lambda: self._set_current_page(1))
         organize_card = ModuleCard("Organize", "Sort media from one or more source folders into one target folder.", "Open")
-        organize_card.button.clicked.connect(lambda: self._set_current_page(1))
+        organize_card.button.clicked.connect(lambda: self._set_current_page(2))
         rename_card = ModuleCard("Rename", "Rename media in place from one or more source folders using a template.", "Open")
-        rename_card.button.clicked.connect(lambda: self._set_current_page(2))
+        rename_card.button.clicked.connect(lambda: self._set_current_page(3))
         duplicates_card = ModuleCard("Duplicates", "Scan exact duplicate media across one or more source folders.", "Open")
-        duplicates_card.button.clicked.connect(lambda: self._set_current_page(3))
-        compare_card = ModuleCard("Compare", "Visual similarity and quality comparison workflows will live here.", "Planned", enabled=False)
+        duplicates_card.button.clicked.connect(lambda: self._set_current_page(4))
 
-        grid.addWidget(organize_card, 0, 0)
-        grid.addWidget(rename_card, 0, 1)
+        grid.addWidget(workflow_card, 0, 0)
+        grid.addWidget(organize_card, 0, 1)
         grid.addWidget(duplicates_card, 1, 0)
-        grid.addWidget(compare_card, 1, 1)
+        grid.addWidget(rename_card, 1, 1)
         layout.addLayout(grid)
         layout.addStretch(1)
+        return page
+
+    def _build_workflow_page(self) -> QWidget:
+        page = QWidget()
+        outer_layout = QVBoxLayout(page)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(16)
+
+        header = QFrame()
+        header.setObjectName("Card")
+        header_layout = QVBoxLayout(header)
+        header_layout.setContentsMargins(20, 20, 20, 20)
+        header_layout.setSpacing(6)
+
+        title = QLabel("Guided workflow")
+        title_font = QFont()
+        title_font.setPointSize(22)
+        title_font.setBold(True)
+        title.setFont(title_font)
+
+        subtitle = QLabel("One setup. Then step through duplicates, organize, and rename in the intended order.")
+        subtitle.setWordWrap(True)
+        subtitle.setStyleSheet("color: #94A3B8;")
+        header_layout.addWidget(title)
+        header_layout.addWidget(subtitle)
+
+        outer_layout.addWidget(header)
+        outer_layout.addLayout(self._build_workflow_summary_row())
+
+        content_layout = QHBoxLayout()
+        content_layout.setSpacing(16)
+        controls_panel = QWidget()
+        controls_layout = QVBoxLayout(controls_panel)
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+        controls_layout.setSpacing(14)
+        controls_layout.addWidget(self._build_workflow_setup_group())
+        controls_layout.addStretch(1)
+
+        steps_group = QGroupBox("Guided steps")
+        steps_layout = QVBoxLayout(steps_group)
+        steps_layout.setSpacing(12)
+        steps_layout.addWidget(self.workflow_hint_label)
+        steps_layout.addWidget(self.workflow_duplicates_step_card)
+        steps_layout.addWidget(self.workflow_organize_step_card)
+        steps_layout.addWidget(self.workflow_rename_step_card)
+
+        content_layout.addWidget(controls_panel, 4)
+        content_layout.addWidget(steps_group, 7)
+        outer_layout.addLayout(content_layout)
         return page
 
     def _build_organize_page(self) -> QWidget:
@@ -589,6 +707,15 @@ class MediaManagerWindow(QMainWindow):
         outer_layout.addLayout(content_layout)
         return page
 
+    def _build_workflow_summary_row(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(12)
+        row.addWidget(self.workflow_sources_card)
+        row.addWidget(self.workflow_target_card)
+        row.addWidget(self.workflow_status_card)
+        row.addWidget(self.workflow_next_card)
+        return row
+
     def _build_summary_row(self) -> QHBoxLayout:
         row = QHBoxLayout()
         row.setSpacing(12)
@@ -616,10 +743,59 @@ class MediaManagerWindow(QMainWindow):
         row.addWidget(self.duplicates_extra_card)
         return row
 
+    def _build_workflow_setup_group(self) -> QGroupBox:
+        group = QGroupBox("Workflow setup")
+        layout = QVBoxLayout(group)
+        layout.setSpacing(10)
+        layout.addWidget(self.workflow_source_list)
+        layout.addWidget(self.workflow_source_details_label)
+
+        buttons_row = QHBoxLayout()
+        self.workflow_add_source_button = QPushButton("Add")
+        self.workflow_remove_source_button = QPushButton("Remove")
+        self.workflow_clear_sources_button = QPushButton("Clear")
+        self.workflow_remove_source_button.setProperty("variant", "secondary")
+        self.workflow_clear_sources_button.setProperty("variant", "secondary")
+        self.workflow_add_source_button.clicked.connect(self._workflow_add_source_folder)
+        self.workflow_remove_source_button.clicked.connect(self._workflow_remove_selected_sources)
+        self.workflow_clear_sources_button.clicked.connect(self._workflow_clear_sources)
+        buttons_row.addWidget(self.workflow_add_source_button)
+        buttons_row.addWidget(self.workflow_remove_source_button)
+        buttons_row.addWidget(self.workflow_clear_sources_button)
+        buttons_row.addStretch(1)
+        layout.addLayout(buttons_row)
+
+        target_row = QHBoxLayout()
+        self.workflow_target_browse_button = QPushButton("Browse target")
+        self.workflow_target_browse_button.clicked.connect(self._choose_workflow_target_folder)
+        target_row.addWidget(self.workflow_target_input, 1)
+        target_row.addWidget(self.workflow_target_browse_button)
+        layout.addLayout(target_row)
+
+        actions_row = QHBoxLayout()
+        self.workflow_apply_button = QPushButton("Apply to modules")
+        self.workflow_start_button = QPushButton("Start guided workflow")
+        self.workflow_apply_button.setProperty("variant", "secondary")
+        self.workflow_apply_button.clicked.connect(self._apply_workflow_setup_to_modules)
+        self.workflow_start_button.clicked.connect(self._start_guided_workflow)
+        actions_row.addWidget(self.workflow_apply_button)
+        actions_row.addWidget(self.workflow_start_button)
+        actions_row.addStretch(1)
+        layout.addLayout(actions_row)
+        return group
+
     def _build_sources_group(self) -> QGroupBox:
         group = QGroupBox("Source folders")
         layout = QVBoxLayout(group)
         layout.setSpacing(10)
+
+        workflow_row = QHBoxLayout()
+        self.organize_use_workflow_button = QPushButton("Use workflow setup")
+        self.organize_use_workflow_button.setProperty("variant", "secondary")
+        self.organize_use_workflow_button.clicked.connect(self._apply_workflow_setup_to_modules)
+        workflow_row.addWidget(self.organize_use_workflow_button)
+        workflow_row.addWidget(self.organize_workflow_hint_label, 1)
+        layout.addLayout(workflow_row)
 
         import_sets_row = QHBoxLayout()
         self.save_import_set_button = QPushButton("Save set")
@@ -634,8 +810,8 @@ class MediaManagerWindow(QMainWindow):
         import_sets_row.addWidget(self.save_import_set_button)
         import_sets_row.addWidget(self.load_import_set_button)
         import_sets_row.addWidget(self.delete_import_set_button)
-
         layout.addLayout(import_sets_row)
+
         layout.addWidget(self.source_list)
         layout.addWidget(self.source_details_label)
 
@@ -648,7 +824,6 @@ class MediaManagerWindow(QMainWindow):
         self.add_source_button.clicked.connect(self._add_source_folder)
         self.remove_source_button.clicked.connect(self._remove_selected_sources)
         self.clear_sources_button.clicked.connect(self._clear_sources)
-
         buttons_row.addWidget(self.add_source_button)
         buttons_row.addWidget(self.remove_source_button)
         buttons_row.addWidget(self.clear_sources_button)
@@ -660,6 +835,15 @@ class MediaManagerWindow(QMainWindow):
         group = QGroupBox("Source folders")
         layout = QVBoxLayout(group)
         layout.setSpacing(10)
+
+        workflow_row = QHBoxLayout()
+        self.rename_use_target_button = QPushButton("Use previous target")
+        self.rename_use_target_button.setProperty("variant", "secondary")
+        self.rename_use_target_button.clicked.connect(self._use_current_target_for_rename)
+        workflow_row.addWidget(self.rename_use_target_button)
+        workflow_row.addWidget(self.rename_target_hint_label, 1)
+        layout.addLayout(workflow_row)
+
         layout.addWidget(self.rename_source_list)
         layout.addWidget(self.rename_source_details_label)
 
@@ -683,6 +867,15 @@ class MediaManagerWindow(QMainWindow):
         group = QGroupBox("Source folders")
         layout = QVBoxLayout(group)
         layout.setSpacing(10)
+
+        workflow_row = QHBoxLayout()
+        self.duplicates_use_workflow_button = QPushButton("Use workflow setup")
+        self.duplicates_use_workflow_button.setProperty("variant", "secondary")
+        self.duplicates_use_workflow_button.clicked.connect(self._apply_workflow_setup_to_duplicates)
+        workflow_row.addWidget(self.duplicates_use_workflow_button)
+        workflow_row.addWidget(self.duplicates_workflow_hint_label, 1)
+        layout.addLayout(workflow_row)
+
         layout.addWidget(self.duplicates_source_list)
         layout.addWidget(self.duplicates_source_details_label)
 
@@ -711,11 +904,9 @@ class MediaManagerWindow(QMainWindow):
 
         self.target_browse_button = QPushButton("Browse")
         self.target_browse_button.clicked.connect(self._choose_target_folder)
-
         self.exiftool_browse_button = QPushButton("Browse")
         self.exiftool_browse_button.setProperty("variant", "secondary")
         self.exiftool_browse_button.clicked.connect(self._choose_exiftool)
-
         self.open_target_button = QPushButton("Open target")
         self.open_target_button.setProperty("variant", "secondary")
         self.open_target_button.clicked.connect(self._open_target_folder)
@@ -723,14 +914,11 @@ class MediaManagerWindow(QMainWindow):
         layout.addWidget(QLabel("Target"), 0, 0)
         layout.addWidget(self.target_input, 0, 1)
         layout.addWidget(self.target_browse_button, 0, 2)
-
         layout.addWidget(QLabel("ExifTool"), 1, 0)
         layout.addWidget(self.exiftool_input, 1, 1)
         layout.addWidget(self.exiftool_browse_button, 1, 2)
-
         layout.addWidget(QLabel("Template preset"), 2, 0)
         layout.addWidget(self.template_preset_combo, 2, 1, 1, 2)
-
         layout.addWidget(self.organize_template_label, 3, 0)
         layout.addWidget(self.template_input, 3, 1, 1, 2)
 
@@ -751,10 +939,8 @@ class MediaManagerWindow(QMainWindow):
         layout.setHorizontalSpacing(10)
         layout.setVerticalSpacing(10)
         layout.setColumnStretch(1, 1)
-
         layout.addWidget(QLabel("Template preset"), 0, 0)
         layout.addWidget(self.rename_template_preset_combo, 0, 1)
-
         layout.addWidget(self.rename_template_label, 1, 0)
         layout.addWidget(self.rename_template_input, 1, 1)
         layout.addWidget(self.rename_apply_checkbox, 2, 1)
@@ -826,16 +1012,18 @@ class MediaManagerWindow(QMainWindow):
             table.horizontalHeader().setFont(table_font)
             table.horizontalHeader().setStretchLastSection(True)
             table.verticalHeader().setDefaultSectionSize(34)
-        for list_widget in [self.source_list, self.rename_source_list, self.duplicates_source_list]:
+        for list_widget in [self.source_list, self.rename_source_list, self.duplicates_source_list, self.workflow_source_list]:
             list_widget.setFont(list_font)
             list_widget.setSpacing(4)
 
     def _wire_signals(self) -> None:
         self.home_button.clicked.connect(lambda: self._set_current_page(0))
-        self.organize_button.clicked.connect(lambda: self._set_current_page(1))
-        self.rename_button.clicked.connect(lambda: self._set_current_page(2))
-        self.duplicates_button.clicked.connect(lambda: self._set_current_page(3))
-        self.target_input.textChanged.connect(self._refresh_summary_cards)
+        self.workflow_button.clicked.connect(lambda: self._set_current_page(1))
+        self.organize_button.clicked.connect(lambda: self._set_current_page(2))
+        self.rename_button.clicked.connect(lambda: self._set_current_page(3))
+        self.duplicates_button.clicked.connect(lambda: self._set_current_page(4))
+        self.target_input.textChanged.connect(self._on_target_changed)
+        self.workflow_target_input.textChanged.connect(self._on_workflow_target_changed)
         self.template_input.textChanged.connect(self._on_organize_template_changed)
         self.template_preset_combo.currentIndexChanged.connect(self._on_organize_template_preset_changed)
         self.apply_checkbox.stateChanged.connect(self._refresh_summary_cards)
@@ -844,17 +1032,22 @@ class MediaManagerWindow(QMainWindow):
         self.source_list.itemSelectionChanged.connect(self._refresh_source_details)
         self.rename_source_list.itemSelectionChanged.connect(self._refresh_rename_source_details)
         self.duplicates_source_list.itemSelectionChanged.connect(self._refresh_duplicates_source_details)
+        self.workflow_source_list.itemSelectionChanged.connect(self._refresh_workflow_source_details)
         self.rename_template_input.textChanged.connect(self._on_rename_template_changed)
         self.rename_template_preset_combo.currentIndexChanged.connect(self._on_rename_template_preset_changed)
         self.rename_apply_checkbox.stateChanged.connect(self._refresh_rename_summary_cards)
+        self.workflow_duplicates_step_card.button.clicked.connect(self._open_duplicates_from_workflow)
+        self.workflow_organize_step_card.button.clicked.connect(self._open_organize_from_workflow)
+        self.workflow_rename_step_card.button.clicked.connect(self._open_rename_from_workflow)
 
     def _set_current_page(self, index: int) -> None:
         self.stack.setCurrentIndex(index)
         button_states = {
             self.home_button: index == 0,
-            self.organize_button: index == 1,
-            self.rename_button: index == 2,
-            self.duplicates_button: index == 3,
+            self.workflow_button: index == 1,
+            self.organize_button: index == 2,
+            self.rename_button: index == 3,
+            self.duplicates_button: index == 4,
         }
         for button, active in button_states.items():
             button.setProperty("variant", None if active else "secondary")
@@ -898,6 +1091,9 @@ class MediaManagerWindow(QMainWindow):
 
     def _refresh_duplicates_source_details(self) -> None:
         self._refresh_list_details(self.duplicates_source_list, self.duplicates_source_details_label)
+
+    def _refresh_workflow_source_details(self) -> None:
+        self._refresh_list_details(self.workflow_source_list, self.workflow_source_details_label)
 
     def _refresh_list_details(self, list_widget: QListWidget, label: QLabel) -> None:
         selected_items = list_widget.selectedItems()
@@ -952,6 +1148,37 @@ class MediaManagerWindow(QMainWindow):
             self.rename_template_input.setText(template)
         self._update_rename_template_visibility()
 
+    def _on_target_changed(self) -> None:
+        self._refresh_summary_cards()
+        self._update_cross_module_suggestions()
+
+    def _on_workflow_target_changed(self) -> None:
+        self._refresh_workflow_summary_cards()
+        self._update_cross_module_suggestions()
+
+    def _workflow_source_dirs(self) -> list[str]:
+        return [str(path) for path in self._collect_paths(self.workflow_source_list)]
+
+    def _workflow_target_text(self) -> str:
+        return self.workflow_target_input.text().strip()
+
+    def _current_rename_suggestion(self) -> str:
+        organize_target = self.target_input.text().strip()
+        if organize_target:
+            return organize_target
+        return self._workflow_target_text()
+
+    def _workflow_next_action_label(self) -> str:
+        if not self._workflow_source_dirs() or not self._workflow_target_text():
+            return "Complete setup"
+        if self.workflow_step_statuses["duplicates"] == "Pending":
+            return "Review duplicates"
+        if self.workflow_step_statuses["organize"] == "Pending":
+            return "Run organize"
+        if self.workflow_step_statuses["rename"] == "Pending":
+            return "Run rename"
+        return "Review final result"
+
     def _refresh_summary_cards(self) -> None:
         source_count = self.source_list.count()
         self.sources_card.set_value(f"{source_count} folder" if source_count == 1 else f"{source_count} folders")
@@ -981,6 +1208,43 @@ class MediaManagerWindow(QMainWindow):
         if extra_duplicates is not None:
             self.duplicates_extra_card.set_value(str(extra_duplicates))
 
+    def _refresh_workflow_summary_cards(self) -> None:
+        source_count = self.workflow_source_list.count()
+        self.workflow_sources_card.set_value(f"{source_count} folder" if source_count == 1 else f"{source_count} folders")
+        target_text = self._workflow_target_text()
+        self.workflow_target_card.set_value((Path(target_text).name or target_text) if target_text else "Not set")
+        self.workflow_status_card.set_value(self.workflow_current_step)
+        self.workflow_next_card.set_value(self._workflow_next_action_label())
+        self.workflow_duplicates_step_card.set_status(self.workflow_step_statuses["duplicates"])
+        self.workflow_organize_step_card.set_status(self.workflow_step_statuses["organize"])
+        self.workflow_rename_step_card.set_status(self.workflow_step_statuses["rename"])
+
+    def _set_workflow_step_status(self, step: str, value: str) -> None:
+        self.workflow_step_statuses[step] = value
+        self._refresh_workflow_summary_cards()
+
+    def _update_cross_module_suggestions(self) -> None:
+        workflow_sources = self._workflow_source_dirs()
+        workflow_target = self._workflow_target_text()
+        workflow_target_label = (Path(workflow_target).name or workflow_target) if workflow_target else "not set"
+        self.organize_workflow_hint_label.setText(
+            f"Workflow suggestion: {len(workflow_sources)} source(s), target {workflow_target_label}."
+            if workflow_sources or workflow_target
+            else "No workflow setup connected yet."
+        )
+        self.duplicates_workflow_hint_label.setText(
+            f"Workflow sources ready: {len(workflow_sources)} folder(s)."
+            if workflow_sources
+            else "No workflow source set linked yet."
+        )
+        rename_target = self._current_rename_suggestion()
+        if rename_target:
+            self.rename_target_hint_label.setText(f"Suggested source: {rename_target}")
+            self.rename_use_target_button.setEnabled(True)
+        else:
+            self.rename_target_hint_label.setText("No suggested source from the previous target yet.")
+            self.rename_use_target_button.setEnabled(False)
+
     def _refresh_import_set_combo(self, selected_name: str | None = None) -> None:
         import_sets = list_import_sets(self.app_settings)
         self.import_set_combo.blockSignals(True)
@@ -1005,11 +1269,17 @@ class MediaManagerWindow(QMainWindow):
         exiftool_text = str(self.app_settings.get("exiftool_path", "")).strip()
         template_text = str(self.app_settings.get("target_template", DEFAULT_TARGET_TEMPLATE)).strip() or DEFAULT_TARGET_TEMPLATE
         rename_template_text = str(self.app_settings.get("rename_template", DEFAULT_RENAME_TEMPLATE)).strip() or DEFAULT_RENAME_TEMPLATE
+        workflow_target_text = str(self.app_settings.get("workflow_target_dir", "")).strip()
+        workflow_sources_raw = self.app_settings.get("workflow_source_dirs", [])
 
         if target_text:
             self.target_input.setText(target_text)
         self.template_input.setText(template_text)
         self.rename_template_input.setText(rename_template_text)
+        if workflow_target_text:
+            self.workflow_target_input.setText(workflow_target_text)
+        if isinstance(workflow_sources_raw, list):
+            self._populate_path_list(self.workflow_source_list, [str(value) for value in workflow_sources_raw])
         if exiftool_text and Path(exiftool_text).is_file():
             self.exiftool_input.setText(exiftool_text)
         else:
@@ -1028,6 +1298,8 @@ class MediaManagerWindow(QMainWindow):
         updated["exiftool_path"] = self.exiftool_input.text().strip()
         updated["target_template"] = self.template_input.text().strip() or DEFAULT_TARGET_TEMPLATE
         updated["rename_template"] = self.rename_template_input.text().strip() or DEFAULT_RENAME_TEMPLATE
+        updated["workflow_target_dir"] = self._workflow_target_text()
+        updated["workflow_source_dirs"] = self._workflow_source_dirs()
         save_app_settings(updated)
         self.app_settings = updated
 
@@ -1073,23 +1345,30 @@ class MediaManagerWindow(QMainWindow):
             self.duplicates_remove_source_button,
             self.duplicates_clear_sources_button,
             self.duplicates_source_list,
+            self.workflow_add_source_button,
+            self.workflow_remove_source_button,
+            self.workflow_clear_sources_button,
+            self.workflow_target_input,
+            self.workflow_target_browse_button,
+            self.workflow_apply_button,
+            self.workflow_start_button,
             self.home_button,
+            self.workflow_button,
             self.organize_button,
             self.rename_button,
             self.duplicates_button,
+            self.organize_use_workflow_button,
+            self.rename_use_target_button,
+            self.duplicates_use_workflow_button,
         ]:
             widget.setEnabled(enabled)
         QApplication.processEvents()
 
-    def _handle_progress(self, _label: QLabel, message: str) -> None:
+    def _handle_progress(self, message: str) -> None:
         self.status_bar.showMessage(message)
         QApplication.processEvents()
 
     def _resize_result_columns(self, table: QTableWidget) -> None:
-        if table.rowCount() == 0:
-            for column in range(table.columnCount()):
-                table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
-            return
         for column in range(table.columnCount()):
             table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
 
@@ -1143,6 +1422,7 @@ class MediaManagerWindow(QMainWindow):
         self.template_input.setText(item["target_template"])
         self._refresh_summary_cards()
         self._refresh_source_details()
+        self._update_cross_module_suggestions()
         self.status_bar.showMessage(f"Loaded import set: {item['name']}")
 
     def _delete_import_set(self) -> None:
@@ -1161,9 +1441,8 @@ class MediaManagerWindow(QMainWindow):
         selected = QFileDialog.getExistingDirectory(self, "Select source folder")
         if not selected:
             return
-        path = Path(selected)
-        self._add_path_item(self.source_list, path)
-        self.status_bar.showMessage(f"Added source folder: {path}")
+        self._add_path_item(self.source_list, Path(selected))
+        self.status_bar.showMessage(f"Added source folder: {selected}")
         self._refresh_summary_cards()
 
     def _remove_selected_sources(self) -> None:
@@ -1185,9 +1464,8 @@ class MediaManagerWindow(QMainWindow):
         selected = QFileDialog.getExistingDirectory(self, "Select source folder")
         if not selected:
             return
-        path = Path(selected)
-        self._add_path_item(self.rename_source_list, path)
-        self.status_bar.showMessage(f"Added source folder: {path}")
+        self._add_path_item(self.rename_source_list, Path(selected))
+        self.status_bar.showMessage(f"Added source folder: {selected}")
         self._refresh_rename_summary_cards()
 
     def _rename_remove_selected_sources(self) -> None:
@@ -1209,9 +1487,8 @@ class MediaManagerWindow(QMainWindow):
         selected = QFileDialog.getExistingDirectory(self, "Select source folder")
         if not selected:
             return
-        path = Path(selected)
-        self._add_path_item(self.duplicates_source_list, path)
-        self.status_bar.showMessage(f"Added source folder: {path}")
+        self._add_path_item(self.duplicates_source_list, Path(selected))
+        self.status_bar.showMessage(f"Added source folder: {selected}")
         self._refresh_duplicates_summary_cards()
 
     def _duplicates_remove_selected_sources(self) -> None:
@@ -1229,11 +1506,42 @@ class MediaManagerWindow(QMainWindow):
         self._refresh_duplicates_summary_cards()
         self._refresh_duplicates_source_details()
 
+    def _workflow_add_source_folder(self) -> None:
+        selected = QFileDialog.getExistingDirectory(self, "Select source folder")
+        if not selected:
+            return
+        self._add_path_item(self.workflow_source_list, Path(selected))
+        self.status_bar.showMessage(f"Added source folder: {selected}")
+        self._refresh_workflow_summary_cards()
+        self._update_cross_module_suggestions()
+
+    def _workflow_remove_selected_sources(self) -> None:
+        for item in self.workflow_source_list.selectedItems():
+            self.workflow_source_list.takeItem(self.workflow_source_list.row(item))
+        self._refresh_source_list_height(self.workflow_source_list)
+        self.status_bar.showMessage("Selected source folders removed")
+        self._refresh_workflow_summary_cards()
+        self._refresh_workflow_source_details()
+        self._update_cross_module_suggestions()
+
+    def _workflow_clear_sources(self) -> None:
+        self.workflow_source_list.clear()
+        self._refresh_source_list_height(self.workflow_source_list)
+        self.status_bar.showMessage("Source folder list cleared")
+        self._refresh_workflow_summary_cards()
+        self._refresh_workflow_source_details()
+        self._update_cross_module_suggestions()
+
     def _choose_target_folder(self) -> None:
         selected = QFileDialog.getExistingDirectory(self, "Select target folder")
         if selected:
             self.target_input.setText(str(Path(selected)))
-            self._refresh_summary_cards()
+
+    def _choose_workflow_target_folder(self) -> None:
+        selected = QFileDialog.getExistingDirectory(self, "Select final target folder")
+        if selected:
+            self.workflow_target_input.setText(str(Path(selected)))
+            self.status_bar.showMessage(f"Workflow target set: {selected}")
 
     def _choose_exiftool(self) -> None:
         selected, _ = QFileDialog.getOpenFileName(
@@ -1256,15 +1564,91 @@ class MediaManagerWindow(QMainWindow):
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(target_dir)))
 
+    def _validate_workflow_setup(self) -> tuple[list[Path], str] | None:
+        source_dirs = self._collect_paths(self.workflow_source_list)
+        target_text = self._workflow_target_text()
+        if not source_dirs:
+            QMessageBox.information(self, "Workflow", "Add at least one source folder first.")
+            return None
+        invalid_sources = [path for path in source_dirs if not path.is_dir()]
+        if invalid_sources:
+            QMessageBox.information(self, "Workflow", "The following workflow source folders are invalid:\n- " + "\n- ".join(str(path) for path in invalid_sources))
+            return None
+        if not target_text:
+            QMessageBox.information(self, "Workflow", "Select a target folder first.")
+            return None
+        return source_dirs, target_text
+
+    def _apply_workflow_setup_to_modules(self) -> None:
+        validated = self._validate_workflow_setup()
+        if validated is None:
+            return
+        source_dirs, target_text = validated
+        source_strings = [str(path) for path in source_dirs]
+        self._populate_path_list(self.source_list, source_strings)
+        self._populate_path_list(self.duplicates_source_list, source_strings)
+        self.target_input.setText(target_text)
+        self._refresh_summary_cards()
+        self._refresh_duplicates_summary_cards()
+        self._update_cross_module_suggestions()
+        self._save_settings()
+        self.status_bar.showMessage("Workflow setup applied to organize and duplicates")
+
+    def _apply_workflow_setup_to_duplicates(self) -> None:
+        source_strings = self._workflow_source_dirs()
+        if not source_strings:
+            QMessageBox.information(self, "Duplicates", "No workflow source folders are available yet.")
+            return
+        self._populate_path_list(self.duplicates_source_list, source_strings)
+        self._refresh_duplicates_summary_cards()
+        self._refresh_duplicates_source_details()
+        self.status_bar.showMessage("Workflow source folders applied to duplicates")
+
+    def _use_current_target_for_rename(self) -> None:
+        suggestion = self._current_rename_suggestion()
+        if not suggestion:
+            QMessageBox.information(self, "Rename", "No previous target is available yet.")
+            return
+        self._populate_path_list(self.rename_source_list, [suggestion])
+        self._refresh_rename_summary_cards()
+        self._refresh_rename_source_details()
+        self.status_bar.showMessage("Previous target applied as rename source")
+
+    def _start_guided_workflow(self) -> None:
+        validated = self._validate_workflow_setup()
+        if validated is None:
+            return
+        self.workflow_current_step = "Duplicates"
+        self._set_workflow_step_status("duplicates", "Ready")
+        self._apply_workflow_setup_to_modules()
+        self._set_current_page(4)
+        self.status_bar.showMessage("Guided workflow started — continue with duplicates")
+
+    def _open_duplicates_from_workflow(self) -> None:
+        self._apply_workflow_setup_to_duplicates()
+        self.workflow_current_step = "Duplicates"
+        self._refresh_workflow_summary_cards()
+        self._set_current_page(4)
+
+    def _open_organize_from_workflow(self) -> None:
+        self._apply_workflow_setup_to_modules()
+        self.workflow_current_step = "Organize"
+        self._refresh_workflow_summary_cards()
+        self._set_current_page(2)
+
+    def _open_rename_from_workflow(self) -> None:
+        self._use_current_target_for_rename()
+        self.workflow_current_step = "Rename"
+        self._refresh_workflow_summary_cards()
+        self._set_current_page(3)
+
     def _clear_results(self) -> None:
         self.results_table.setRowCount(0)
-        self.results_summary_label.setText("No run yet.")
         self._resize_result_columns(self.results_table)
         self.status_bar.showMessage("Results cleared")
 
     def _rename_clear_results(self) -> None:
         self.rename_results_table.setRowCount(0)
-        self.rename_results_summary_label.setText("No run yet.")
         self._resize_result_columns(self.rename_results_table)
         self.status_bar.showMessage("Results cleared")
 
@@ -1312,10 +1696,9 @@ class MediaManagerWindow(QMainWindow):
         self.status_bar.showMessage("Preparing organizer run ...")
         self._set_run_state(True)
         try:
-            results = organize_media(config, progress_callback=lambda message: self._handle_progress(self.results_summary_label, message))
+            results = organize_media(config, progress_callback=self._handle_progress)
         except Exception as exc:  # pragma: no cover - GUI fallback
             QMessageBox.critical(self, "Error", str(exc))
-            self.results_summary_label.setText("An error occurred.")
             self.status_bar.showMessage("An error occurred")
             return
         finally:
@@ -1338,19 +1721,18 @@ class MediaManagerWindow(QMainWindow):
             for column_index, (display_value, tooltip_value, center) in enumerate(values):
                 self.results_table.setItem(row_index, column_index, self._make_result_item(display_value, tooltip_value, center=center))
         self._resize_result_columns(self.results_table)
+        self.workflow_target_input.setText(target_text)
+        self._set_workflow_step_status("organize", f"Done ({results.organized})")
+        self.workflow_current_step = "Rename"
+        self._refresh_workflow_summary_cards()
+        self._use_current_target_for_rename()
 
         if is_prerun:
             self.apply_checkbox.setChecked(True)
-            self.results_summary_label.setText(
-                f"Pre-run finished — {results.processed} file(s), {results.organized} action(s), {results.errors} error(s). Apply is now enabled."
-            )
             self.status_bar.showMessage(
                 f"Pre-run finished | Processed: {results.processed} | Planned: {results.organized} | Errors: {results.errors} | Apply enabled"
             )
         else:
-            self.results_summary_label.setText(
-                f"Run finished — {results.processed} file(s), {results.organized} action(s), {results.errors} error(s)."
-            )
             self.status_bar.showMessage(
                 f"Run finished | Processed: {results.processed} | Executed: {results.organized} | Skipped: {results.skipped} | Errors: {results.errors}"
             )
@@ -1381,10 +1763,9 @@ class MediaManagerWindow(QMainWindow):
         self.status_bar.showMessage("Preparing rename run ...")
         self._set_run_state(True)
         try:
-            results = rename_media(config, progress_callback=lambda message: self._handle_progress(self.rename_results_summary_label, message))
+            results = rename_media(config, progress_callback=self._handle_progress)
         except Exception as exc:  # pragma: no cover - GUI fallback
             QMessageBox.critical(self, "Error", str(exc))
-            self.rename_results_summary_label.setText("An error occurred.")
             self.status_bar.showMessage("An error occurred")
             return
         finally:
@@ -1404,19 +1785,16 @@ class MediaManagerWindow(QMainWindow):
             for column_index, (display_value, tooltip_value, center) in enumerate(values):
                 self.rename_results_table.setItem(row_index, column_index, self._make_result_item(display_value, tooltip_value, center=center))
         self._resize_result_columns(self.rename_results_table)
+        self._set_workflow_step_status("rename", f"Done ({results.renamed})")
+        self.workflow_current_step = "Finished"
+        self._refresh_workflow_summary_cards()
 
         if is_prerun:
             self.rename_apply_checkbox.setChecked(True)
-            self.rename_results_summary_label.setText(
-                f"Pre-run finished — {results.processed} file(s), {results.renamed} rename action(s), {results.errors} error(s). Apply is now enabled."
-            )
             self.status_bar.showMessage(
                 f"Pre-run finished | Processed: {results.processed} | Planned: {results.renamed} | Errors: {results.errors} | Apply enabled"
             )
         else:
-            self.rename_results_summary_label.setText(
-                f"Run finished — {results.processed} file(s), {results.renamed} rename action(s), {results.errors} error(s)."
-            )
             self.status_bar.showMessage(
                 f"Run finished | Processed: {results.processed} | Executed: {results.renamed} | Skipped: {results.skipped} | Errors: {results.errors}"
             )
@@ -1438,7 +1816,7 @@ class MediaManagerWindow(QMainWindow):
         self.status_bar.showMessage("Preparing duplicate scan ...")
         self._set_run_state(True)
         try:
-            result = scan_exact_duplicates(config, progress_callback=lambda message: self._handle_progress(self.results_summary_label, message))
+            result = scan_exact_duplicates(config, progress_callback=self._handle_progress)
         except Exception as exc:  # pragma: no cover - GUI fallback
             QMessageBox.critical(self, "Error", str(exc))
             self.status_bar.showMessage("An error occurred")
@@ -1470,6 +1848,9 @@ class MediaManagerWindow(QMainWindow):
             duplicate_files=result.exact_duplicate_files,
             extra_duplicates=result.exact_duplicates,
         )
+        self._set_workflow_step_status("duplicates", f"Done ({len(result.exact_groups)} groups)")
+        self.workflow_current_step = "Organize"
+        self._refresh_workflow_summary_cards()
         self.status_bar.showMessage(
             f"Duplicate scan finished | Scanned: {result.scanned_files} | Exact groups: {len(result.exact_groups)} | Duplicate files: {result.exact_duplicate_files} | Extra duplicates: {result.exact_duplicates} | Errors: {result.errors}"
         )
