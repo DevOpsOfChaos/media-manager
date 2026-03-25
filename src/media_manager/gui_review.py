@@ -1,1 +1,370 @@
-ZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IHN5cwpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKCmZyb20gUHlTaWRlNi5RdENvcmUgaW1wb3J0IFFVcmwKZnJvbSBQeVNpZGU2LlF0R3VpIGltcG9ydCBRRGVza3RvcFNlcnZpY2VzCmZyb20gUHlTaWRlNi5RdFdpZGdldHMgaW1wb3J0ICgKICAgIFFBcHBsaWNhdGlvbiwKICAgIFFHcm91cEJveCwKICAgIFFIQm94TGF5b3V0LAogICAgUUxhYmVsLAogICAgUU1lc3NhZ2VCb3gsCiAgICBRUHVzaEJ1dHRvbiwKICAgIFFWQm94TGF5b3V0LAopCgpmcm9tIC5kdXBsaWNhdGVfcmV2aWV3IGltcG9ydCAoCiAgICBjb3VudF9tYXJrZWRfZm9yX3JlbW92YWwsCiAgICBkZWZhdWx0X2tlZXBfcGF0aCwKICAgIG5ld2VzdF9rZWVwX3BhdGgsCiAgICBvbGRlc3Rfa2VlcF9wYXRoLAogICAgcGF0aHNfbWFya2VkX2Zvcl9yZW1vdmFsLAopCmZyb20gLmR1cGxpY2F0ZXMgaW1wb3J0IER1cGxpY2F0ZVNjYW5Db25maWcsIEV4YWN0RHVwbGljYXRlR3JvdXAsIHNjYW5fZXhhY3RfZHVwbGljYXRlcwpmcm9tIC5ndWkgaW1wb3J0IEFQUF9TVFlMRVNIRUVULCBNZWRpYU1hbmFnZXJXaW5kb3cgYXMgQmFzZU1lZGlhTWFuYWdlcldpbmRvdwoKCmNsYXNzIE1lZGlhTWFuYWdlcldpbmRvdyhCYXNlTWVkaWFNYW5hZ2VyV2luZG93KToKICAgIGRlZiBfX2luaXRfXyhzZWxmKSAtPiBOb25lOgogICAgICAgIHN1cGVyKCkuX19pbml0X18oKQogICAgICAgIHNlbGYuZHVwbGljYXRlX2dyb3VwczogbGlzdFtFeGFjdER1cGxpY2F0ZUdyb3VwXSA9IFtdCiAgICAgICAgc2VsZi5kdXBsaWNhdGVfa2VlcF9wYXRoczogZGljdFtpbnQsIFBhdGhdID0ge30KICAgICAgICBzZWxmLmR1cGxpY2F0ZV9yb3dfbWFwOiBsaXN0W3R1cGxlW2ludCwgUGF0aF1dID0gW10KICAgICAgICBzZWxmLl91cGdyYWRlX2R1cGxpY2F0ZXNfd29ya3NwYWNlKCkKCiAgICBkZWYgX3VwZ3JhZGVfZHVwbGljYXRlc193b3Jrc3BhY2Uoc2VsZikgLT4gTm9uZToKICAgICAgICBzZWxmLl9zZXRfY2FyZF90aXRsZShzZWxmLmR1cGxpY2F0ZXNfZmlsZXNfY2FyZCwgIkZpbGVzIGluIGdyb3VwcyIpCiAgICAgICAgc2VsZi5fc2V0X2NhcmRfdGl0bGUoc2VsZi5kdXBsaWNhdGVzX2V4dHJhX2NhcmQsICJNYXJrZWQgcmVtb3ZlIikKCiAgICAgICAgc2VsZi5kdXBsaWNhdGVzX3Jlc3VsdHNfdGFibGUuc2V0Q29sdW1uQ291bnQoNikKICAgICAgICBzZWxmLmR1cGxpY2F0ZXNfcmVzdWx0c190YWJsZS5zZXRIb3Jpem9udGFsSGVhZGVyTGFiZWxzKFsKICAgICAgICAgICAgIkdyb3VwIiwKICAgICAgICAgICAgIkRlY2lzaW9uIiwKICAgICAgICAgICAgIkZpbGUiLAogICAgICAgICAgICAiRm9sZGVyIiwKICAgICAgICAgICAgIlNpemUiLAogICAgICAgICAgICAiTm90ZXMiLAogICAgICAgIF0pCiAgICAgICAgc2VsZi5kdXBsaWNhdGVzX3Jlc3VsdHNfdGFibGUuaXRlbVNlbGVjdGlvbkNoYW5nZWQuY29ubmVjdChzZWxmLl9yZWZyZXNoX2R1cGxpY2F0ZV9zZWxlY3Rpb25faGludCkKCiAgICAgICAgcmV2aWV3X2dyb3VwID0gUUdyb3VwQm94KCJSZXZpZXcgYW5kIGFwcGx5IikKICAgICAgICByZXZpZXdfbGF5b3V0ID0gUVZCb3hMYXlvdXQocmV2aWV3X2dyb3VwKQogICAgICAgIHJldmlld19sYXlvdXQuc2V0U3BhY2luZygxMCkKCiAgICAgICAga2VlcF9yb3cgPSBRSEJveExheW91dCgpCiAgICAgICAgc2VsZi5kdXBsaWNhdGVzX2tlZXBfc2VsZWN0ZWRfYnV0dG9uID0gUVB1c2hCdXR0b24oIktlZXAgc2VsZWN0ZWQiKQogICAgICAgIHNlbGYuZHVwbGljYXRlc19rZWVwX25ld2VzdF9idXR0b24gPSBRUHVzaEJ1dHRvbigiS2VlcCBuZXdlc3QiKQogICAgICAgIHNlbGYuZHVwbGljYXRlc19rZWVwX29sZGVzdF9idXR0b24gPSBRUHVzaEJ1dHRvbigiS2VlcCBvbGRlc3QiKQogICAgICAgIHNlbGYuZHVwbGljYXRlc19yZXNldF9ncm91cF9idXR0b24gPSBRUHVzaEJ1dHRvbigiUmVzZXQgZ3JvdXAiKQogICAgICAgIGZvciBidXR0b24gaW4gWwogICAgICAgICAgICBzZWxmLmR1cGxpY2F0ZXNfa2VlcF9zZWxlY3RlZF9idXR0b24sCiAgICAgICAgICAgIHNlbGYuZHVwbGljYXRlc19rZWVwX25ld2VzdF9idXR0b24sCiAgICAgICAgICAgIHNlbGYuZHVwbGljYXRlc19rZWVwX29sZGVzdF9idXR0b24sCiAgICAgICAgICAgIHNlbGYuZHVwbGljYXRlc19yZXNldF9ncm91cF9idXR0b24sCiAgICAgICAgXToKICAgICAgICAgICAgYnV0dG9uLnNldFByb3BlcnR5KCJ2YXJpYW50IiwgInNlY29uZGFyeSIpCiAgICAgICAgc2VsZi5kdXBsaWNhdGVzX2tlZXBfc2VsZWN0ZWRfYnV0dG9uLmNsaWNrZWQuY29ubmVjdChzZWxmLl9rZWVwX3NlbGVjdGVkX2R1cGxpY2F0ZSkKICAgICAgICBzZWxmLmR1cGxpY2F0ZXNfa2VlcF9uZXdlc3RfYnV0dG9uLmNsaWNrZWQuY29ubmVjdChzZWxmLl9rZWVwX25ld2VzdF9kdXBsaWNhdGUpCiAgICAgICAgc2VsZi5kdXBsaWNhdGVzX2tlZXBfb2xkZXN0X2J1dHRvbi5jbGlja2VkLmNvbm5lY3Qoc2VsZi5fa2VlcF9vbGRlc3RfZHVwbGljYXRlKQogICAgICAgIHNlbGYuZHVwbGljYXRlc19yZXNldF9ncm91cF9idXR0b24uY2xpY2tlZC5jb25uZWN0KHNlbGYuX3Jlc2V0X3NlbGVjdGVkX2R1cGxpY2F0ZV9ncm91cCkKICAgICAgICBrZWVwX3Jvdy5hZGRXaWRnZXQoc2VsZi5kdXBsaWNhdGVzX2tlZXBfc2VsZWN0ZWRfYnV0dG9uKQogICAgICAgIGtlZXBfcm93LmFkZFdpZGdldChzZWxmLmR1cGxpY2F0ZXNfa2VlcF9uZXdlc3RfYnV0dG9uKQogICAgICAgIGtlZXBfcm93LmFkZFdpZGdldChzZWxmLmR1cGxpY2F0ZXNfa2VlcF9vbGRlc3RfYnV0dG9uKQogICAgICAgIGtlZXBfcm93LmFkZFdpZGdldChzZWxmLmR1cGxpY2F0ZXNfcmVzZXRfZ3JvdXBfYnV0dG9uKQogICAgICAgIGtlZXBfcm93LmFkZFN0cmV0Y2goMSkKICAgICAgICByZXZpZXdfbGF5b3V0LmFkZExheW91dChrZWVwX3JvdykKCiAgICAgICAgYXBwbHlfcm93ID0gUUhCb3hMYXlvdXQoKQogICAgICAgIHNlbGYuZHVwbGljYXRlc19vcGVuX2ZvbGRlcl9idXR0b24gPSBRUHVzaEJ1dHRvbigiT3BlbiBzZWxlY3RlZCBmb2xkZXIiKQogICAgICAgIHNlbGYuZHVwbGljYXRlc19hcHBseV9yZXZpZXdfYnV0dG9uID0gUVB1c2hCdXR0b24oIlNlbmQgbWFya2VkIGZpbGVzIHRvIFJlY3ljbGUgQmluIikKICAgICAgICBzZWxmLmR1cGxpY2F0ZXNfb3Blbl9mb2xkZXJfYnV0dG9uLnNldFByb3BlcnR5KCJ2YXJpYW50IiwgInNlY29uZGFyeSIpCiAgICAgICAgc2VsZi5kdXBsaWNhdGVzX2FwcGx5X3Jldmlld19idXR0b24uc2V0UHJvcGVydHkoInZhcmlhbnQiLCAic2Vjb25kYXJ5IikKICAgICAgICBzZWxmLmR1cGxpY2F0ZXNfb3Blbl9mb2xkZXJfYnV0dG9uLmNsaWNrZWQuY29ubmVjdChzZWxmLl9vcGVuX3NlbGVjdGVkX2R1cGxpY2F0ZV9mb2xkZXIpCiAgICAgICAgc2VsZi5kdXBsaWNhdGVzX2FwcGx5X3Jldmlld19idXR0b24uY2xpY2tlZC5jb25uZWN0KHNlbGYuX2FwcGx5X2R1cGxpY2F0ZV9yZXZpZXdfdG9fdHJhc2gpCiAgICAgICAgYXBwbHlfcm93LmFkZFdpZGdldChzZWxmLmR1cGxpY2F0ZXNfb3Blbl9mb2xkZXJfYnV0dG9uKQogICAgICAgIGFwcGx5X3Jvdy5hZGRXaWRnZXQoc2VsZi5kdXBsaWNhdGVzX2FwcGx5X3Jldmlld19idXR0b24pCiAgICAgICAgYXBwbHlfcm93LmFkZFN0cmV0Y2goMSkKICAgICAgICByZXZpZXdfbGF5b3V0LmFkZExheW91dChhcHBseV9yb3cpCgogICAgICAgIHNlbGYuZHVwbGljYXRlc19yZXZpZXdfaGludF9sYWJlbCA9IFFMYWJlbCgiUnVuIGEgZHVwbGljYXRlIHNjYW4gdG8gc3RhcnQgcmV2aWV3IGFjdGlvbnMuIikKICAgICAgICBzZWxmLmR1cGxpY2F0ZXNfcmV2aWV3X2hpbnRfbGFiZWwuc2V0V29yZFdyYXAoVHJ1ZSkKICAgICAgICBzZWxmLmR1cGxpY2F0ZXNfcmV2aWV3X2hpbnRfbGFiZWwuc2V0U3R5bGVTaGVldCgiY29sb3I6ICNBRkMxRDk7IikKICAgICAgICByZXZpZXdfbGF5b3V0LmFkZFdpZGdldChzZWxmLmR1cGxpY2F0ZXNfcmV2aWV3X2hpbnRfbGFiZWwpCgogICAgICAgIGR1cGxpY2F0ZXNfcGFnZSA9IHNlbGYuc3RhY2sud2lkZ2V0KDQpCiAgICAgICAgb3V0ZXJfbGF5b3V0ID0gZHVwbGljYXRlc19wYWdlLmxheW91dCgpCiAgICAgICAgY29udGVudF9sYXlvdXQgPSBvdXRlcl9sYXlvdXQuaXRlbUF0KDIpLmxheW91dCgpCiAgICAgICAgY29udHJvbHNfcGFuZWwgPSBjb250ZW50X2xheW91dC5pdGVtQXQoMCkud2lkZ2V0KCkKICAgICAgICBjb250cm9sc19sYXlvdXQgPSBjb250cm9sc19wYW5lbC5sYXlvdXQoKQogICAgICAgIGNvbnRyb2xzX2xheW91dC5pbnNlcnRXaWRnZXQoMiwgcmV2aWV3X2dyb3VwKQogICAgICAgIHNlbGYuX3Jlc2l6ZV9yZXN1bHRfY29sdW1ucyhzZWxmLmR1cGxpY2F0ZXNfcmVzdWx0c190YWJsZSkKICAgICAgICBzZWxmLl91cGRhdGVfZHVwbGljYXRlX3Jldmlld19idXR0b25zKCkKCiAgICBkZWYgX3NldF9jYXJkX3RpdGxlKHNlbGYsIGNhcmQsIHRpdGxlOiBzdHIpIC0+IE5vbmU6CiAgICAgICAgdGl0bGVfd2lkZ2V0ID0gY2FyZC5sYXlvdXQoKS5pdGVtQXQoMCkud2lkZ2V0KCkKICAgICAgICBpZiBpc2luc3RhbmNlKHRpdGxlX3dpZGdldCwgUUxhYmVsKToKICAgICAgICAgICAgdGl0bGVfd2lkZ2V0LnNldFRleHQodGl0bGUpCgogICAgZGVmIF9yZWZyZXNoX2R1cGxpY2F0ZXNfc3VtbWFyeV9jYXJkcygKICAgICAgICBzZWxmLAogICAgICAgIGdyb3VwczogaW50IHwgTm9uZSA9IE5vbmUsCiAgICAgICAgZHVwbGljYXRlX2ZpbGVzOiBpbnQgfCBOb25lID0gTm9uZSwKICAgICAgICBleHRyYV9kdXBsaWNhdGVzOiBpbnQgfCBOb25lID0gTm9uZSwKICAgICkgLT4gTm9uZToKICAgICAgICBzb3VyY2VfY291bnQgPSBzZWxmLmR1cGxpY2F0ZXNfc291cmNlX2xpc3QuY291bnQoKQogICAgICAgIHNlbGYuZHVwbGljYXRlc19zb3VyY2VzX2NhcmQuc2V0X3ZhbHVlKGYie3NvdXJjZV9jb3VudH0gZm9sZGVyIiBpZiBzb3VyY2VfY291bnQgPT0gMSBlbHNlIGYie3NvdXJjZV9jb3VudH0gZm9sZGVycyIpCiAgICAgICAgaWYgZ3JvdXBzIGlzIG5vdCBOb25lOgogICAgICAgICAgICBzZWxmLmR1cGxpY2F0ZXNfZ3JvdXBzX2NhcmQuc2V0X3ZhbHVlKHN0cihncm91cHMpKQogICAgICAgIGlmIGR1cGxpY2F0ZV9maWxlcyBpcyBub3QgTm9uZToKICAgICAgICAgICAgc2VsZi5kdXBsaWNhdGVzX2ZpbGVzX2NhcmQuc2V0X3ZhbHVlKHN0cihkdXBsaWNhdGVfZmlsZXMpKQogICAgICAgIGlmIGV4dHJhX2R1cGxpY2F0ZXMgaXMgbm90IE5vbmU6CiAgICAgICAgICAgIHNlbGYuZHVwbGljYXRlc19leHRyYV9jYXJkLnNldF92YWx1ZShzdHIoZXh0cmFfZHVwbGljYXRlcykpCgogICAgZGVmIF9zZXRfcnVuX3N0YXRlKHNlbGYsIHJ1bm5pbmc6IGJvb2wpIC0+IE5vbmU6CiAgICAgICAgc3VwZXIoKS5fc2V0X3J1bl9zdGF0ZShydW5uaW5nKQogICAgICAgIHNlbGYuX3VwZGF0ZV9kdXBsaWNhdGVfcmV2aWV3X2J1dHRvbnMoaXNfcnVubmluZz1ydW5uaW5nKQoKICAgIGRlZiBfc2VsZWN0ZWRfZHVwbGljYXRlX2NvbnRleHQoc2VsZikgLT4gdHVwbGVbaW50LCBQYXRoXSB8IE5vbmU6CiAgICAgICAgc2VsZWN0ZWRfaW5kZXhlcyA9IHNlbGYuZHVwbGljYXRlc19yZXN1bHRzX3RhYmxlLnNlbGVjdGlvbk1vZGVsKCkuc2VsZWN0ZWRSb3dzKCkKICAgICAgICBpZiBub3Qgc2VsZWN0ZWRfaW5kZXhlczoKICAgICAgICAgICAgcmV0dXJuIE5vbmUKICAgICAgICByb3cgPSBzZWxlY3RlZF9pbmRleGVzWzBdLnJvdygpCiAgICAgICAgaWYgcm93IDwgMCBvciByb3cgPj0gbGVuKHNlbGYuZHVwbGljYXRlX3Jvd19tYXApOgogICAgICAgICAgICByZXR1cm4gTm9uZQogICAgICAgIHJldHVybiBzZWxmLmR1cGxpY2F0ZV9yb3dfbWFwW3Jvd10KCiAgICBkZWYgX2NvdW50X21hcmtlZF9kdXBsaWNhdGVzKHNlbGYpIC0+IGludDoKICAgICAgICB0b3RhbCA9IDAKICAgICAgICBmb3IgZ3JvdXBfaW5kZXgsIGdyb3VwIGluIGVudW1lcmF0ZShzZWxmLmR1cGxpY2F0ZV9ncm91cHMpOgogICAgICAgICAgICBrZWVwX3BhdGggPSBzZWxmLmR1cGxpY2F0ZV9rZWVwX3BhdGhzLmdldChncm91cF9pbmRleCkKICAgICAgICAgICAgaWYga2VlcF9wYXRoIGlzIE5vbmU6CiAgICAgICAgICAgICAgICBjb250aW51ZQogICAgICAgICAgICB0b3RhbCArPSBjb3VudF9tYXJrZWRfZm9yX3JlbW92YWwoZ3JvdXAuZmlsZXMsIGtlZXBfcGF0aCkKICAgICAgICByZXR1cm4gdG90YWwKCiAgICBkZWYgX3JlZnJlc2hfZHVwbGljYXRlX3NlbGVjdGlvbl9oaW50KHNlbGYpIC0+IE5vbmU6CiAgICAgICAgY29udGV4dCA9IHNlbGYuX3NlbGVjdGVkX2R1cGxpY2F0ZV9jb250ZXh0KCkKICAgICAgICBpZiBjb250ZXh0IGlzIE5vbmU6CiAgICAgICAgICAgIGlmIHNlbGYuZHVwbGljYXRlX2dyb3VwczoKICAgICAgICAgICAgICAgIHNlbGYuZHVwbGljYXRlc19yZXZpZXdfaGludF9sYWJlbC5zZXRUZXh0KAogICAgICAgICAgICAgICAgICAgIGYiUmV2aWV3IGxvYWRlZC4gTWFya2VkIGZvciByZW1vdmFsOiB7c2VsZi5fY291bnRfbWFya2VkX2R1cGxpY2F0ZXMoKX0gZmlsZShzKS4iCiAgICAgICAgICAgICAgICApCiAgICAgICAgICAgIGVsc2U6CiAgICAgICAgICAgICAgICBzZWxmLmR1cGxpY2F0ZXNfcmV2aWV3X2hpbnRfbGFiZWwuc2V0VGV4dCgiUnVuIGEgZHVwbGljYXRlIHNjYW4gdG8gc3RhcnQgcmV2aWV3IGFjdGlvbnMuIikKICAgICAgICAgICAgc2VsZi5fdXBkYXRlX2R1cGxpY2F0ZV9yZXZpZXdfYnV0dG9ucygpCiAgICAgICAgICAgIHJldHVybgoKICAgICAgICBncm91cF9pbmRleCwgc2VsZWN0ZWRfcGF0aCA9IGNvbnRleHQKICAgICAgICBrZWVwX3BhdGggPSBzZWxmLmR1cGxpY2F0ZV9rZWVwX3BhdGhzLmdldChncm91cF9pbmRleCkKICAgICAgICBpZiBrZWVwX3BhdGggaXMgTm9uZToKICAgICAgICAgICAgc2VsZi5kdXBsaWNhdGVzX3Jldmlld19oaW50X2xhYmVsLnNldFRleHQoIk5vIGtlZXAgZGVjaXNpb24gZm9yIHRoaXMgZ3JvdXAgeWV0LiIpCiAgICAgICAgZWxzZToKICAgICAgICAgICAgcmVtb3ZlX2NvdW50ID0gY291bnRfbWFya2VkX2Zvcl9yZW1vdmFsKHNlbGYuZHVwbGljYXRlX2dyb3Vwc1tncm91cF9pbmRleF0uZmlsZXMsIGtlZXBfcGF0aCkKICAgICAgICAgICAgZGVjaXNpb24gPSAiS0VFUCIgaWYgc2VsZWN0ZWRfcGF0aCA9PSBrZWVwX3BhdGggZWxzZSAiUkVNT1ZFIgogICAgICAgICAgICBzZWxmLmR1cGxpY2F0ZXNfcmV2aWV3X2hpbnRfbGFiZWwuc2V0VGV4dCgKICAgICAgICAgICAgICAgIGYiR3JvdXAge2dyb3VwX2luZGV4ICsgMX06IHNlbGVjdGVkID0ge3NlbGVjdGVkX3BhdGgubmFtZX0gKHtkZWNpc2lvbn0pIHwga2VlcCA9IHtrZWVwX3BhdGgubmFtZX0gfCByZW1vdmUgPSB7cmVtb3ZlX2NvdW50fSIKICAgICAgICAgICAgKQogICAgICAgIHNlbGYuX3VwZGF0ZV9kdXBsaWNhdGVfcmV2aWV3X2J1dHRvbnMoKQoKICAgIGRlZiBfdXBkYXRlX2R1cGxpY2F0ZV9yZXZpZXdfYnV0dG9ucyhzZWxmLCAqLCBpc19ydW5uaW5nOiBib29sID0gRmFsc2UpIC0+IE5vbmU6CiAgICAgICAgaGFzX3NlbGVjdGlvbiA9IHNlbGYuX3NlbGVjdGVkX2R1cGxpY2F0ZV9jb250ZXh0KCkgaXMgbm90IE5vbmUKICAgICAgICBoYXNfZ3JvdXBzID0gYm9vbChzZWxmLmR1cGxpY2F0ZV9ncm91cHMpCiAgICAgICAgaGFzX21hcmtlZCA9IHNlbGYuX2NvdW50X21hcmtlZF9kdXBsaWNhdGVzKCkgPiAwCiAgICAgICAgc3RhdGUgPSB7CiAgICAgICAgICAgIHNlbGYuZHVwbGljYXRlc19rZWVwX3NlbGVjdGVkX2J1dHRvbjogaGFzX3NlbGVjdGlvbiBhbmQgbm90IGlzX3J1bm5pbmcsCiAgICAgICAgICAgIHNlbGYuZHVwbGljYXRlc19rZWVwX25ld2VzdF9idXR0b246IGhhc19zZWxlY3Rpb24gYW5kIG5vdCBpc19ydW5uaW5nLAogICAgICAgICAgICBzZWxmLmR1cGxpY2F0ZXNfa2VlcF9vbGRlc3RfYnV0dG9uOiBoYXNfc2VsZWN0aW9uIGFuZCBub3QgaXNfcnVubmluZywKICAgICAgICAgICAgc2VsZi5kdXBsaWNhdGVzX3Jlc2V0X2dyb3VwX2J1dHRvbjogaGFzX3NlbGVjdGlvbiBhbmQgbm90IGlzX3J1bm5pbmcsCiAgICAgICAgICAgIHNlbGYuZHVwbGljYXRlc19vcGVuX2ZvbGRlcl9idXR0b246IGhhc19zZWxlY3Rpb24gYW5kIG5vdCBpc19ydW5uaW5nLAogICAgICAgICAgICBzZWxmLmR1cGxpY2F0ZXNfYXBwbHlfcmV2aWV3X2J1dHRvbjogaGFzX21hcmtlZCBhbmQgbm90IGlzX3J1bm5pbmcsCiAgICAgICAgfQogICAgICAgIGZvciBidXR0b24sIGVuYWJsZWQgaW4gc3RhdGUuaXRlbXMoKToKICAgICAgICAgICAgYnV0dG9uLnNldEVuYWJsZWQoZW5hYmxlZCkKICAgICAgICBpZiBub3QgaGFzX2dyb3VwczoKICAgICAgICAgICAgc2VsZi5kdXBsaWNhdGVzX2FwcGx5X3Jldmlld19idXR0b24uc2V0RW5hYmxlZChGYWxzZSkKCiAgICBkZWYgX3NldF9kdXBsaWNhdGVfa2VlcF9wYXRoKHNlbGYsIGdyb3VwX2luZGV4OiBpbnQsIGtlZXBfcGF0aDogUGF0aCkgLT4gTm9uZToKICAgICAgICBzZWxmLmR1cGxpY2F0ZV9rZWVwX3BhdGhzW2dyb3VwX2luZGV4XSA9IGtlZXBfcGF0aAogICAgICAgIHNlbGYuX3BvcHVsYXRlX2R1cGxpY2F0ZXNfcmVzdWx0c190YWJsZSgpCiAgICAgICAgc2VsZi5fcmVmcmVzaF9kdXBsaWNhdGVfc2VsZWN0aW9uX2hpbnQoKQoKICAgIGRlZiBfa2VlcF9zZWxlY3RlZF9kdXBsaWNhdGUoc2VsZikgLT4gTm9uZToKICAgICAgICBjb250ZXh0ID0gc2VsZi5fc2VsZWN0ZWRfZHVwbGljYXRlX2NvbnRleHQoKQogICAgICAgIGlmIGNvbnRleHQgaXMgTm9uZToKICAgICAgICAgICAgcmV0dXJuCiAgICAgICAgZ3JvdXBfaW5kZXgsIHNlbGVjdGVkX3BhdGggPSBjb250ZXh0CiAgICAgICAgc2VsZi5fc2V0X2R1cGxpY2F0ZV9rZWVwX3BhdGgoZ3JvdXBfaW5kZXgsIHNlbGVjdGVkX3BhdGgpCiAgICAgICAgc2VsZi5zdGF0dXNfYmFyLnNob3dNZXNzYWdlKGYiR3JvdXAge2dyb3VwX2luZGV4ICsgMX06IGtlZXAge3NlbGVjdGVkX3BhdGgubmFtZX0iKQoKICAgIGRlZiBfa2VlcF9uZXdlc3RfZHVwbGljYXRlKHNlbGYpIC0+IE5vbmU6CiAgICAgICAgY29udGV4dCA9IHNlbGYuX3NlbGVjdGVkX2R1cGxpY2F0ZV9jb250ZXh0KCkKICAgICAgICBpZiBjb250ZXh0IGlzIE5vbmU6CiAgICAgICAgICAgIHJldHVybgogICAgICAgIGdyb3VwX2luZGV4LCBfID0gY29udGV4dAogICAgICAgIGtlZXBfcGF0aCA9IG5ld2VzdF9rZWVwX3BhdGgoc2VsZi5kdXBsaWNhdGVfZ3JvdXBzW2dyb3VwX2luZGV4XS5maWxlcykKICAgICAgICBzZWxmLl9zZXRfZHVwbGljYXRlX2tlZXBfcGF0aChncm91cF9pbmRleCwga2VlcF9wYXRoKQogICAgICAgIHNlbGYuc3RhdHVzX2Jhci5zaG93TWVzc2FnZShmIkdyb3VwIHtncm91cF9pbmRleCArIDF9OiBrZWVwIG5ld2VzdCB7a2VlcF9wYXRoLm5hbWV9IikKCiAgICBkZWYgX2tlZXBfb2xkZXN0X2R1cGxpY2F0ZShzZWxmKSAtPiBOb25lOgogICAgICAgIGNvbnRleHQgPSBzZWxmLl9zZWxlY3RlZF9kdXBsaWNhdGVfY29udGV4dCgpCiAgICAgICAgaWYgY29udGV4dCBpcyBOb25lOgogICAgICAgICAgICByZXR1cm4KICAgICAgICBncm91cF9pbmRleCwgXyA9IGNvbnRleHQKICAgICAgICBrZWVwX3BhdGggPSBvbGRlc3Rfa2VlcF9wYXRoKHNlbGYuZHVwbGljYXRlX2dyb3Vwc1tncm91cF9pbmRleF0uZmlsZXMpCiAgICAgICAgc2VsZi5fc2V0X2R1cGxpY2F0ZV9rZWVwX3BhdGgoZ3JvdXBfaW5kZXgsIGtlZXBfcGF0aCkKICAgICAgICBzZWxmLnN0YXR1c19iYXIuc2hvd01lc3NhZ2UoZiJHcm91cCB7Z3JvdXBfaW5kZXggKyAxfToga2VlcCBvbGRlc3Qge2tlZXBfcGF0aC5uYW1lfSIpCgogICAgZGVmIF9yZXNldF9zZWxlY3RlZF9kdXBsaWNhdGVfZ3JvdXAoc2VsZikgLT4gTm9uZToKICAgICAgICBjb250ZXh0ID0gc2VsZi5fc2VsZWN0ZWRfZHVwbGljYXRlX2NvbnRleHQoKQogICAgICAgIGlmIGNvbnRleHQgaXMgTm9uZToKICAgICAgICAgICAgcmV0dXJuCiAgICAgICAgZ3JvdXBfaW5kZXgsIF8gPSBjb250ZXh0CiAgICAgICAga2VlcF9wYXRoID0gZGVmYXVsdF9rZWVwX3BhdGgoc2VsZi5kdXBsaWNhdGVfZ3JvdXBzW2dyb3VwX2luZGV4XS5maWxlcykKICAgICAgICBzZWxmLl9zZXRfZHVwbGljYXRlX2tlZXBfcGF0aChncm91cF9pbmRleCwga2VlcF9wYXRoKQogICAgICAgIHNlbGYuc3RhdHVzX2Jhci5zaG93TWVzc2FnZShmIkdyb3VwIHtncm91cF9pbmRleCArIDF9OiByZXNldCBrZWVwIGRlY2lzaW9uIikKCiAgICBkZWYgX29wZW5fc2VsZWN0ZWRfZHVwbGljYXRlX2ZvbGRlcihzZWxmKSAtPiBOb25lOgogICAgICAgIGNvbnRleHQgPSBzZWxmLl9zZWxlY3RlZF9kdXBsaWNhdGVfY29udGV4dCgpCiAgICAgICAgaWYgY29udGV4dCBpcyBOb25lOgogICAgICAgICAgICByZXR1cm4KICAgICAgICBfLCBzZWxlY3RlZF9wYXRoID0gY29udGV4dAogICAgICAgIFFEZXNrdG9wU2VydmljZXMub3BlblVybChRVXJsLmZyb21Mb2NhbEZpbGUoc3RyKHNlbGVjdGVkX3BhdGgucGFyZW50KSkpCgogICAgZGVmIF9hcHBseV9kdXBsaWNhdGVfcmV2aWV3X3RvX3RyYXNoKHNlbGYpIC0+IE5vbmU6CiAgICAgICAgbWFya2VkX3BhdGhzOiBsaXN0W1BhdGhdID0gW10KICAgICAgICBmb3IgZ3JvdXBfaW5kZXgsIGdyb3VwIGluIGVudW1lcmF0ZShzZWxmLmR1cGxpY2F0ZV9ncm91cHMpOgogICAgICAgICAgICBrZWVwX3BhdGggPSBzZWxmLmR1cGxpY2F0ZV9rZWVwX3BhdGhzLmdldChncm91cF9pbmRleCkKICAgICAgICAgICAgaWYga2VlcF9wYXRoIGlzIE5vbmU6CiAgICAgICAgICAgICAgICBjb250aW51ZQogICAgICAgICAgICBtYXJrZWRfcGF0aHMuZXh0ZW5kKHBhdGhzX21hcmtlZF9mb3JfcmVtb3ZhbChncm91cC5maWxlcywga2VlcF9wYXRoKSkKICAgICAgICBpZiBub3QgbWFya2VkX3BhdGhzOgogICAgICAgICAgICBRTWVzc2FnZUJveC5pbmZvcm1hdGlvbihzZWxmLCAiRHVwbGljYXRlcyIsICJObyBmaWxlcyBhcmUgbWFya2VkIGZvciByZW1vdmFsLiIpCiAgICAgICAgICAgIHJldHVybgogICAgICAgIHJlcGx5ID0gUU1lc3NhZ2VCb3gucXVlc3Rpb24oCiAgICAgICAgICAgIHNlbGYsCiAgICAgICAgICAgICJTZW5kIGR1cGxpY2F0ZXMgdG8gUmVjeWNsZSBCaW4iLAogICAgICAgICAgICBmIlNlbmQge2xlbihtYXJrZWRfcGF0aHMpfSBtYXJrZWQgZHVwbGljYXRlIGZpbGUocykgdG8gdGhlIFJlY3ljbGUgQmluPyIsCiAgICAgICAgKQogICAgICAgIGlmIHJlcGx5ICE9IFFNZXNzYWdlQm94LlN0YW5kYXJkQnV0dG9uLlllcyk6CiAgICAgICAgICAgIHJldHVybgogICAgICAgIHRyeToKICAgICAgICAgICAgZnJvbSBzZW5kMnRyYXNoIGltcG9ydCBzZW5kMnRyYXNoCiAgICAgICAgZXhjZXB0IEltcG9ydEVycm9yOgogICAgICAgICAgICBRTWVzc2FnZUJveC5jcml0aWNhbChzZWxmLCAiRHVwbGljYXRlcyIsICJzZW5kMnRyYXNoIGlzIG5vdCBpbnN0YWxsZWQgaW4gdGhlIGN1cnJlbnQgZW52aXJvbm1lbnQuIikKICAgICAgICAgICAgcmV0dXJuCgogICAgICAgIHJlbW92ZWQgPSAwCiAgICAgICAgZXJyb3JzID0gMAogICAgICAgIGZvciBwYXRoIGluIG1hcmtlZF9wYXRoczoKICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgc2VuZDJ0cmFzaChzdHIocGF0aCkpCiAgICAgICAgICAgICAgICByZW1vdmVkICs9IDEKICAgICAgICAgICAgZXhjZXB0IEV4Y2VwdGlvbjoKICAgICAgICAgICAgICAgIGVycm9ycyArPSAxCgogICAgICAgIHNlbGYuZHVwbGljYXRlc19yZXZpZXdfaGludF9sYWJlbC5zZXRUZXh0KGYiUmVjeWNsZSBCaW4gYWN0aW9uIGZpbmlzaGVkLiBSZW1vdmVkOiB7cmVtb3ZlZH0gfCBFcnJvcnM6IHtlcnJvcnN9IikKICAgICAgICBzZWxmLnN0YXR1c19iYXIuc2hvd01lc3NhZ2UoZiJEdXBsaWNhdGUgcmV2aWV3IGFwcGxpZWQgfCBSZW1vdmVkOiB7cmVtb3ZlZH0gfCBFcnJvcnM6IHtlcnJvcnN9IikKICAgICAgICBzZWxmLl9ydW5fZHVwbGljYXRlcygpCgogICAgZGVmIF9wb3B1bGF0ZV9kdXBsaWNhdGVzX3Jlc3VsdHNfdGFibGUoc2VsZikgLT4gTm9uZToKICAgICAgICBzZWxmLmR1cGxpY2F0ZV9yb3dfbWFwID0gW10KICAgICAgICB0b3RhbF9yb3dzID0gc3VtKGxlbihncm91cC5maWxlcykgZm9yIGdyb3VwIGluIHNlbGYuZHVwbGljYXRlX2dyb3VwcykKICAgICAgICBzZWxmLmR1cGxpY2F0ZXNfcmVzdWx0c190YWJsZS5zZXRSb3dDb3VudCh0b3RhbF9yb3dzKQogICAgICAgIHJvd19pbmRleCA9IDAKICAgICAgICBmb3IgZ3JvdXBfaW5kZXgsIGdyb3VwIGluIGVudW1lcmF0ZShzZWxmLmR1cGxpY2F0ZV9ncm91cHMpOgogICAgICAgICAgICBrZWVwX3BhdGggPSBzZWxmLmR1cGxpY2F0ZV9rZWVwX3BhdGhzLmdldChncm91cF9pbmRleCwgZGVmYXVsdF9rZWVwX3BhdGgoZ3JvdXAuZmlsZXMpKQogICAgICAgICAgICBub3RlID0gZiJ7bGVuKGdyb3VwLmZpbGVzKX0gZmlsZXMgfCBzYW1lIG5hbWU6IHsneWVzJyBpZiBncm91cC5zYW1lX25hbWUgZWxzZSAnbm8nfSB8IHNhbWUgc3VmZml4OiB7J3llcycgaWYgZ3JvdXAuc2FtZV9zdWZmaXggZWxzZSAnbm8nfSIKICAgICAgICAgICAgc2l6ZV9sYWJlbCA9IGZvcm1hdF9maWxlX3NpemUoZ3JvdXAuZmlsZV9zaXplKQogICAgICAgICAgICBmb3IgcGF0aCBpbiBncm91cC5maWxlczoKICAgICAgICAgICAgICAgIGRlY2lzaW9uID0gIktlZXAiIGlmIHBhdGggPT0ga2VlcF9wYXRoIGVsc2UgIlJlbW92ZSIKICAgICAgICAgICAgICAgIHZhbHVlcyA9IFsKICAgICAgICAgICAgICAgICAgICAoc3RyKGdyb3VwX2luZGV4ICsgMSksIHN0cihncm91cF9pbmRleCArIDEpLCBUcnVlKSwKICAgICAgICAgICAgICAgICAgICAoZGVjaXNpb24sIGRlY2lzaW9uLCBUcnVlKSwKICAgICAgICAgICAgICAgICAgICAocGF0aC5uYW1lLCBzdHIocGF0aCksIEZhbHNlKSwKICAgICAgICAgICAgICAgICAgICAocGF0aC5wYXJlbnQubmFtZSBvciBzdHIocGF0aC5wYXJlbnQpLCBzdHIocGF0aC5wYXJlbnQpLCBGYWxzZSksCiAgICAgICAgICAgICAgICAgICAgKHNpemVfbGFiZWwsIHN0cihncm91cC5maWxlX3NpemUpLCBUcnVlKSwKICAgICAgICAgICAgICAgICAgICAobm90ZSwgbm90ZSwgRmFsc2UpLAogICAgICAgICAgICAgICAgXQogICAgICAgICAgICAgICAgZm9yIGNvbHVtbl9pbmRleCwgKGRpc3BsYXlfdmFsdWUsIHRvb2x0aXBfdmFsdWUsIGNlbnRlcikgaW4gZW51bWVyYXRlKHZhbHVlcyk6CiAgICAgICAgICAgICAgICAgICAgc2VsZi5kdXBsaWNhdGVzX3Jlc3VsdHNfdGFibGUuc2V0SXRlbShyb3dfaW5kZXgsIGNvbHVtbl9pbmRleCwgc2VsZi5fbWFrZV9yZXN1bHRfaXRlbShkaXNwbGF5X3ZhbHVlLCB0b29sdGlwX3ZhbHVlLCBjZW50ZXI9Y2VudGVyKSkKICAgICAgICAgICAgICAgIHNlbGYuZHVwbGljYXRlX3Jvd19tYXAuYXBwZW5kKChncm91cF9pbmRleCwgcGF0aCkpCiAgICAgICAgICAgICAgICByb3dfaW5kZXggKz0gMQogICAgICAgIHNlbGYuX3Jlc2l6ZV9yZXN1bHRfY29sdW1ucyhzZWxmLmR1cGxpY2F0ZXNfcmVzdWx0c190YWJsZSkKICAgICAgICBzZWxmLl9yZWZyZXNoX2R1cGxpY2F0ZXNfc3VtbWFyeV9jYXJkcygKICAgICAgICAgICAgZ3JvdXBzPWxlbihzZWxmLmR1cGxpY2F0ZV9ncm91cHMpLAogICAgICAgICAgICBkdXBsaWNhdGVfZmlsZXM9c3VtKGxlbihncm91cC5maWxlcykgZm9yIGdyb3VwIGluIHNlbGYuZHVwbGljYXRlX2dyb3VwcyksCiAgICAgICAgICAgIGV4dHJhX2R1cGxpY2F0ZXM9c2VsZi5fY291bnRfbWFya2VkX2R1cGxpY2F0ZXMoKSwKICAgICAgICApCiAgICAgICAgc2VsZi5fdXBkYXRlX2R1cGxpY2F0ZV9yZXZpZXdfYnV0dG9ucygpCgogICAgZGVmIF9kdXBsaWNhdGVzX2NsZWFyX3Jlc3VsdHMoc2VsZikgLT4gTm9uZToKICAgICAgICBzZWxmLmR1cGxpY2F0ZV9ncm91cHMgPSBbXQogICAgICAgIHNlbGYuZHVwbGljYXRlX2tlZXBfcGF0aHMgPSB7fQogICAgICAgIHNlbGYuZHVwbGljYXRlX3Jvd19tYXAgPSBbXQogICAgICAgIHNlbGYuZHVwbGljYXRlc19yZXN1bHRzX3RhYmxlLnNldFJvd0NvdW50KDApCiAgICAgICAgc2VsZi5fcmVzaXplX3Jlc3VsdF9jb2x1bW5zKHNlbGYuZHVwbGljYXRlc19yZXN1bHRzX3RhYmxlKQogICAgICAgIHNlbGYuX3JlZnJlc2hfZHVwbGljYXRlc19zdW1tYXJ5X2NhcmRzKGdyb3Vwcz0wLCBkdXBsaWNhdGVfZmlsZXM9MCwgZXh0cmFfZHVwbGljYXRlcz0wKQogICAgICAgIHNlbGYuZHVwbGljYXRlc19yZXZpZXdfaGludF9sYWJlbC5zZXRUZXh0KCJSdW4gYSBkdXBsaWNhdGUgc2NhbiB0byBzdGFydCByZXZpZXcgYWN0aW9ucy4iKQogICAgICAgIHNlbGYuX3VwZGF0ZV9kdXBsaWNhdGVfcmV2aWV3X2J1dHRvbnMoKQogICAgICAgIHNlbGYuc3RhdHVzX2Jhci5zaG93TWVzc2FnZSgiUmVzdWx0cyBjbGVhcmVkIikKCiAgICBkZWYgX3J1bl9kdXBsaWNhdGVzKHNlbGYpIC0+IE5vbmU6CiAgICAgICAgc291cmNlX2RpcnMgPSBzZWxmLl9jb2xsZWN0X3BhdGhzKHNlbGYuZHVwbGljYXRlc19zb3VyY2VfbGlzdCkKICAgICAgICBpZiBub3Qgc291cmNlX2RpcnM6CiAgICAgICAgICAgIFFNZXNzYWdlQm94LmNyaXRpY2FsKHNlbGYsICJFcnJvciIsICJQbGVhc2UgYWRkIGF0IGxlYXN0IG9uZSBzb3VyY2UgZm9sZGVyLiIpCiAgICAgICAgICAgIHJldHVybgogICAgICAgIGludmFsaWRfc291cmNlcyA9IFtwYXRoIGZvciBwYXRoIGluIHNvdXJjZV9kaXJzIGlmIG5vdCBwYXRoLmlzX2RpcigpXQogICAgICAgIGlmIGludmFsaWRfc291cmNlczoKICAgICAgICAgICAgUU1lc3NhZ2VCb3guY3JpdGljYWwoc2VsZiwgIkVycm9yIiwgIlRoZSBmb2xsb3dpbmcgc291cmNlIGZvbGRlcnMgYXJlIGludmFsaWQ6XG4tICIgKyAiXG4tICIuam9pbihzdHIocGF0aCkgZm9yIHBhdGggaW4gaW52YWxpZF9zb3VyY2VzKSkKICAgICAgICAgICAgcmV0dXJuCgogICAgICAgIGNvbmZpZyA9IER1cGxpY2F0ZVNjYW5Db25maWcoc291cmNlX2RpcnM9c291cmNlX2RpcnMpCiAgICAgICAgc2VsZi5kdXBsaWNhdGVzX3Jlc3VsdHNfdGFibGUuc2V0Um93Q291bnQoMCkKICAgICAgICBzZWxmLl9yZXNpemVfcmVzdWx0X2NvbHVtbnMoc2VsZi5kdXBsaWNhdGVzX3Jlc3VsdHNfdGFibGUpCiAgICAgICAgc2VsZi5fcmVmcmVzaF9kdXBsaWNhdGVzX3N1bW1hcnlfY2FyZHMoZ3JvdXBzPTAsIGR1cGxpY2F0ZV9maWxlcz0wLCBleHRyYV9kdXBsaWNhdGVzPTApCiAgICAgICAgc2VsZi5zdGF0dXNfYmFyLnNob3dNZXNzYWdlKCJQcmVwYXJpbmcgZHVwbGljYXRlIHNjYW4gLi4uIikKICAgICAgICBzZWxmLl9zZXRfcnVuX3N0YXRlKFRydWUpCiAgICAgICAgdHJ5OgogICAgICAgICAgICByZXN1bHQgPSBzY2FuX2V4YWN0X2R1cGxpY2F0ZXMoY29uZmlnLCBwcm9ncmVzc19jYWxsYmFjaz1zZWxmLl9oYW5kbGVfcHJvZ3Jlc3MpCiAgICAgICAgZXhjZXB0IEV4Y2VwdGlvbiBhcyBleGM6CiAgICAgICAgICAgIFFNZXNzYWdlQm94LmNyaXRpY2FsKHNlbGYsICJFcnJvciIsIHN0cihleGMpKQogICAgICAgICAgICBzZWxmLnN0YXR1c19iYXIuc2hvd01lc3NhZ2UoIkFuIGVycm9yIG9jY3VycmVkIikKICAgICAgICAgICAgcmV0dXJuCiAgICAgICAgZmluYWxseToKICAgICAgICAgICAgc2VsZi5fc2V0X3J1bl9zdGF0ZShGYWxzZSkKCiAgICAgICAgc2VsZi5kdXBsaWNhdGVfZ3JvdXBzID0gcmVzdWx0LmV4YWN0X2dyb3VwcwogICAgICAgIHNlbGYuZHVwbGljYXRlX2tlZXBfcGF0aHMgPSB7aW5kZXg6IGRlZmF1bHRfa2VlcF9wYXRoKGdyb3VwLmZpbGVzKSBmb3IgaW5kZXgsIGdyb3VwIGluIGVudW1lcmF0ZShzZWxmLmR1cGxpY2F0ZV9ncm91cHMpfQogICAgICAgIHNlbGYuX3BvcHVsYXRlX2R1cGxpY2F0ZXNfcmVzdWx0c190YWJsZSgpCiAgICAgICAgaWYgc2VsZi5kdXBsaWNhdGVfZ3JvdXBzOgogICAgICAgICAgICBzZWxmLmR1cGxpY2F0ZXNfcmV2aWV3X2hpbnRfbGFiZWwuc2V0VGV4dCgKICAgICAgICAgICAgICAgIGYiUmV2aWV3IGxvYWRlZC4gS2VlcCBvbmUgZmlsZSBwZXIgZ3JvdXAgYW5kIHNlbmQgdGhlIG1hcmtlZCBmaWxlcyB0byB0aGUgUmVjeWNsZSBCaW4gd2hlbiByZWFkeS4iCiAgICAgICAgICAgICkKICAgICAgICBlbHNlOgogICAgICAgICAgICBzZWxmLmR1cGxpY2F0ZXNfcmV2aWV3X2hpbnRfbGFiZWwuc2V0VGV4dCgiTm8gZXhhY3QgZHVwbGljYXRlIGdyb3VwcyBmb3VuZC4iKQogICAgICAgIHNlbGYuX3NldF93b3JrZmxvd19zdGVwX3N0YXR1cygiZHVwbGljYXRlcyIsIGYiRG9uZSAoe2xlbihyZXN1bHQuZXhhY3RfZ3JvdXBzKX0gZ3JvdXBzKSIpCiAgICAgICAgc2VsZi53b3JrZmxvd19jdXJyZW50X3N0ZXAgPSAiT3JnYW5pemUiCiAgICAgICAgc2VsZi5fcmVmcmVzaF93b3JrZmxvd19zdW1tYXJ5X2NhcmRzKCkKICAgICAgICBzZWxmLnN0YXR1c19iYXIuc2hvd01lc3NhZ2UoCiAgICAgICAgICAgIGYiRHVwbGljYXRlIHNjYW4gZmluaXNoZWQgfCBTY2FubmVkOiB7cmVzdWx0LnNjYW5uZWRfZmlsZXN9IHwgRXhhY3QgZ3JvdXBzOiB7bGVuKHJlc3VsdC5leGFjdF9ncm91cHMpfSB8IEZpbGVzIGluIGdyb3Vwczoge3N1bShsZW4oZ3JvdXAuZmlsZXMpIGZvciBncm91cCBpbiByZXN1bHQuZXhhY3RfZ3JvdXBzKX0gfCBNYXJrZWQgcmVtb3ZlOiB7c2VsZi5fY291bnRfbWFya2VkX2R1cGxpY2F0ZXMoKX0gfCBFcnJvcnM6IHtyZXN1bHQuZXJyb3JzfSIKICAgICAgICApCgoKZGVmIG1haW4oKSAtPiBpbnQ6CiAgICBhcHAgPSBRQXBwbGljYXRpb24uaW5zdGFuY2UoKSBvciBRQXBwbGljYXRpb24oc3lzLmFyZ3YpCiAgICBhcHAuc2V0U3R5bGUoIkZ1c2lvbiIpCiAgICBhcHAuc2V0U3R5bGVTaGVldChBUFBfU1RZTEVTSEVFVCkKICAgIHdpbmRvdyA9IE1lZGlhTWFuYWdlcldpbmRvdygpCiAgICB3aW5kb3cuc2hvdygpCiAgICByZXR1cm4gYXBwLmV4ZWMoKQo=
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+from PySide6.QtCore import QUrl
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtWidgets import (
+    QApplication,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+)
+
+from .duplicate_review import (
+    count_marked_for_removal,
+    default_keep_path,
+    newest_keep_path,
+    oldest_keep_path,
+    paths_marked_for_removal,
+)
+from .duplicates import DuplicateScanConfig, ExactDuplicateGroup, scan_exact_duplicates
+from .gui import APP_STYLESHEET, MediaManagerWindow as BaseMediaManagerWindow, format_file_size
+
+
+class MediaManagerWindow(BaseMediaManagerWindow):
+    def __init__(self) -> None:
+        super().__init__()
+        self.duplicate_groups: list[ExactDuplicateGroup] = []
+        self.duplicate_keep_paths: dict[int, Path] = {}
+        self.duplicate_row_map: list[tuple[int, Path]] = []
+        self._install_duplicate_review_panel()
+        self._set_duplicate_card_titles()
+        self._refresh_duplicate_review_controls()
+
+    def _set_duplicate_card_titles(self) -> None:
+        self._set_card_title(self.duplicates_files_card, "Files in groups")
+        self._set_card_title(self.duplicates_extra_card, "Marked remove")
+
+    def _set_card_title(self, card, title: str) -> None:
+        title_widget = card.layout().itemAt(0).widget()
+        if isinstance(title_widget, QLabel):
+            title_widget.setText(title)
+
+    def _install_duplicate_review_panel(self) -> None:
+        review_group = QGroupBox("Review and apply")
+        review_layout = QVBoxLayout(review_group)
+        review_layout.setSpacing(10)
+
+        keep_row = QHBoxLayout()
+        self.duplicates_keep_selected_button = QPushButton("Keep selected")
+        self.duplicates_keep_newest_button = QPushButton("Keep newest")
+        self.duplicates_keep_oldest_button = QPushButton("Keep oldest")
+        self.duplicates_reset_group_button = QPushButton("Reset group")
+        for button in [
+            self.duplicates_keep_selected_button,
+            self.duplicates_keep_newest_button,
+            self.duplicates_keep_oldest_button,
+            self.duplicates_reset_group_button,
+        ]:
+            button.setProperty("variant", "secondary")
+        self.duplicates_keep_selected_button.clicked.connect(self._keep_selected_duplicate)
+        self.duplicates_keep_newest_button.clicked.connect(self._keep_newest_duplicate)
+        self.duplicates_keep_oldest_button.clicked.connect(self._keep_oldest_duplicate)
+        self.duplicates_reset_group_button.clicked.connect(self._reset_selected_duplicate_group)
+        keep_row.addWidget(self.duplicates_keep_selected_button)
+        keep_row.addWidget(self.duplicates_keep_newest_button)
+        keep_row.addWidget(self.duplicates_keep_oldest_button)
+        keep_row.addWidget(self.duplicates_reset_group_button)
+        keep_row.addStretch(1)
+        review_layout.addLayout(keep_row)
+
+        apply_row = QHBoxLayout()
+        self.duplicates_open_folder_button = QPushButton("Open selected folder")
+        self.duplicates_apply_review_button = QPushButton("Send marked files to Recycle Bin")
+        self.duplicates_open_folder_button.setProperty("variant", "secondary")
+        self.duplicates_apply_review_button.setProperty("variant", "secondary")
+        self.duplicates_open_folder_button.clicked.connect(self._open_selected_duplicate_folder)
+        self.duplicates_apply_review_button.clicked.connect(self._apply_duplicate_review_to_trash)
+        apply_row.addWidget(self.duplicates_open_folder_button)
+        apply_row.addWidget(self.duplicates_apply_review_button)
+        apply_row.addStretch(1)
+        review_layout.addLayout(apply_row)
+
+        self.duplicates_review_hint_label = QLabel("Run a duplicate scan to start review actions.")
+        self.duplicates_review_hint_label.setWordWrap(True)
+        self.duplicates_review_hint_label.setStyleSheet("color: #AFC1D9;")
+        review_layout.addWidget(self.duplicates_review_hint_label)
+
+        self.duplicates_results_table.setColumnCount(6)
+        self.duplicates_results_table.setHorizontalHeaderLabels(["Group", "Decision", "File", "Folder", "Size", "Notes"])
+        self.duplicates_results_table.itemSelectionChanged.connect(self._refresh_duplicate_selection_hint)
+
+        duplicates_page = self.stack.widget(4)
+        outer_layout = duplicates_page.layout()
+        content_layout = outer_layout.itemAt(2).layout()
+        controls_panel = content_layout.itemAt(0).widget()
+        controls_layout = controls_panel.layout()
+        controls_layout.insertWidget(2, review_group)
+        self._resize_result_columns(self.duplicates_results_table)
+
+    def _selected_duplicate_context(self) -> tuple[int, Path] | None:
+        selection_model = self.duplicates_results_table.selectionModel()
+        if selection_model is None:
+            return None
+        selected_rows = selection_model.selectedRows()
+        if not selected_rows:
+            return None
+        row = selected_rows[0].row()
+        if row < 0 or row >= len(self.duplicate_row_map):
+            return None
+        return self.duplicate_row_map[row]
+
+    def _count_marked_duplicates(self) -> int:
+        total = 0
+        for group_index, group in enumerate(self.duplicate_groups):
+            keep_path = self.duplicate_keep_paths.get(group_index)
+            if keep_path is None:
+                continue
+            total += count_marked_for_removal(group.files, keep_path)
+        return total
+
+    def _refresh_duplicates_summary_cards(
+        self,
+        groups: int | None = None,
+        duplicate_files: int | None = None,
+        extra_duplicates: int | None = None,
+    ) -> None:
+        super()._refresh_duplicates_summary_cards(groups, duplicate_files, extra_duplicates)
+        if hasattr(self, "duplicates_files_card"):
+            self._set_duplicate_card_titles()
+
+    def _set_run_state(self, running: bool) -> None:
+        super()._set_run_state(running)
+        if hasattr(self, "duplicates_apply_review_button"):
+            self._refresh_duplicate_review_controls(is_running=running)
+
+    def _refresh_duplicate_selection_hint(self) -> None:
+        context = self._selected_duplicate_context()
+        if context is None:
+            if self.duplicate_groups:
+                self.duplicates_review_hint_label.setText(
+                    f"Review loaded. Marked for removal: {self._count_marked_duplicates()} file(s)."
+                )
+            else:
+                self.duplicates_review_hint_label.setText("Run a duplicate scan to start review actions.")
+            self._refresh_duplicate_review_controls()
+            return
+
+        group_index, selected_path = context
+        keep_path = self.duplicate_keep_paths.get(group_index)
+        if keep_path is None:
+            self.duplicates_review_hint_label.setText("No keep decision for this group yet.")
+        else:
+            remove_count = count_marked_for_removal(self.duplicate_groups[group_index].files, keep_path)
+            decision = "KEEP" if selected_path == keep_path else "REMOVE"
+            self.duplicates_review_hint_label.setText(
+                f"Group {group_index + 1}: selected = {selected_path.name} ({decision}) | keep = {keep_path.name} | remove = {remove_count}"
+            )
+        self._refresh_duplicate_review_controls()
+
+    def _refresh_duplicate_review_controls(self, *, is_running: bool = False) -> None:
+        if not hasattr(self, "duplicates_keep_selected_button"):
+            return
+        has_selection = self._selected_duplicate_context() is not None
+        has_groups = bool(self.duplicate_groups)
+        has_marked = self._count_marked_duplicates() > 0
+        self.duplicates_keep_selected_button.setEnabled(has_selection and not is_running)
+        self.duplicates_keep_newest_button.setEnabled(has_selection and not is_running)
+        self.duplicates_keep_oldest_button.setEnabled(has_selection and not is_running)
+        self.duplicates_reset_group_button.setEnabled(has_selection and not is_running)
+        self.duplicates_open_folder_button.setEnabled(has_selection and not is_running)
+        self.duplicates_apply_review_button.setEnabled(has_groups and has_marked and not is_running)
+
+    def _set_duplicate_keep_path(self, group_index: int, keep_path: Path) -> None:
+        self.duplicate_keep_paths[group_index] = keep_path
+        self._populate_duplicates_results_table()
+        self._refresh_duplicate_selection_hint()
+
+    def _keep_selected_duplicate(self) -> None:
+        context = self._selected_duplicate_context()
+        if context is None:
+            return
+        group_index, selected_path = context
+        self._set_duplicate_keep_path(group_index, selected_path)
+        self.status_bar.showMessage(f"Group {group_index + 1}: keep {selected_path.name}")
+
+    def _keep_newest_duplicate(self) -> None:
+        context = self._selected_duplicate_context()
+        if context is None:
+            return
+        group_index, _ = context
+        keep_path = newest_keep_path(self.duplicate_groups[group_index].files)
+        self._set_duplicate_keep_path(group_index, keep_path)
+        self.status_bar.showMessage(f"Group {group_index + 1}: keep newest {keep_path.name}")
+
+    def _keep_oldest_duplicate(self) -> None:
+        context = self._selected_duplicate_context()
+        if context is None:
+            return
+        group_index, _ = context
+        keep_path = oldest_keep_path(self.duplicate_groups[group_index].files)
+        self._set_duplicate_keep_path(group_index, keep_path)
+        self.status_bar.showMessage(f"Group {group_index + 1}: keep oldest {keep_path.name}")
+
+    def _reset_selected_duplicate_group(self) -> None:
+        context = self._selected_duplicate_context()
+        if context is None:
+            return
+        group_index, _ = context
+        keep_path = default_keep_path(self.duplicate_groups[group_index].files)
+        self._set_duplicate_keep_path(group_index, keep_path)
+        self.status_bar.showMessage(f"Group {group_index + 1}: reset keep decision")
+
+    def _open_selected_duplicate_folder(self) -> None:
+        context = self._selected_duplicate_context()
+        if context is None:
+            return
+        _, selected_path = context
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(selected_path.parent)))
+
+    def _apply_duplicate_review_to_trash(self) -> None:
+        marked_paths: list[Path] = []
+        for group_index, group in enumerate(self.duplicate_groups):
+            keep_path = self.duplicate_keep_paths.get(group_index)
+            if keep_path is None:
+                continue
+            marked_paths.extend(paths_marked_for_removal(group.files, keep_path))
+
+        if not marked_paths:
+            QMessageBox.information(self, "Duplicates", "No files are marked for removal.")
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Send duplicates to Recycle Bin",
+            f"Send {len(marked_paths)} marked duplicate file(s) to the Recycle Bin?",
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            from send2trash import send2trash
+        except ImportError:
+            QMessageBox.critical(self, "Duplicates", "send2trash is not installed in the current environment.")
+            return
+
+        removed = 0
+        errors = 0
+        for path in marked_paths:
+            try:
+                send2trash(str(path))
+                removed += 1
+            except Exception:
+                errors += 1
+
+        self.duplicates_review_hint_label.setText(
+            f"Recycle Bin action finished. Removed: {removed} | Errors: {errors}"
+        )
+        self.status_bar.showMessage(f"Duplicate review applied | Removed: {removed} | Errors: {errors}")
+        self._run_duplicates()
+
+    def _populate_duplicates_results_table(self) -> None:
+        self.duplicate_row_map = []
+        total_rows = sum(len(group.files) for group in self.duplicate_groups)
+        self.duplicates_results_table.setRowCount(total_rows)
+        row_index = 0
+        for group_index, group in enumerate(self.duplicate_groups):
+            keep_path = self.duplicate_keep_paths.get(group_index, default_keep_path(group.files))
+            note = (
+                f"{len(group.files)} files | same name: {'yes' if group.same_name else 'no'} | same suffix: {'yes' if group.same_suffix else 'no'}"
+            )
+            size_label = format_file_size(group.file_size)
+            for path in group.files:
+                decision = "Keep" if path == keep_path else "Remove"
+                values = [
+                    (str(group_index + 1), str(group_index + 1), True),
+                    (decision, decision, True),
+                    (path.name, str(path), False),
+                    (path.parent.name or str(path.parent), str(path.parent), False),
+                    (size_label, str(group.file_size), True),
+                    (note, note, False),
+                ]
+                for column_index, (display_value, tooltip_value, center) in enumerate(values):
+                    self.duplicates_results_table.setItem(
+                        row_index,
+                        column_index,
+                        self._make_result_item(display_value, tooltip_value, center=center),
+                    )
+                self.duplicate_row_map.append((group_index, path))
+                row_index += 1
+        self._resize_result_columns(self.duplicates_results_table)
+        self._refresh_duplicates_summary_cards(
+            groups=len(self.duplicate_groups),
+            duplicate_files=sum(len(group.files) for group in self.duplicate_groups),
+            extra_duplicates=self._count_marked_duplicates(),
+        )
+        self._refresh_duplicate_review_controls()
+
+    def _duplicates_clear_results(self) -> None:
+        self.duplicate_groups = []
+        self.duplicate_keep_paths = {}
+        self.duplicate_row_map = []
+        self.duplicates_results_table.setRowCount(0)
+        self._resize_result_columns(self.duplicates_results_table)
+        self._refresh_duplicates_summary_cards(groups=0, duplicate_files=0, extra_duplicates=0)
+        self.duplicates_review_hint_label.setText("Run a duplicate scan to start review actions.")
+        self._refresh_duplicate_review_controls()
+        self.status_bar.showMessage("Results cleared")
+
+    def _run_duplicates(self) -> None:
+        source_dirs = self._collect_paths(self.duplicates_source_list)
+        if not source_dirs:
+            QMessageBox.critical(self, "Error", "Please add at least one source folder.")
+            return
+        invalid_sources = [path for path in source_dirs if not path.is_dir()]
+        if invalid_sources:
+            QMessageBox.critical(
+                self,
+                "Error",
+                "The following source folders are invalid:\n- " + "\n- ".join(str(path) for path in invalid_sources),
+            )
+            return
+
+        config = DuplicateScanConfig(source_dirs=source_dirs)
+        self.duplicates_results_table.setRowCount(0)
+        self._resize_result_columns(self.duplicates_results_table)
+        self._refresh_duplicates_summary_cards(groups=0, duplicate_files=0, extra_duplicates=0)
+        self.status_bar.showMessage("Preparing duplicate scan ...")
+        self._set_run_state(True)
+        try:
+            result = scan_exact_duplicates(config, progress_callback=self._handle_progress)
+        except Exception as exc:
+            QMessageBox.critical(self, "Error", str(exc))
+            self.status_bar.showMessage("An error occurred")
+            return
+        finally:
+            self._set_run_state(False)
+
+        self.duplicate_groups = result.exact_groups
+        self.duplicate_keep_paths = {
+            index: default_keep_path(group.files)
+            for index, group in enumerate(self.duplicate_groups)
+        }
+        self._populate_duplicates_results_table()
+        if self.duplicate_groups:
+            self.duplicates_review_hint_label.setText(
+                "Review loaded. Keep one file per group and send the marked files to the Recycle Bin when ready."
+            )
+        else:
+            self.duplicates_review_hint_label.setText("No exact duplicate groups found.")
+
+        self._set_workflow_step_status("duplicates", f"Done ({len(result.exact_groups)} groups)")
+        self.workflow_current_step = "Organize"
+        self._refresh_workflow_summary_cards()
+        self.status_bar.showMessage(
+            f"Duplicate scan finished | Scanned: {result.scanned_files} | Exact groups: {len(result.exact_groups)} | Files in groups: {sum(len(group.files) for group in result.exact_groups)} | Marked remove: {self._count_marked_duplicates()} | Errors: {result.errors}"
+        )
+
+
+def main() -> int:
+    app = QApplication.instance() or QApplication(sys.argv)
+    app.setStyle("Fusion")
+    app.setStyleSheet(APP_STYLESHEET)
+    window = MediaManagerWindow()
+    window.show()
+    return app.exec()

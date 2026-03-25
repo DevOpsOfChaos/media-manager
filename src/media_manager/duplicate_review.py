@@ -1,1 +1,33 @@
-ZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgoKZGVmIF9ub3JtYWxpemVkX2tleShwYXRoOiBQYXRoKSAtPiB0dXBsZVtzdHIsIHN0cl06CiAgICByZXR1cm4gKHN0cihwYXRoKS5sb3dlcigpLCBzdHIocGF0aCkpCgoKZGVmIGRlZmF1bHRfa2VlcF9wYXRoKHBhdGhzOiBsaXN0W1BhdGhdKSAtPiBQYXRoOgogICAgaWYgbm90IHBhdGhzOgogICAgICAgIHJhaXNlIFZhbHVlRXJyb3IoInBhdGhzIG11c3Qgbm90IGJlIGVtcHR5IikKICAgIHJldHVybiBzb3J0ZWQocGF0aHMsIGtleT1fbm9ybWFsaXplZF9rZXkpWzBdCgoKZGVmIG5ld2VzdF9rZWVwX3BhdGgocGF0aHM6IGxpc3RbUGF0aF0pIC0+IFBhdGg6CiAgICBpZiBub3QgcGF0aHM6CiAgICAgICAgcmFpc2UgVmFsdWVFcnJvcigicGF0aHMgbXVzdCBub3QgYmUgZW1wdHkiKQogICAgcmV0dXJuIG1heChwYXRocywga2V5PWxhbWJkYSBwYXRoOiAocGF0aC5zdGF0KCkuc3RfbXRpbWVfbnMsIHN0cihwYXRoKS5sb3dlcigpKSkKCgpkZWYgb2xkZXN0X2tlZXBfcGF0aChwYXRoczogbGlzdFtQYXRoXSkgLT4gUGF0aDoKICAgIGlmIG5vdCBwYXRoczoKICAgICAgICByYWlzZSBWYWx1ZUVycm9yKCJwYXRocyBtdXN0IG5vdCBiZSBlbXB0eSIpCiAgICByZXR1cm4gbWluKHBhdGhzLCBrZXk9bGFtYmRhIHBhdGg6IChwYXRoLnN0YXQoKS5zdF9tdGltZV9ucywgc3RyKHBhdGgpLmxvd2VyKCkpKQoKCmRlZiBwYXRoc19tYXJrZWRfZm9yX3JlbW92YWwocGF0aHM6IGxpc3RbUGF0aF0sIGtlZXBfcGF0aDogUGF0aCkgLT4gbGlzdFtQYXRoXToKICAgIHJldHVybiBbcGF0aCBmb3IgcGF0aCBpbiBwYXRocyBpZiBwYXRoICE9IGtlZXBfcGF0aF0KCgpkZWYgY291bnRfbWFya2VkX2Zvcl9yZW1vdmFsKHBhdGhzOiBsaXN0W1BhdGhdLCBrZWVwX3BhdGg6IFBhdGgpIC0+IGludDoKICAgIHJldHVybiBsZW4ocGF0aHNfbWFya2VkX2Zvcl9yZW1vdmFsKHBhdGhzLCBrZWVwX3BhdGgpKQo=
+from __future__ import annotations
+
+from pathlib import Path
+
+
+def _normalized_key(path: Path) -> tuple[str, str]:
+    return (str(path).lower(), str(path))
+
+
+def default_keep_path(paths: list[Path]) -> Path:
+    if not paths:
+        raise ValueError("paths must not be empty")
+    return sorted(paths, key=_normalized_key)[0]
+
+
+def newest_keep_path(paths: list[Path]) -> Path:
+    if not paths:
+        raise ValueError("paths must not be empty")
+    return max(paths, key=lambda path: (path.stat().st_mtime_ns, str(path).lower()))
+
+
+def oldest_keep_path(paths: list[Path]) -> Path:
+    if not paths:
+        raise ValueError("paths must not be empty")
+    return min(paths, key=lambda path: (path.stat().st_mtime_ns, str(path).lower()))
+
+
+def paths_marked_for_removal(paths: list[Path], keep_path: Path) -> list[Path]:
+    return [path for path in paths if path != keep_path]
+
+
+def count_marked_for_removal(paths: list[Path], keep_path: Path) -> int:
+    return len(paths_marked_for_removal(paths, keep_path))

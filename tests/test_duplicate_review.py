@@ -1,1 +1,45 @@
-ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpmcm9tIG1lZGlhX21hbmFnZXIuZHVwbGljYXRlX3JldmlldyBpbXBvcnQgKAogICAgY291bnRfbWFya2VkX2Zvcl9yZW1vdmFsLAogICAgZGVmYXVsdF9rZWVwX3BhdGgsCiAgICBuZXdlc3Rfa2VlcF9wYXRoLAogICAgb2xkZXN0X2tlZXBfcGF0aCwKICAgIHBhdGhzX21hcmtlZF9mb3JfcmVtb3ZhbCwKKQoKCmRlZiB0ZXN0X2RlZmF1bHRfa2VlcF9wYXRoX3VzZXNfc3RhYmxlX3NvcnRlZF9wYXRoKHRtcF9wYXRoOiBQYXRoKSAtPiBOb25lOgogICAgc2Vjb25kID0gdG1wX3BhdGggLyAiYi5qcGciCiAgICBmaXJzdCA9IHRtcF9wYXRoIC8gImEuanBnIgogICAgZmlyc3Qud3JpdGVfYnl0ZXMoYiIxIikKICAgIHNlY29uZC53cml0ZV9ieXRlcyhiIjEiKQoKICAgIGFzc2VydCBkZWZhdWx0X2tlZXBfcGF0aChbc2Vjb25kLCBmaXJzdF0pID09IGZpcnN0CgoKZGVmIHRlc3RfbmV3ZXN0X2FuZF9vbGRlc3Rfa2VlcF9wYXRoX3VzZV9tdGltZSh0bXBfcGF0aDogUGF0aCkgLT4gTm9uZToKICAgIG9sZCA9IHRtcF9wYXRoIC8gIm9sZC5qcGciCiAgICBuZXcgPSB0bXBfcGF0aCAvICJuZXcuanBnIgogICAgb2xkLndyaXRlX2J5dGVzKGIiMSIpCiAgICBuZXcud3JpdGVfYnl0ZXMoYiIxIikKICAgIG9sZC50b3VjaCgpCiAgICBuZXcudG91Y2goKQoKICAgIGFzc2VydCBuZXdlc3Rfa2VlcF9wYXRoKFtvbGQsIG5ld10pID09IG5ldwogICAgYXNzZXJ0IG9sZGVzdF9rZWVwX3BhdGgoW29sZCwgbmV3XSkgPT0gb2xkCgoKZGVmIHRlc3RfcGF0aHNfbWFya2VkX2Zvcl9yZW1vdmFsX2tlZXBfb25seV9zZWxlY3RlZF9maWxlKHRtcF9wYXRoOiBQYXRoKSAtPiBOb25lOgogICAga2VlcCA9IHRtcF9wYXRoIC8gImtlZXAuanBnIgogICAgcmVtb3ZlX2EgPSB0bXBfcGF0aCAvICJyZW1vdmVfYS5qcGciCiAgICByZW1vdmVfYiA9IHRtcF9wYXRoIC8gInJlbW92ZV9iLmpwZyIKICAgIGZvciBwYXRoIGluIFtrZWVwLCByZW1vdmVfYSwgcmVtb3ZlX2JdOgogICAgICAgIHBhdGgud3JpdGVfYnl0ZXMoYiIxIikKCiAgICBtYXJrZWQgPSBwYXRoc19tYXJrZWRfZm9yX3JlbW92YWwoW2tlZXAsIHJlbW92ZV9hLCByZW1vdmVfYl0sIGtlZXApCgogICAgYXNzZXJ0IG1hcmtlZCA9PSBbcmVtb3ZlX2EsIHJlbW92ZV9iXQogICAgYXNzZXJ0IGNvdW50X21hcmtlZF9mb3JfcmVtb3ZhbChba2VlcCwgcmVtb3ZlX2EsIHJlbW92ZV9iXSwga2VlcCkgPT0gMgo=
+import os
+from pathlib import Path
+
+from media_manager.duplicate_review import (
+    count_marked_for_removal,
+    default_keep_path,
+    newest_keep_path,
+    oldest_keep_path,
+    paths_marked_for_removal,
+)
+
+
+def test_default_keep_path_uses_stable_sorted_path(tmp_path: Path) -> None:
+    second = tmp_path / "b.jpg"
+    first = tmp_path / "a.jpg"
+    first.write_bytes(b"1")
+    second.write_bytes(b"1")
+
+    assert default_keep_path([second, first]) == first
+
+
+def test_newest_and_oldest_keep_path_use_mtime(tmp_path: Path) -> None:
+    old = tmp_path / "old.jpg"
+    new = tmp_path / "new.jpg"
+    old.write_bytes(b"1")
+    new.write_bytes(b"1")
+
+    os.utime(old, ns=(1_700_000_000_000_000_000, 1_700_000_000_000_000_000))
+    os.utime(new, ns=(1_800_000_000_000_000_000, 1_800_000_000_000_000_000))
+
+    assert newest_keep_path([old, new]) == new
+    assert oldest_keep_path([old, new]) == old
+
+
+def test_paths_marked_for_removal_keep_only_selected_file(tmp_path: Path) -> None:
+    keep = tmp_path / "keep.jpg"
+    remove_a = tmp_path / "remove_a.jpg"
+    remove_b = tmp_path / "remove_b.jpg"
+    for path in [keep, remove_a, remove_b]:
+        path.write_bytes(b"1")
+
+    marked = paths_marked_for_removal([keep, remove_a, remove_b], keep)
+
+    assert marked == [remove_a, remove_b]
+    assert count_marked_for_removal([keep, remove_a, remove_b], keep) == 2
