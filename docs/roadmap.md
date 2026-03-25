@@ -15,7 +15,7 @@
 
 - [x] Auto-fill and persist organizer defaults where useful
 - [x] Saved import sets for reusable source-folder groups
-- [ ] Template-based renaming
+- [x] Template-based renaming baseline
 - [ ] Flexible sorting rules
 - [ ] Exclusion rules and filters
 - [ ] Better conflict handling and reporting

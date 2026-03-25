@@ -8,6 +8,7 @@ from typing import Any
 APP_DIR_NAME = "media-manager"
 SETTINGS_FILE_NAME = "settings.json"
 DEFAULT_TARGET_TEMPLATE = "{year}/{month}"
+DEFAULT_RENAME_TEMPLATE = "{year}{month}{day}_{hour}{minute}{second}_{stem}{suffix}"
 
 
 def get_settings_dir() -> Path:

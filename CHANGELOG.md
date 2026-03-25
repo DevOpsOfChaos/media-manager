@@ -27,6 +27,9 @@ The format is based on Keep a Changelog, and the project aims to follow Semantic
 - Organizer test coverage for progress callback reporting
 - Saved import sets for reusable source-folder groups in the organizer GUI
 - Organizer test coverage for import-set settings helpers
+- Rename module baseline with preview and apply flows
+- Core rename engine with collision-safe filename planning
+- Rename test coverage for template rendering and apply behavior
 
 ### Changed
 - README rewritten to present the repository as a public project front door
@@ -42,6 +45,7 @@ The format is based on Keep a Changelog, and the project aims to follow Semantic
 - Organizer run flow now disables conflicting UI actions while processing
 - Result-table columns now resize to content more aggressively and the status column is visually stronger
 - Organizer settings persistence now stores reusable import sets alongside defaults
+- Home page now exposes Rename as an active workspace instead of a placeholder
 
 ### Notes
 - The project remains in pre-alpha.

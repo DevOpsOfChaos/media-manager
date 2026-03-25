@@ -34,22 +34,23 @@ This repository fixes that foundation first.
 - Detect filename collisions
 - Organize from multiple source folders into one target folder
 - Save, load, and delete reusable import sets for organizer source/target combinations
+- Rename media files in place from one or more source folders
+- Preview rename plans before applying them
 - Resolve ExifTool through:
   - `PATH`
   - `EXIFTOOL_PATH`
   - an explicit CLI / GUI path
   - common Windows install paths
 - Auto-fill and persist organizer defaults such as ExifTool path and target folder
-- PySide6 app shell with a home page and organizer page
+- PySide6 app shell with Home, Organize, and Rename workspaces
 - More compact organizer UI with reduced text noise
-- Live organizer progress feedback during runs
-- Readable organizer result table with stronger status labels and content-based column sizing
+- Live organizer and rename progress feedback during runs
+- Readable result tables with content-based column sizing
 - CLI entry point
-- Automated tests for core date and sorting logic
+- Automated tests for core date, sorting, rename, and settings logic
 
 ## Planned capabilities
 
-- Template-based renaming
 - Duplicate detection
 - Keep-source / keep-target / keep-both decisions for exact duplicates
 - Visual comparison for images and videos
@@ -70,7 +71,7 @@ The current product shape is easiest to think about as four user-facing areas:
 3. **Duplicates**
 4. **Compare**
 
-Only the first area is actively implemented right now. The others are planned and should be built on top of the same core instead of becoming separate one-off tools.
+Only the first two areas are actively implemented right now. The others are planned and should be built on top of the same core instead of becoming separate one-off tools.
 
 ## Architecture
 
@@ -83,6 +84,7 @@ media-manager/
 │       ├── dates.py
 │       ├── exiftool.py
 │       ├── gui.py
+│       ├── renamer.py
 │       ├── settings.py
 │       └── sorter.py
 ├── tests/
@@ -92,7 +94,7 @@ media-manager/
 
 The important rule is simple: **core logic stays separate from UI code**.
 
-That is what makes it possible to improve the desktop UI later, add localization later, and eventually support saved import sets without rewriting the core behavior.
+That is what makes it possible to improve the desktop UI later, add localization later, and eventually support duplicate and compare workflows without rewriting the core behavior.
 
 ## Requirements
 
@@ -183,6 +185,7 @@ See also:
 - [v0.3.2 app shell and readability protocol](docs/protocol/2026-03-25-v0.3.2-app-shell-and-readability.md)
 - [v0.3.3 processing feedback and table sizing protocol](docs/protocol/2026-03-25-v0.3.3-processing-feedback-and-table-sizing.md)
 - [v0.3.4 import sets protocol](docs/protocol/2026-03-25-v0.3.4-import-sets.md)
+- [v0.3.5 rename baseline protocol](docs/protocol/2026-03-25-v0.3.5-rename-baseline.md)
 
 ## Honest scope statement
 
