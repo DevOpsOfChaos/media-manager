@@ -56,85 +56,101 @@ from .sorter import SortConfig, organize_media
 
 APP_STYLESHEET = """
 QMainWindow {
-    background: #0B1220;
+    background: #07111F;
 }
 QWidget {
-    color: #E5E7EB;
+    color: #E6EEF8;
     font-size: 13px;
 }
 QFrame#Card {
-    background: #111827;
-    border: 1px solid #1F2937;
-    border-radius: 18px;
+    background: #0C1728;
+    border: 1px solid #22324A;
+    border-radius: 22px;
+}
+QFrame#HeroCard {
+    background: #0B1628;
+    border: 1px solid #2E4A70;
+    border-radius: 24px;
 }
 QFrame#Nav {
-    background: #0F172A;
-    border: 1px solid #1F2937;
-    border-radius: 18px;
+    background: #091321;
+    border: 1px solid #1B2A40;
+    border-radius: 22px;
 }
 QGroupBox {
-    border: 1px solid #1F2937;
-    border-radius: 16px;
+    border: 1px solid #22324A;
+    border-radius: 18px;
     margin-top: 12px;
     padding-top: 16px;
-    background: #111827;
+    background: #0C1728;
 }
 QGroupBox::title {
     subcontrol-origin: margin;
     left: 14px;
-    padding: 0 4px;
-    color: #F9FAFB;
-    font-weight: 600;
+    padding: 0 6px;
+    color: #F8FBFF;
+    font-weight: 700;
 }
 QLineEdit, QListWidget, QTableWidget, QComboBox {
-    background: #0F172A;
-    border: 1px solid #334155;
-    border-radius: 12px;
-    padding: 8px;
-    selection-background-color: #2563EB;
-    alternate-background-color: #101A2D;
+    background: #091321;
+    border: 1px solid #31455F;
+    border-radius: 14px;
+    padding: 9px;
+    selection-background-color: #2F6FED;
+    alternate-background-color: #0D1829;
 }
 QListWidget::item {
     padding: 10px;
-    border-radius: 8px;
+    border-radius: 10px;
+}
+QListWidget::item:selected {
+    background: #18345B;
 }
 QPushButton {
-    background: #2563EB;
-    color: #F9FAFB;
+    background: #2F6FED;
+    color: #F7FAFF;
     border: none;
-    border-radius: 12px;
-    padding: 9px 14px;
-    font-weight: 600;
+    border-radius: 14px;
+    padding: 10px 15px;
+    font-weight: 700;
 }
 QPushButton:hover {
-    background: #1D4ED8;
+    background: #255FCE;
 }
 QPushButton:disabled {
-    background: #374151;
-    color: #9CA3AF;
+    background: #2B3441;
+    color: #8A97AA;
 }
 QPushButton[variant="secondary"] {
-    background: #1F2937;
-    color: #F9FAFB;
-    border: 1px solid #334155;
+    background: #132033;
+    color: #F7FAFF;
+    border: 1px solid #31455F;
 }
 QPushButton[variant="secondary"]:hover {
-    background: #273449;
+    background: #18283E;
+}
+QPushButton[variant="ghost"] {
+    background: transparent;
+    color: #A9C3FF;
+    border: 1px solid #31455F;
+}
+QPushButton[variant="ghost"]:hover {
+    background: #102038;
 }
 QPushButton[nav="true"] {
     text-align: left;
     padding: 12px 14px;
 }
 QHeaderView::section {
-    background: #111827;
-    color: #F9FAFB;
-    padding: 8px;
+    background: #0C1728;
+    color: #F8FBFF;
+    padding: 10px;
     border: none;
-    border-bottom: 1px solid #334155;
+    border-bottom: 1px solid #31455F;
 }
 QStatusBar {
-    background: #0B1220;
-    border-top: 1px solid #111827;
+    background: #07111F;
+    border-top: 1px solid #111F33;
 }
 QCheckBox, QRadioButton {
     spacing: 8px;
@@ -152,6 +168,29 @@ ACTION_LABELS = {
     "error": "Error",
 }
 
+GUIDED_PROBLEMS = [
+    {
+        "key": "full_cleanup",
+        "label": "My folders are messy and I want the cleanest full result",
+        "description": "Recommended path: Duplicates → Organize → Rename. Best choice for mixed sources and unclear folder quality.",
+    },
+    {
+        "key": "ready_for_sorting",
+        "label": "Duplicates are already handled, now I need clean sorting",
+        "description": "Recommended path: Organize → Rename. Use this when duplicate cleanup is already done outside the app.",
+    },
+    {
+        "key": "ready_for_rename",
+        "label": "The files are already in the right folder, I only need better names",
+        "description": "Recommended path: Rename only. The previous target folder is used as the likely rename source.",
+    },
+    {
+        "key": "exact_duplicates_only",
+        "label": "I only want to inspect exact duplicates right now",
+        "description": "Recommended path: Duplicates only. Exact means 100% byte-identical, not visually similar.",
+    },
+]
+
 
 class StatCard(QFrame):
     def __init__(self, title: str, value: str = "-") -> None:
@@ -160,11 +199,11 @@ class StatCard(QFrame):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setContentsMargins(18, 16, 18, 16)
         layout.setSpacing(6)
 
         title_label = QLabel(title)
-        title_label.setStyleSheet("color: #94A3B8; font-size: 12px;")
+        title_label.setStyleSheet("color: #9DB1CE; font-size: 12px;")
         self.value_label = QLabel(value)
         value_font = QFont()
         value_font.setPointSize(14)
@@ -183,8 +222,8 @@ class ModuleCard(QFrame):
         super().__init__()
         self.setObjectName("Card")
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 18, 18, 18)
-        layout.setSpacing(8)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(10)
 
         title_label = QLabel(title)
         title_font = QFont()
@@ -194,7 +233,7 @@ class ModuleCard(QFrame):
 
         description_label = QLabel(description)
         description_label.setWordWrap(True)
-        description_label.setStyleSheet("color: #94A3B8;")
+        description_label.setStyleSheet("color: #93A8C6;")
 
         self.button = QPushButton(button_text)
         if not enabled:
@@ -221,11 +260,11 @@ class WorkflowStepCard(QFrame):
         title_label.setFont(title_font)
 
         self.status_label = QLabel("Pending")
-        self.status_label.setStyleSheet("color: #93C5FD;")
+        self.status_label.setStyleSheet("color: #A9C3FF;")
 
         description_label = QLabel(description)
         description_label.setWordWrap(True)
-        description_label.setStyleSheet("color: #94A3B8;")
+        description_label.setStyleSheet("color: #93A8C6;")
 
         self.button = QPushButton(button_text)
         self.button.setProperty("variant", "secondary")
@@ -270,15 +309,25 @@ class MediaManagerWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Media Manager")
-        self.resize(1600, 1000)
-        self.setMinimumSize(1400, 900)
+        self.resize(1640, 1020)
+        self.setMinimumSize(1440, 920)
         self.app_settings: dict[str, object] = {}
         self.workflow_current_step = "Setup"
+        self.workflow_selected_problem = "full_cleanup"
         self.workflow_step_statuses = {
             "duplicates": "Pending",
             "organize": "Pending",
             "rename": "Pending",
         }
+
+        self.guided_problem_combo = QComboBox()
+        self.guided_problem_combo.setMinimumWidth(520)
+        self.guided_problem_hint_label = QLabel()
+        self.guided_problem_hint_label.setWordWrap(True)
+        self.guided_problem_hint_label.setStyleSheet("color: #AFC1D9;")
+        self.guided_start_button = QPushButton("Start guided path")
+        self.guided_workflow_board_button = QPushButton("Open workflow board")
+        self.guided_workflow_board_button.setProperty("variant", "secondary")
 
         self.target_input = QLineEdit()
         self.target_input.setPlaceholderText("Target folder")
@@ -296,10 +345,10 @@ class MediaManagerWindow(QMainWindow):
         self.source_list.setAlternatingRowColors(True)
         self.source_details_label = QLabel("No source folder selected.")
         self.source_details_label.setWordWrap(True)
-        self.source_details_label.setStyleSheet("color: #94A3B8;")
+        self.source_details_label.setStyleSheet("color: #93A8C6;")
         self.organize_workflow_hint_label = QLabel("No workflow setup connected yet.")
         self.organize_workflow_hint_label.setWordWrap(True)
-        self.organize_workflow_hint_label.setStyleSheet("color: #94A3B8;")
+        self.organize_workflow_hint_label.setStyleSheet("color: #93A8C6;")
         self.copy_radio = QRadioButton("Copy")
         self.move_radio = QRadioButton("Move")
         self.copy_radio.setChecked(True)
@@ -319,10 +368,10 @@ class MediaManagerWindow(QMainWindow):
         self.rename_source_list.setAlternatingRowColors(True)
         self.rename_source_details_label = QLabel("No source folder selected.")
         self.rename_source_details_label.setWordWrap(True)
-        self.rename_source_details_label.setStyleSheet("color: #94A3B8;")
+        self.rename_source_details_label.setStyleSheet("color: #93A8C6;")
         self.rename_target_hint_label = QLabel("No suggested source from the previous target yet.")
         self.rename_target_hint_label.setWordWrap(True)
-        self.rename_target_hint_label.setStyleSheet("color: #94A3B8;")
+        self.rename_target_hint_label.setStyleSheet("color: #93A8C6;")
         self.rename_template_preset_combo = QComboBox()
         self.rename_template_preset_combo.setMinimumWidth(240)
         self.rename_template_label = QLabel("Template")
@@ -330,7 +379,7 @@ class MediaManagerWindow(QMainWindow):
         self.rename_apply_checkbox = QCheckBox("Apply")
         self.rename_template_hint = QLabel("Template fields: {year} {month} {day} {hour} {minute} {second} {stem} {suffix} {index}")
         self.rename_template_hint.setWordWrap(True)
-        self.rename_template_hint.setStyleSheet("color: #94A3B8;")
+        self.rename_template_hint.setStyleSheet("color: #93A8C6;")
         self.rename_results_table = QTableWidget(0, 5)
         self.rename_results_table.setHorizontalHeaderLabels(["Status", "Current", "New", "Folder", "Details"])
         self.rename_results_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -344,10 +393,10 @@ class MediaManagerWindow(QMainWindow):
         self.duplicates_source_list.setAlternatingRowColors(True)
         self.duplicates_source_details_label = QLabel("No source folder selected.")
         self.duplicates_source_details_label.setWordWrap(True)
-        self.duplicates_source_details_label.setStyleSheet("color: #94A3B8;")
+        self.duplicates_source_details_label.setStyleSheet("color: #93A8C6;")
         self.duplicates_workflow_hint_label = QLabel("No workflow source set linked yet.")
         self.duplicates_workflow_hint_label.setWordWrap(True)
-        self.duplicates_workflow_hint_label.setStyleSheet("color: #94A3B8;")
+        self.duplicates_workflow_hint_label.setStyleSheet("color: #93A8C6;")
         self.duplicates_results_table = QTableWidget(0, 5)
         self.duplicates_results_table.setHorizontalHeaderLabels(["Group", "File", "Folder", "Size", "Notes"])
         self.duplicates_results_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -361,12 +410,15 @@ class MediaManagerWindow(QMainWindow):
         self.workflow_source_list.setAlternatingRowColors(True)
         self.workflow_source_details_label = QLabel("No source folder selected.")
         self.workflow_source_details_label.setWordWrap(True)
-        self.workflow_source_details_label.setStyleSheet("color: #94A3B8;")
+        self.workflow_source_details_label.setStyleSheet("color: #93A8C6;")
         self.workflow_target_input = QLineEdit()
         self.workflow_target_input.setPlaceholderText("Final target folder")
-        self.workflow_hint_label = QLabel("Guided workflow: 1) review exact duplicates, 2) organize into target, 3) rename inside the target.")
+        self.workflow_mode_hint_label = QLabel()
+        self.workflow_mode_hint_label.setWordWrap(True)
+        self.workflow_mode_hint_label.setStyleSheet("color: #AFC1D9;")
+        self.workflow_hint_label = QLabel("Guided workflow: review exact duplicates, then organize into the target, then rename inside that target.")
         self.workflow_hint_label.setWordWrap(True)
-        self.workflow_hint_label.setStyleSheet("color: #94A3B8;")
+        self.workflow_hint_label.setStyleSheet("color: #93A8C6;")
         self.workflow_duplicates_step_card = WorkflowStepCard("Step 1 — Duplicates", "Review exact byte-identical duplicates first. This reduces clutter before the real processing starts.", "Open duplicates")
         self.workflow_organize_step_card = WorkflowStepCard("Step 2 — Organize", "Sort the remaining material into the chosen target folder.", "Open organize")
         self.workflow_rename_step_card = WorkflowStepCard("Step 3 — Rename", "Rename the organized files inside the target folder with readable templates.", "Open rename")
@@ -386,7 +438,7 @@ class MediaManagerWindow(QMainWindow):
         self.workflow_sources_card = StatCard("Sources", "0")
         self.workflow_target_card = StatCard("Target", "Not set")
         self.workflow_status_card = StatCard("Current step", "Setup")
-        self.workflow_next_card = StatCard("Next action", "Start workflow")
+        self.workflow_next_card = StatCard("Next action", "Choose a path")
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -411,6 +463,7 @@ class MediaManagerWindow(QMainWindow):
 
         self._build_ui()
         self._populate_template_preset_combos()
+        self._populate_guided_problem_combo()
         self._apply_readability_styles()
         self._wire_signals()
         self._load_settings()
@@ -420,6 +473,7 @@ class MediaManagerWindow(QMainWindow):
         self._refresh_workflow_summary_cards()
         for list_widget in [self.source_list, self.rename_source_list, self.duplicates_source_list, self.workflow_source_list]:
             self._refresh_source_list_height(list_widget)
+        self._update_guided_problem_hint()
         self._update_cross_module_suggestions()
         self._resize_result_columns(self.results_table)
         self._resize_result_columns(self.rename_results_table)
@@ -434,9 +488,9 @@ class MediaManagerWindow(QMainWindow):
 
         nav = QFrame()
         nav.setObjectName("Nav")
-        nav.setFixedWidth(220)
+        nav.setFixedWidth(230)
         nav_layout = QVBoxLayout(nav)
-        nav_layout.setContentsMargins(16, 16, 16, 16)
+        nav_layout.setContentsMargins(18, 18, 18, 18)
         nav_layout.setSpacing(10)
 
         app_title = QLabel("Media Manager")
@@ -445,8 +499,8 @@ class MediaManagerWindow(QMainWindow):
         title_font.setBold(True)
         app_title.setFont(title_font)
 
-        app_subtitle = QLabel("Desktop media workflow")
-        app_subtitle.setStyleSheet("color: #94A3B8;")
+        app_subtitle = QLabel("Guided first. Manual when needed.")
+        app_subtitle.setStyleSheet("color: #93A8C6;")
 
         nav_layout.addWidget(app_title)
         nav_layout.addWidget(app_subtitle)
@@ -474,44 +528,66 @@ class MediaManagerWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(16)
 
-        header = QFrame()
-        header.setObjectName("Card")
-        header_layout = QVBoxLayout(header)
-        header_layout.setContentsMargins(20, 20, 20, 20)
-        header_layout.setSpacing(6)
+        hero = QFrame()
+        hero.setObjectName("HeroCard")
+        hero_layout = QVBoxLayout(hero)
+        hero_layout.setContentsMargins(24, 24, 24, 24)
+        hero_layout.setSpacing(8)
 
-        title = QLabel("Choose a workspace")
+        title = QLabel("Start from the problem, not from the tool")
         title_font = QFont()
-        title_font.setPointSize(22)
+        title_font.setPointSize(24)
         title_font.setBold(True)
         title.setFont(title_font)
 
-        subtitle = QLabel("You can work module by module or start a guided full workflow from one setup screen.")
+        subtitle = QLabel("Choose your current situation and the app will point you to the right next step. Manual workspaces are still available below.")
         subtitle.setWordWrap(True)
-        subtitle.setStyleSheet("color: #94A3B8;")
-        header_layout.addWidget(title)
-        header_layout.addWidget(subtitle)
+        subtitle.setStyleSheet("color: #AFC1D9;")
+        hero_layout.addWidget(title)
+        hero_layout.addWidget(subtitle)
 
-        layout.addWidget(header)
+        layout.addWidget(hero)
 
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(14)
-        grid.setVerticalSpacing(14)
+        guided_group = QGroupBox("Guided mode")
+        guided_layout = QVBoxLayout(guided_group)
+        guided_layout.setSpacing(12)
+        guided_layout.addWidget(self.guided_problem_combo)
+        guided_layout.addWidget(self.guided_problem_hint_label)
 
-        workflow_card = ModuleCard("Workflow", "Set sources and target once, then move through Duplicates → Organize → Rename with carried-over suggestions.", "Start")
-        workflow_card.button.clicked.connect(lambda: self._set_current_page(1))
+        guided_actions = QHBoxLayout()
+        guided_actions.addWidget(self.guided_start_button)
+        guided_actions.addWidget(self.guided_workflow_board_button)
+        guided_actions.addStretch(1)
+        guided_layout.addLayout(guided_actions)
+
+        manual_group = QGroupBox("Manual mode")
+        manual_layout = QVBoxLayout(manual_group)
+        manual_layout.setSpacing(12)
+
+        manual_hint = QLabel("Use this when you already know exactly which workspace you want. Same functionality, less hand-holding.")
+        manual_hint.setWordWrap(True)
+        manual_hint.setStyleSheet("color: #93A8C6;")
+        manual_layout.addWidget(manual_hint)
+
+        manual_grid = QGridLayout()
+        manual_grid.setHorizontalSpacing(14)
+        manual_grid.setVerticalSpacing(14)
         organize_card = ModuleCard("Organize", "Sort media from one or more source folders into one target folder.", "Open")
         organize_card.button.clicked.connect(lambda: self._set_current_page(2))
         rename_card = ModuleCard("Rename", "Rename media in place from one or more source folders using a template.", "Open")
         rename_card.button.clicked.connect(lambda: self._set_current_page(3))
         duplicates_card = ModuleCard("Duplicates", "Scan exact duplicate media across one or more source folders.", "Open")
         duplicates_card.button.clicked.connect(lambda: self._set_current_page(4))
+        workflow_card = ModuleCard("Workflow board", "Open the central guided board with setup, current step and progress tracking.", "Open")
+        workflow_card.button.clicked.connect(lambda: self._set_current_page(1))
+        manual_grid.addWidget(workflow_card, 0, 0)
+        manual_grid.addWidget(organize_card, 0, 1)
+        manual_grid.addWidget(duplicates_card, 1, 0)
+        manual_grid.addWidget(rename_card, 1, 1)
+        manual_layout.addLayout(manual_grid)
 
-        grid.addWidget(workflow_card, 0, 0)
-        grid.addWidget(organize_card, 0, 1)
-        grid.addWidget(duplicates_card, 1, 0)
-        grid.addWidget(rename_card, 1, 1)
-        layout.addLayout(grid)
+        layout.addWidget(guided_group)
+        layout.addWidget(manual_group)
         layout.addStretch(1)
         return page
 
@@ -524,20 +600,21 @@ class MediaManagerWindow(QMainWindow):
         header = QFrame()
         header.setObjectName("Card")
         header_layout = QVBoxLayout(header)
-        header_layout.setContentsMargins(20, 20, 20, 20)
-        header_layout.setSpacing(6)
+        header_layout.setContentsMargins(22, 22, 22, 22)
+        header_layout.setSpacing(8)
 
-        title = QLabel("Guided workflow")
+        title = QLabel("Guided workflow board")
         title_font = QFont()
         title_font.setPointSize(22)
         title_font.setBold(True)
         title.setFont(title_font)
 
-        subtitle = QLabel("One setup. Then step through duplicates, organize, and rename in the intended order.")
+        subtitle = QLabel("Set sources and target once. Then move through the recommended path with carried-over suggestions.")
         subtitle.setWordWrap(True)
-        subtitle.setStyleSheet("color: #94A3B8;")
+        subtitle.setStyleSheet("color: #AFC1D9;")
         header_layout.addWidget(title)
         header_layout.addWidget(subtitle)
+        header_layout.addWidget(self.workflow_mode_hint_label)
 
         outer_layout.addWidget(header)
         outer_layout.addLayout(self._build_workflow_summary_row())
@@ -551,7 +628,7 @@ class MediaManagerWindow(QMainWindow):
         controls_layout.addWidget(self._build_workflow_setup_group())
         controls_layout.addStretch(1)
 
-        steps_group = QGroupBox("Guided steps")
+        steps_group = QGroupBox("Recommended path")
         steps_layout = QVBoxLayout(steps_group)
         steps_layout.setSpacing(12)
         steps_layout.addWidget(self.workflow_hint_label)
@@ -583,7 +660,7 @@ class MediaManagerWindow(QMainWindow):
         title.setFont(title_font)
 
         subtitle = QLabel("Multiple sources. One target. Preview first.")
-        subtitle.setStyleSheet("color: #94A3B8;")
+        subtitle.setStyleSheet("color: #93A8C6;")
         header_layout.addWidget(title)
         header_layout.addWidget(subtitle)
 
@@ -608,7 +685,6 @@ class MediaManagerWindow(QMainWindow):
 
         content_layout.addWidget(controls_panel, 4)
         content_layout.addWidget(results_group, 7)
-
         outer_layout.addLayout(content_layout)
         return page
 
@@ -631,7 +707,7 @@ class MediaManagerWindow(QMainWindow):
         title.setFont(title_font)
 
         subtitle = QLabel("Rename media in place. Preview first.")
-        subtitle.setStyleSheet("color: #94A3B8;")
+        subtitle.setStyleSheet("color: #93A8C6;")
         header_layout.addWidget(title)
         header_layout.addWidget(subtitle)
 
@@ -656,7 +732,6 @@ class MediaManagerWindow(QMainWindow):
 
         content_layout.addWidget(controls_panel, 4)
         content_layout.addWidget(results_group, 7)
-
         outer_layout.addLayout(content_layout)
         return page
 
@@ -679,7 +754,7 @@ class MediaManagerWindow(QMainWindow):
         title.setFont(title_font)
 
         subtitle = QLabel("Exact duplicate scan across multiple sources. 100% means byte-identical only.")
-        subtitle.setStyleSheet("color: #94A3B8;")
+        subtitle.setStyleSheet("color: #93A8C6;")
         header_layout.addWidget(title)
         header_layout.addWidget(subtitle)
 
@@ -703,7 +778,6 @@ class MediaManagerWindow(QMainWindow):
 
         content_layout.addWidget(controls_panel, 4)
         content_layout.addWidget(results_group, 7)
-
         outer_layout.addLayout(content_layout)
         return page
 
@@ -996,6 +1070,11 @@ class MediaManagerWindow(QMainWindow):
         self._fill_template_combo(self.template_preset_combo, ORGANIZE_TEMPLATE_PRESETS)
         self._fill_template_combo(self.rename_template_preset_combo, RENAME_TEMPLATE_PRESETS)
 
+    def _populate_guided_problem_combo(self) -> None:
+        self.guided_problem_combo.clear()
+        for item in GUIDED_PROBLEMS:
+            self.guided_problem_combo.addItem(item["label"], item["key"])
+
     def _fill_template_combo(self, combo: QComboBox, presets: list[dict[str, str]]) -> None:
         combo.clear()
         for preset in presets:
@@ -1011,10 +1090,10 @@ class MediaManagerWindow(QMainWindow):
             table.setFont(table_font)
             table.horizontalHeader().setFont(table_font)
             table.horizontalHeader().setStretchLastSection(True)
-            table.verticalHeader().setDefaultSectionSize(34)
+            table.verticalHeader().setDefaultSectionSize(36)
         for list_widget in [self.source_list, self.rename_source_list, self.duplicates_source_list, self.workflow_source_list]:
             list_widget.setFont(list_font)
-            list_widget.setSpacing(4)
+            list_widget.setSpacing(5)
 
     def _wire_signals(self) -> None:
         self.home_button.clicked.connect(lambda: self._set_current_page(0))
@@ -1022,6 +1101,9 @@ class MediaManagerWindow(QMainWindow):
         self.organize_button.clicked.connect(lambda: self._set_current_page(2))
         self.rename_button.clicked.connect(lambda: self._set_current_page(3))
         self.duplicates_button.clicked.connect(lambda: self._set_current_page(4))
+        self.guided_problem_combo.currentIndexChanged.connect(self._update_guided_problem_hint)
+        self.guided_start_button.clicked.connect(self._start_from_home_problem)
+        self.guided_workflow_board_button.clicked.connect(lambda: self._set_current_page(1))
         self.target_input.textChanged.connect(self._on_target_changed)
         self.workflow_target_input.textChanged.connect(self._on_workflow_target_changed)
         self.template_input.textChanged.connect(self._on_organize_template_changed)
@@ -1054,6 +1136,84 @@ class MediaManagerWindow(QMainWindow):
             button.style().unpolish(button)
             button.style().polish(button)
 
+    def _current_guided_problem_key(self) -> str:
+        data = self.guided_problem_combo.currentData()
+        return str(data) if data else "full_cleanup"
+
+    def _guided_problem_description(self, key: str) -> str:
+        for item in GUIDED_PROBLEMS:
+            if item["key"] == key:
+                return item["description"]
+        return GUIDED_PROBLEMS[0]["description"]
+
+    def _update_guided_problem_hint(self) -> None:
+        key = self._current_guided_problem_key()
+        self.guided_problem_hint_label.setText(self._guided_problem_description(key))
+
+    def _reset_workflow_state(self) -> None:
+        self.workflow_step_statuses = {
+            "duplicates": "Pending",
+            "organize": "Pending",
+            "rename": "Pending",
+        }
+        self.workflow_current_step = "Setup"
+
+    def _prepare_guided_problem(self, problem_key: str) -> None:
+        self.workflow_selected_problem = problem_key
+        self._reset_workflow_state()
+        if problem_key == "ready_for_sorting":
+            self.workflow_step_statuses["duplicates"] = "Skipped"
+        elif problem_key == "ready_for_rename":
+            self.workflow_step_statuses["duplicates"] = "Skipped"
+            self.workflow_step_statuses["organize"] = "Skipped"
+        elif problem_key == "exact_duplicates_only":
+            self.workflow_step_statuses["organize"] = "Optional"
+            self.workflow_step_statuses["rename"] = "Optional"
+        self.workflow_mode_hint_label.setText(self._guided_problem_description(problem_key))
+        self._refresh_workflow_summary_cards()
+
+    def _start_from_home_problem(self) -> None:
+        problem_key = self._current_guided_problem_key()
+        self._prepare_guided_problem(problem_key)
+
+        if problem_key == "ready_for_rename":
+            suggestion = self._current_rename_suggestion()
+            if suggestion:
+                self._use_current_target_for_rename()
+                self.workflow_current_step = "Rename"
+                self._refresh_workflow_summary_cards()
+                self._set_current_page(3)
+                self.status_bar.showMessage("Guided path opened at rename")
+                return
+
+        if problem_key == "exact_duplicates_only":
+            if self._workflow_source_dirs():
+                self._apply_workflow_setup_to_duplicates()
+                self.workflow_current_step = "Duplicates"
+                self._refresh_workflow_summary_cards()
+                self._set_current_page(4)
+                self.status_bar.showMessage("Guided path opened at exact duplicates")
+                return
+
+        if problem_key == "ready_for_sorting" and self._workflow_source_dirs() and self._workflow_target_text():
+            self._apply_workflow_setup_to_modules()
+            self.workflow_current_step = "Organize"
+            self._refresh_workflow_summary_cards()
+            self._set_current_page(2)
+            self.status_bar.showMessage("Guided path opened at organize")
+            return
+
+        if problem_key == "full_cleanup" and self._workflow_source_dirs() and self._workflow_target_text():
+            self._apply_workflow_setup_to_modules()
+            self.workflow_current_step = "Duplicates"
+            self._refresh_workflow_summary_cards()
+            self._set_current_page(4)
+            self.status_bar.showMessage("Guided path opened at duplicates")
+            return
+
+        self._set_current_page(1)
+        self.status_bar.showMessage("Complete the workflow setup to continue")
+
     def _path_from_item(self, item: QListWidgetItem) -> Path:
         return Path(item.data(Qt.ItemDataRole.UserRole))
 
@@ -1077,11 +1237,11 @@ class MediaManagerWindow(QMainWindow):
     def _refresh_source_list_height(self, list_widget: QListWidget) -> None:
         row_height = list_widget.sizeHintForRow(0)
         if row_height <= 0:
-            row_height = 38
+            row_height = 40
         visible_rows = max(3, list_widget.count())
         frame = list_widget.frameWidth() * 2
         spacing = max(0, list_widget.spacing()) * max(0, visible_rows - 1)
-        list_widget.setMinimumHeight((row_height * visible_rows) + frame + spacing + 8)
+        list_widget.setMinimumHeight((row_height * visible_rows) + frame + spacing + 10)
 
     def _refresh_source_details(self) -> None:
         self._refresh_list_details(self.source_list, self.source_details_label)
@@ -1218,6 +1378,7 @@ class MediaManagerWindow(QMainWindow):
         self.workflow_duplicates_step_card.set_status(self.workflow_step_statuses["duplicates"])
         self.workflow_organize_step_card.set_status(self.workflow_step_statuses["organize"])
         self.workflow_rename_step_card.set_status(self.workflow_step_statuses["rename"])
+        self.workflow_mode_hint_label.setText(self._guided_problem_description(self.workflow_selected_problem))
 
     def _set_workflow_step_status(self, step: str, value: str) -> None:
         self.workflow_step_statuses[step] = value
@@ -1271,6 +1432,7 @@ class MediaManagerWindow(QMainWindow):
         rename_template_text = str(self.app_settings.get("rename_template", DEFAULT_RENAME_TEMPLATE)).strip() or DEFAULT_RENAME_TEMPLATE
         workflow_target_text = str(self.app_settings.get("workflow_target_dir", "")).strip()
         workflow_sources_raw = self.app_settings.get("workflow_source_dirs", [])
+        saved_problem = str(self.app_settings.get("guided_problem", "full_cleanup")).strip() or "full_cleanup"
 
         if target_text:
             self.target_input.setText(target_text)
@@ -1280,6 +1442,10 @@ class MediaManagerWindow(QMainWindow):
             self.workflow_target_input.setText(workflow_target_text)
         if isinstance(workflow_sources_raw, list):
             self._populate_path_list(self.workflow_source_list, [str(value) for value in workflow_sources_raw])
+        problem_index = self.guided_problem_combo.findData(saved_problem)
+        if problem_index >= 0:
+            self.guided_problem_combo.setCurrentIndex(problem_index)
+            self.workflow_selected_problem = saved_problem
         if exiftool_text and Path(exiftool_text).is_file():
             self.exiftool_input.setText(exiftool_text)
         else:
@@ -1300,6 +1466,7 @@ class MediaManagerWindow(QMainWindow):
         updated["rename_template"] = self.rename_template_input.text().strip() or DEFAULT_RENAME_TEMPLATE
         updated["workflow_target_dir"] = self._workflow_target_text()
         updated["workflow_source_dirs"] = self._workflow_source_dirs()
+        updated["guided_problem"] = self._current_guided_problem_key()
         save_app_settings(updated)
         self.app_settings = updated
 
@@ -1310,6 +1477,9 @@ class MediaManagerWindow(QMainWindow):
     def _set_run_state(self, running: bool) -> None:
         enabled = not running
         for widget in [
+            self.guided_problem_combo,
+            self.guided_start_button,
+            self.guided_workflow_board_button,
             self.run_button,
             self.clear_results_button,
             self.save_import_set_button,
@@ -1618,9 +1788,23 @@ class MediaManagerWindow(QMainWindow):
         validated = self._validate_workflow_setup()
         if validated is None:
             return
+        self._apply_workflow_setup_to_modules()
+        problem_key = self.workflow_selected_problem
+        if problem_key == "ready_for_rename":
+            self.workflow_current_step = "Rename"
+            self._use_current_target_for_rename()
+            self._set_current_page(3)
+            self.status_bar.showMessage("Guided workflow started — continue with rename")
+            return
+        if problem_key == "ready_for_sorting":
+            self.workflow_current_step = "Organize"
+            self._refresh_workflow_summary_cards()
+            self._set_current_page(2)
+            self.status_bar.showMessage("Guided workflow started — continue with organize")
+            return
         self.workflow_current_step = "Duplicates"
         self._set_workflow_step_status("duplicates", "Ready")
-        self._apply_workflow_setup_to_modules()
+        self._refresh_workflow_summary_cards()
         self._set_current_page(4)
         self.status_bar.showMessage("Guided workflow started — continue with duplicates")
 
