@@ -41,7 +41,8 @@ This repository fixes that foundation first.
 - Auto-fill and persist organizer defaults such as ExifTool path and target folder
 - PySide6 app shell with a home page and organizer page
 - More compact organizer UI with reduced text noise
-- Readable organizer result table with tooltips for full paths
+- Live organizer progress feedback during runs
+- Readable organizer result table with stronger status labels and content-based column sizing
 - CLI entry point
 - Automated tests for core date and sorting logic
 
@@ -180,6 +181,7 @@ See also:
 - [v0.3 baseline protocol](docs/protocol/2026-03-25-v0.3-pyside6-multisource.md)
 - [v0.3.1 organizer GUI polish protocol](docs/protocol/2026-03-25-v0.3.1-organizer-gui-polish.md)
 - [v0.3.2 app shell and readability protocol](docs/protocol/2026-03-25-v0.3.2-app-shell-and-readability.md)
+- [v0.3.3 processing feedback and table sizing protocol](docs/protocol/2026-03-25-v0.3.3-processing-feedback-and-table-sizing.md)
 
 ## Honest scope statement
 

@@ -23,6 +23,8 @@ The format is based on Keep a Changelog, and the project aims to follow Semantic
 - Application settings persistence for organizer defaults
 - App shell with a home page and organizer page
 - Compact source-folder list with full-path details
+- Live organizer progress feedback during processing
+- Organizer test coverage for progress callback reporting
 
 ### Changed
 - README rewritten to present the repository as a public project front door
@@ -35,6 +37,8 @@ The format is based on Keep a Changelog, and the project aims to follow Semantic
 - CLI updated to use repeatable `--source` flags and explicit `--target`
 - Organizer GUI refined with a cleaner app shell, less text, and more readable results
 - Organizer GUI now auto-fills the ExifTool path when it can be resolved
+- Organizer run flow now disables conflicting UI actions while processing
+- Result-table columns now resize to content more aggressively and the status column is visually stronger
 
 ### Notes
 - The project remains in pre-alpha.

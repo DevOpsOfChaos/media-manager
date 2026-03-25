@@ -56,3 +56,21 @@ def test_organize_media_deduplicates_repeated_source_directory_input(tmp_path: P
     assert result.organized == 1
     assert result.errors == 0
     assert result.entries[0].source.name == "photo.jpg"
+
+
+def test_organize_media_reports_progress_messages(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+    (source / "photo.jpg").write_bytes(b"x")
+
+    messages: list[str] = []
+    config = SortConfig(source_dirs=[source], target_dir=target, dry_run=True, mode="copy")
+    result = organize_media(config, progress_callback=messages.append)
+
+    assert result.processed == 1
+    assert messages[0] == "Scanning source folders ..."
+    assert messages[1] == "Found 1 media file."
+    assert messages[2] == "Processing 1/1: photo.jpg"
+    assert messages[-1] == "Finished. 1 action(s), 0 error(s)."

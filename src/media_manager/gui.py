@@ -124,6 +124,14 @@ QCheckBox, QRadioButton {
 }
 """
 
+STATUS_LABELS = {
+    "preview-copy": "Preview copy",
+    "preview-move": "Preview move",
+    "copied": "Copied",
+    "moved": "Moved",
+    "error": "Error",
+}
+
 
 class StatCard(QFrame):
     def __init__(self, title: str, value: str = "-") -> None:
@@ -198,8 +206,8 @@ class MediaManagerWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Media Manager")
-        self.resize(1440, 920)
-        self.setMinimumSize(1220, 820)
+        self.resize(1560, 980)
+        self.setMinimumSize(1360, 860)
 
         self.target_input = QLineEdit()
         self.target_input.setPlaceholderText("Target folder")
@@ -234,12 +242,11 @@ class MediaManagerWindow(QMainWindow):
         self.results_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.results_table.verticalHeader().setVisible(False)
         self.results_table.setAlternatingRowColors(True)
-        self.results_table.horizontalHeader().setStretchLastSection(True)
         self.results_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.results_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.results_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.results_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        self.results_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        self.results_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.results_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.results_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
 
         self.sources_card = StatCard("Sources", "0")
         self.target_card = StatCard("Target", "Not set")
@@ -389,7 +396,7 @@ class MediaManagerWindow(QMainWindow):
         results_layout.addWidget(self.results_table)
 
         content_layout.addWidget(controls_panel, 4)
-        content_layout.addWidget(results_group, 6)
+        content_layout.addWidget(results_group, 7)
 
         outer_layout.addLayout(content_layout)
         return page
@@ -411,18 +418,18 @@ class MediaManagerWindow(QMainWindow):
         layout.addWidget(self.source_details_label)
 
         buttons_row = QHBoxLayout()
-        add_button = QPushButton("Add")
-        remove_button = QPushButton("Remove")
-        clear_button = QPushButton("Clear")
-        remove_button.setProperty("variant", "secondary")
-        clear_button.setProperty("variant", "secondary")
-        add_button.clicked.connect(self._add_source_folder)
-        remove_button.clicked.connect(self._remove_selected_sources)
-        clear_button.clicked.connect(self._clear_sources)
+        self.add_source_button = QPushButton("Add")
+        self.remove_source_button = QPushButton("Remove")
+        self.clear_sources_button = QPushButton("Clear")
+        self.remove_source_button.setProperty("variant", "secondary")
+        self.clear_sources_button.setProperty("variant", "secondary")
+        self.add_source_button.clicked.connect(self._add_source_folder)
+        self.remove_source_button.clicked.connect(self._remove_selected_sources)
+        self.clear_sources_button.clicked.connect(self._clear_sources)
 
-        buttons_row.addWidget(add_button)
-        buttons_row.addWidget(remove_button)
-        buttons_row.addWidget(clear_button)
+        buttons_row.addWidget(self.add_source_button)
+        buttons_row.addWidget(self.remove_source_button)
+        buttons_row.addWidget(self.clear_sources_button)
         buttons_row.addStretch(1)
         layout.addLayout(buttons_row)
         return group
@@ -434,24 +441,24 @@ class MediaManagerWindow(QMainWindow):
         layout.setVerticalSpacing(10)
         layout.setColumnStretch(1, 1)
 
-        target_button = QPushButton("Browse")
-        target_button.clicked.connect(self._choose_target_folder)
+        self.target_browse_button = QPushButton("Browse")
+        self.target_browse_button.clicked.connect(self._choose_target_folder)
 
-        exiftool_button = QPushButton("Browse")
-        exiftool_button.setProperty("variant", "secondary")
-        exiftool_button.clicked.connect(self._choose_exiftool)
+        self.exiftool_browse_button = QPushButton("Browse")
+        self.exiftool_browse_button.setProperty("variant", "secondary")
+        self.exiftool_browse_button.clicked.connect(self._choose_exiftool)
 
-        open_target_button = QPushButton("Open target")
-        open_target_button.setProperty("variant", "secondary")
-        open_target_button.clicked.connect(self._open_target_folder)
+        self.open_target_button = QPushButton("Open target")
+        self.open_target_button.setProperty("variant", "secondary")
+        self.open_target_button.clicked.connect(self._open_target_folder)
 
         layout.addWidget(QLabel("Target"), 0, 0)
         layout.addWidget(self.target_input, 0, 1)
-        layout.addWidget(target_button, 0, 2)
+        layout.addWidget(self.target_browse_button, 0, 2)
 
         layout.addWidget(QLabel("ExifTool"), 1, 0)
         layout.addWidget(self.exiftool_input, 1, 1)
-        layout.addWidget(exiftool_button, 1, 2)
+        layout.addWidget(self.exiftool_browse_button, 1, 2)
 
         layout.addWidget(QLabel("Template"), 2, 0)
         layout.addWidget(self.template_input, 2, 1, 1, 2)
@@ -464,7 +471,7 @@ class MediaManagerWindow(QMainWindow):
         mode_row.addWidget(self.apply_checkbox)
         mode_row.addStretch(1)
         layout.addLayout(mode_row, 3, 0, 1, 3)
-        layout.addWidget(open_target_button, 4, 2)
+        layout.addWidget(self.open_target_button, 4, 2)
 
         return group
 
@@ -473,13 +480,13 @@ class MediaManagerWindow(QMainWindow):
         layout = QVBoxLayout(group)
 
         row = QHBoxLayout()
-        preview_button = QPushButton("Run")
-        clear_button = QPushButton("Clear results")
-        clear_button.setProperty("variant", "secondary")
-        preview_button.clicked.connect(self._run)
-        clear_button.clicked.connect(self._clear_results)
-        row.addWidget(preview_button)
-        row.addWidget(clear_button)
+        self.run_button = QPushButton("Run")
+        self.clear_results_button = QPushButton("Clear results")
+        self.clear_results_button.setProperty("variant", "secondary")
+        self.run_button.clicked.connect(self._run)
+        self.clear_results_button.clicked.connect(self._clear_results)
+        row.addWidget(self.run_button)
+        row.addWidget(self.clear_results_button)
         row.addStretch(1)
         layout.addLayout(row)
         return group
@@ -558,6 +565,66 @@ class MediaManagerWindow(QMainWindow):
     def closeEvent(self, event) -> None:  # pragma: no cover - GUI runtime
         self._save_settings()
         super().closeEvent(event)
+
+    def _set_run_state(self, running: bool) -> None:
+        enabled = not running
+        for widget in [
+            self.run_button,
+            self.clear_results_button,
+            self.add_source_button,
+            self.remove_source_button,
+            self.clear_sources_button,
+            self.target_input,
+            self.exiftool_input,
+            self.template_input,
+            self.apply_checkbox,
+            self.copy_radio,
+            self.move_radio,
+            self.source_list,
+            self.target_browse_button,
+            self.exiftool_browse_button,
+            self.open_target_button,
+            self.home_button,
+            self.organize_button,
+        ]:
+            widget.setEnabled(enabled)
+        QApplication.processEvents()
+
+    def _handle_progress(self, message: str) -> None:
+        self.results_summary_label.setText(message)
+        self.status_bar.showMessage(message)
+        QApplication.processEvents()
+
+    def _resize_result_columns(self) -> None:
+        self.results_table.resizeColumnsToContents()
+        self.results_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.results_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.results_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.results_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.results_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+
+    def _make_result_item(
+        self,
+        display_value: str,
+        tooltip_value: str,
+        *,
+        emphasize: bool = False,
+        center: bool = False,
+    ) -> QTableWidgetItem:
+        item = QTableWidgetItem(display_value)
+        item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+        item.setToolTip(tooltip_value)
+        if center:
+            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        if emphasize:
+            font = item.font()
+            font.setBold(True)
+            font.setPointSize(max(font.pointSize(), 14))
+            item.setFont(font)
+        return item
+
+    def _format_status(self, action: str) -> str:
+        return STATUS_LABELS.get(action, action.replace("-", " ").title())
 
     def _add_source_folder(self) -> None:
         selected = QFileDialog.getExistingDirectory(self, "Select source folder")
@@ -658,14 +725,21 @@ class MediaManagerWindow(QMainWindow):
             exiftool_path=exiftool_path,
         )
 
+        self._save_settings()
+        self.results_table.setRowCount(0)
+        self.results_summary_label.setText("Preparing organizer run ...")
+        self.status_bar.showMessage("Preparing organizer run ...")
+        self._set_run_state(True)
+
         try:
-            self.status_bar.showMessage("Processing ...")
-            QApplication.processEvents()
-            results = organize_media(config)
+            results = organize_media(config, progress_callback=self._handle_progress)
         except Exception as exc:  # pragma: no cover - GUI fallback
             QMessageBox.critical(self, "Error", str(exc))
+            self.results_summary_label.setText("An error occurred.")
             self.status_bar.showMessage("An error occurred")
             return
+        finally:
+            self._set_run_state(False)
 
         self.results_table.setRowCount(len(results.entries))
         for row_index, entry in enumerate(results.entries):
@@ -676,18 +750,22 @@ class MediaManagerWindow(QMainWindow):
                 target_tooltip = str(entry.target)
 
             values = [
-                (entry.action, entry.action),
-                (entry.source.name, str(entry.source)),
-                (entry.source.parent.name or str(entry.source.parent), str(entry.source.parent)),
-                (target_value, target_tooltip),
-                (entry.reason or "-", entry.reason or "-"),
+                (self._format_status(entry.action), entry.action, True, True),
+                (entry.source.name, str(entry.source), False, False),
+                (entry.source.parent.name or str(entry.source.parent), str(entry.source.parent), False, False),
+                (target_value, target_tooltip, False, False),
+                (entry.reason or "-", entry.reason or "-", False, False),
             ]
-            for column_index, (display_value, tooltip_value) in enumerate(values):
-                item = QTableWidgetItem(display_value)
-                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                item.setToolTip(tooltip_value)
+            for column_index, (display_value, tooltip_value, emphasize, center) in enumerate(values):
+                item = self._make_result_item(
+                    display_value,
+                    tooltip_value,
+                    emphasize=emphasize,
+                    center=center,
+                )
                 self.results_table.setItem(row_index, column_index, item)
 
+        self._resize_result_columns()
         mode_label = "Apply" if self.apply_checkbox.isChecked() else "Preview"
         self.results_summary_label.setText(
             f"{mode_label} finished — {results.processed} file(s), {results.organized} action(s), {results.errors} error(s)."
@@ -696,7 +774,6 @@ class MediaManagerWindow(QMainWindow):
             f"Processed: {results.processed} | Planned/Executed: {results.organized} | "
             f"Skipped: {results.skipped} | Errors: {results.errors}"
         )
-        self._save_settings()
 
 
 def main() -> int:

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from .constants import MEDIA_EXTENSIONS
 from .dates import resolve_media_datetime
+
+ProgressCallback = Callable[[str], None]
 
 
 @dataclass(slots=True)
@@ -76,11 +79,23 @@ def iter_media_files(source_dirs: list[Path]) -> list[Path]:
     return sorted(collected, key=lambda path: str(path).lower())
 
 
-def organize_media(config: SortConfig) -> SortResult:
+def _emit_progress(progress_callback: ProgressCallback | None, message: str) -> None:
+    if progress_callback is not None:
+        progress_callback(message)
+
+
+def organize_media(config: SortConfig, progress_callback: ProgressCallback | None = None) -> SortResult:
     result = SortResult()
 
-    for file_path in iter_media_files(config.source_dirs):
+    _emit_progress(progress_callback, "Scanning source folders ...")
+    media_files = iter_media_files(config.source_dirs)
+    total_files = len(media_files)
+    file_label = "file" if total_files == 1 else "files"
+    _emit_progress(progress_callback, f"Found {total_files} media {file_label}.")
+
+    for index, file_path in enumerate(media_files, start=1):
         result.processed += 1
+        _emit_progress(progress_callback, f"Processing {index}/{total_files}: {file_path.name}")
 
         try:
             media_dt = resolve_media_datetime(file_path, exiftool_path=config.exiftool_path)
@@ -116,4 +131,8 @@ def organize_media(config: SortConfig) -> SortResult:
                 )
             )
 
+    _emit_progress(
+        progress_callback,
+        f"Finished. {result.organized} action(s), {result.errors} error(s).",
+    )
     return result
