@@ -1,25 +1,33 @@
+from __future__ import annotations
+
 import sys
 
 from media_manager.cli import main as cli_main
 
 
-def _run_gui() -> int:
+def run_gui() -> int:
     try:
         from media_manager.gui import main as gui_main
     except ModuleNotFoundError as exc:
-        if exc.name == "tkinter":
+        if exc.name == "PySide6":
             print(
-                "Tkinter is not available in this Python installation.\n"
-                "Use the CLI for now or install a Python build with Tcl/Tk support.\n\n"
+                "PySide6 is not available in this Python installation.\n"
+                "Install project dependencies again and then retry the GUI.\n\n"
+                "Example:\n"
+                "  pip install -e .[dev]\n\n"
                 "CLI example:\n"
-                "  python -m media_manager organize <SOURCE> <TARGET> --apply --copy\n"
+                "  python -m media_manager organize --source <SOURCE> --target <TARGET> --apply --copy\n"
             )
             return 2
         raise
     return gui_main()
 
 
-if __name__ == "__main__":
+def main() -> int:
     if len(sys.argv) == 1:
-        raise SystemExit(_run_gui())
-    raise SystemExit(cli_main())
+        return run_gui()
+    return cli_main()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,194 +1,382 @@
 from __future__ import annotations
 
-import tkinter as tk
+import sys
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QApplication,
+    QAbstractItemView,
+    QButtonGroup,
+    QCheckBox,
+    QFileDialog,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QRadioButton,
+    QStatusBar,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+    QSplitter,
+)
 
 from .sorter import SortConfig, organize_media
 
 
-class MediaManagerApp:
-    def __init__(self, root: tk.Tk) -> None:
-        self.root = root
-        self.root.title("Media Manager")
-        self.root.geometry("980x700")
-        self.root.minsize(860, 620)
+APP_STYLESHEET = """
+QMainWindow {
+    background: #111827;
+}
+QWidget {
+    color: #E5E7EB;
+    font-size: 13px;
+}
+QGroupBox {
+    border: 1px solid #374151;
+    border-radius: 12px;
+    margin-top: 12px;
+    padding-top: 16px;
+    background: #1F2937;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 14px;
+    padding: 0 4px;
+    color: #F9FAFB;
+    font-weight: 600;
+}
+QLineEdit, QListWidget, QTableWidget {
+    background: #0F172A;
+    border: 1px solid #374151;
+    border-radius: 10px;
+    padding: 8px;
+    selection-background-color: #2563EB;
+}
+QPushButton {
+    background: #2563EB;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-weight: 600;
+}
+QPushButton:hover {
+    background: #1D4ED8;
+}
+QPushButton:disabled {
+    background: #374151;
+    color: #9CA3AF;
+}
+QPushButton[variant="secondary"] {
+    background: #374151;
+}
+QPushButton[variant="secondary"]:hover {
+    background: #4B5563;
+}
+QHeaderView::section {
+    background: #1F2937;
+    color: #F9FAFB;
+    padding: 8px;
+    border: none;
+    border-bottom: 1px solid #374151;
+}
+QStatusBar {
+    background: #111827;
+    border-top: 1px solid #1F2937;
+}
+"""
 
-        self.source_var = tk.StringVar()
-        self.target_var = tk.StringVar()
-        self.exiftool_var = tk.StringVar()
-        self.template_var = tk.StringVar(value="{year}/{month}")
-        self.mode_var = tk.StringVar(value="copy")
-        self.apply_var = tk.BooleanVar(value=False)
-        self.status_var = tk.StringVar(value="Ready")
+
+class MediaManagerWindow(QMainWindow):
+    def __init__(self) -> None:
+        super().__init__()
+        self.setWindowTitle("Media Manager")
+        self.resize(1180, 760)
+        self.setMinimumSize(980, 680)
+
+        self.target_input = QLineEdit()
+        self.exiftool_input = QLineEdit()
+        self.template_input = QLineEdit("{year}/{month}")
+        self.apply_checkbox = QCheckBox("Apply changes for real")
+
+        self.source_list = QListWidget()
+        self.source_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+
+        self.copy_radio = QRadioButton("Copy")
+        self.move_radio = QRadioButton("Move")
+        self.copy_radio.setChecked(True)
+        self.mode_group = QButtonGroup(self)
+        self.mode_group.addButton(self.copy_radio)
+        self.mode_group.addButton(self.move_radio)
+
+        self.results_table = QTableWidget(0, 4)
+        self.results_table.setHorizontalHeaderLabels(["Status", "Source", "Target", "Details"])
+        self.results_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.results_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.results_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.results_table.verticalHeader().setVisible(False)
+        self.results_table.horizontalHeader().setStretchLastSection(True)
+        self.results_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.results_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.results_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.results_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.status_bar.showMessage("Ready")
 
         self._build_ui()
 
     def _build_ui(self) -> None:
-        self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
+        container = QWidget()
+        outer_layout = QVBoxLayout(container)
+        outer_layout.setContentsMargins(18, 18, 18, 18)
+        outer_layout.setSpacing(16)
 
-        main = ttk.Frame(self.root, padding=16)
-        main.grid(row=0, column=0, sticky="nsew")
-        main.columnconfigure(0, weight=1)
-        main.rowconfigure(3, weight=1)
+        title = QLabel("Media Manager")
+        title_font = QFont()
+        title_font.setPointSize(20)
+        title_font.setBold(True)
+        title.setFont(title_font)
 
-        header = ttk.Frame(main)
-        header.grid(row=0, column=0, sticky="ew", pady=(0, 12))
-        header.columnconfigure(0, weight=1)
-
-        ttk.Label(header, text="Media Manager", font=("Segoe UI", 20, "bold")).grid(
-            row=0, column=0, sticky="w"
+        subtitle = QLabel(
+            "Desktop foundation for organizing photos and videos with multiple source folders and one target folder."
         )
-        ttk.Label(
-            header,
-            text="Desktop foundation for sorting photos and videos by date.",
-        ).grid(row=1, column=0, sticky="w", pady=(4, 0))
+        subtitle.setWordWrap(True)
+        subtitle.setStyleSheet("color: #9CA3AF;")
 
-        form = ttk.LabelFrame(main, text="Inputs", padding=12)
-        form.grid(row=1, column=0, sticky="ew")
-        form.columnconfigure(1, weight=1)
+        outer_layout.addWidget(title)
+        outer_layout.addWidget(subtitle)
 
-        self._add_path_row(form, 0, "Source folder", self.source_var, self._choose_source_dir)
-        self._add_path_row(form, 1, "Target folder", self.target_var, self._choose_target_dir)
-        self._add_path_row(form, 2, "ExifTool", self.exiftool_var, self._choose_exiftool)
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.setChildrenCollapsible(False)
 
-        ttk.Label(form, text="Target template").grid(row=3, column=0, sticky="w", pady=(10, 0))
-        ttk.Entry(form, textvariable=self.template_var).grid(
-            row=3, column=1, columnspan=2, sticky="ew", pady=(10, 0)
+        controls_panel = QWidget()
+        controls_layout = QVBoxLayout(controls_panel)
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+        controls_layout.setSpacing(14)
+
+        controls_layout.addWidget(self._build_sources_group())
+        controls_layout.addWidget(self._build_destination_group())
+        controls_layout.addWidget(self._build_run_group())
+
+        results_group = QGroupBox("Results")
+        results_layout = QVBoxLayout(results_group)
+        results_layout.addWidget(self.results_table)
+
+        splitter.addWidget(controls_panel)
+        splitter.addWidget(results_group)
+        splitter.setSizes([320, 360])
+
+        outer_layout.addWidget(splitter)
+        self.setCentralWidget(container)
+
+    def _build_sources_group(self) -> QGroupBox:
+        group = QGroupBox("Source folders")
+        layout = QVBoxLayout(group)
+        layout.setSpacing(10)
+
+        hint = QLabel("Add one or more source folders. Duplicate paths are ignored.")
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color: #9CA3AF;")
+        layout.addWidget(hint)
+        layout.addWidget(self.source_list)
+
+        buttons_row = QHBoxLayout()
+        add_button = QPushButton("Add folder")
+        remove_button = QPushButton("Remove selected")
+        clear_button = QPushButton("Clear all")
+        remove_button.setProperty("variant", "secondary")
+        clear_button.setProperty("variant", "secondary")
+        add_button.clicked.connect(self._add_source_folder)
+        remove_button.clicked.connect(self._remove_selected_sources)
+        clear_button.clicked.connect(self._clear_sources)
+
+        buttons_row.addWidget(add_button)
+        buttons_row.addWidget(remove_button)
+        buttons_row.addWidget(clear_button)
+        buttons_row.addStretch(1)
+        layout.addLayout(buttons_row)
+        return group
+
+    def _build_destination_group(self) -> QGroupBox:
+        group = QGroupBox("Target and processing")
+        layout = QGridLayout(group)
+        layout.setHorizontalSpacing(10)
+        layout.setVerticalSpacing(10)
+        layout.setColumnStretch(1, 1)
+
+        target_button = QPushButton("Browse")
+        target_button.clicked.connect(self._choose_target_folder)
+
+        exiftool_button = QPushButton("Browse")
+        exiftool_button.setProperty("variant", "secondary")
+        exiftool_button.clicked.connect(self._choose_exiftool)
+
+        layout.addWidget(QLabel("Target folder"), 0, 0)
+        layout.addWidget(self.target_input, 0, 1)
+        layout.addWidget(target_button, 0, 2)
+
+        layout.addWidget(QLabel("ExifTool path"), 1, 0)
+        layout.addWidget(self.exiftool_input, 1, 1)
+        layout.addWidget(exiftool_button, 1, 2)
+
+        layout.addWidget(QLabel("Target template"), 2, 0)
+        layout.addWidget(self.template_input, 2, 1, 1, 2)
+
+        mode_row = QHBoxLayout()
+        mode_row.addWidget(QLabel("Mode"))
+        mode_row.addWidget(self.copy_radio)
+        mode_row.addWidget(self.move_radio)
+        mode_row.addSpacing(20)
+        mode_row.addWidget(self.apply_checkbox)
+        mode_row.addStretch(1)
+        layout.addLayout(mode_row, 3, 0, 1, 3)
+
+        return group
+
+    def _build_run_group(self) -> QGroupBox:
+        group = QGroupBox("Run")
+        layout = QVBoxLayout(group)
+
+        info = QLabel(
+            "Use preview first. Only enable real apply mode once the target structure looks correct."
         )
+        info.setWordWrap(True)
+        info.setStyleSheet("color: #9CA3AF;")
+        layout.addWidget(info)
 
-        mode_frame = ttk.Frame(form)
-        mode_frame.grid(row=4, column=0, columnspan=3, sticky="w", pady=(10, 0))
-        ttk.Label(mode_frame, text="Mode:").pack(side="left")
-        ttk.Radiobutton(mode_frame, text="Copy", variable=self.mode_var, value="copy").pack(
-            side="left", padx=(10, 0)
-        )
-        ttk.Radiobutton(mode_frame, text="Move", variable=self.mode_var, value="move").pack(
-            side="left", padx=(10, 0)
-        )
-        ttk.Checkbutton(
-            mode_frame,
-            text="Apply changes for real",
-            variable=self.apply_var,
-        ).pack(side="left", padx=(20, 0))
+        row = QHBoxLayout()
+        preview_button = QPushButton("Preview / Run")
+        clear_button = QPushButton("Clear results")
+        clear_button.setProperty("variant", "secondary")
+        preview_button.clicked.connect(self._run)
+        clear_button.clicked.connect(self._clear_results)
+        row.addWidget(preview_button)
+        row.addWidget(clear_button)
+        row.addStretch(1)
+        layout.addLayout(row)
+        return group
 
-        actions = ttk.Frame(main)
-        actions.grid(row=2, column=0, sticky="ew", pady=12)
-        ttk.Button(actions, text="Preview / Run", command=self._run).pack(side="left")
-        ttk.Button(actions, text="Clear results", command=self._clear_results).pack(
-            side="left", padx=(8, 0)
-        )
+    def _add_source_folder(self) -> None:
+        selected = QFileDialog.getExistingDirectory(self, "Select source folder")
+        if not selected:
+            return
+        normalized = str(Path(selected))
+        existing = {self.source_list.item(index).text() for index in range(self.source_list.count())}
+        if normalized not in existing:
+            self.source_list.addItem(QListWidgetItem(normalized))
+            self.status_bar.showMessage(f"Added source folder: {normalized}")
 
-        results_frame = ttk.LabelFrame(main, text="Results", padding=8)
-        results_frame.grid(row=3, column=0, sticky="nsew")
-        results_frame.columnconfigure(0, weight=1)
-        results_frame.rowconfigure(0, weight=1)
+    def _remove_selected_sources(self) -> None:
+        for item in self.source_list.selectedItems():
+            self.source_list.takeItem(self.source_list.row(item))
+        self.status_bar.showMessage("Selected source folders removed")
 
-        columns = ("status", "source", "target", "reason")
-        self.tree = ttk.Treeview(results_frame, columns=columns, show="headings")
-        self.tree.heading("status", text="Status")
-        self.tree.heading("source", text="Source")
-        self.tree.heading("target", text="Target")
-        self.tree.heading("reason", text="Details")
-        self.tree.column("status", width=110, anchor="center")
-        self.tree.column("source", width=280)
-        self.tree.column("target", width=280)
-        self.tree.column("reason", width=220)
-        self.tree.grid(row=0, column=0, sticky="nsew")
+    def _clear_sources(self) -> None:
+        self.source_list.clear()
+        self.status_bar.showMessage("Source folder list cleared")
 
-        scrollbar = ttk.Scrollbar(results_frame, orient="vertical", command=self.tree.yview)
-        scrollbar.grid(row=0, column=1, sticky="ns")
-        self.tree.configure(yscrollcommand=scrollbar.set)
-
-        status_bar = ttk.Label(main, textvariable=self.status_var, relief="sunken", anchor="w")
-        status_bar.grid(row=4, column=0, sticky="ew", pady=(12, 0))
-
-    def _add_path_row(self, parent: ttk.Frame, row: int, label: str, variable: tk.StringVar, command) -> None:
-        ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", pady=(0 if row == 0 else 10, 0))
-        ttk.Entry(parent, textvariable=variable).grid(
-            row=row,
-            column=1,
-            sticky="ew",
-            padx=(10, 10),
-            pady=(0 if row == 0 else 10, 0),
-        )
-        ttk.Button(parent, text="Browse", command=command).grid(
-            row=row,
-            column=2,
-            pady=(0 if row == 0 else 10, 0),
-        )
-
-    def _choose_source_dir(self) -> None:
-        selected = filedialog.askdirectory(title="Select source folder")
+    def _choose_target_folder(self) -> None:
+        selected = QFileDialog.getExistingDirectory(self, "Select target folder")
         if selected:
-            self.source_var.set(selected)
-
-    def _choose_target_dir(self) -> None:
-        selected = filedialog.askdirectory(title="Select target folder")
-        if selected:
-            self.target_var.set(selected)
+            self.target_input.setText(str(Path(selected)))
 
     def _choose_exiftool(self) -> None:
-        selected = filedialog.askopenfilename(
-            title="Select ExifTool executable",
-            filetypes=[("Executable", "*.exe"), ("All files", "*.*")],
+        selected, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select ExifTool executable",
+            filter="Executable (*.exe);;All files (*.*)",
         )
         if selected:
-            self.exiftool_var.set(selected)
+            self.exiftool_input.setText(str(Path(selected)))
 
     def _clear_results(self) -> None:
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        self.status_var.set("Results cleared")
+        self.results_table.setRowCount(0)
+        self.status_bar.showMessage("Results cleared")
+
+    def _collect_source_dirs(self) -> list[Path]:
+        return [Path(self.source_list.item(index).text()) for index in range(self.source_list.count())]
 
     def _run(self) -> None:
-        source = Path(self.source_var.get().strip()) if self.source_var.get().strip() else None
-        target = Path(self.target_var.get().strip()) if self.target_var.get().strip() else None
-        exiftool = Path(self.exiftool_var.get().strip()) if self.exiftool_var.get().strip() else None
+        source_dirs = self._collect_source_dirs()
+        target_text = self.target_input.text().strip()
+        exiftool_text = self.exiftool_input.text().strip()
 
-        if source is None or not source.is_dir():
-            messagebox.showerror("Error", "Please select a valid source folder.")
-            return
-        if target is None:
-            messagebox.showerror("Error", "Please select a target folder.")
+        if not source_dirs:
+            QMessageBox.critical(self, "Error", "Please add at least one source folder.")
             return
 
-        target.mkdir(parents=True, exist_ok=True)
+        invalid_sources = [path for path in source_dirs if not path.is_dir()]
+        if invalid_sources:
+            QMessageBox.critical(
+                self,
+                "Error",
+                "The following source folders are invalid:\n- " + "\n- ".join(str(path) for path in invalid_sources),
+            )
+            return
+
+        if not target_text:
+            QMessageBox.critical(self, "Error", "Please select a target folder.")
+            return
+
+        target_dir = Path(target_text)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        exiftool_path = Path(exiftool_text) if exiftool_text else None
 
         config = SortConfig(
-            source_dir=source,
-            target_dir=target,
-            target_template=self.template_var.get().strip() or "{year}/{month}",
-            dry_run=not self.apply_var.get(),
-            mode=self.mode_var.get(),
-            exiftool_path=exiftool,
+            source_dirs=source_dirs,
+            target_dir=target_dir,
+            target_template=self.template_input.text().strip() or "{year}/{month}",
+            dry_run=not self.apply_checkbox.isChecked(),
+            mode="move" if self.move_radio.isChecked() else "copy",
+            exiftool_path=exiftool_path,
         )
 
         try:
-            self.status_var.set("Processing ...")
-            self.root.update_idletasks()
+            self.status_bar.showMessage("Processing ...")
+            QApplication.processEvents()
             results = organize_media(config)
         except Exception as exc:  # pragma: no cover - GUI fallback
-            messagebox.showerror("Error", str(exc))
-            self.status_var.set("An error occurred")
+            QMessageBox.critical(self, "Error", str(exc))
+            self.status_bar.showMessage("An error occurred")
             return
 
         self._clear_results()
-        for entry in results.entries:
-            source_text = str(entry.source)
-            target_text = str(entry.target) if entry.target is not None else "-"
-            reason_text = entry.reason or "-"
-            self.tree.insert("", "end", values=(entry.action, source_text, target_text, reason_text))
+        self.results_table.setRowCount(len(results.entries))
+        for row_index, entry in enumerate(results.entries):
+            values = [
+                entry.action,
+                str(entry.source),
+                str(entry.target) if entry.target is not None else "-",
+                entry.reason or "-",
+            ]
+            for column_index, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.results_table.setItem(row_index, column_index, item)
 
-        self.status_var.set(
+        self.status_bar.showMessage(
             f"Processed: {results.processed} | Planned/Executed: {results.organized} | "
             f"Skipped: {results.skipped} | Errors: {results.errors}"
         )
 
 
 def main() -> int:
-    root = tk.Tk()
-    app = MediaManagerApp(root)
-    root.mainloop()
-    return 0
+    app = QApplication.instance() or QApplication(sys.argv)
+    app.setStyle("Fusion")
+    app.setStyleSheet(APP_STYLESHEET)
+
+    window = MediaManagerWindow()
+    window.show()
+    return app.exec()

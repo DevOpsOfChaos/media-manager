@@ -32,26 +32,41 @@ This repository fixes that foundation first.
 - Dry-run preview before applying changes
 - Copy or move files
 - Detect filename collisions
+- Organize from multiple source folders into one target folder
 - Resolve ExifTool through:
   - `PATH`
   - `EXIFTOOL_PATH`
   - an explicit CLI / GUI path
   - common Windows install paths
-- Desktop GUI foundation
+- PySide6 desktop GUI baseline
 - CLI entry point
 - Automated tests for core date and sorting logic
 
 ## Planned capabilities
 
+- Saved import sets for reusable folder groups
 - Template-based renaming
 - Duplicate detection
+- Keep-source / keep-target / keep-both decisions for exact duplicates
+- Visual comparison for images and videos
 - Flexible sorting rules and filters
 - SQLite-backed media index
 - Faster processing for large libraries
-- Modern desktop UI
-- Optional localization
+- Modern desktop UI refinement
+- Optional localization with language switching
 - Windows packaging / installer
 - Releases
+
+## Product direction
+
+The current product shape is easiest to think about as four user-facing areas:
+
+1. **Organize**
+2. **Rename**
+3. **Duplicates**
+4. **Compare**
+
+Only the first area is actively implemented right now. The others are planned and should be built on top of the same core instead of becoming separate one-off tools.
 
 ## Architecture
 
@@ -72,7 +87,7 @@ media-manager/
 
 The important rule is simple: **core logic stays separate from UI code**.
 
-That is what makes it possible to start with a pragmatic Tkinter GUI now and later move to a more professional UI stack without rewriting the core behavior.
+That is what makes it possible to improve the desktop UI later, add localization later, and eventually support saved import sets without rewriting the core behavior.
 
 ## Requirements
 
@@ -104,19 +119,19 @@ python -m media_manager
 CLI preview:
 
 ```powershell
-python -m media_manager organize "C:\Path\To\Unsorted" "C:\Path\To\Sorted"
+python -m media_manager organize --source "C:\Path\To\UnsortedA" --source "C:\Path\To\UnsortedB" --target "C:\Path\To\Sorted"
 ```
 
 CLI apply with copy:
 
 ```powershell
-python -m media_manager organize "C:\Path\To\Unsorted" "C:\Path\To\Sorted" --apply --copy
+python -m media_manager organize --source "C:\Path\To\UnsortedA" --source "C:\Path\To\UnsortedB" --target "C:\Path\To\Sorted" --apply --copy
 ```
 
 CLI apply with move:
 
 ```powershell
-python -m media_manager organize "C:\Path\To\Unsorted" "C:\Path\To\Sorted" --apply --move
+python -m media_manager organize --source "C:\Path\To\UnsortedA" --source "C:\Path\To\UnsortedB" --target "C:\Path\To\Sorted" --apply --move
 ```
 
 ## ExifTool
@@ -135,12 +150,13 @@ Known legacy Windows paths from the original script:
 - `C:\Program Files\exiftool\exiftool.exe`
 - `C:\Program Files\exiftool\exiftool(-k).exe`
 
-## Tkinter note
+## PySide6 note
 
-If `python -m media_manager` ends with `No module named tkinter`, then the Python installation does not include Tkinter / Tcl-Tk support.
+The current desktop GUI is based on PySide6. If `python -m media_manager` reports that `PySide6` is unavailable, reinstall project dependencies:
 
-That does **not** mean the project is unusable. The CLI still works.  
-It only means the current GUI entry point cannot start with that Python installation.
+```powershell
+pip install -e ".[dev]"
+```
 
 ## Development
 
@@ -157,6 +173,7 @@ See also:
 - [Contributing guide](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Support](SUPPORT.md)
+- [v0.3 implementation protocol](docs/protocol/2026-03-25-v0.3-pyside6-multisource.md)
 
 ## Honest scope statement
 

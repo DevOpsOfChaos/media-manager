@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "media-manager"
-version = "0.2.3"
+version = "0.3.0"
 description = "Desktop-ready foundation for organizing photos and videos by metadata"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -24,7 +24,9 @@ classifiers = [
   "Topic :: Multimedia :: Graphics",
   "Topic :: Utilities",
 ]
-dependencies = []
+dependencies = [
+  "PySide6>=6.7",
+]
 
 [project.urls]
 Homepage = "https://github.com/DevOpsOfChaos/media-manager"
@@ -39,7 +41,7 @@ dev = [
 
 [project.scripts]
 media-manager = "media_manager.cli:main"
-media-manager-gui = "media_manager.gui:main"
+media-manager-gui = "media_manager.__main__:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

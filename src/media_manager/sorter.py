@@ -10,7 +10,7 @@ from .dates import resolve_media_datetime
 
 @dataclass(slots=True)
 class SortConfig:
-    source_dir: Path
+    source_dirs: list[Path]
     target_dir: Path
     target_template: str = "{year}/{month}"
     dry_run: bool = True
@@ -59,13 +59,27 @@ def ensure_unique_path(path: Path) -> Path:
         counter += 1
 
 
+def iter_media_files(source_dirs: list[Path]) -> list[Path]:
+    seen: set[Path] = set()
+    collected: list[Path] = []
+
+    for source_dir in source_dirs:
+        for file_path in source_dir.rglob("*"):
+            if not is_media_file(file_path):
+                continue
+            resolved = file_path.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            collected.append(file_path)
+
+    return sorted(collected, key=lambda path: str(path).lower())
+
+
 def organize_media(config: SortConfig) -> SortResult:
     result = SortResult()
 
-    for file_path in sorted(config.source_dir.rglob("*")):
-        if not is_media_file(file_path):
-            continue
-
+    for file_path in iter_media_files(config.source_dirs):
         result.processed += 1
 
         try:

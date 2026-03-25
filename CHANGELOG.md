@@ -14,6 +14,9 @@ The format is based on Keep a Changelog, and the project aims to follow Semantic
 - Support guide
 - Code of conduct
 - Dependabot configuration
+- PySide6 desktop baseline for the organizer workflow
+- Multi-source folder support for the organizer workflow
+- Implementation protocol for the v0.3 baseline
 
 ### Changed
 - README rewritten to present the repository as a public project front door
@@ -22,6 +25,8 @@ The format is based on Keep a Changelog, and the project aims to follow Semantic
 - Test workflow expanded to Python 3.11 and 3.12
 - `.gitignore` extended for common Python build and cache artifacts
 - Repository and application default language standardized to English
+- Core sorting configuration now supports multiple source folders
+- CLI updated to use repeatable `--source` flags and explicit `--target`
 
 ### Notes
 - The project remains in pre-alpha.

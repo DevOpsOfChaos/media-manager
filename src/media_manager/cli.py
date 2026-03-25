@@ -11,8 +11,20 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     organize = subparsers.add_parser("organize", help="Sort media files by resolved date")
-    organize.add_argument("source", type=Path, help="Source directory")
-    organize.add_argument("target", type=Path, help="Target directory")
+    organize.add_argument(
+        "--source",
+        dest="sources",
+        action="append",
+        type=Path,
+        required=True,
+        help="Source directory. Repeat the flag to add multiple source folders.",
+    )
+    organize.add_argument(
+        "--target",
+        type=Path,
+        required=True,
+        help="Target directory",
+    )
     organize.add_argument(
         "--template",
         default="{year}/{month}",
@@ -41,8 +53,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "organize":
-        if not args.source.is_dir():
-            parser.error(f"Source directory does not exist or is not a directory: {args.source}")
+        invalid_sources = [path for path in args.sources if not path.is_dir()]
+        if invalid_sources:
+            parser.error(
+                "The following source directories do not exist or are not directories: "
+                + ", ".join(str(path) for path in invalid_sources)
+            )
         args.target.mkdir(parents=True, exist_ok=True)
 
         mode = "copy"
@@ -50,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
             mode = "move"
 
         config = SortConfig(
-            source_dir=args.source,
+            source_dirs=args.sources,
             target_dir=args.target,
             target_template=args.template,
             dry_run=not args.apply,

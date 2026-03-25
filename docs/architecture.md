@@ -4,7 +4,7 @@
 
 Keep media handling logic independent from the user interface.
 
-That is the core rule that allows the project to evolve from a pragmatic Tkinter desktop app into a more professional UI without rewriting the sorting engine.
+That is the core rule that allows the project to evolve from the current organizer baseline into a more complete and more professional desktop application without rewriting the sorting engine.
 
 ## Current layers
 
@@ -22,6 +22,7 @@ This layer should decide:
 - how media files are classified
 - where files should go
 - how collisions are handled
+- how multiple source folders are processed
 
 This layer should **not** know anything about buttons, windows, or widget state.
 
@@ -48,6 +49,17 @@ Its job is only to:
 
 It should not become the place where business logic silently accumulates.
 
+## Product modules
+
+The long-term product direction is better understood as four modules built on one core:
+
+1. **Organize**
+2. **Rename**
+3. **Duplicates**
+4. **Compare**
+
+The current repository implements the **Organize** baseline only.
+
 ## Why this matters
 
 Most small utility tools decay because the UI and the actual logic get fused together.  
@@ -60,11 +72,14 @@ The current structure avoids that trap on purpose.
 The intended long-term direction is:
 
 1. stabilize the current core
-2. add real user-facing features
-3. improve test coverage
-4. replace the temporary GUI layer with a more modern UI stack
-5. add packaging and releases
-6. add optional localization without mixing translations into the core logic
+2. expand the organizer flow with better user-facing controls
+3. add reusable import sets for source-folder groups
+4. add duplicate detection and duplicate decisions
+5. add visual comparison workflows for images and videos
+6. improve test coverage
+7. refine the desktop UI
+8. add optional localization without mixing translations into the core logic
+9. add packaging and releases
 
 ## Non-goals for now
 
