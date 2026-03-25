@@ -1,34 +1,48 @@
 # Media Manager
 
-Solide Desktop-Basis für einen später öffentlich nutzbaren Foto- und Medienmanager.
+[![Tests](https://github.com/DevOpsOfChaos/media-manager/actions/workflows/tests.yml/badge.svg)](https://github.com/DevOpsOfChaos/media-manager/actions/workflows/tests.yml)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+[![License: MIT](https://img.shields.io/github/license/DevOpsOfChaos/media-manager)](LICENSE)
 
-Der Stand ist absichtlich pragmatisch:
-- bewährte Kernlogik für Medien-Sortierung beibehalten
-- Desktop-Oberfläche mit Tkinter für sofort nutzbare Bedienung
-- CLI bleibt erhalten
-- Architektur bleibt so getrennt, dass später eine moderne Oberfläche darauf aufsetzen kann
+Open-source desktop foundation for organizing photos and videos by metadata and file dates.
 
-## Was bereits funktioniert
+> **Project status:** pre-alpha. The current focus is a reliable core, not feature breadth or polished UI.
 
-- Fotos und Videos per Metadaten nach Datum sortieren
-- Vorschau ohne Änderungen
-- echtes Kopieren oder Verschieben
-- ExifTool-Erkennung über PATH, Umgebungsvariable oder expliziten Pfad
-- Fallback auf Dateisystem-Zeitstempel
-- Kollisionserkennung bei Dateinamen
-- Desktop-GUI mit Ordnerauswahl und Ergebnisliste
-- Tests für Datumsparser und Sortierlogik
+## Why this repository exists
 
-## Was bewusst noch fehlt
+The project started from a script that already handled media sorting well.  
+The real deficit was everything around it: project structure, safer execution, clearer setup, testability, and a path toward a real desktop application.
 
-- Umbenennen nach Vorlage
-- Duplikaterkennung
-- Datenbankindex
-- Video-Inhaltsanalyse
-- moderne professionelle UI
-- Installer/Setup-Paket
+This repository fixes that foundation first.
 
-## Architektur
+## Current capabilities
+
+- Sort photos and videos by metadata date
+- Fall back to filesystem timestamps when metadata is missing
+- Dry-run preview before applying changes
+- Copy or move files
+- Detect filename collisions
+- Resolve ExifTool through:
+  - `PATH`
+  - `EXIFTOOL_PATH`
+  - an explicit CLI / GUI path
+  - common Windows install paths
+- Desktop GUI foundation
+- CLI entry point
+- Automated tests for core date and sorting logic
+
+## Planned capabilities
+
+- Template-based renaming
+- Duplicate detection
+- Flexible sorting rules and filters
+- SQLite-backed media index
+- Faster processing for large libraries
+- Modern desktop UI
+- Windows packaging / installer
+- Releases
+
+## Architecture
 
 ```text
 media-manager/
@@ -36,147 +50,105 @@ media-manager/
 ├── src/
 │   └── media_manager/
 │       ├── cli.py
-│       ├── gui.py
-│       ├── sorter.py
+│       ├── dates.py
 │       ├── exiftool.py
-│       └── dates.py
+│       ├── gui.py
+│       └── sorter.py
 ├── tests/
 ├── pyproject.toml
 └── README.md
 ```
 
-Die Logik ist absichtlich **nicht** in die GUI eingebrannt. Das ist wichtig, weil Tkinter nur die Startbasis ist.
-Wenn du später auf **PySide6** wechselst, bleibt die Kernlogik nutzbar.
+The important rule is simple: **core logic stays separate from UI code**.
 
-## Voraussetzungen
+That is what makes it possible to start with a pragmatic Tkinter GUI now and later move to a more professional UI stack without rewriting the core behavior.
 
-- Windows
+## Requirements
+
+- Windows is the primary target right now
 - Python 3.11+
 - ExifTool
 
-## Saubere Einschätzung zu deinem bisherigen Stand
-
-Dein altes Skript war nicht das Problem. Die Kernlogik scheint bereits gut zu funktionieren.
-Das eigentliche Defizit lag bei Projektstruktur, Setup, Fehlerbehandlung und fehlender Oberfläche.
-Genau das behebt diese Basis.
-
-## Installation auf deinem Windows-Rechner
-
-Du hast bereits gezeigt, dass `python` bei dir funktioniert.
-Also **nicht weiter Zeit mit `py -3.11` verschwenden**, solange dein Launcher nicht sauber eingerichtet ist.
-
-### 1. In den Projektordner wechseln
+## Quick start
 
 ```powershell
-cd C:\Users\mries\Documents\LocalRepos\media-manager
-```
-
-### 2. ZIP hier entpacken
-
-Danach sollten `README.md`, `pyproject.toml`, `src`, `tests` direkt in diesem Ordner liegen.
-
-### 3. Virtuelle Umgebung anlegen
-
-```powershell
+git clone https://github.com/DevOpsOfChaos/media-manager.git
+cd media-manager
 python -m venv .venv
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -e ".[dev]"
+pytest
 ```
 
-Falls `Activate.ps1` wegen der Execution Policy blockiert wird:
+## Run the application
 
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\.venv\Scripts\Activate.ps1
-```
-
-### 4. ExifTool installieren
-
-ExifTool muss real vorhanden sein. Eine Umgebungsvariable auf einen nicht existierenden Pfad zu setzen bringt gar nichts.
-
-Danach entweder:
-
-```powershell
-exiftool -ver
-```
-
-oder explizit in der GUI/CLI den Pfad setzen, z. B.:
-
-```powershell
-$env:EXIFTOOL_PATH = "C:\Tools\ExifTool\exiftool.exe"
-```
-
-## GUI starten
+GUI:
 
 ```powershell
 python -m media_manager
 ```
 
-oder:
+CLI preview:
 
 ```powershell
-media-manager-gui
+python -m media_manager organize "C:\Path\To\Unsorted" "C:\Path\To\Sorted"
 ```
 
-## CLI weiter benutzen
-
-Vorschau:
+CLI apply with copy:
 
 ```powershell
-python -m media_manager organize "C:\Pfad\Zu\Unsortiert" "C:\Pfad\Zu\Sortiert"
+python -m media_manager organize "C:\Path\To\Unsorted" "C:\Path\To\Sorted" --apply --copy
 ```
 
-Wirklich kopieren:
+CLI apply with move:
 
 ```powershell
-python -m media_manager organize "C:\Pfad\Zu\Unsortiert" "C:\Pfad\Zu\Sortiert" --apply --copy
+python -m media_manager organize "C:\Path\To\Unsorted" "C:\Path\To\Sorted" --apply --move
 ```
 
-Wirklich verschieben:
+## ExifTool
+
+ExifTool must actually exist on the machine. Pointing to a non-existent path is not configuration, it is fiction.
+
+The project can detect ExifTool automatically in common situations.  
+If needed, set it explicitly:
 
 ```powershell
-python -m media_manager organize "C:\Pfad\Zu\Unsortiert" "C:\Pfad\Zu\Sortiert" --apply --move
+$env:EXIFTOOL_PATH = "C:\Program Files\exiftool\exiftool.exe"
 ```
 
-## Wichtige Korrektur zu deinem letzten Versuch
+Known legacy Windows paths from the original script:
 
-Drei Dinge waren bei deinem Test kein echter Programmfehler:
+- `C:\Program Files\exiftool\exiftool.exe`
+- `C:\Program Files\exiftool\exiftool(-k).exe`
 
-1. `py -3.11` schlug fehl, weil dein Python-Launcher nicht passend eingerichtet ist.
-   Das heißt nicht, dass Python fehlt.
-2. `D:\Fotos\Unsortiert` war nur ein Beispielpfad. Wenn der Ordner nicht existiert, **muss** das Programm abbrechen.
-3. `https://github.com/DEINNAME/media-manager.git` war ein Platzhalter. Natürlich kann man darauf nicht pushen.
+## Tkinter note
 
-## Tests
+If `python -m media_manager` ends with `No module named tkinter`, then the Python installation does not include Tkinter / Tcl-Tk support.
+
+That does **not** mean the project is unusable. The CLI still works.  
+It only means the current GUI entry point cannot start with that Python installation.
+
+## Development
+
+Run tests:
 
 ```powershell
 pytest
 ```
 
-## Git-Start
+See also:
 
-```powershell
-git add .
-git commit -m "feat: add desktop gui foundation for media manager"
-```
+- [Roadmap](docs/roadmap.md)
+- [Architecture notes](docs/architecture.md)
+- [Contributing guide](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Support](SUPPORT.md)
 
-## Strategisch richtiger nächster Schritt
+## Honest scope statement
 
-Nicht sofort in zehn Features verzetteln.
+This is not yet a finished public media manager. It is an early but structured foundation.
 
-Diese Reihenfolge ist sinnvoll:
-1. GUI-Basis stabilisieren
-2. Umbenennen nach Vorlage ergänzen
-3. Duplikaterkennung ergänzen
-4. Bibliotheksindex auf SQLite-Basis einführen
-5. erst dann moderne UI mit PySide6 oder Web-Frontend evaluieren
-
-
-## Windows-Hinweise
-
-- Alter bekannter ExifTool-Standardpfad aus dem Ursprungsskript:
-  `C:\Program Files\exiftool\exiftool.exe`
-- Fallback aus dem Ursprungsskript:
-  `C:\Program Files\exiftool\exiftool(-k).exe`
-- Wenn `python -m media_manager` mit `No module named tkinter` endet, enthält deine aktuelle Python-Installation kein Tkinter. Die CLI funktioniert dann trotzdem weiter.
+That distinction matters. Repositories rot when maintainers pretend an early base is already a product.

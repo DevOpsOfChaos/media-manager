@@ -1,53 +1,43 @@
 from __future__ import annotations
 
 from datetime import datetime
-import re
-from typing import Optional
+from pathlib import Path
+
+from .exiftool import read_metadata_date
+
+DATE_FORMATS = [
+    "%Y:%m:%d %H:%M:%S",
+    "%Y:%m:%d %H:%M:%S%z",
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S%z",
+]
 
 
-def normalize_offset(date_str: str) -> str:
-    if date_str.endswith("Z"):
-        date_str = date_str[:-1] + "+00:00"
-
-    if re.match(r".*[+-]\d{4}$", date_str):
-        date_str = date_str[:-5] + date_str[-5:-2] + ":" + date_str[-2:]
-
-    return date_str
-
-
-def parse_exif_date(date_str: str | None) -> Optional[datetime]:
-    if not date_str:
-        return None
-
-    date_str = normalize_offset(date_str.strip())
-
-    candidates = [
-        "%Y:%m:%d %H:%M:%S.%f%z",
-        "%Y:%m:%d %H:%M:%S%z",
-        "%Y:%m:%d %H:%M:%S.%f",
-        "%Y:%m:%d %H:%M:%S",
-        "%Y-%m-%dT%H:%M:%S.%f%z",
-        "%Y-%m-%dT%H:%M:%S%z",
-        "%Y-%m-%dT%H:%M:%S.%f",
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%d %H:%M:%S",
-    ]
-
-    for fmt in candidates:
+def parse_metadata_datetime(value: str) -> datetime | None:
+    raw = value.strip()
+    for fmt in DATE_FORMATS:
         try:
-            return datetime.strptime(date_str, fmt)
+            return datetime.strptime(raw, fmt)
         except ValueError:
-            pass
+            continue
 
-    match = re.match(
-        r"(\d{4})[:\-](\d{2})[:\-](\d{2})[ T](\d{2}):(\d{2}):(\d{2})",
-        date_str,
-    )
-    if match:
-        year, month, day, hour, minute, second = map(int, match.groups())
-        try:
-            return datetime(year, month, day, hour, minute, second)
-        except ValueError:
-            return None
-
+    if len(raw) >= 19:
+        truncated = raw[:19]
+        for fmt in ["%Y:%m:%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"]:
+            try:
+                return datetime.strptime(truncated, fmt)
+            except ValueError:
+                continue
     return None
+
+
+def resolve_media_datetime(file_path: Path, exiftool_path: Path | None = None) -> datetime:
+    metadata_value = read_metadata_date(file_path, exiftool_path=exiftool_path)
+    if metadata_value:
+        parsed = parse_metadata_datetime(metadata_value)
+        if parsed is not None:
+            return parsed
+
+    stat = file_path.stat()
+    return datetime.fromtimestamp(stat.st_mtime)

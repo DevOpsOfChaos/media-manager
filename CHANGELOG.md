@@ -2,17 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on Keep a Changelog, and this project aims to follow Semantic Versioning once public releases begin.
+The format is based on Keep a Changelog, and the project aims to follow Semantic Versioning once regular public releases begin.
 
 ## [Unreleased]
 
 ### Added
-- Initial public repository baseline
-- Python package structure for media organization
-- CLI entry point for organizing media by metadata and file dates
-- Early desktop GUI foundation
-- Basic automated test workflow
+- Public repository baseline files
+- GitHub issue and pull request templates
+- Automated test workflow
+- Architecture notes
+- Support guide
+- Code of conduct
+- Dependabot configuration
+
+### Changed
+- README rewritten to present the repository as a public project front door
+- Roadmap rewritten for clearer public project direction
+- Project metadata improved in `pyproject.toml`
+- Test workflow expanded to Python 3.11 and 3.12
+- `.gitignore` extended for common Python build and cache artifacts
 
 ### Notes
-- This project is currently in a pre-alpha state.
-- Breaking changes are expected while the architecture and feature set are still evolving.
+- The project remains in pre-alpha.
+- Breaking changes are still expected while the core feature set is being stabilized.

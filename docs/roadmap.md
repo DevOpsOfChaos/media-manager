@@ -1,28 +1,32 @@
 # Roadmap
 
-## Phase 1: belastbare Basis
+## Phase 1 — stable foundation
 
-- [x] Kernlogik für Sortierung nach Metadaten
-- [x] Dry-Run und sichere Ausführung
-- [x] Desktop-GUI mit Tkinter
-- [x] Tests für Kernlogik
+- [x] Preserve working metadata-based sorting logic
+- [x] Add dry-run and safer execution flow
+- [x] Add an initial desktop GUI
+- [x] Add automated tests for core logic
+- [x] Separate core logic from UI-specific code
 
-## Phase 2: echte Nutzerfunktionen
+## Phase 2 — real user features
 
-- [ ] Umbenennen nach Vorlage
-- [ ] flexible Sortierregeln
-- [ ] Ausschlussregeln und Filter
-- [ ] Duplikaterkennung über Hashing
+- [ ] Template-based renaming
+- [ ] Flexible sorting rules
+- [ ] Exclusion rules and filters
+- [ ] Duplicate detection via hashing
+- [ ] Better conflict handling and reporting
 
-## Phase 3: Skalierung
+## Phase 3 — scale and reliability
 
-- [ ] SQLite-Index
-- [ ] schnellere Metadatenverarbeitung
-- [ ] Batch-Verarbeitung großer Bibliotheken
+- [ ] SQLite-backed media index
+- [ ] Faster metadata processing
+- [ ] Batch processing for large libraries
+- [ ] Better error reporting and structured logs
 
-## Phase 4: Produktisierung
+## Phase 4 — productization
 
-- [ ] moderne Oberfläche auf Basis PySide6
-- [ ] Build als Desktop-App
-- [ ] Installer für Windows
-- [ ] GitHub Releases
+- [ ] Modern desktop UI on top of the existing core
+- [ ] Windows packaging
+- [ ] Installer
+- [ ] Signed releases
+- [ ] Release notes and versioned changelog

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import sys
 
 from media_manager.cli import main as cli_main

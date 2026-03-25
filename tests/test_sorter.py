@@ -1,18 +1,21 @@
-from datetime import datetime
 from pathlib import Path
 
-from media_manager.sorter import build_relative_target, unique_destination
+from media_manager.sorter import SortConfig, build_target_dir, ensure_unique_path
 
 
-def test_build_relative_target_uses_template():
-    dt = datetime(2024, 5, 7, 13, 45)
-    result = build_relative_target(dt, ".jpg", "{year}/{month_num}-{month_name}/{day}")
-    assert result == Path("2024/05-Mai/07")
+class DummyDate:
+    year = 2024
+    month = 7
+    day = 18
 
 
-def test_unique_destination_adds_suffix(tmp_path):
-    original = tmp_path / "image.jpg"
-    original.write_text("a", encoding="utf-8")
+def test_build_target_dir_uses_template() -> None:
+    target = build_target_dir(Path("/dest"), DummyDate(), "{year}/{month}/{day}")
+    assert target.as_posix() == "/dest/2024/07/18"
 
-    candidate = unique_destination(original)
-    assert candidate.name == "image_1.jpg"
+
+def test_ensure_unique_path_returns_incremented_name(tmp_path: Path) -> None:
+    existing = tmp_path / "photo.jpg"
+    existing.write_bytes(b"x")
+    unique = ensure_unique_path(existing)
+    assert unique.name == "photo_1.jpg"

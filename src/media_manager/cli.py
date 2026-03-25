@@ -3,91 +3,66 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from media_manager.constants import DEFAULT_TEMPLATE
-from media_manager.exiftool import ExifToolClient, ExifToolError, discover_exiftool
-from media_manager.sorter import organize
+from .sorter import SortConfig, organize_media
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="media-manager",
-        description="Organisiert Bild- und Videodateien anhand von Metadaten.",
-    )
-
+    parser = argparse.ArgumentParser(prog="media-manager")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    organize_parser = subparsers.add_parser(
-        "organize",
-        help="Sortiert Medien nach Datum in Zielordner.",
-    )
-    organize_parser.add_argument("source", type=Path, help="Quellordner mit unsortierten Medien")
-    organize_parser.add_argument("target", type=Path, help="Zielordner für die sortierten Medien")
-    organize_parser.add_argument(
+    organize = subparsers.add_parser("organize", help="Sort media files by resolved date")
+    organize.add_argument("source", type=Path, help="Source directory")
+    organize.add_argument("target", type=Path, help="Target directory")
+    organize.add_argument(
         "--template",
-        default=DEFAULT_TEMPLATE,
-        help="Ordner-Template, z. B. '{year}/{month_num}-{month_name}/{day}'",
+        default="{year}/{month}",
+        help="Target path template relative to target dir (default: {year}/{month})",
     )
-    organize_parser.add_argument(
+    mode_group = organize.add_mutually_exclusive_group()
+    mode_group.add_argument("--copy", action="store_true", help="Copy files instead of moving")
+    mode_group.add_argument("--move", action="store_true", help="Move files instead of copying")
+    organize.add_argument(
         "--apply",
         action="store_true",
-        help="Wendet Änderungen wirklich an. Ohne diesen Schalter bleibt es bei Dry-Run.",
+        help="Apply changes. Without this flag, a dry-run preview is performed.",
     )
-    mode_group = organize_parser.add_mutually_exclusive_group()
-    mode_group.add_argument("--copy", action="store_true", help="Dateien kopieren")
-    mode_group.add_argument("--move", action="store_true", help="Dateien verschieben")
-    organize_parser.add_argument(
+    organize.add_argument(
         "--exiftool-path",
+        type=Path,
         default=None,
-        help="Optionaler expliziter Pfad zu ExifTool",
-    )
-    organize_parser.add_argument(
-        "--no-filesystem-fallback",
-        action="store_true",
-        help="Keinen Fallback auf Dateisystem-Zeitstempel verwenden",
+        help="Optional explicit path to exiftool executable",
     )
 
     return parser
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.command == "organize":
-        if not args.source.exists() or not args.source.is_dir():
+        if not args.source.is_dir():
             parser.error(f"Quellordner existiert nicht oder ist kein Ordner: {args.source}")
         args.target.mkdir(parents=True, exist_ok=True)
 
-        action = "move" if args.move else "copy"
+        mode = "copy"
+        if args.move:
+            mode = "move"
 
-        try:
-            exiftool_path = discover_exiftool(args.exiftool_path)
-            client = ExifToolClient(exiftool_path)
-            version = client.get_version()
-        except ExifToolError as exc:
-            print(f"Fehler: {exc}")
-            return 1
-
-        print(f"ExifTool: {exiftool_path} (Version {version})")
-        if not args.apply:
-            print("Dry-Run aktiv. Es werden keine Dateien verändert.")
-
-        summary = organize(
+        config = SortConfig(
             source_dir=args.source,
             target_dir=args.target,
-            exiftool=client,
-            template=args.template,
-            action=action,
-            apply_changes=args.apply,
-            fallback_to_file_time=not args.no_filesystem_fallback,
+            target_template=args.template,
+            dry_run=not args.apply,
+            mode=mode,
+            exiftool_path=args.exiftool_path,
         )
+        results = organize_media(config)
+        print(
+            f"Verarbeitet: {results.processed} | Geplant/Ausgeführt: {results.organized} | "
+            f"Übersprungen: {results.skipped} | Fehler: {results.errors}"
+        )
+        return 0 if results.errors == 0 else 1
 
-        print("\nZusammenfassung")
-        print(f"  Gefundene Dateien: {summary.total_files}")
-        print(f"  Verarbeitet:       {summary.applied_files}")
-        print(f"  Nur simuliert:     {summary.skipped_files}")
-        print(f"  Ohne Metadatum:    {summary.no_date_files}")
-        return 0
-
-    parser.print_help()
-    return 1
+    parser.error("Unbekannter Befehl")
+    return 2

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "media-manager"
-version = "0.2.1"
+version = "0.2.2"
 description = "Desktop-ready foundation for organizing photos and videos by metadata"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -12,7 +12,25 @@ authors = [
   { name = "Manuel" }
 ]
 license = { text = "MIT" }
+keywords = ["media", "photos", "videos", "organizer", "exiftool", "desktop"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Multimedia :: Graphics",
+  "Topic :: Utilities",
+]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/DevOpsOfChaos/media-manager"
+Repository = "https://github.com/DevOpsOfChaos/media-manager"
+Issues = "https://github.com/DevOpsOfChaos/media-manager/issues"
+Changelog = "https://github.com/DevOpsOfChaos/media-manager/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
