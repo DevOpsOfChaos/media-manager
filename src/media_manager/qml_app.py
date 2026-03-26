@@ -60,6 +60,26 @@ TRANSLATIONS = {
         "stage_duplicates_subtitle": "Start the visible review phase for exact duplicates.",
         "stage_duplicates_action": "Start duplicate review",
         "stage_duplicates_hint": "This is still a review popup, not the final comparison tool.",
+        "stage_summary_title": "Cleanup summary",
+        "stage_summary_subtitle": "Review what the workflow currently knows before later execution and sorting stages.",
+        "stage_summary_action": "Continue to sorting",
+        "summary_totals_title": "Current cleanup totals",
+        "summary_resolved_title": "Decision progress",
+        "summary_dry_run_title": "Dry-run foundation",
+        "summary_dry_run_body": "This stage does not execute anything yet. It shows what the workflow currently plans based on exact duplicate review decisions.",
+        "summary_groups": "Exact groups",
+        "summary_duplicate_files": "Duplicate files",
+        "summary_extra_duplicates": "Extra duplicates",
+        "summary_resolved_groups": "Resolved groups",
+        "summary_unresolved_groups": "Unresolved groups",
+        "summary_mode": "Current mode",
+        "summary_ready_body": "All exact duplicate groups currently have a keep decision. A later dry run can turn these decisions into a full cleanup preview.",
+        "summary_unresolved_body": "Some exact duplicate groups still have no keep decision. Review them before trusting a later dry run.",
+        "summary_decision_status": "{resolved} resolved / {unresolved} unresolved",
+        "summary_plan_intro": "Planned interpretation so far",
+        "summary_plan_line_1": "Resolved groups keep one selected survivor and mark the remaining exact matches as removable candidates.",
+        "summary_plan_line_2": "Unresolved groups stay blocked from trustworthy dry-run planning until a keep candidate is chosen.",
+        "summary_plan_line_3": "Later workflow stages will extend this into copy / move / delete previews and storage impact estimates.",
         "table_name": "Name",
         "table_size": "Size",
         "table_date": "Date",
@@ -155,6 +175,26 @@ TRANSLATIONS = {
         "stage_duplicates_subtitle": "Starte die sichtbare Review-Phase für exakte Duplikate.",
         "stage_duplicates_action": "Duplikat-Prüfung starten",
         "stage_duplicates_hint": "Das ist noch ein Review-Popup, nicht das finale Vergleichstool.",
+        "stage_summary_title": "Bereinigungs-Zusammenfassung",
+        "stage_summary_subtitle": "Prüfe den aktuellen Wissensstand des Workflows, bevor spätere Ausführung und Sortierung folgen.",
+        "stage_summary_action": "Weiter zur Sortierung",
+        "summary_totals_title": "Aktuelle Bereinigungs-Summen",
+        "summary_resolved_title": "Entscheidungsstand",
+        "summary_dry_run_title": "Dry-Run-Grundlage",
+        "summary_dry_run_body": "Diese Stufe führt noch nichts aus. Sie zeigt, was der Workflow aktuell aus den exakten Duplikat-Entscheidungen ableitet.",
+        "summary_groups": "Exakte Gruppen",
+        "summary_duplicate_files": "Duplikat-Dateien",
+        "summary_extra_duplicates": "Zusätzliche Duplikate",
+        "summary_resolved_groups": "Gelöste Gruppen",
+        "summary_unresolved_groups": "Offene Gruppen",
+        "summary_mode": "Aktueller Modus",
+        "summary_ready_body": "Alle exakten Duplikat-Gruppen haben aktuell eine Keep-Entscheidung. Ein späterer Dry Run kann diese Entscheidungen in eine vollständige Bereinigungsvorschau übersetzen.",
+        "summary_unresolved_body": "Einige exakte Duplikat-Gruppen haben noch keine Keep-Entscheidung. Prüfe sie, bevor du einem späteren Dry Run vertraust.",
+        "summary_decision_status": "{resolved} gelöst / {unresolved} offen",
+        "summary_plan_intro": "Bisherige Plan-Interpretation",
+        "summary_plan_line_1": "Gelöste Gruppen behalten einen ausgewählten Survivor und markieren die restlichen exakten Treffer als entfernbaren Kandidatenbestand.",
+        "summary_plan_line_2": "Offene Gruppen bleiben für eine vertrauenswürdige Dry-Run-Planung blockiert, bis ein Keep-Kandidat gewählt wurde.",
+        "summary_plan_line_3": "Spätere Workflow-Stufen erweitern das zu Copy / Move / Delete-Vorschauen und Speicher-Einschätzungen.",
         "table_name": "Name",
         "table_size": "Größe",
         "table_date": "Datum",
@@ -210,7 +250,7 @@ TRANSLATIONS = {
     },
 }
 
-STAGE_KEYS = ["sources", "target", "mode", "duplicates", "sorting", "rename", "done"]
+STAGE_KEYS = ["sources", "target", "mode", "duplicates", "summary", "sorting", "rename", "done"]
 
 
 class QmlAppState(QObject):
@@ -256,6 +296,11 @@ class QmlAppState(QObject):
         self._duplicate_scan_token = 0
         self._status_text = ""
         self._tips = ["tip_1", "tip_2", "tip_3", "tip_4"]
+        self._summary_exact_group_count = 0
+        self._summary_exact_duplicate_files = 0
+        self._summary_extra_duplicates = 0
+        self._summary_resolved_duplicate_groups = 0
+        self._summary_unresolved_duplicate_groups = 0
 
         self.duplicateScanProgressEvent.connect(self._on_duplicate_scan_progress)
         self.duplicateScanResultEvent.connect(self._on_duplicate_scan_result)
@@ -395,6 +440,21 @@ class QmlAppState(QObject):
 
         return rows, details
 
+    def _recompute_summary_state(self) -> None:
+        self._summary_exact_group_count = len(self._duplicate_group_details)
+        self._summary_resolved_duplicate_groups = 0
+        self._summary_unresolved_duplicate_groups = 0
+
+        for detail in self._duplicate_group_details:
+            group_id = str(detail.get("group_id", ""))
+            if group_id and group_id in self._duplicate_decisions:
+                self._summary_resolved_duplicate_groups += 1
+            else:
+                self._summary_unresolved_duplicate_groups += 1
+
+        self.workflowChanged.emit()
+        self.liveStatsChanged.emit()
+
     def _reset_duplicate_state(self) -> None:
         self._duplicate_started = False
         self._duplicate_scan_ready = False
@@ -405,6 +465,11 @@ class QmlAppState(QObject):
         self._duplicate_decisions = {}
         self._duplicate_detail_group_index = -1
         self._duplicate_detail_selected_index = 0
+        self._summary_exact_group_count = 0
+        self._summary_exact_duplicate_files = 0
+        self._summary_extra_duplicates = 0
+        self._summary_resolved_duplicate_groups = 0
+        self._summary_unresolved_duplicate_groups = 0
         self.duplicateRowsChanged.emit()
         self.duplicateDetailChanged.emit()
         self.workflowChanged.emit()
@@ -554,6 +619,44 @@ class QmlAppState(QObject):
             return []
         return self._duplicate_all_rows[: self._duplicate_rows_visible]
 
+    @Property(int, notify=workflowChanged)
+    def summaryExactGroupCount(self) -> int:
+        return self._summary_exact_group_count
+
+    @Property(int, notify=workflowChanged)
+    def summaryExactDuplicateFiles(self) -> int:
+        return self._summary_exact_duplicate_files
+
+    @Property(int, notify=workflowChanged)
+    def summaryExtraDuplicates(self) -> int:
+        return self._summary_extra_duplicates
+
+    @Property(int, notify=workflowChanged)
+    def summaryResolvedDuplicateGroups(self) -> int:
+        return self._summary_resolved_duplicate_groups
+
+    @Property(int, notify=workflowChanged)
+    def summaryUnresolvedDuplicateGroups(self) -> int:
+        return self._summary_unresolved_duplicate_groups
+
+    @Property(str, notify=workflowChanged)
+    def summaryOperationModeLabel(self) -> str:
+        return self.text(f"mode_{self._operation_mode}")
+
+    @Property(bool, notify=workflowChanged)
+    def summaryReadyForDryRun(self) -> bool:
+        if self._summary_exact_group_count == 0:
+            return self._duplicate_scan_ready
+        return self._summary_unresolved_duplicate_groups == 0
+
+    @Property(str, notify=workflowChanged)
+    def summaryDecisionStatus(self) -> str:
+        return self._format_text(
+            "summary_decision_status",
+            resolved=self._summary_resolved_duplicate_groups,
+            unresolved=self._summary_unresolved_duplicate_groups,
+        )
+
     @Property(str, notify=duplicateDetailChanged)
     def duplicateDetailTitle(self) -> str:
         detail = self._selected_detail()
@@ -598,6 +701,8 @@ class QmlAppState(QObject):
             return True
         if key == "duplicates":
             return self._duplicate_started and self._duplicate_progress >= 100
+        if key == "summary":
+            return self.summaryReadyForDryRun
         return True
 
     @Slot()
@@ -645,6 +750,7 @@ class QmlAppState(QObject):
     def setOperationMode(self, mode: str) -> None:
         self._operation_mode = mode
         self._status_text = self.text(f"mode_{mode}")
+        self._recompute_summary_state()
         self.workflowChanged.emit()
 
     @Slot(str)
@@ -794,6 +900,7 @@ class QmlAppState(QObject):
             "status_duplicate_selection_saved",
             name=str(selected.get("name", "")),
         )
+        self._recompute_summary_state()
         self.workflowChanged.emit()
         self.duplicateDetailChanged.emit()
 
@@ -829,7 +936,10 @@ class QmlAppState(QObject):
         self._duplicate_all_rows = list(rows)
         self._duplicate_group_details = list(details)
         self._duplicate_rows_visible = 0
+        self._summary_exact_duplicate_files = duplicate_files
+        self._summary_extra_duplicates = extra_duplicates
         self._discovered_file_count = max(self._discovered_file_count, scanned_files)
+        self._recompute_summary_state()
         if exact_groups > 0:
             self._status_text = self._format_text(
                 "status_duplicates_finished",

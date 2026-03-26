@@ -934,6 +934,229 @@ ApplicationWindow {
                                             spacing: 12
                                             Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 26; font.bold: true }
                                             Label { text: appState.workflowStageSubtitle; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+
+                                            Rectangle {
+                                                Layout.fillWidth: true
+                                                Layout.fillHeight: true
+                                                radius: 18
+                                                color: "#091321"
+                                                border.color: "#22324A"
+
+                                                Flickable {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 18
+                                                    contentWidth: width
+                                                    contentHeight: summaryColumn.implicitHeight
+                                                    clip: true
+
+                                                    ColumnLayout {
+                                                        id: summaryColumn
+                                                        width: parent.width
+                                                        spacing: 14
+
+                                                        Label {
+                                                            text: root.trKey("summary_totals_title")
+                                                            color: "#F7FAFF"
+                                                            font.pixelSize: 20
+                                                            font.bold: true
+                                                        }
+
+                                                        RowLayout {
+                                                            Layout.fillWidth: true
+                                                            spacing: 10
+
+                                                            Repeater {
+                                                                model: [
+                                                                    [root.trKey("summary_groups"), appState.summaryExactGroupCount.toString()],
+                                                                    [root.trKey("summary_duplicate_files"), appState.summaryExactDuplicateFiles.toString()],
+                                                                    [root.trKey("summary_extra_duplicates"), appState.summaryExtraDuplicates.toString()],
+                                                                    [root.trKey("summary_mode"), appState.summaryOperationModeLabel]
+                                                                ]
+
+                                                                delegate: Rectangle {
+                                                                    required property var modelData
+                                                                    Layout.fillWidth: true
+                                                                    Layout.preferredHeight: 88
+                                                                    radius: 16
+                                                                    color: "#0F1A2C"
+                                                                    border.color: "#22324A"
+
+                                                                    ColumnLayout {
+                                                                        anchors.fill: parent
+                                                                        anchors.margins: 14
+                                                                        spacing: 6
+
+                                                                        Label {
+                                                                            text: modelData[0]
+                                                                            color: "#AFC1D9"
+                                                                            font.pixelSize: 13
+                                                                            wrapMode: Text.WordWrap
+                                                                            Layout.fillWidth: true
+                                                                        }
+
+                                                                        Label {
+                                                                            text: modelData[1]
+                                                                            color: "#F7FAFF"
+                                                                            font.pixelSize: 22
+                                                                            font.bold: true
+                                                                            Layout.fillWidth: true
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+
+                                                        Label {
+                                                            text: root.trKey("summary_resolved_title")
+                                                            color: "#F7FAFF"
+                                                            font.pixelSize: 20
+                                                            font.bold: true
+                                                        }
+
+                                                        Rectangle {
+                                                            Layout.fillWidth: true
+                                                            radius: 16
+                                                            color: appState.summaryReadyForDryRun ? "#123926" : "#40241F"
+                                                            border.color: appState.summaryReadyForDryRun ? "#47B36A" : "#D07A63"
+
+                                                            ColumnLayout {
+                                                                anchors.fill: parent
+                                                                anchors.margins: 14
+                                                                spacing: 8
+
+                                                                Label {
+                                                                    text: appState.summaryDecisionStatus
+                                                                    color: "#F7FAFF"
+                                                                    font.pixelSize: 18
+                                                                    font.bold: true
+                                                                    Layout.fillWidth: true
+                                                                }
+
+                                                                Label {
+                                                                    text: appState.summaryReadyForDryRun ? root.trKey("summary_ready_body") : root.trKey("summary_unresolved_body")
+                                                                    color: "#F7FAFF"
+                                                                    wrapMode: Text.WordWrap
+                                                                    Layout.fillWidth: true
+                                                                }
+                                                            }
+                                                        }
+
+                                                        RowLayout {
+                                                            Layout.fillWidth: true
+                                                            spacing: 10
+
+                                                            Rectangle {
+                                                                Layout.fillWidth: true
+                                                                Layout.preferredHeight: 88
+                                                                radius: 16
+                                                                color: "#0F1A2C"
+                                                                border.color: "#22324A"
+
+                                                                ColumnLayout {
+                                                                    anchors.fill: parent
+                                                                    anchors.margins: 14
+                                                                    spacing: 6
+
+                                                                    Label {
+                                                                        text: root.trKey("summary_resolved_groups")
+                                                                        color: "#AFC1D9"
+                                                                        font.pixelSize: 13
+                                                                    }
+
+                                                                    Label {
+                                                                        text: appState.summaryResolvedDuplicateGroups.toString()
+                                                                        color: "#F7FAFF"
+                                                                        font.pixelSize: 22
+                                                                        font.bold: true
+                                                                    }
+                                                                }
+                                                            }
+
+                                                            Rectangle {
+                                                                Layout.fillWidth: true
+                                                                Layout.preferredHeight: 88
+                                                                radius: 16
+                                                                color: "#0F1A2C"
+                                                                border.color: "#22324A"
+
+                                                                ColumnLayout {
+                                                                    anchors.fill: parent
+                                                                    anchors.margins: 14
+                                                                    spacing: 6
+
+                                                                    Label {
+                                                                        text: root.trKey("summary_unresolved_groups")
+                                                                        color: "#AFC1D9"
+                                                                        font.pixelSize: 13
+                                                                    }
+
+                                                                    Label {
+                                                                        text: appState.summaryUnresolvedDuplicateGroups.toString()
+                                                                        color: "#F7FAFF"
+                                                                        font.pixelSize: 22
+                                                                        font.bold: true
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+
+                                                        Label {
+                                                            text: root.trKey("summary_dry_run_title")
+                                                            color: "#F7FAFF"
+                                                            font.pixelSize: 20
+                                                            font.bold: true
+                                                        }
+
+                                                        Rectangle {
+                                                            Layout.fillWidth: true
+                                                            radius: 16
+                                                            color: "#0F1A2C"
+                                                            border.color: "#22324A"
+
+                                                            ColumnLayout {
+                                                                anchors.fill: parent
+                                                                anchors.margins: 14
+                                                                spacing: 8
+
+                                                                Label {
+                                                                    text: root.trKey("summary_dry_run_body")
+                                                                    color: "#CFE1FF"
+                                                                    wrapMode: Text.WordWrap
+                                                                    Layout.fillWidth: true
+                                                                }
+
+                                                                Label {
+                                                                    text: root.trKey("summary_plan_intro")
+                                                                    color: "#F7FAFF"
+                                                                    font.pixelSize: 16
+                                                                    font.bold: true
+                                                                    Layout.fillWidth: true
+                                                                }
+
+                                                                Label { text: "• " + root.trKey("summary_plan_line_1"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                                Label { text: "• " + root.trKey("summary_plan_line_2"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                                Label { text: "• " + root.trKey("summary_plan_line_3"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+
+                                                                PrimaryButton {
+                                                                    text: root.trKey("stage_summary_action")
+                                                                    enabled: appState.summaryReadyForDryRun
+                                                                    onClicked: appState.workflowNext()
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+
+                                    Item {
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            spacing: 12
+                                            Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 26; font.bold: true }
+                                            Label { text: appState.workflowStageSubtitle; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                                             Item { Layout.fillHeight: true }
                                             Label { text: "Year / Month / Day"; color: "#F7FAFF"; font.pixelSize: 22; font.bold: true; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
                                             Item { Layout.fillHeight: true }
@@ -1016,6 +1239,7 @@ ApplicationWindow {
 
                             Button {
                                 visible: appState.canAdvanceWorkflow
+                                         && appState.workflowStageKey !== "summary"
                                          && appState.workflowStageKey !== "sorting"
                                          && appState.workflowStageKey !== "rename"
                                          && appState.workflowStageKey !== "done"
