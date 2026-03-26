@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import sys
+import threading
+from datetime import datetime
 from importlib import resources
 from pathlib import Path
 
 from PySide6.QtCore import Property, QObject, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
+
+from .duplicates import DuplicateScanConfig, scan_exact_duplicates
 
 TRANSLATIONS = {
     "en": {
@@ -87,6 +91,13 @@ TRANSLATIONS = {
         "language_tooltip": "Switch language",
         "status_sources_updated": "Source folders updated",
         "status_target_updated": "Target folder selected",
+        "status_duplicates_preparing": "Preparing exact duplicate scan ...",
+        "status_duplicates_stage_1": "Grouping media by file size ...",
+        "status_duplicates_stage_2": "Comparing sample fingerprints ...",
+        "status_duplicates_stage_3": "Computing full hashes ...",
+        "status_duplicates_stage_4": "Confirming byte-identical groups ...",
+        "status_duplicates_finished": "Exact groups: {groups} | duplicate files: {files} | extra duplicates: {extra} | errors: {errors}",
+        "status_duplicates_none": "No exact duplicates found. Errors: {errors}",
     },
     "de": {
         "app_title": "Media Manager",
@@ -166,18 +177,17 @@ TRANSLATIONS = {
         "language_tooltip": "Sprache wechseln",
         "status_sources_updated": "Quellordner aktualisiert",
         "status_target_updated": "Zielordner ausgewählt",
+        "status_duplicates_preparing": "Exakte Duplikat-Prüfung wird vorbereitet ...",
+        "status_duplicates_stage_1": "Medien nach Dateigröße gruppieren ...",
+        "status_duplicates_stage_2": "Sample-Fingerprints vergleichen ...",
+        "status_duplicates_stage_3": "Volle Hashes berechnen ...",
+        "status_duplicates_stage_4": "Byte-identische Gruppen bestätigen ...",
+        "status_duplicates_finished": "Exakte Gruppen: {groups} | Duplikat-Dateien: {files} | zusätzliche Duplikate: {extra} | Fehler: {errors}",
+        "status_duplicates_none": "Keine exakten Duplikate gefunden. Fehler: {errors}",
     },
 }
 
 STAGE_KEYS = ["sources", "target", "mode", "duplicates", "sorting", "rename", "done"]
-
-DUPLICATE_SAMPLE_ROWS = [
-    {"name": "IMG_4021.JPG", "size": "5.4 MB", "date": "2024-07-15", "matches": "3", "score": "100%"},
-    {"name": "DJI_1180.MP4", "size": "381 MB", "date": "2024-07-16", "matches": "2", "score": "100%"},
-    {"name": "IMG_4021.CR3", "size": "28 MB", "date": "2024-07-15", "matches": "1", "score": "100%"},
-    {"name": "IMG_5502.JPG", "size": "6.1 MB", "date": "2024-09-08", "matches": "2", "score": "82%"},
-    {"name": "IMG_5503.JPG", "size": "6.0 MB", "date": "2024-09-08", "matches": "2", "score": "74%"},
-]
 
 class QmlAppState(QObject):
     languageChanged = Signal()
@@ -189,6 +199,8 @@ class QmlAppState(QObject):
     tipChanged = Signal()
     duplicateRowsChanged = Signal()
     flagPathChanged = Signal()
+    duplicateScanProgressEvent = Signal(int, int, str)
+    duplicateScanResultEvent = Signal(int, object, int, int, int, int, int)
 
     def __init__(self) -> None:
         super().__init__()
@@ -203,10 +215,16 @@ class QmlAppState(QObject):
         self._discovered_file_count = 0
         self._tip_index = 0
         self._duplicate_started = False
+        self._duplicate_scan_ready = False
         self._duplicate_progress = 0
         self._duplicate_rows_visible = 0
+        self._duplicate_all_rows: list[dict[str, str]] = []
+        self._duplicate_scan_token = 0
         self._status_text = ""
         self._tips = ["tip_1", "tip_2", "tip_3", "tip_4"]
+
+        self.duplicateScanProgressEvent.connect(self._on_duplicate_scan_progress)
+        self.duplicateScanResultEvent.connect(self._on_duplicate_scan_result)
 
         self._tip_timer = QTimer(self)
         self._tip_timer.timeout.connect(self._advance_tip)
@@ -216,9 +234,13 @@ class QmlAppState(QObject):
         self._live_timer.timeout.connect(self._advance_live_scan)
         self._live_timer.start(250)
 
-        self._duplicate_timer = QTimer(self)
-        self._duplicate_timer.timeout.connect(self._advance_duplicate_preview)
-        self._duplicate_timer.start(180)
+        self._duplicate_reveal_timer = QTimer(self)
+        self._duplicate_reveal_timer.timeout.connect(self._advance_duplicate_preview)
+        self._duplicate_reveal_timer.start(180)
+
+    def _format_text(self, key: str, **kwargs) -> str:
+        text = TRANSLATIONS[self._language].get(key, key)
+        return text.format(**kwargs) if kwargs else text
 
     def _flag_path(self, language: str) -> str:
         asset_path = resources.files("media_manager").joinpath(f"qml/assets/{language}_flag.svg")
@@ -231,12 +253,103 @@ class QmlAppState(QObject):
         normalized = local_file or folder_value.replace("file:///", "")
         return str(Path(normalized)).replace("\\", "/")
 
-    def _reset_duplicate_preview(self) -> None:
+    def _format_size(self, size_bytes: int) -> str:
+        value = float(size_bytes)
+        for unit in ("B", "KB", "MB", "GB", "TB"):
+            if value < 1024 or unit == "TB":
+                if unit == "B":
+                    return f"{int(value)} {unit}"
+                return f"{value:.1f} {unit}"
+            value /= 1024.0
+        return f"{int(size_bytes)} B"
+
+    def _format_date(self, path: Path) -> str:
+        try:
+            return datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d")
+        except OSError:
+            return "-"
+
+    def _progress_from_duplicate_message(self, message: str) -> tuple[int, str]:
+        if message.startswith("Scanning source folders") or message.startswith("Found "):
+            return 8, self._format_text("status_duplicates_preparing")
+        if message.startswith("Stage 1/4"):
+            return 26, self._format_text("status_duplicates_stage_1")
+        if message.startswith("Stage 2/4"):
+            return 52, self._format_text("status_duplicates_stage_2")
+        if message.startswith("Stage 3/4"):
+            return 76, self._format_text("status_duplicates_stage_3")
+        if message.startswith("Stage 4/4"):
+            return 92, self._format_text("status_duplicates_stage_4")
+        return self._duplicate_progress, self._status_text
+
+    def _build_duplicate_rows(self, result) -> list[dict[str, str]]:
+        rows: list[dict[str, str]] = []
+        for group in result.exact_groups:
+            representative = group.files[0]
+            rows.append(
+                {
+                    "name": representative.name,
+                    "size": self._format_size(group.file_size),
+                    "date": self._format_date(representative),
+                    "matches": str(max(0, len(group.files) - 1)),
+                    "score": "100%",
+                }
+            )
+        return rows
+
+    def _reset_duplicate_state(self) -> None:
         self._duplicate_started = False
+        self._duplicate_scan_ready = False
         self._duplicate_progress = 0
         self._duplicate_rows_visible = 0
+        self._duplicate_all_rows = []
         self.duplicateRowsChanged.emit()
         self.workflowChanged.emit()
+
+    def _start_background_duplicate_scan(self) -> None:
+        self._duplicate_scan_token += 1
+        current_token = self._duplicate_scan_token
+        self._reset_duplicate_state()
+
+        if not self._source_folders:
+            return
+
+        source_paths = [Path(folder) for folder in self._source_folders]
+
+        def worker() -> None:
+            def progress_callback(message: str) -> None:
+                progress_value, status_text = self._progress_from_duplicate_message(message)
+                self.duplicateScanProgressEvent.emit(current_token, progress_value, status_text)
+
+            try:
+                result = scan_exact_duplicates(DuplicateScanConfig(source_dirs=source_paths), progress_callback=progress_callback)
+            except Exception:
+                self.duplicateScanResultEvent.emit(current_token, [], 0, 0, 0, 0, 1)
+                return
+
+            rows = self._build_duplicate_rows(result)
+            self.duplicateScanResultEvent.emit(
+                current_token,
+                rows,
+                result.scanned_files,
+                len(result.exact_groups),
+                result.exact_duplicate_files,
+                result.exact_duplicates,
+                result.errors,
+            )
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _start_duplicate_reveal_if_ready(self) -> None:
+        if not self._duplicate_started or not self._duplicate_scan_ready:
+            return
+        if not self._duplicate_all_rows:
+            self._duplicate_progress = 100
+            self.workflowChanged.emit()
+            self.duplicateRowsChanged.emit()
+            return
+        self.workflowChanged.emit()
+        self.duplicateRowsChanged.emit()
 
     @Slot(str, result=str)
     def text(self, key: str) -> str:
@@ -330,7 +443,9 @@ class QmlAppState(QObject):
 
     @Property("QVariantList", notify=duplicateRowsChanged)
     def duplicateRows(self) -> list[dict[str, str]]:
-        return DUPLICATE_SAMPLE_ROWS[: self._duplicate_rows_visible]
+        if not self._duplicate_started:
+            return []
+        return self._duplicate_all_rows[: self._duplicate_rows_visible]
 
     @Property(bool, notify=workflowChanged)
     def canAdvanceWorkflow(self) -> bool:
@@ -342,7 +457,7 @@ class QmlAppState(QObject):
         if key == "mode":
             return True
         if key == "duplicates":
-            return self._duplicate_progress >= 100
+            return self._duplicate_started and self._duplicate_progress >= 100
         return True
 
     @Slot()
@@ -396,25 +511,29 @@ class QmlAppState(QObject):
             return
         if folder not in self._source_folders:
             self._source_folders.append(folder)
-        self._status_text = self.text("status_sources_updated")
+        self._discovered_file_count = 0
+        self._status_text = self._format_text("status_sources_updated")
         self.liveStatsChanged.emit()
         self.workflowChanged.emit()
+        self._start_background_duplicate_scan()
 
     @Slot(int)
     def removeSourceFolder(self, index: int) -> None:
         if index < 0 or index >= len(self._source_folders):
             return
         del self._source_folders[index]
-        self._status_text = self.text("status_sources_updated")
+        self._discovered_file_count = 0
+        self._status_text = self._format_text("status_sources_updated")
         self.liveStatsChanged.emit()
         self.workflowChanged.emit()
+        self._start_background_duplicate_scan()
 
     @Slot()
     def clearSourceFolders(self) -> None:
         self._source_folders = []
         self._discovered_file_count = 0
-        self._status_text = self.text("status_sources_updated")
-        self._reset_duplicate_preview()
+        self._status_text = self._format_text("status_sources_updated")
+        self._start_background_duplicate_scan()
         self.liveStatsChanged.emit()
         self.workflowChanged.emit()
 
@@ -424,14 +543,14 @@ class QmlAppState(QObject):
         if not folder:
             return
         self._target_path = folder
-        self._status_text = self.text("status_target_updated")
+        self._status_text = self._format_text("status_target_updated")
         self.liveStatsChanged.emit()
         self.workflowChanged.emit()
 
     @Slot()
     def clearTargetFolder(self) -> None:
         self._target_path = ""
-        self._status_text = self.text("stage_target_empty")
+        self._status_text = self._format_text("stage_target_empty")
         self.liveStatsChanged.emit()
         self.workflowChanged.emit()
 
@@ -457,13 +576,61 @@ class QmlAppState(QObject):
     @Slot()
     def startDuplicatePreview(self) -> None:
         self._duplicate_started = True
-        self._status_text = self.text("stage_duplicates_action")
+        if self._duplicate_scan_ready:
+            self._start_duplicate_reveal_if_ready()
+        else:
+            self._status_text = self._format_text("status_duplicates_preparing")
         self.workflowChanged.emit()
+        self.duplicateRowsChanged.emit()
 
     @Slot()
     def backToHome(self) -> None:
         self._current_page = "home"
         self.pageChanged.emit()
+
+    @Slot(int, int, str)
+    def _on_duplicate_scan_progress(self, token: int, progress: int, status_text: str) -> None:
+        if token != self._duplicate_scan_token:
+            return
+        self._duplicate_progress = max(self._duplicate_progress, progress)
+        if not self._duplicate_started:
+            self._status_text = status_text
+        self.workflowChanged.emit()
+        self.duplicateRowsChanged.emit()
+
+    @Slot(int, object, int, int, int, int, int)
+    def _on_duplicate_scan_result(
+        self,
+        token: int,
+        rows: object,
+        scanned_files: int,
+        exact_groups: int,
+        duplicate_files: int,
+        extra_duplicates: int,
+        errors: int,
+    ) -> None:
+        if token != self._duplicate_scan_token:
+            return
+        self._duplicate_scan_ready = True
+        self._duplicate_all_rows = list(rows)
+        self._duplicate_rows_visible = 0
+        self._discovered_file_count = max(self._discovered_file_count, scanned_files)
+        if exact_groups > 0:
+            self._status_text = self._format_text(
+                "status_duplicates_finished",
+                groups=exact_groups,
+                files=duplicate_files,
+                extra=extra_duplicates,
+                errors=errors,
+            )
+            self._duplicate_progress = max(self._duplicate_progress, 96)
+        else:
+            self._status_text = self._format_text("status_duplicates_none", errors=errors)
+            self._duplicate_progress = max(self._duplicate_progress, 96)
+        self.liveStatsChanged.emit()
+        self.workflowChanged.emit()
+        self.duplicateRowsChanged.emit()
+        self._start_duplicate_reveal_if_ready()
 
     def _advance_tip(self) -> None:
         self._tip_index = (self._tip_index + 1) % len(self._tips)
@@ -474,6 +641,8 @@ class QmlAppState(QObject):
             return
         if not self._source_folders:
             return
+        if self._duplicate_scan_ready:
+            return
         max_files = 18000 * max(1, len(self._source_folders))
         step = 90 + (35 * len(self._source_folders))
         if self._discovered_file_count < max_files:
@@ -481,14 +650,18 @@ class QmlAppState(QObject):
             self.liveStatsChanged.emit()
 
     def _advance_duplicate_preview(self) -> None:
-        if not self._duplicate_started:
+        if not self._duplicate_started or not self._duplicate_scan_ready:
             return
+        did_change = False
+        if self._duplicate_rows_visible < len(self._duplicate_all_rows):
+            self._duplicate_rows_visible += 1
+            did_change = True
         if self._duplicate_progress < 100:
-            self._duplicate_progress += 4
-            if self._duplicate_rows_visible < len(DUPLICATE_SAMPLE_ROWS) and self._duplicate_progress % 16 == 0:
-                self._duplicate_rows_visible += 1
-            self.duplicateRowsChanged.emit()
+            self._duplicate_progress = min(100, self._duplicate_progress + 5)
+            did_change = True
+        if did_change:
             self.workflowChanged.emit()
+            self.duplicateRowsChanged.emit()
 
 
 def main() -> int:

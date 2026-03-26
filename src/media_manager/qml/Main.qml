@@ -420,10 +420,7 @@ ApplicationWindow {
 
                                                     RowLayout {
                                                         Layout.fillWidth: true
-                                                        PrimaryButton {
-                                                            text: appState.text("stage_sources_action")
-                                                            onClicked: sourceFolderDialog.open()
-                                                        }
+                                                        PrimaryButton { text: appState.text("stage_sources_action"); onClicked: sourceFolderDialog.open() }
                                                         Button {
                                                             text: appState.text("button_clear")
                                                             enabled: appState.sourceCount > 0
@@ -440,19 +437,16 @@ ApplicationWindow {
                                                 ColumnLayout {
                                                     anchors.fill: parent
                                                     spacing: 14
-
                                                     Rectangle {
                                                         Layout.fillWidth: true
                                                         Layout.fillHeight: true
                                                         radius: 20
                                                         color: "#091321"
                                                         border.color: "#22324A"
-
                                                         ColumnLayout {
                                                             anchors.fill: parent
                                                             anchors.margins: 18
                                                             spacing: 12
-
                                                             Label {
                                                                 text: appState.targetPath.length > 0 ? appState.targetPath : appState.text("stage_target_empty")
                                                                 color: appState.targetPath.length > 0 ? "#F7FAFF" : "#8FB0E1"
@@ -460,15 +454,10 @@ ApplicationWindow {
                                                                 font.pixelSize: 16
                                                                 Layout.fillWidth: true
                                                             }
-
                                                             Item { Layout.fillHeight: true }
-
                                                             RowLayout {
                                                                 Layout.fillWidth: true
-                                                                PrimaryButton {
-                                                                    text: appState.text("stage_target_action")
-                                                                    onClicked: targetFolderDialog.open()
-                                                                }
+                                                                PrimaryButton { text: appState.text("stage_target_action"); onClicked: targetFolderDialog.open() }
                                                                 Button {
                                                                     text: appState.text("button_clear")
                                                                     enabled: appState.targetPath.length > 0
@@ -488,21 +477,9 @@ ApplicationWindow {
                                                     anchors.centerIn: parent
                                                     width: Math.min(parent.width * 0.76, 820)
                                                     spacing: 14
-                                                    LargeProblemButton {
-                                                        title: appState.text("mode_copy")
-                                                        subtitle: appState.operationMode === "copy" ? "Selected" : "Safer while you build trust in the workflow."
-                                                        onClicked: appState.setOperationMode("copy")
-                                                    }
-                                                    LargeProblemButton {
-                                                        title: appState.text("mode_move")
-                                                        subtitle: appState.operationMode === "move" ? "Selected" : "Cleaner target result once the review decisions are stable."
-                                                        onClicked: appState.setOperationMode("move")
-                                                    }
-                                                    LargeProblemButton {
-                                                        title: appState.text("mode_delete")
-                                                        subtitle: appState.operationMode === "delete" ? "Selected" : "Planned for later execution stages and explicit confirmation."
-                                                        onClicked: appState.setOperationMode("delete")
-                                                    }
+                                                    LargeProblemButton { title: appState.text("mode_copy"); subtitle: appState.operationMode === "copy" ? "Selected" : "Safer while you build trust in the workflow."; onClicked: appState.setOperationMode("copy") }
+                                                    LargeProblemButton { title: appState.text("mode_move"); subtitle: appState.operationMode === "move" ? "Selected" : "Cleaner target result once the review decisions are stable."; onClicked: appState.setOperationMode("move") }
+                                                    LargeProblemButton { title: appState.text("mode_delete"); subtitle: appState.operationMode === "delete" ? "Selected" : "Planned for later execution stages and explicit confirmation."; onClicked: appState.setOperationMode("delete") }
                                                 }
                                             }
 
@@ -510,12 +487,11 @@ ApplicationWindow {
                                                 ColumnLayout {
                                                     anchors.fill: parent
                                                     spacing: 14
-
                                                     PrimaryButton {
                                                         text: appState.text("stage_duplicates_action")
+                                                        enabled: appState.sourceCount > 0
                                                         onClicked: appState.startDuplicatePreview()
                                                     }
-
                                                     ProgressBar {
                                                         Layout.fillWidth: true
                                                         from: 0
@@ -531,12 +507,18 @@ ApplicationWindow {
                                                             }
                                                         }
                                                     }
-
                                                     Label {
                                                         text: appState.text("stage_duplicates_hint")
                                                         color: "#8FB0E1"
                                                         wrapMode: Text.WordWrap
                                                         font.pixelSize: 14
+                                                    }
+                                                    Label {
+                                                        text: appState.statusText
+                                                        color: "#B8D3FF"
+                                                        wrapMode: Text.WordWrap
+                                                        font.pixelSize: 14
+                                                        Layout.fillWidth: true
                                                     }
 
                                                     Rectangle {
