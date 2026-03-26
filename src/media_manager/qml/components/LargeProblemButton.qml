@@ -6,28 +6,43 @@ Button {
     id: control
     property string title: ""
     property string subtitle: ""
-    implicitHeight: 88
+    implicitHeight: 104
+
     background: Rectangle {
-        radius: 22
-        color: control.down ? "#14233A" : (control.hovered ? "#132339" : "#101C2F")
-        border.color: "#243650"
+        radius: 24
+        color: control.down ? "#15263F" : (control.hovered ? "#14253D" : "#101C2F")
+        border.color: control.hovered ? "#3A5F8A" : "#243650"
+
+        Rectangle {
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: 5
+            radius: 3
+            color: "#2F6FED"
+            opacity: control.hovered ? 1.0 : 0.75
+        }
     }
+
     contentItem: ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 18
-        spacing: 4
+        anchors.margins: 20
+        anchors.leftMargin: 24
+        spacing: 6
+
         Label {
             text: control.title
             color: "#F7FAFF"
-            font.pixelSize: 18
+            font.pixelSize: 20
             font.bold: true
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
         }
+
         Label {
             text: control.subtitle
             color: "#AFC1D9"
-            font.pixelSize: 13
+            font.pixelSize: 14
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
         }
