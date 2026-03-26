@@ -35,10 +35,13 @@ TRANSLATIONS = {
         "workflow_subtitle": "Everything important now happens here, step by step.",
         "stage_sources_title": "Select your source folders",
         "stage_sources_subtitle": "Start with the folders you want to clean. The app can already begin scanning and counting media in the background.",
-        "stage_sources_action": "Select source folders",
+        "stage_sources_action": "Add source folder",
+        "stage_sources_list_title": "Selected source folders",
+        "stage_sources_empty": "No source folders selected yet.",
         "stage_target_title": "Select your target folder",
         "stage_target_subtitle": "Choose the place where the cleaned library should live. This target will later hold hidden workflow state as well.",
         "stage_target_action": "Select target folder",
+        "stage_target_empty": "No target folder selected yet.",
         "stage_mode_title": "What should happen to the files?",
         "stage_mode_subtitle": "You can still change this later before real execution.",
         "mode_copy": "Copy",
@@ -62,11 +65,13 @@ TRANSLATIONS = {
         "stage_rename_subtitle": "Later this page will support readable templates, rename blocks, and preset patterns.",
         "stage_rename_action": "Continue to summary",
         "stage_done_title": "Congratulations",
-        "stage_done_subtitle": "This preview foundation shows the future shell: guided flow, bottom status bar, staged review, and a moderner entry point.",
+        "stage_done_subtitle": "This preview foundation shows the future shell: guided flow, bottom status bar, staged review, and a modern entry point.",
         "stage_done_action": "Finish preview",
         "button_back": "Back",
         "button_next": "Next",
         "button_home": "Back to home",
+        "button_clear": "Clear",
+        "button_remove": "Remove",
         "bottom_sources": "Sources",
         "bottom_target": "Target",
         "bottom_mode": "Mode",
@@ -80,6 +85,8 @@ TRANSLATIONS = {
         "manual_placeholder_body": "This page will later reuse the same workflow logic, but without the guided entry path.",
         "manual_hint": "Use the guided workflow unless you already know exactly which tool you want.",
         "language_tooltip": "Switch language",
+        "status_sources_updated": "Source folders updated",
+        "status_target_updated": "Target folder selected",
     },
     "de": {
         "app_title": "Media Manager",
@@ -107,10 +114,13 @@ TRANSLATIONS = {
         "workflow_subtitle": "Ab hier findet alles Wichtige Schritt für Schritt statt.",
         "stage_sources_title": "Wähle deine Quellordner aus",
         "stage_sources_subtitle": "Beginne mit den Ordnern, die du bereinigen willst. Die App kann dabei schon im Hintergrund scannen und zählen.",
-        "stage_sources_action": "Quellordner auswählen",
+        "stage_sources_action": "Quellordner hinzufügen",
+        "stage_sources_list_title": "Gewählte Quellordner",
+        "stage_sources_empty": "Noch keine Quellordner ausgewählt.",
         "stage_target_title": "Wähle deinen Zielordner aus",
         "stage_target_subtitle": "Wähle den Ort, an dem die bereinigte Bibliothek später liegen soll. Dort wird später auch der versteckte Workflow-Zustand abgelegt.",
         "stage_target_action": "Zielordner auswählen",
+        "stage_target_empty": "Noch kein Zielordner ausgewählt.",
         "stage_mode_title": "Was soll mit den Dateien passieren?",
         "stage_mode_subtitle": "Das kann vor der echten Ausführung später noch geändert werden.",
         "mode_copy": "Kopieren",
@@ -134,11 +144,13 @@ TRANSLATIONS = {
         "stage_rename_subtitle": "Später wird diese Seite lesbare Templates, Namensblöcke und Vorlagen unterstützen.",
         "stage_rename_action": "Weiter zur Zusammenfassung",
         "stage_done_title": "Glückwunsch",
-        "stage_done_subtitle": "Dieses Grundgerüst zeigt die künftige Hülle: geführter Ablauf, untere Statusleiste, gestufte Review und ein modernerer Einstiegspunkt.",
+        "stage_done_subtitle": "Dieses Grundgerüst zeigt die künftige Hülle: geführter Ablauf, untere Statusleiste, gestufte Review und ein moderner Einstiegspunkt.",
         "stage_done_action": "Vorschau beenden",
         "button_back": "Zurück",
         "button_next": "Weiter",
         "button_home": "Zurück zur Startseite",
+        "button_clear": "Leeren",
+        "button_remove": "Entfernen",
         "bottom_sources": "Quellen",
         "bottom_target": "Ziel",
         "bottom_mode": "Modus",
@@ -152,15 +164,10 @@ TRANSLATIONS = {
         "manual_placeholder_body": "Diese Seite wird später dieselbe Workflow-Logik nutzen, aber ohne geführten Einstiegspfad.",
         "manual_hint": "Nutze den geführten Workflow, außer du weißt schon ganz genau, welches Werkzeug du willst.",
         "language_tooltip": "Sprache wechseln",
+        "status_sources_updated": "Quellordner aktualisiert",
+        "status_target_updated": "Zielordner ausgewählt",
     },
 }
-
-PROBLEM_KEYS = [
-    "full_cleanup",
-    "ready_for_sorting",
-    "ready_for_rename",
-    "exact_duplicates_only",
-]
 
 STAGE_KEYS = ["sources", "target", "mode", "duplicates", "sorting", "rename", "done"]
 
@@ -190,8 +197,8 @@ class QmlAppState(QObject):
         self._wizard_visible = True
         self._selected_problem = "full_cleanup"
         self._workflow_stage_index = 0
-        self._source_count = 0
-        self._target_label = "-"
+        self._source_folders: list[str] = []
+        self._target_path = ""
         self._operation_mode = "copy"
         self._discovered_file_count = 0
         self._tip_index = 0
@@ -216,6 +223,20 @@ class QmlAppState(QObject):
     def _flag_path(self, language: str) -> str:
         asset_path = resources.files("media_manager").joinpath(f"qml/assets/{language}_flag.svg")
         return QUrl.fromLocalFile(str(asset_path)).toString()
+
+    def _normalize_folder_input(self, folder_value: str) -> str:
+        if not folder_value:
+            return ""
+        local_file = QUrl(folder_value).toLocalFile()
+        normalized = local_file or folder_value.replace("file:///", "")
+        return str(Path(normalized)).replace("\\", "/")
+
+    def _reset_duplicate_preview(self) -> None:
+        self._duplicate_started = False
+        self._duplicate_progress = 0
+        self._duplicate_rows_visible = 0
+        self.duplicateRowsChanged.emit()
+        self.workflowChanged.emit()
 
     @Slot(str, result=str)
     def text(self, key: str) -> str:
@@ -251,11 +272,21 @@ class QmlAppState(QObject):
 
     @Property(int, notify=liveStatsChanged)
     def sourceCount(self) -> int:
-        return self._source_count
+        return len(self._source_folders)
+
+    @Property("QVariantList", notify=liveStatsChanged)
+    def sourceFolders(self) -> list[str]:
+        return list(self._source_folders)
+
+    @Property(str, notify=liveStatsChanged)
+    def targetPath(self) -> str:
+        return self._target_path
 
     @Property(str, notify=liveStatsChanged)
     def targetLabel(self) -> str:
-        return self._target_label
+        if not self._target_path:
+            return "-"
+        return Path(self._target_path).name or self._target_path
 
     @Property(str, notify=workflowChanged)
     def operationMode(self) -> str:
@@ -305,9 +336,9 @@ class QmlAppState(QObject):
     def canAdvanceWorkflow(self) -> bool:
         key = self.workflowStageKey
         if key == "sources":
-            return self._source_count > 0
+            return len(self._source_folders) > 0
         if key == "target":
-            return self._target_label != "-"
+            return bool(self._target_path)
         if key == "mode":
             return True
         if key == "duplicates":
@@ -323,6 +354,7 @@ class QmlAppState(QObject):
         self.workflowChanged.emit()
         self.pageChanged.emit()
         self.selectedProblemChanged.emit()
+        self.liveStatsChanged.emit()
 
     @Slot(str)
     def setPage(self, page: str) -> None:
@@ -357,17 +389,49 @@ class QmlAppState(QObject):
         self._status_text = self.text(f"mode_{mode}")
         self.workflowChanged.emit()
 
-    @Slot()
-    def simulateSourceSelection(self) -> None:
-        self._source_count = 3 if self._source_count == 0 else self._source_count + 1
-        self._status_text = self.text("stage_sources_action")
+    @Slot(str)
+    def addSourceFolder(self, folder_value: str) -> None:
+        folder = self._normalize_folder_input(folder_value)
+        if not folder:
+            return
+        if folder not in self._source_folders:
+            self._source_folders.append(folder)
+        self._status_text = self.text("status_sources_updated")
+        self.liveStatsChanged.emit()
+        self.workflowChanged.emit()
+
+    @Slot(int)
+    def removeSourceFolder(self, index: int) -> None:
+        if index < 0 or index >= len(self._source_folders):
+            return
+        del self._source_folders[index]
+        self._status_text = self.text("status_sources_updated")
         self.liveStatsChanged.emit()
         self.workflowChanged.emit()
 
     @Slot()
-    def simulateTargetSelection(self) -> None:
-        self._target_label = "Clean Library"
-        self._status_text = self.text("stage_target_action")
+    def clearSourceFolders(self) -> None:
+        self._source_folders = []
+        self._discovered_file_count = 0
+        self._status_text = self.text("status_sources_updated")
+        self._reset_duplicate_preview()
+        self.liveStatsChanged.emit()
+        self.workflowChanged.emit()
+
+    @Slot(str)
+    def setTargetFolder(self, folder_value: str) -> None:
+        folder = self._normalize_folder_input(folder_value)
+        if not folder:
+            return
+        self._target_path = folder
+        self._status_text = self.text("status_target_updated")
+        self.liveStatsChanged.emit()
+        self.workflowChanged.emit()
+
+    @Slot()
+    def clearTargetFolder(self) -> None:
+        self._target_path = ""
+        self._status_text = self.text("stage_target_empty")
         self.liveStatsChanged.emit()
         self.workflowChanged.emit()
 
@@ -408,10 +472,12 @@ class QmlAppState(QObject):
     def _advance_live_scan(self) -> None:
         if self._current_page != "workflow":
             return
-        if self._source_count == 0:
+        if not self._source_folders:
             return
-        if self._discovered_file_count < 48213:
-            self._discovered_file_count += 137
+        max_files = 18000 * max(1, len(self._source_folders))
+        step = 90 + (35 * len(self._source_folders))
+        if self._discovered_file_count < max_files:
+            self._discovered_file_count = min(max_files, self._discovered_file_count + step)
             self.liveStatsChanged.emit()
 
     def _advance_duplicate_preview(self) -> None:

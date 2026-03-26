@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import "components"
 
 ApplicationWindow {
@@ -17,6 +18,16 @@ ApplicationWindow {
         if (appState.currentPage === "home") return 0
         if (appState.currentPage === "workflow") return 1
         return 2
+    }
+
+    FolderDialog {
+        id: sourceFolderDialog
+        onAccepted: appState.addSourceFolder(selectedFolder.toString())
+    }
+
+    FolderDialog {
+        id: targetFolderDialog
+        onAccepted: appState.setTargetFolder(selectedFolder.toString())
     }
 
     Rectangle {
@@ -62,31 +73,11 @@ ApplicationWindow {
 
                 Item { Layout.preferredHeight: 10 }
 
-                SidebarButton {
-                    text: appState.text("nav_home")
-                    active: appState.currentPage === "home"
-                    onClicked: appState.setPage("home")
-                }
-                SidebarButton {
-                    text: appState.text("nav_workflow")
-                    active: appState.currentPage === "workflow"
-                    onClicked: appState.setPage("workflow")
-                }
-                SidebarButton {
-                    text: appState.text("nav_duplicates")
-                    active: appState.currentPage === "duplicates"
-                    onClicked: appState.setPage("duplicates")
-                }
-                SidebarButton {
-                    text: appState.text("nav_organize")
-                    active: appState.currentPage === "organize"
-                    onClicked: appState.setPage("organize")
-                }
-                SidebarButton {
-                    text: appState.text("nav_rename")
-                    active: appState.currentPage === "rename"
-                    onClicked: appState.setPage("rename")
-                }
+                SidebarButton { text: appState.text("nav_home"); active: appState.currentPage === "home"; onClicked: appState.setPage("home") }
+                SidebarButton { text: appState.text("nav_workflow"); active: appState.currentPage === "workflow"; onClicked: appState.setPage("workflow") }
+                SidebarButton { text: appState.text("nav_duplicates"); active: appState.currentPage === "duplicates"; onClicked: appState.setPage("duplicates") }
+                SidebarButton { text: appState.text("nav_organize"); active: appState.currentPage === "organize"; onClicked: appState.setPage("organize") }
+                SidebarButton { text: appState.text("nav_rename"); active: appState.currentPage === "rename"; onClicked: appState.setPage("rename") }
 
                 Item { Layout.fillHeight: true }
             }
@@ -172,7 +163,6 @@ ApplicationWindow {
                                 Rectangle {
                                     anchors.top: parent.top
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    anchors.topMargin: 0
                                     width: parent.width * 0.74
                                     height: 1
                                     color: "#355988"
@@ -323,10 +313,7 @@ ApplicationWindow {
                                     from: 0
                                     to: appState.workflowTotalSteps
                                     value: appState.workflowStageIndex + 1
-                                    background: Rectangle {
-                                        radius: 8
-                                        color: "#101B2D"
-                                    }
+                                    background: Rectangle { radius: 8; color: "#101B2D" }
                                     contentItem: Item {
                                         Rectangle {
                                             width: parent.width * ((appState.workflowStageIndex + 1) / appState.workflowTotalSteps)
@@ -356,8 +343,6 @@ ApplicationWindow {
 
                                     RowLayout {
                                         Layout.fillWidth: true
-                                        spacing: 10
-
                                         Rectangle {
                                             radius: 14
                                             color: "#11233A"
@@ -372,7 +357,6 @@ ApplicationWindow {
                                                 font.bold: true
                                             }
                                         }
-
                                         Item { Layout.fillWidth: true }
                                     }
 
@@ -401,40 +385,100 @@ ApplicationWindow {
 
                                             Item {
                                                 ColumnLayout {
-                                                    anchors.centerIn: parent
-                                                    width: Math.min(parent.width * 0.72, 760)
-                                                    spacing: 18
-                                                    PrimaryButton {
-                                                        text: appState.text("stage_sources_action")
-                                                        onClicked: appState.simulateSourceSelection()
-                                                    }
+                                                    anchors.fill: parent
+                                                    spacing: 14
+
                                                     Label {
-                                                        text: appState.statusText
-                                                        color: "#8FB0E1"
-                                                        wrapMode: Text.WordWrap
-                                                        horizontalAlignment: Text.AlignHCenter
+                                                        text: appState.text("stage_sources_list_title")
+                                                        color: "#F7FAFF"
+                                                        font.pixelSize: 20
+                                                        font.bold: true
+                                                    }
+
+                                                    Rectangle {
                                                         Layout.fillWidth: true
-                                                        font.pixelSize: 15
+                                                        Layout.fillHeight: true
+                                                        radius: 20
+                                                        color: "#091321"
+                                                        border.color: "#22324A"
+
+                                                        Loader {
+                                                            anchors.fill: parent
+                                                            anchors.margins: 16
+                                                            active: appState.sourceCount > 0
+                                                            sourceComponent: sourceListComponent
+                                                        }
+
+                                                        Label {
+                                                            visible: appState.sourceCount === 0
+                                                            anchors.centerIn: parent
+                                                            text: appState.text("stage_sources_empty")
+                                                            color: "#8FB0E1"
+                                                            font.pixelSize: 16
+                                                        }
+                                                    }
+
+                                                    RowLayout {
+                                                        Layout.fillWidth: true
+                                                        PrimaryButton {
+                                                            text: appState.text("stage_sources_action")
+                                                            onClicked: sourceFolderDialog.open()
+                                                        }
+                                                        Button {
+                                                            text: appState.text("button_clear")
+                                                            enabled: appState.sourceCount > 0
+                                                            onClicked: appState.clearSourceFolders()
+                                                            background: Rectangle { radius: 14; color: "#132033"; border.color: "#30465F" }
+                                                            contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 14; font.bold: true }
+                                                        }
+                                                        Item { Layout.fillWidth: true }
                                                     }
                                                 }
                                             }
 
                                             Item {
                                                 ColumnLayout {
-                                                    anchors.centerIn: parent
-                                                    width: Math.min(parent.width * 0.72, 760)
-                                                    spacing: 18
-                                                    PrimaryButton {
-                                                        text: appState.text("stage_target_action")
-                                                        onClicked: appState.simulateTargetSelection()
-                                                    }
-                                                    Label {
-                                                        text: appState.statusText
-                                                        color: "#8FB0E1"
-                                                        wrapMode: Text.WordWrap
-                                                        horizontalAlignment: Text.AlignHCenter
+                                                    anchors.fill: parent
+                                                    spacing: 14
+
+                                                    Rectangle {
                                                         Layout.fillWidth: true
-                                                        font.pixelSize: 15
+                                                        Layout.fillHeight: true
+                                                        radius: 20
+                                                        color: "#091321"
+                                                        border.color: "#22324A"
+
+                                                        ColumnLayout {
+                                                            anchors.fill: parent
+                                                            anchors.margins: 18
+                                                            spacing: 12
+
+                                                            Label {
+                                                                text: appState.targetPath.length > 0 ? appState.targetPath : appState.text("stage_target_empty")
+                                                                color: appState.targetPath.length > 0 ? "#F7FAFF" : "#8FB0E1"
+                                                                wrapMode: Text.WordWrap
+                                                                font.pixelSize: 16
+                                                                Layout.fillWidth: true
+                                                            }
+
+                                                            Item { Layout.fillHeight: true }
+
+                                                            RowLayout {
+                                                                Layout.fillWidth: true
+                                                                PrimaryButton {
+                                                                    text: appState.text("stage_target_action")
+                                                                    onClicked: targetFolderDialog.open()
+                                                                }
+                                                                Button {
+                                                                    text: appState.text("button_clear")
+                                                                    enabled: appState.targetPath.length > 0
+                                                                    onClicked: appState.clearTargetFolder()
+                                                                    background: Rectangle { radius: 14; color: "#132033"; border.color: "#30465F" }
+                                                                    contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 14; font.bold: true }
+                                                                }
+                                                                Item { Layout.fillWidth: true }
+                                                            }
+                                                        }
                                                     }
                                                 }
                                             }
@@ -518,13 +562,7 @@ ApplicationWindow {
                                                                     spacing: 8
                                                                     Repeater {
                                                                         model: [appState.text("table_name"), appState.text("table_size"), appState.text("table_date"), appState.text("table_matches"), appState.text("table_score"), appState.text("table_action")]
-                                                                        delegate: Label {
-                                                                            Layout.fillWidth: true
-                                                                            text: modelData
-                                                                            color: "#F7FAFF"
-                                                                            font.pixelSize: 14
-                                                                            font.bold: true
-                                                                        }
+                                                                        delegate: Label { Layout.fillWidth: true; text: modelData; color: "#F7FAFF"; font.pixelSize: 14; font.bold: true }
                                                                     }
                                                                 }
                                                             }
@@ -535,7 +573,6 @@ ApplicationWindow {
                                                                 contentWidth: width
                                                                 contentHeight: rowsColumn.implicitHeight
                                                                 clip: true
-
                                                                 Column {
                                                                     id: rowsColumn
                                                                     width: parent.width
@@ -578,26 +615,9 @@ ApplicationWindow {
                                                     anchors.centerIn: parent
                                                     width: Math.min(parent.width * 0.72, 760)
                                                     spacing: 18
-                                                    Label {
-                                                        text: "Year / Month / Day"
-                                                        color: "#F7FAFF"
-                                                        font.pixelSize: 22
-                                                        font.bold: true
-                                                        horizontalAlignment: Text.AlignHCenter
-                                                        Layout.fillWidth: true
-                                                    }
-                                                    Label {
-                                                        text: appState.text("stage_sorting_subtitle")
-                                                        color: "#AFC1D9"
-                                                        wrapMode: Text.WordWrap
-                                                        horizontalAlignment: Text.AlignHCenter
-                                                        Layout.fillWidth: true
-                                                        font.pixelSize: 15
-                                                    }
-                                                    PrimaryButton {
-                                                        text: appState.text("stage_sorting_action")
-                                                        onClicked: appState.workflowNext()
-                                                    }
+                                                    Label { text: "Year / Month / Day"; color: "#F7FAFF"; font.pixelSize: 22; font.bold: true; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
+                                                    Label { text: appState.text("stage_sorting_subtitle"); color: "#AFC1D9"; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true; font.pixelSize: 15 }
+                                                    PrimaryButton { text: appState.text("stage_sorting_action"); onClicked: appState.workflowNext() }
                                                 }
                                             }
 
@@ -606,26 +626,9 @@ ApplicationWindow {
                                                     anchors.centerIn: parent
                                                     width: Math.min(parent.width * 0.72, 760)
                                                     spacing: 18
-                                                    Label {
-                                                        text: "Readable date + time + original stem"
-                                                        color: "#F7FAFF"
-                                                        font.pixelSize: 22
-                                                        font.bold: true
-                                                        horizontalAlignment: Text.AlignHCenter
-                                                        Layout.fillWidth: true
-                                                    }
-                                                    Label {
-                                                        text: appState.text("stage_rename_subtitle")
-                                                        color: "#AFC1D9"
-                                                        wrapMode: Text.WordWrap
-                                                        horizontalAlignment: Text.AlignHCenter
-                                                        Layout.fillWidth: true
-                                                        font.pixelSize: 15
-                                                    }
-                                                    PrimaryButton {
-                                                        text: appState.text("stage_rename_action")
-                                                        onClicked: appState.workflowNext()
-                                                    }
+                                                    Label { text: "Readable date + time + original stem"; color: "#F7FAFF"; font.pixelSize: 22; font.bold: true; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
+                                                    Label { text: appState.text("stage_rename_subtitle"); color: "#AFC1D9"; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true; font.pixelSize: 15 }
+                                                    PrimaryButton { text: appState.text("stage_rename_action"); onClicked: appState.workflowNext() }
                                                 }
                                             }
 
@@ -634,26 +637,9 @@ ApplicationWindow {
                                                     anchors.centerIn: parent
                                                     width: Math.min(parent.width * 0.72, 760)
                                                     spacing: 18
-                                                    Label {
-                                                        text: appState.text("stage_done_title")
-                                                        color: "#F7FAFF"
-                                                        font.pixelSize: 28
-                                                        font.bold: true
-                                                        horizontalAlignment: Text.AlignHCenter
-                                                        Layout.fillWidth: true
-                                                    }
-                                                    Label {
-                                                        text: appState.text("stage_done_subtitle")
-                                                        color: "#AFC1D9"
-                                                        wrapMode: Text.WordWrap
-                                                        horizontalAlignment: Text.AlignHCenter
-                                                        Layout.fillWidth: true
-                                                        font.pixelSize: 15
-                                                    }
-                                                    PrimaryButton {
-                                                        text: appState.text("button_home")
-                                                        onClicked: appState.backToHome()
-                                                    }
+                                                    Label { text: appState.text("stage_done_title"); color: "#F7FAFF"; font.pixelSize: 28; font.bold: true; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
+                                                    Label { text: appState.text("stage_done_subtitle"); color: "#AFC1D9"; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true; font.pixelSize: 15 }
+                                                    PrimaryButton { text: appState.text("button_home"); onClicked: appState.backToHome() }
                                                 }
                                             }
                                         }
@@ -661,45 +647,20 @@ ApplicationWindow {
 
                                     RowLayout {
                                         Layout.fillWidth: true
-                                        spacing: 12
-
                                         Button {
                                             text: appState.text("button_back")
                                             onClicked: appState.workflowBack()
-                                            background: Rectangle {
-                                                radius: 14
-                                                color: "#132033"
-                                                border.color: "#30465F"
-                                            }
-                                            contentItem: Text {
-                                                text: parent.text
-                                                color: "#F7FAFF"
-                                                horizontalAlignment: Text.AlignHCenter
-                                                verticalAlignment: Text.AlignVCenter
-                                                font.pixelSize: 15
-                                                font.bold: true
-                                            }
+                                            background: Rectangle { radius: 14; color: "#132033"; border.color: "#30465F" }
+                                            contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 15; font.bold: true }
                                         }
-
                                         Item { Layout.fillWidth: true }
-
                                         Button {
                                             visible: appState.workflowStageKey !== "sorting" && appState.workflowStageKey !== "rename" && appState.workflowStageKey !== "done"
                                             enabled: appState.canAdvanceWorkflow
                                             text: appState.text("button_next")
                                             onClicked: appState.workflowNext()
-                                            background: Rectangle {
-                                                radius: 14
-                                                color: parent.enabled ? "#2F6FED" : "#233247"
-                                            }
-                                            contentItem: Text {
-                                                text: parent.text
-                                                color: "#F7FAFF"
-                                                horizontalAlignment: Text.AlignHCenter
-                                                verticalAlignment: Text.AlignVCenter
-                                                font.pixelSize: 15
-                                                font.bold: true
-                                            }
+                                            background: Rectangle { radius: 14; color: parent.enabled ? "#2F6FED" : "#233247" }
+                                            contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 15; font.bold: true }
                                         }
                                     }
                                 }
@@ -717,13 +678,11 @@ ApplicationWindow {
                                 anchors.fill: parent
                                 anchors.margins: 16
                                 spacing: 14
-
                                 StatChip { label: appState.text("bottom_sources"); value: appState.sourceCount.toString() }
                                 StatChip { label: appState.text("bottom_target"); value: appState.targetLabel }
                                 StatChip { label: appState.text("bottom_mode"); value: appState.operationMode }
                                 StatChip { label: appState.text("bottom_step"); value: (appState.workflowStageIndex + 1) + " / " + appState.workflowTotalSteps }
                                 StatChip { label: appState.text("bottom_files"); value: appState.discoveredFileCount.toString() }
-
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
@@ -748,7 +707,6 @@ ApplicationWindow {
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-
                     Rectangle {
                         anchors.centerIn: parent
                         width: Math.min(parent.width * 0.74, 860)
@@ -756,36 +714,50 @@ ApplicationWindow {
                         radius: 30
                         color: "#0C1728"
                         border.color: "#243650"
-
                         ColumnLayout {
                             anchors.fill: parent
                             anchors.margins: 30
                             spacing: 14
-
-                            Label {
-                                text: appState.text("manual_placeholder_title")
-                                color: "#F7FAFF"
-                                font.pixelSize: 32
-                                font.bold: true
-                            }
-                            Label {
-                                text: appState.text("manual_placeholder_body")
-                                color: "#AFC1D9"
-                                wrapMode: Text.WordWrap
-                                font.pixelSize: 16
-                            }
-                            Label {
-                                text: appState.text("manual_hint")
-                                color: "#8FB0E1"
-                                wrapMode: Text.WordWrap
-                                font.pixelSize: 14
-                            }
+                            Label { text: appState.text("manual_placeholder_title"); color: "#F7FAFF"; font.pixelSize: 32; font.bold: true }
+                            Label { text: appState.text("manual_placeholder_body"); color: "#AFC1D9"; wrapMode: Text.WordWrap; font.pixelSize: 16 }
+                            Label { text: appState.text("manual_hint"); color: "#8FB0E1"; wrapMode: Text.WordWrap; font.pixelSize: 14 }
                             Item { Layout.fillHeight: true }
-                            PrimaryButton {
-                                text: appState.text("nav_workflow")
-                                onClicked: appState.setPage("workflow")
-                            }
+                            PrimaryButton { text: appState.text("nav_workflow"); onClicked: appState.setPage("workflow") }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: sourceListComponent
+        ListView {
+            clip: true
+            model: appState.sourceFolders
+            spacing: 10
+            delegate: Rectangle {
+                width: ListView.view.width
+                height: 58
+                radius: 14
+                color: "#0F1A2C"
+                border.color: "#22324A"
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 12
+                    Label {
+                        Layout.fillWidth: true
+                        text: modelData
+                        color: "#E6EEF8"
+                        font.pixelSize: 14
+                        elide: Text.ElideMiddle
+                    }
+                    Button {
+                        text: appState.text("button_remove")
+                        onClicked: appState.removeSourceFolder(index)
+                        background: Rectangle { radius: 10; color: "#132033"; border.color: "#30465F" }
+                        contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 12; font.bold: true }
                     }
                 }
             }
