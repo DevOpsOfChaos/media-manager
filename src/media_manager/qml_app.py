@@ -98,6 +98,15 @@ TRANSLATIONS = {
         "status_duplicates_stage_4": "Confirming byte-identical groups ...",
         "status_duplicates_finished": "Exact groups: {groups} | duplicate files: {files} | extra duplicates: {extra} | errors: {errors}",
         "status_duplicates_none": "No exact duplicates found. Errors: {errors}",
+        "status_duplicate_selection_saved": "Keep candidate set to {name}",
+        "duplicate_detail_hint": "This is still a quick review popup, not the final advanced compare tool.",
+        "duplicate_detail_selected": "Selected keep candidate",
+        "duplicate_detail_keep_selected": "Keep selected",
+        "duplicate_detail_keep_newest": "Keep newest",
+        "duplicate_detail_keep_oldest": "Keep oldest",
+        "duplicate_detail_close": "Close",
+        "duplicate_detail_path": "Path",
+        "duplicate_detail_summary": "{files} file(s) | {size} | exact match",
     },
     "de": {
         "app_title": "Media Manager",
@@ -184,10 +193,20 @@ TRANSLATIONS = {
         "status_duplicates_stage_4": "Byte-identische Gruppen bestätigen ...",
         "status_duplicates_finished": "Exakte Gruppen: {groups} | Duplikat-Dateien: {files} | zusätzliche Duplikate: {extra} | Fehler: {errors}",
         "status_duplicates_none": "Keine exakten Duplikate gefunden. Fehler: {errors}",
+        "status_duplicate_selection_saved": "Keep-Kandidat gesetzt auf {name}",
+        "duplicate_detail_hint": "Das ist noch ein schnelles Review-Popup und nicht das finale Vergleichstool.",
+        "duplicate_detail_selected": "Gewählter Keep-Kandidat",
+        "duplicate_detail_keep_selected": "Auswahl behalten",
+        "duplicate_detail_keep_newest": "Neueste behalten",
+        "duplicate_detail_keep_oldest": "Älteste behalten",
+        "duplicate_detail_close": "Schließen",
+        "duplicate_detail_path": "Pfad",
+        "duplicate_detail_summary": "{files} Datei(en) | {size} | exakte Übereinstimmung",
     },
 }
 
 STAGE_KEYS = ["sources", "target", "mode", "duplicates", "sorting", "rename", "done"]
+
 
 class QmlAppState(QObject):
     languageChanged = Signal()
@@ -198,9 +217,10 @@ class QmlAppState(QObject):
     liveStatsChanged = Signal()
     tipChanged = Signal()
     duplicateRowsChanged = Signal()
+    duplicateDetailChanged = Signal()
     flagPathChanged = Signal()
     duplicateScanProgressEvent = Signal(int, int, str)
-    duplicateScanResultEvent = Signal(int, object, int, int, int, int, int)
+    duplicateScanResultEvent = Signal(int, object, object, int, int, int, int, int)
 
     def __init__(self) -> None:
         super().__init__()
@@ -219,6 +239,10 @@ class QmlAppState(QObject):
         self._duplicate_progress = 0
         self._duplicate_rows_visible = 0
         self._duplicate_all_rows: list[dict[str, str]] = []
+        self._duplicate_group_details: list[dict[str, object]] = []
+        self._duplicate_decisions: dict[str, str] = {}
+        self._duplicate_detail_group_index = -1
+        self._duplicate_detail_selected_index = 0
         self._duplicate_scan_token = 0
         self._status_text = ""
         self._tips = ["tip_1", "tip_2", "tip_3", "tip_4"]
@@ -282,20 +306,84 @@ class QmlAppState(QObject):
             return 92, self._format_text("status_duplicates_stage_4")
         return self._duplicate_progress, self._status_text
 
-    def _build_duplicate_rows(self, result) -> list[dict[str, str]]:
+    def _selected_detail(self) -> dict[str, object] | None:
+        if self._duplicate_detail_group_index < 0:
+            return None
+        if self._duplicate_detail_group_index >= len(self._duplicate_group_details):
+            return None
+        return self._duplicate_group_details[self._duplicate_detail_group_index]
+
+    def _selected_index_for_detail(self, detail: dict[str, object]) -> int:
+        files = detail.get("files", [])
+        if not isinstance(files, list) or not files:
+            return 0
+
+        decision_path = self._duplicate_decisions.get(str(detail.get("group_id", "")), "")
+        if decision_path:
+            for index, item in enumerate(files):
+                if str(item.get("path", "")) == decision_path:
+                    return index
+        return 0
+
+    def _build_duplicate_rows_and_details(self, result) -> tuple[list[dict[str, str]], list[dict[str, object]]]:
         rows: list[dict[str, str]] = []
-        for group in result.exact_groups:
+        details: list[dict[str, object]] = []
+
+        for index, group in enumerate(result.exact_groups):
             representative = group.files[0]
-            rows.append(
+            group_id = f"{group.file_size}:{group.full_digest}"
+            row = {
+                "index": str(index),
+                "group_id": group_id,
+                "name": representative.name,
+                "size": self._format_size(group.file_size),
+                "date": self._format_date(representative),
+                "matches": str(max(0, len(group.files) - 1)),
+                "score": "100%",
+            }
+            rows.append(row)
+
+            files: list[dict[str, str]] = []
+            newest_index = 0
+            oldest_index = 0
+            newest_ts = None
+            oldest_ts = None
+
+            for file_index, path in enumerate(group.files):
+                try:
+                    modified_ts = path.stat().st_mtime
+                except OSError:
+                    modified_ts = None
+
+                if newest_ts is None or (modified_ts is not None and modified_ts > newest_ts):
+                    newest_ts = modified_ts
+                    newest_index = file_index
+                if oldest_ts is None or (modified_ts is not None and modified_ts < oldest_ts):
+                    oldest_ts = modified_ts
+                    oldest_index = file_index
+
+                files.append(
+                    {
+                        "name": path.name,
+                        "path": str(path).replace("\\", "/"),
+                        "size": self._format_size(group.file_size),
+                        "date": self._format_date(path),
+                    }
+                )
+
+            details.append(
                 {
-                    "name": representative.name,
-                    "size": self._format_size(group.file_size),
-                    "date": self._format_date(representative),
-                    "matches": str(max(0, len(group.files) - 1)),
-                    "score": "100%",
+                    "group_id": group_id,
+                    "title": representative.name,
+                    "file_count": len(group.files),
+                    "size_label": self._format_size(group.file_size),
+                    "files": files,
+                    "newest_index": newest_index,
+                    "oldest_index": oldest_index,
                 }
             )
-        return rows
+
+        return rows, details
 
     def _reset_duplicate_state(self) -> None:
         self._duplicate_started = False
@@ -303,7 +391,12 @@ class QmlAppState(QObject):
         self._duplicate_progress = 0
         self._duplicate_rows_visible = 0
         self._duplicate_all_rows = []
+        self._duplicate_group_details = []
+        self._duplicate_decisions = {}
+        self._duplicate_detail_group_index = -1
+        self._duplicate_detail_selected_index = 0
         self.duplicateRowsChanged.emit()
+        self.duplicateDetailChanged.emit()
         self.workflowChanged.emit()
 
     def _start_background_duplicate_scan(self) -> None:
@@ -322,15 +415,19 @@ class QmlAppState(QObject):
                 self.duplicateScanProgressEvent.emit(current_token, progress_value, status_text)
 
             try:
-                result = scan_exact_duplicates(DuplicateScanConfig(source_dirs=source_paths), progress_callback=progress_callback)
+                result = scan_exact_duplicates(
+                    DuplicateScanConfig(source_dirs=source_paths),
+                    progress_callback=progress_callback,
+                )
             except Exception:
-                self.duplicateScanResultEvent.emit(current_token, [], 0, 0, 0, 0, 1)
+                self.duplicateScanResultEvent.emit(current_token, [], [], 0, 0, 0, 0, 1)
                 return
 
-            rows = self._build_duplicate_rows(result)
+            rows, details = self._build_duplicate_rows_and_details(result)
             self.duplicateScanResultEvent.emit(
                 current_token,
                 rows,
+                details,
                 result.scanned_files,
                 len(result.exact_groups),
                 result.exact_duplicate_files,
@@ -447,6 +544,39 @@ class QmlAppState(QObject):
             return []
         return self._duplicate_all_rows[: self._duplicate_rows_visible]
 
+    @Property(str, notify=duplicateDetailChanged)
+    def duplicateDetailTitle(self) -> str:
+        detail = self._selected_detail()
+        return str(detail.get("title", "")) if detail else ""
+
+    @Property(str, notify=duplicateDetailChanged)
+    def duplicateDetailSummary(self) -> str:
+        detail = self._selected_detail()
+        if not detail:
+            return ""
+        return self._format_text(
+            "duplicate_detail_summary",
+            files=int(detail.get("file_count", 0)),
+            size=str(detail.get("size_label", "-")),
+        )
+
+    @Property("QVariantList", notify=duplicateDetailChanged)
+    def duplicateDetailFiles(self) -> list[dict[str, object]]:
+        detail = self._selected_detail()
+        if not detail:
+            return []
+
+        items = detail.get("files", [])
+        if not isinstance(items, list):
+            return []
+
+        rows: list[dict[str, object]] = []
+        for index, item in enumerate(items):
+            row = dict(item)
+            row["selected"] = index == self._duplicate_detail_selected_index
+            rows.append(row)
+        return rows
+
     @Property(bool, notify=workflowChanged)
     def canAdvanceWorkflow(self) -> bool:
         key = self.workflowStageKey
@@ -470,6 +600,7 @@ class QmlAppState(QObject):
         self.pageChanged.emit()
         self.selectedProblemChanged.emit()
         self.liveStatsChanged.emit()
+        self.duplicateDetailChanged.emit()
 
     @Slot(str)
     def setPage(self, page: str) -> None:
@@ -583,6 +714,77 @@ class QmlAppState(QObject):
         self.workflowChanged.emit()
         self.duplicateRowsChanged.emit()
 
+    @Slot(int)
+    def openDuplicateGroup(self, index: int) -> None:
+        if index < 0 or index >= len(self._duplicate_group_details):
+            return
+        self._duplicate_detail_group_index = index
+        detail = self._duplicate_group_details[index]
+        self._duplicate_detail_selected_index = self._selected_index_for_detail(detail)
+        self.duplicateDetailChanged.emit()
+
+    @Slot()
+    def closeDuplicateGroup(self) -> None:
+        self._duplicate_detail_group_index = -1
+        self._duplicate_detail_selected_index = 0
+        self.duplicateDetailChanged.emit()
+
+    @Slot(int)
+    def selectDuplicateCandidate(self, index: int) -> None:
+        detail = self._selected_detail()
+        if not detail:
+            return
+
+        files = detail.get("files", [])
+        if not isinstance(files, list):
+            return
+        if index < 0 or index >= len(files):
+            return
+
+        self._duplicate_detail_selected_index = index
+        self.duplicateDetailChanged.emit()
+
+    @Slot()
+    def chooseDuplicateKeepNewest(self) -> None:
+        detail = self._selected_detail()
+        if not detail:
+            return
+        self._duplicate_detail_selected_index = int(detail.get("newest_index", 0))
+        self.duplicateDetailChanged.emit()
+
+    @Slot()
+    def chooseDuplicateKeepOldest(self) -> None:
+        detail = self._selected_detail()
+        if not detail:
+            return
+        self._duplicate_detail_selected_index = int(detail.get("oldest_index", 0))
+        self.duplicateDetailChanged.emit()
+
+    @Slot()
+    def keepSelectedDuplicateCandidate(self) -> None:
+        detail = self._selected_detail()
+        if not detail:
+            return
+
+        files = detail.get("files", [])
+        if not isinstance(files, list) or not files:
+            return
+        if self._duplicate_detail_selected_index < 0 or self._duplicate_detail_selected_index >= len(files):
+            return
+
+        selected = files[self._duplicate_detail_selected_index]
+        selected_path = str(selected.get("path", ""))
+        if not selected_path:
+            return
+
+        self._duplicate_decisions[str(detail.get("group_id", ""))] = selected_path
+        self._status_text = self._format_text(
+            "status_duplicate_selection_saved",
+            name=str(selected.get("name", "")),
+        )
+        self.workflowChanged.emit()
+        self.duplicateDetailChanged.emit()
+
     @Slot()
     def backToHome(self) -> None:
         self._current_page = "home"
@@ -593,16 +795,16 @@ class QmlAppState(QObject):
         if token != self._duplicate_scan_token:
             return
         self._duplicate_progress = max(self._duplicate_progress, progress)
-        if not self._duplicate_started:
-            self._status_text = status_text
+        self._status_text = status_text
         self.workflowChanged.emit()
         self.duplicateRowsChanged.emit()
 
-    @Slot(int, object, int, int, int, int, int)
+    @Slot(int, object, object, int, int, int, int, int)
     def _on_duplicate_scan_result(
         self,
         token: int,
         rows: object,
+        details: object,
         scanned_files: int,
         exact_groups: int,
         duplicate_files: int,
@@ -613,6 +815,7 @@ class QmlAppState(QObject):
             return
         self._duplicate_scan_ready = True
         self._duplicate_all_rows = list(rows)
+        self._duplicate_group_details = list(details)
         self._duplicate_rows_visible = 0
         self._discovered_file_count = max(self._discovered_file_count, scanned_files)
         if exact_groups > 0:
@@ -630,6 +833,7 @@ class QmlAppState(QObject):
         self.liveStatsChanged.emit()
         self.workflowChanged.emit()
         self.duplicateRowsChanged.emit()
+        self.duplicateDetailChanged.emit()
         self._start_duplicate_reveal_if_ready()
 
     def _advance_tip(self) -> None:
