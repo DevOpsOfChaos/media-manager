@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import json
 import sys
 import threading
 from datetime import datetime
 from importlib import resources
 from pathlib import Path
 
-from PySide6.QtCore import Property, QObject, QTimer, QUrl, Signal, Slot
+from PySide6.QtCore import Property, QObject, QStandardPaths, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
@@ -26,15 +27,19 @@ TRANSLATIONS = {
         "home_dismiss": "Dismiss",
         "home_restart": "Start guided questionnaire",
         "home_info_title": "How it works",
-        "home_info_body": "Start with exact duplicates, then organize, then rename. Manual tools stay available in the side menu.",
+        "home_info_body": "The workflow helps you clean duplicates first, then organize the result, then rename the remaining media. Manual tools remain available in the side menu if you already know exactly what you want to do.",
         "problem_full_cleanup_label": "My folders are messy and I want a full cleanup",
+        "problem_full_cleanup_desc": "Duplicates, organize, and rename in one guided run.",
         "problem_ready_for_sorting_label": "Duplicates are already handled, now I need sorting",
+        "problem_ready_for_sorting_desc": "Go directly toward folder structure and cleanup flow.",
         "problem_ready_for_rename_label": "The structure is fine, I mostly need better names",
+        "problem_ready_for_rename_desc": "Start from a lighter workflow with naming as the main goal.",
         "problem_exact_duplicates_only_label": "I only want to inspect exact duplicates right now",
+        "problem_exact_duplicates_only_desc": "Review only guaranteed byte-identical duplicates.",
         "workflow_title": "Guided workflow",
         "workflow_subtitle": "Everything important now happens here, step by step.",
         "stage_sources_title": "Select your source folders",
-        "stage_sources_subtitle": "Choose the folders you want to clean first.",
+        "stage_sources_subtitle": "Start with the folders you want to clean.",
         "stage_sources_action": "Add source folder",
         "stage_sources_list_title": "Selected source folders",
         "stage_sources_empty": "No source folders selected yet.",
@@ -43,14 +48,14 @@ TRANSLATIONS = {
         "stage_target_action": "Select target folder",
         "stage_target_empty": "No target folder selected yet.",
         "stage_mode_title": "What should happen to the files?",
-        "stage_mode_subtitle": "You can change this before the final execution.",
+        "stage_mode_subtitle": "You can still change this later before real execution.",
         "mode_copy": "Copy",
         "mode_move": "Move",
         "mode_delete": "Delete",
-        "stage_duplicates_title": "Duplicate review",
-        "stage_duplicates_subtitle": "Review guaranteed exact duplicates.",
+        "stage_duplicates_title": "Duplicate review preview",
+        "stage_duplicates_subtitle": "The scan already started in the background. The Start button mainly opens the visible review phase.",
         "stage_duplicates_action": "Start duplicate review",
-        "stage_duplicates_hint": "Exact matches are the safest first cleanup step.",
+        "stage_duplicates_hint": "This is still a quick review foundation.",
         "table_name": "Name",
         "table_size": "Size",
         "table_date": "Date",
@@ -58,34 +63,44 @@ TRANSLATIONS = {
         "table_score": "Score",
         "table_action": "Action",
         "table_show": "Show",
-        "stage_sorting_title": "Sorting setup",
-        "stage_sorting_subtitle": "Folder structure comes next.",
+        "stage_sorting_title": "Sorting setup preview",
+        "stage_sorting_subtitle": "Later this page will let the user define folder structure blocks like year / month / day and optional trip support.",
         "stage_sorting_action": "Continue to rename",
-        "stage_rename_title": "Rename setup",
-        "stage_rename_subtitle": "Naming rules come after sorting.",
+        "stage_rename_title": "Rename setup preview",
+        "stage_rename_subtitle": "Later this page will support readable templates, rename blocks, and preset patterns.",
         "stage_rename_action": "Continue to summary",
-        "stage_done_title": "Ready",
-        "stage_done_subtitle": "The guided flow is prepared.",
+        "stage_done_title": "Congratulations",
+        "stage_done_subtitle": "This preview foundation shows the future shell: guided flow, bottom status bar, staged review, and a modern entry point.",
+        "stage_done_action": "Finish preview",
         "button_back": "Back",
         "button_next": "Next",
         "button_home": "Back to home",
         "button_clear": "Clear",
         "button_remove": "Remove",
+        "bottom_sources": "Sources",
+        "bottom_target": "Target",
+        "bottom_mode": "Mode",
+        "bottom_step": "Step",
+        "bottom_files": "Files found",
+        "tip_1": "Start with exact duplicates.",
+        "tip_2": "Keep the safest version.",
+        "tip_3": "Sort only after cleanup.",
+        "tip_4": "Rename last, not first.",
         "manual_placeholder_title": "Manual tool page preview",
-        "manual_placeholder_body": "This page will later reuse the same workflow logic without the guided entry path.",
+        "manual_placeholder_body": "This page will later reuse the same workflow logic, but without the guided entry path.",
         "manual_hint": "Use the guided workflow unless you already know exactly which tool you want.",
         "language_tooltip": "Switch language",
         "status_sources_updated": "Source folders updated",
         "status_target_updated": "Target folder selected",
         "status_duplicates_preparing": "Preparing exact duplicate scan ...",
-        "status_duplicates_stage_1": "Grouping by file size ...",
+        "status_duplicates_stage_1": "Grouping media by file size ...",
         "status_duplicates_stage_2": "Comparing sample fingerprints ...",
         "status_duplicates_stage_3": "Computing full hashes ...",
-        "status_duplicates_stage_4": "Confirming exact groups ...",
+        "status_duplicates_stage_4": "Confirming byte-identical groups ...",
         "status_duplicates_finished": "Exact groups: {groups} | duplicate files: {files} | extra duplicates: {extra} | errors: {errors}",
         "status_duplicates_none": "No exact duplicates found. Errors: {errors}",
         "status_duplicate_selection_saved": "Keep candidate set to {name}",
-        "duplicate_detail_hint": "This is still a quick review popup, not the final compare tool.",
+        "duplicate_detail_hint": "This is still a quick review popup, not the final advanced compare tool.",
         "duplicate_detail_selected": "Selected keep candidate",
         "duplicate_detail_keep_selected": "Keep selected",
         "duplicate_detail_keep_newest": "Keep newest",
@@ -93,10 +108,6 @@ TRANSLATIONS = {
         "duplicate_detail_close": "Close",
         "duplicate_detail_path": "Path",
         "duplicate_detail_summary": "{files} file(s) | {size} | exact match",
-        "tip_1": "Exact duplicates first.",
-        "tip_2": "Copy is the safest start.",
-        "tip_3": "Sort after cleanup.",
-        "tip_4": "Short names beat chaos.",
     },
     "de": {
         "app_title": "Media Manager",
@@ -111,31 +122,35 @@ TRANSLATIONS = {
         "home_dismiss": "Ausblenden",
         "home_restart": "Geführte Umfrage starten",
         "home_info_title": "How it works",
-        "home_info_body": "Zuerst exakte Duplikate prüfen, dann sortieren, dann umbenennen. Manuelle Werkzeuge bleiben in der Seitenleiste erreichbar.",
+        "home_info_body": "Der Workflow hilft zuerst beim Duplikat-Bereinigen, danach beim Sortieren und anschließend beim Umbenennen. Manuelle Werkzeuge bleiben in der Seitenleiste verfügbar, wenn du schon genau weißt, was du tun willst.",
         "problem_full_cleanup_label": "Meine Ordner sind unordentlich und ich will eine komplette Bereinigung",
+        "problem_full_cleanup_desc": "Duplikate, Sortieren und Umbenennen in einem geführten Durchlauf.",
         "problem_ready_for_sorting_label": "Duplikate sind schon erledigt, jetzt brauche ich Sortierung",
+        "problem_ready_for_sorting_desc": "Direkt in Richtung Ordnerstruktur und Bereinigung gehen.",
         "problem_ready_for_rename_label": "Die Struktur passt, ich brauche vor allem bessere Namen",
+        "problem_ready_for_rename_desc": "Mit einem leichteren Workflow starten, bei dem Namen im Fokus stehen.",
         "problem_exact_duplicates_only_label": "Ich will gerade nur exakte Duplikate prüfen",
+        "problem_exact_duplicates_only_desc": "Nur garantierte byte-identische Duplikate prüfen.",
         "workflow_title": "Geführter Workflow",
         "workflow_subtitle": "Ab hier findet alles Wichtige Schritt für Schritt statt.",
         "stage_sources_title": "Wähle deine Quellordner aus",
-        "stage_sources_subtitle": "Wähle zuerst die Ordner, die du bereinigen willst.",
+        "stage_sources_subtitle": "Beginne mit den Ordnern, die du bereinigen willst.",
         "stage_sources_action": "Quellordner hinzufügen",
         "stage_sources_list_title": "Gewählte Quellordner",
         "stage_sources_empty": "Noch keine Quellordner ausgewählt.",
         "stage_target_title": "Wähle deinen Zielordner aus",
-        "stage_target_subtitle": "Wähle das Ziel für die bereinigte Bibliothek.",
+        "stage_target_subtitle": "Wähle den Ort, an dem die bereinigte Bibliothek später liegen soll.",
         "stage_target_action": "Zielordner auswählen",
         "stage_target_empty": "Noch kein Zielordner ausgewählt.",
         "stage_mode_title": "Was soll mit den Dateien passieren?",
-        "stage_mode_subtitle": "Das kannst du vor der finalen Ausführung noch ändern.",
+        "stage_mode_subtitle": "Das kann vor der echten Ausführung später noch geändert werden.",
         "mode_copy": "Kopieren",
         "mode_move": "Verschieben",
         "mode_delete": "Löschen",
-        "stage_duplicates_title": "Duplikat-Prüfung",
-        "stage_duplicates_subtitle": "Prüfe garantierte exakte Duplikate.",
+        "stage_duplicates_title": "Duplikat-Prüfung Vorschau",
+        "stage_duplicates_subtitle": "Der Scan läuft im Hintergrund bereits an. Der Start-Button öffnet hauptsächlich die sichtbare Review-Phase.",
         "stage_duplicates_action": "Duplikat-Prüfung starten",
-        "stage_duplicates_hint": "Exakte Treffer sind der sicherste erste Bereinigungsschritt.",
+        "stage_duplicates_hint": "Das ist noch ein schnelles Review-Grundgerüst.",
         "table_name": "Name",
         "table_size": "Größe",
         "table_date": "Datum",
@@ -143,30 +158,40 @@ TRANSLATIONS = {
         "table_score": "Übereinstimmung",
         "table_action": "Aktion",
         "table_show": "Anzeigen",
-        "stage_sorting_title": "Sortier-Setup",
-        "stage_sorting_subtitle": "Danach folgt die Ordnerstruktur.",
+        "stage_sorting_title": "Sortier-Setup Vorschau",
+        "stage_sorting_subtitle": "Später kann der Nutzer hier Ordner-Ebenen wie Jahr / Monat / Tag und optional eine Trip-Unterstützung definieren.",
         "stage_sorting_action": "Weiter zu Umbenennen",
-        "stage_rename_title": "Umbenennen-Setup",
-        "stage_rename_subtitle": "Die Benennungsregeln kommen nach der Sortierung.",
+        "stage_rename_title": "Umbenennen-Setup Vorschau",
+        "stage_rename_subtitle": "Später wird diese Seite lesbare Templates, Namensblöcke und Vorlagen unterstützen.",
         "stage_rename_action": "Weiter zur Zusammenfassung",
-        "stage_done_title": "Bereit",
-        "stage_done_subtitle": "Der geführte Ablauf ist vorbereitet.",
+        "stage_done_title": "Glückwunsch",
+        "stage_done_subtitle": "Dieses Grundgerüst zeigt die künftige Hülle: geführter Ablauf, untere Statusleiste, gestufte Review und ein moderner Einstiegspunkt.",
+        "stage_done_action": "Vorschau beenden",
         "button_back": "Zurück",
         "button_next": "Weiter",
         "button_home": "Zurück zur Startseite",
         "button_clear": "Leeren",
         "button_remove": "Entfernen",
+        "bottom_sources": "Quellen",
+        "bottom_target": "Ziel",
+        "bottom_mode": "Modus",
+        "bottom_step": "Schritt",
+        "bottom_files": "Dateien gefunden",
+        "tip_1": "Starte mit exakten Duplikaten.",
+        "tip_2": "Behalte die sicherste Version.",
+        "tip_3": "Erst bereinigen, dann sortieren.",
+        "tip_4": "Umbenennen erst am Schluss.",
         "manual_placeholder_title": "Vorschau für manuelle Werkzeugseite",
-        "manual_placeholder_body": "Diese Seite wird später dieselbe Workflow-Logik ohne geführten Einstieg nutzen.",
-        "manual_hint": "Nutze den geführten Workflow, außer du weißt schon genau, welches Werkzeug du willst.",
+        "manual_placeholder_body": "Diese Seite wird später dieselbe Workflow-Logik nutzen, aber ohne geführten Einstiegspfad.",
+        "manual_hint": "Nutze den geführten Workflow, außer du weißt schon ganz genau, welches Werkzeug du willst.",
         "language_tooltip": "Sprache wechseln",
         "status_sources_updated": "Quellordner aktualisiert",
         "status_target_updated": "Zielordner ausgewählt",
         "status_duplicates_preparing": "Exakte Duplikat-Prüfung wird vorbereitet ...",
-        "status_duplicates_stage_1": "Nach Dateigröße gruppieren ...",
+        "status_duplicates_stage_1": "Medien nach Dateigröße gruppieren ...",
         "status_duplicates_stage_2": "Sample-Fingerprints vergleichen ...",
         "status_duplicates_stage_3": "Volle Hashes berechnen ...",
-        "status_duplicates_stage_4": "Exakte Gruppen bestätigen ...",
+        "status_duplicates_stage_4": "Byte-identische Gruppen bestätigen ...",
         "status_duplicates_finished": "Exakte Gruppen: {groups} | Duplikat-Dateien: {files} | zusätzliche Duplikate: {extra} | Fehler: {errors}",
         "status_duplicates_none": "Keine exakten Duplikate gefunden. Fehler: {errors}",
         "status_duplicate_selection_saved": "Keep-Kandidat gesetzt auf {name}",
@@ -178,10 +203,6 @@ TRANSLATIONS = {
         "duplicate_detail_close": "Schließen",
         "duplicate_detail_path": "Pfad",
         "duplicate_detail_summary": "{files} Datei(en) | {size} | exakte Übereinstimmung",
-        "tip_1": "Exakte Duplikate zuerst.",
-        "tip_2": "Kopieren ist am sichersten.",
-        "tip_3": "Erst bereinigen, dann sortieren.",
-        "tip_4": "Kurze Namen schlagen Chaos.",
     },
 }
 
@@ -227,6 +248,8 @@ class QmlAppState(QObject):
         self._status_text = ""
         self._tips = ["tip_1", "tip_2", "tip_3", "tip_4"]
 
+        self._load_settings()
+
         self.duplicateScanProgressEvent.connect(self._on_duplicate_scan_progress)
         self.duplicateScanResultEvent.connect(self._on_duplicate_scan_result)
 
@@ -241,6 +264,36 @@ class QmlAppState(QObject):
         self._duplicate_reveal_timer = QTimer(self)
         self._duplicate_reveal_timer.timeout.connect(self._advance_duplicate_preview)
         self._duplicate_reveal_timer.start(180)
+
+    def _settings_dir(self) -> Path:
+        location = QStandardPaths.writableLocation(QStandardPaths.AppConfigLocation)
+        if location:
+            return Path(location) / "media-manager"
+        return Path.home() / ".media-manager"
+
+    def _settings_file(self) -> Path:
+        return self._settings_dir() / "settings.json"
+
+    def _load_settings(self) -> None:
+        try:
+            settings_file = self._settings_file()
+            if not settings_file.exists():
+                return
+            data = json.loads(settings_file.read_text(encoding="utf-8"))
+            language = str(data.get("language", "en"))
+            if language in ("en", "de"):
+                self._language = language
+        except Exception:
+            self._language = "en"
+
+    def _save_settings(self) -> None:
+        try:
+            settings_dir = self._settings_dir()
+            settings_dir.mkdir(parents=True, exist_ok=True)
+            payload = {"language": self._language}
+            self._settings_file().write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception:
+            pass
 
     def _format_text(self, key: str, **kwargs) -> str:
         text = TRANSLATIONS[self._language].get(key, key)
@@ -261,7 +314,9 @@ class QmlAppState(QObject):
         value = float(size_bytes)
         for unit in ("B", "KB", "MB", "GB", "TB"):
             if value < 1024 or unit == "TB":
-                return f"{int(value)} {unit}" if unit == "B" else f"{value:.1f} {unit}"
+                if unit == "B":
+                    return f"{int(value)} {unit}"
+                return f"{value:.1f} {unit}"
             value /= 1024.0
         return f"{int(size_bytes)} B"
 
@@ -285,7 +340,9 @@ class QmlAppState(QObject):
         return self._duplicate_progress, self._status_text
 
     def _selected_detail(self) -> dict[str, object] | None:
-        if self._duplicate_detail_group_index < 0 or self._duplicate_detail_group_index >= len(self._duplicate_group_details):
+        if self._duplicate_detail_group_index < 0:
+            return None
+        if self._duplicate_detail_group_index >= len(self._duplicate_group_details):
             return None
         return self._duplicate_group_details[self._duplicate_detail_group_index]
 
@@ -293,6 +350,7 @@ class QmlAppState(QObject):
         files = detail.get("files", [])
         if not isinstance(files, list) or not files:
             return 0
+
         decision_path = self._duplicate_decisions.get(str(detail.get("group_id", "")), "")
         if decision_path:
             for index, item in enumerate(files):
@@ -303,37 +361,40 @@ class QmlAppState(QObject):
     def _build_duplicate_rows_and_details(self, result) -> tuple[list[dict[str, str]], list[dict[str, object]]]:
         rows: list[dict[str, str]] = []
         details: list[dict[str, object]] = []
+
         for index, group in enumerate(result.exact_groups):
             representative = group.files[0]
             group_id = f"{group.file_size}:{group.full_digest}"
-            rows.append(
-                {
-                    "index": str(index),
-                    "group_id": group_id,
-                    "name": representative.name,
-                    "size": self._format_size(group.file_size),
-                    "date": self._format_date(representative),
-                    "matches": str(max(0, len(group.files) - 1)),
-                    "score": "100%",
-                }
-            )
+            row = {
+                "index": str(index),
+                "group_id": group_id,
+                "name": representative.name,
+                "size": self._format_size(group.file_size),
+                "date": self._format_date(representative),
+                "matches": str(max(0, len(group.files) - 1)),
+                "score": "100%",
+            }
+            rows.append(row)
 
             files: list[dict[str, str]] = []
             newest_index = 0
             oldest_index = 0
             newest_ts = None
             oldest_ts = None
+
             for file_index, path in enumerate(group.files):
                 try:
                     modified_ts = path.stat().st_mtime
                 except OSError:
                     modified_ts = None
+
                 if newest_ts is None or (modified_ts is not None and modified_ts > newest_ts):
                     newest_ts = modified_ts
                     newest_index = file_index
                 if oldest_ts is None or (modified_ts is not None and modified_ts < oldest_ts):
                     oldest_ts = modified_ts
                     oldest_index = file_index
+
                 files.append(
                     {
                         "name": path.name,
@@ -342,6 +403,7 @@ class QmlAppState(QObject):
                         "date": self._format_date(path),
                     }
                 )
+
             details.append(
                 {
                     "group_id": group_id,
@@ -353,6 +415,7 @@ class QmlAppState(QObject):
                     "oldest_index": oldest_index,
                 }
             )
+
         return rows, details
 
     def _reset_duplicate_state(self) -> None:
@@ -373,8 +436,10 @@ class QmlAppState(QObject):
         self._duplicate_scan_token += 1
         current_token = self._duplicate_scan_token
         self._reset_duplicate_state()
+
         if not self._source_folders:
             return
+
         source_paths = [Path(folder) for folder in self._source_folders]
 
         def worker() -> None:
@@ -383,10 +448,14 @@ class QmlAppState(QObject):
                 self.duplicateScanProgressEvent.emit(current_token, progress_value, status_text)
 
             try:
-                result = scan_exact_duplicates(DuplicateScanConfig(source_dirs=source_paths), progress_callback=progress_callback)
+                result = scan_exact_duplicates(
+                    DuplicateScanConfig(source_dirs=source_paths),
+                    progress_callback=progress_callback,
+                )
             except Exception:
                 self.duplicateScanResultEvent.emit(current_token, [], [], 0, 0, 0, 0, 1)
                 return
+
             rows, details = self._build_duplicate_rows_and_details(result)
             self.duplicateScanResultEvent.emit(
                 current_token,
@@ -420,6 +489,10 @@ class QmlAppState(QObject):
     def problemLabel(self, key: str) -> str:
         return self.text(f"problem_{key}_label")
 
+    @Slot(str, result=str)
+    def problemDescription(self, key: str) -> str:
+        return self.text(f"problem_{key}_desc")
+
     @Property(str, notify=languageChanged)
     def language(self) -> str:
         return self._language
@@ -436,6 +509,10 @@ class QmlAppState(QObject):
     def wizardVisible(self) -> bool:
         return self._wizard_visible
 
+    @Property(str, notify=selectedProblemChanged)
+    def selectedProblem(self) -> str:
+        return self._selected_problem
+
     @Property(int, notify=liveStatsChanged)
     def sourceCount(self) -> int:
         return len(self._source_folders)
@@ -447,6 +524,12 @@ class QmlAppState(QObject):
     @Property(str, notify=liveStatsChanged)
     def targetPath(self) -> str:
         return self._target_path
+
+    @Property(str, notify=liveStatsChanged)
+    def targetLabel(self) -> str:
+        if not self._target_path:
+            return "-"
+        return Path(self._target_path).name or self._target_path
 
     @Property(str, notify=workflowChanged)
     def operationMode(self) -> str:
@@ -504,17 +587,23 @@ class QmlAppState(QObject):
         detail = self._selected_detail()
         if not detail:
             return ""
-        return self._format_text("duplicate_detail_summary", files=int(detail.get("file_count", 0)), size=str(detail.get("size_label", "-")))
+        return self._format_text(
+            "duplicate_detail_summary",
+            files=int(detail.get("file_count", 0)),
+            size=str(detail.get("size_label", "-")),
+        )
 
     @Property("QVariantList", notify=duplicateDetailChanged)
     def duplicateDetailFiles(self) -> list[dict[str, object]]:
         detail = self._selected_detail()
         if not detail:
             return []
+
         items = detail.get("files", [])
         if not isinstance(items, list):
             return []
-        rows = []
+
+        rows: list[dict[str, object]] = []
         for index, item in enumerate(items):
             row = dict(item)
             row["selected"] = index == self._duplicate_detail_selected_index
@@ -536,12 +625,22 @@ class QmlAppState(QObject):
 
     @Slot()
     def toggleLanguage(self) -> None:
-        self._language = "de" if self._language == "en" else "en"
+        self.setLanguage("de" if self._language == "en" else "en")
+
+    @Slot(str)
+    def setLanguage(self, language: str) -> None:
+        if language not in ("en", "de"):
+            return
+        if language == self._language:
+            return
+        self._language = language
+        self._save_settings()
         self.languageChanged.emit()
         self.flagPathChanged.emit()
         self.tipChanged.emit()
         self.workflowChanged.emit()
         self.pageChanged.emit()
+        self.selectedProblemChanged.emit()
         self.liveStatsChanged.emit()
         self.duplicateDetailChanged.emit()
 
@@ -564,9 +663,11 @@ class QmlAppState(QObject):
 
     @Slot(str)
     def selectProblemAndStart(self, key: str) -> None:
+        self._selected_problem = key
         self._workflow_stage_index = 0
         self._status_text = self.problemLabel(key)
         self._current_page = "workflow"
+        self.selectedProblemChanged.emit()
         self.workflowChanged.emit()
         self.pageChanged.emit()
 
@@ -675,9 +776,13 @@ class QmlAppState(QObject):
         detail = self._selected_detail()
         if not detail:
             return
+
         files = detail.get("files", [])
-        if not isinstance(files, list) or index < 0 or index >= len(files):
+        if not isinstance(files, list):
             return
+        if index < 0 or index >= len(files):
+            return
+
         self._duplicate_detail_selected_index = index
         self.duplicateDetailChanged.emit()
 
@@ -702,15 +807,23 @@ class QmlAppState(QObject):
         detail = self._selected_detail()
         if not detail:
             return
+
         files = detail.get("files", [])
-        if not isinstance(files, list) or not files or self._duplicate_detail_selected_index < 0 or self._duplicate_detail_selected_index >= len(files):
+        if not isinstance(files, list) or not files:
             return
+        if self._duplicate_detail_selected_index < 0 or self._duplicate_detail_selected_index >= len(files):
+            return
+
         selected = files[self._duplicate_detail_selected_index]
         selected_path = str(selected.get("path", ""))
         if not selected_path:
             return
+
         self._duplicate_decisions[str(detail.get("group_id", ""))] = selected_path
-        self._status_text = self._format_text("status_duplicate_selection_saved", name=str(selected.get("name", "")))
+        self._status_text = self._format_text(
+            "status_duplicate_selection_saved",
+            name=str(selected.get("name", "")),
+        )
         self.workflowChanged.emit()
         self.duplicateDetailChanged.emit()
 
@@ -729,7 +842,17 @@ class QmlAppState(QObject):
         self.duplicateRowsChanged.emit()
 
     @Slot(int, object, object, int, int, int, int, int)
-    def _on_duplicate_scan_result(self, token: int, rows: object, details: object, scanned_files: int, exact_groups: int, duplicate_files: int, extra_duplicates: int, errors: int) -> None:
+    def _on_duplicate_scan_result(
+        self,
+        token: int,
+        rows: object,
+        details: object,
+        scanned_files: int,
+        exact_groups: int,
+        duplicate_files: int,
+        extra_duplicates: int,
+        errors: int,
+    ) -> None:
         if token != self._duplicate_scan_token:
             return
         self._duplicate_scan_ready = True
@@ -738,7 +861,13 @@ class QmlAppState(QObject):
         self._duplicate_rows_visible = 0
         self._discovered_file_count = max(self._discovered_file_count, scanned_files)
         if exact_groups > 0:
-            self._status_text = self._format_text("status_duplicates_finished", groups=exact_groups, files=duplicate_files, extra=extra_duplicates, errors=errors)
+            self._status_text = self._format_text(
+                "status_duplicates_finished",
+                groups=exact_groups,
+                files=duplicate_files,
+                extra=extra_duplicates,
+                errors=errors,
+            )
             self._duplicate_progress = max(self._duplicate_progress, 96)
         else:
             self._status_text = self._format_text("status_duplicates_none", errors=errors)
@@ -754,7 +883,11 @@ class QmlAppState(QObject):
         self.tipChanged.emit()
 
     def _advance_live_scan(self) -> None:
-        if self._current_page != "workflow" or not self._source_folders or self._duplicate_scan_ready:
+        if self._current_page != "workflow":
+            return
+        if not self._source_folders:
+            return
+        if self._duplicate_scan_ready:
             return
         max_files = 18000 * max(1, len(self._source_folders))
         step = 90 + (35 * len(self._source_folders))
@@ -780,9 +913,11 @@ class QmlAppState(QObject):
 def main() -> int:
     app = QGuiApplication(sys.argv)
     app.setApplicationName("Media Manager QML")
+
     engine = QQmlApplicationEngine()
     state = QmlAppState()
     engine.rootContext().setContextProperty("appState", state)
+
     qml_file = resources.files("media_manager").joinpath("qml/Main.qml")
     engine.load(QUrl.fromLocalFile(str(qml_file)))
     if not engine.rootObjects():

@@ -9,7 +9,9 @@ Button {
 
     background: Rectangle {
         radius: 16
-        color: control.down ? "#275BC2" : (control.hovered ? "#2A64D5" : "#2F6FED")
+        color: "#2F6FED"
+        border.width: 1
+        border.color: (control.hovered || control.visualFocus) ? "#A7C7FF" : "#4A82D7"
     }
 
     contentItem: Text {
