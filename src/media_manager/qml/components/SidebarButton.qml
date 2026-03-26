@@ -4,8 +4,8 @@ import QtQuick.Controls
 Button {
     id: control
     property bool active: false
-    implicitHeight: 42
-    implicitWidth: 148
+    implicitHeight: 44
+    implicitWidth: 156
     hoverEnabled: true
 
     background: Rectangle {

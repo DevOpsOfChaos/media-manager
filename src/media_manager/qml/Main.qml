@@ -14,83 +14,22 @@ ApplicationWindow {
     title: appState.text("app_title")
     color: "#07111F"
 
-    component OutlineButton: Button {
-        id: outlineControl
-        hoverEnabled: true
-        implicitHeight: 48
-        implicitWidth: 180
-
-        background: Rectangle {
-            radius: 16
-            color: (outlineControl.hovered || outlineControl.down) ? "#132B4A" : "transparent"
-            border.width: 1
-            border.color: (outlineControl.hovered || outlineControl.down) ? "#4A82D7" : "#30465F"
-        }
-
-        contentItem: Text {
-            text: outlineControl.text
-            color: "#F7FAFF"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            font.pixelSize: 15
-            font.bold: true
-        }
-    }
-
-    component AccentActionButton: Button {
-        id: accentControl
-        hoverEnabled: true
-        implicitHeight: 54
-        implicitWidth: 220
-
-        background: Rectangle {
-            radius: 16
-            color: "#2F6FED"
-            border.width: 1
-            border.color: accentControl.hovered ? "#A7C7FF" : "#4A82D7"
-        }
-
-        contentItem: Text {
-            text: accentControl.text
-            color: "#F7FAFF"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            font.pixelSize: 16
-            font.bold: true
-        }
-    }
-
-    component HomeChoiceButton: Button {
-        id: homeChoice
-        property string title: ""
-        hoverEnabled: true
-        implicitHeight: 58
-        implicitWidth: 470
-
-        background: Rectangle {
-            radius: 18
-            color: (homeChoice.hovered || homeChoice.down) ? "#132B4A" : "transparent"
-            border.width: 1
-            border.color: (homeChoice.hovered || homeChoice.down) ? "#4A82D7" : "#263A57"
-        }
-
-        contentItem: Text {
-            text: homeChoice.title
-            color: "#F7FAFF"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            wrapMode: Text.WordWrap
-            font.pixelSize: 16
-            font.bold: true
-        }
-    }
-
     function pageIndex() {
         if (appState.currentPage === "home")
             return 0
         if (appState.currentPage === "workflow")
             return 1
         return 2
+    }
+
+    Component {
+        id: subtleOutlineButtonBackground
+        Rectangle {
+            radius: 16
+            color: parent.down ? "#102038" : ((parent.hovered || (typeof parent.active !== "undefined" && parent.active)) ? "#132B4A" : "transparent")
+            border.width: 1
+            border.color: (parent.hovered || (typeof parent.active !== "undefined" && parent.active)) ? "#4A82D7" : "#30465F"
+        }
     }
 
     FolderDialog {
@@ -136,11 +75,25 @@ ApplicationWindow {
                     elide: Text.ElideRight
                 }
 
-                OutlineButton {
+                Button {
                     text: "✕"
-                    implicitWidth: 48
-                    implicitHeight: 40
                     onClicked: duplicateDetailPopup.close()
+
+                    background: Rectangle {
+                        radius: 12
+                        color: parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent")
+                        border.width: 1
+                        border.color: parent.hovered ? "#4A82D7" : "#30465F"
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#F7FAFF"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 18
+                        font.bold: true
+                    }
                 }
             }
 
@@ -213,8 +166,9 @@ ApplicationWindow {
 
                                         Rectangle {
                                             radius: 10
-                                            color: modelData.selected ? "#2F6FED" : "#122033"
-                                            border.color: modelData.selected ? "#7BA7FF" : "#30465F"
+                                            color: modelData.selected ? "#132B4A" : "transparent"
+                                            border.width: 1
+                                            border.color: modelData.selected ? "#4A82D7" : "#30465F"
                                             Layout.preferredWidth: 170
                                             Layout.preferredHeight: 30
 
@@ -263,29 +217,82 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 spacing: 10
 
-                AccentActionButton {
+                Button {
                     text: appState.text("duplicate_detail_keep_selected")
                     onClicked: appState.keepSelectedDuplicateCandidate()
+                    background: Rectangle {
+                        radius: 14
+                        color: parent.down ? "#234FAE" : "#2F6FED"
+                        border.width: 1
+                        border.color: "#7BA7FF"
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#F7FAFF"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 14
+                        font.bold: true
+                    }
                 }
 
-                OutlineButton {
+                Button {
                     text: appState.text("duplicate_detail_keep_newest")
-                    implicitWidth: 180
                     onClicked: appState.chooseDuplicateKeepNewest()
+                    background: Rectangle {
+                        radius: 14
+                        color: parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent")
+                        border.width: 1
+                        border.color: parent.hovered ? "#4A82D7" : "#30465F"
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#F7FAFF"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 14
+                        font.bold: true
+                    }
                 }
 
-                OutlineButton {
+                Button {
                     text: appState.text("duplicate_detail_keep_oldest")
-                    implicitWidth: 180
                     onClicked: appState.chooseDuplicateKeepOldest()
+                    background: Rectangle {
+                        radius: 14
+                        color: parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent")
+                        border.width: 1
+                        border.color: parent.hovered ? "#4A82D7" : "#30465F"
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#F7FAFF"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 14
+                        font.bold: true
+                    }
                 }
 
                 Item { Layout.fillWidth: true }
 
-                OutlineButton {
+                Button {
                     text: appState.text("duplicate_detail_close")
-                    implicitWidth: 150
                     onClicked: duplicateDetailPopup.close()
+                    background: Rectangle {
+                        radius: 14
+                        color: parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent")
+                        border.width: 1
+                        border.color: parent.hovered ? "#4A82D7" : "#30465F"
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#F7FAFF"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 14
+                        font.bold: true
+                    }
                 }
             }
         }
@@ -359,37 +366,21 @@ ApplicationWindow {
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    Layout.preferredWidth: 48
-                    Layout.preferredHeight: 34
-                    hoverEnabled: true
-                    onClicked: appState.setLanguage("en")
-                    background: Rectangle {
-                        radius: 12
-                        color: appState.language === "en" || parent.hovered ? "#132B4A" : "transparent"
-                        border.width: 1
-                        border.color: appState.language === "en" || parent.hovered ? "#4A82D7" : "#30465F"
-                    }
-                    contentItem: Image {
-                        source: Qt.resolvedUrl("assets/en_flag.svg")
-                        fillMode: Image.PreserveAspectFit
-                        anchors.fill: parent
-                        anchors.margins: 6
-                    }
-                }
+                    Layout.preferredWidth: 60
+                    Layout.preferredHeight: 36
+                    ToolTip.visible: hovered
+                    ToolTip.text: appState.text("language_tooltip")
+                    onClicked: appState.toggleLanguage()
 
-                Button {
-                    Layout.preferredWidth: 48
-                    Layout.preferredHeight: 34
-                    hoverEnabled: true
-                    onClicked: appState.setLanguage("de")
                     background: Rectangle {
                         radius: 12
-                        color: appState.language === "de" || parent.hovered ? "#132B4A" : "transparent"
+                        color: parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent")
                         border.width: 1
-                        border.color: appState.language === "de" || parent.hovered ? "#4A82D7" : "#30465F"
+                        border.color: (parent.hovered || parent.down) ? "#4A82D7" : "#30465F"
                     }
+
                     contentItem: Image {
-                        source: Qt.resolvedUrl("assets/de_flag.svg")
+                        source: appState.flagPath
                         fillMode: Image.PreserveAspectFit
                         anchors.fill: parent
                         anchors.margins: 6
@@ -454,30 +445,83 @@ ApplicationWindow {
                                 Repeater {
                                     model: ["full_cleanup", "ready_for_sorting", "ready_for_rename", "exact_duplicates_only"]
 
-                                    delegate: HomeChoiceButton {
+                                    delegate: Button {
                                         required property string modelData
-                                        title: appState.problemLabel(modelData)
+                                        Layout.alignment: Qt.AlignHCenter
+                                        Layout.preferredWidth: 560
+                                        Layout.preferredHeight: 62
+                                        hoverEnabled: true
                                         onClicked: appState.selectProblemAndStart(modelData)
+
+                                        background: Rectangle {
+                                            radius: 18
+                                            color: parent.down ? "#102038" : ((parent.hovered || parent.visualFocus) ? "#132B4A" : "transparent")
+                                            border.width: 1
+                                            border.color: (parent.hovered || parent.visualFocus) ? "#4A82D7" : "#263A57"
+                                        }
+
+                                        contentItem: Text {
+                                            text: appState.problemLabel(modelData)
+                                            color: "#F7FAFF"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                            wrapMode: Text.WordWrap
+                                            font.pixelSize: 16
+                                            font.bold: true
+                                        }
                                     }
                                 }
                             }
 
-                            OutlineButton {
+                            Button {
                                 visible: appState.wizardVisible
                                 Layout.alignment: Qt.AlignHCenter
-                                Layout.preferredWidth: 250
-                                Layout.preferredHeight: 56
+                                Layout.preferredWidth: 230
+                                Layout.preferredHeight: 52
                                 text: appState.text("home_dismiss")
                                 onClicked: appState.dismissWizard()
+                                hoverEnabled: true
+
+                                background: Rectangle {
+                                    radius: 16
+                                    color: parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent")
+                                    border.color: parent.hovered ? "#4A82D7" : "#30465F"
+                                    border.width: 1
+                                }
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: "#F7FAFF"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    font.pixelSize: 15
+                                    font.bold: true
+                                }
                             }
 
-                            AccentActionButton {
+                            Button {
                                 visible: !appState.wizardVisible
                                 Layout.alignment: Qt.AlignHCenter
                                 Layout.preferredWidth: 260
                                 Layout.preferredHeight: 54
                                 text: appState.text("home_restart")
                                 onClicked: appState.restartWizard()
+
+                                background: Rectangle {
+                                    radius: 18
+                                    color: parent.down ? "#234FAE" : "#2F6FED"
+                                    border.width: 1
+                                    border.color: "#7BA7FF"
+                                }
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: "#F7FAFF"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    font.pixelSize: 16
+                                    font.bold: true
+                                }
                             }
 
                             Item { Layout.preferredHeight: 2 }
@@ -622,10 +666,25 @@ ApplicationWindow {
                                             RowLayout {
                                                 Layout.fillWidth: true
                                                 PrimaryButton { text: appState.text("stage_sources_action"); onClicked: sourceFolderDialog.open() }
-                                                OutlineButton {
+                                                Button {
                                                     text: appState.text("button_clear")
                                                     enabled: appState.sourceCount > 0
                                                     onClicked: appState.clearSourceFolders()
+                                                    hoverEnabled: true
+                                                    background: Rectangle {
+                                                        radius: 14
+                                                        color: parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent")
+                                                        border.width: 1
+                                                        border.color: parent.hovered ? "#4A82D7" : "#30465F"
+                                                    }
+                                                    contentItem: Text {
+                                                        text: parent.text
+                                                        color: "#F7FAFF"
+                                                        horizontalAlignment: Text.AlignHCenter
+                                                        verticalAlignment: Text.AlignVCenter
+                                                        font.pixelSize: 14
+                                                        font.bold: true
+                                                    }
                                                 }
                                                 Item { Layout.fillWidth: true }
                                             }
@@ -661,10 +720,25 @@ ApplicationWindow {
                                                     RowLayout {
                                                         Layout.fillWidth: true
                                                         PrimaryButton { text: appState.text("stage_target_action"); onClicked: targetFolderDialog.open() }
-                                                        OutlineButton {
+                                                        Button {
                                                             text: appState.text("button_clear")
                                                             enabled: appState.targetPath.length > 0
                                                             onClicked: appState.clearTargetFolder()
+                                                            hoverEnabled: true
+                                                            background: Rectangle {
+                                                                radius: 14
+                                                                color: parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent")
+                                                                border.width: 1
+                                                                border.color: parent.hovered ? "#4A82D7" : "#30465F"
+                                                            }
+                                                            contentItem: Text {
+                                                                text: parent.text
+                                                                color: "#F7FAFF"
+                                                                horizontalAlignment: Text.AlignHCenter
+                                                                verticalAlignment: Text.AlignVCenter
+                                                                font.pixelSize: 14
+                                                                font.bold: true
+                                                            }
                                                         }
                                                         Item { Layout.fillWidth: true }
                                                     }
@@ -687,17 +761,28 @@ ApplicationWindow {
                                                 Repeater {
                                                     model: ["copy", "move", "delete"]
 
-                                                    delegate: HomeChoiceButton {
+                                                    delegate: Button {
                                                         required property string modelData
-                                                        implicitWidth: 440
-                                                        title: appState.text("mode_" + modelData)
+                                                        Layout.alignment: Qt.AlignHCenter
+                                                        Layout.preferredWidth: 440
+                                                        Layout.preferredHeight: 60
+                                                        hoverEnabled: true
                                                         onClicked: appState.setOperationMode(modelData)
 
                                                         background: Rectangle {
                                                             radius: 18
-                                                            color: (appState.operationMode === modelData || parent.hovered || parent.down) ? "#132B4A" : "transparent"
-                                                            border.width: appState.operationMode === modelData ? 2 : 1
-                                                            border.color: (appState.operationMode === modelData || parent.hovered || parent.down) ? "#4A82D7" : "#263A57"
+                                                            color: appState.operationMode === modelData ? "#132B4A" : (parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent"))
+                                                            border.color: (appState.operationMode === modelData || parent.hovered) ? "#4A82D7" : "#263A57"
+                                                            border.width: (appState.operationMode === modelData || parent.hovered) ? 2 : 1
+                                                        }
+
+                                                        contentItem: Text {
+                                                            text: appState.text("mode_" + modelData)
+                                                            color: "#F7FAFF"
+                                                            horizontalAlignment: Text.AlignHCenter
+                                                            verticalAlignment: Text.AlignVCenter
+                                                            font.pixelSize: 16
+                                                            font.bold: true
                                                         }
                                                     }
                                                 }
@@ -792,13 +877,27 @@ ApplicationWindow {
                                                                         Label { Layout.fillWidth: true; text: modelData.date; color: "#E6EEF8"; font.pixelSize: 13 }
                                                                         Label { Layout.fillWidth: true; text: modelData.matches; color: "#E6EEF8"; font.pixelSize: 13 }
                                                                         Label { Layout.fillWidth: true; text: modelData.score; color: modelData.score === "100%" ? "#8CE99A" : "#FFD18C"; font.pixelSize: 13; font.bold: true }
-                                                                        OutlineButton {
-                                                                            implicitWidth: 94
-                                                                            implicitHeight: 34
+                                                                        Button {
+                                                                            Layout.fillWidth: true
                                                                             text: appState.text("table_show")
+                                                                            hoverEnabled: true
                                                                             onClicked: {
                                                                                 appState.openDuplicateGroup(Number(modelData.index))
                                                                                 duplicateDetailPopup.open()
+                                                                            }
+                                                                            background: Rectangle {
+                                                                                radius: 10
+                                                                                color: parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent")
+                                                                                border.width: 1
+                                                                                border.color: parent.hovered ? "#4A82D7" : "#30465F"
+                                                                            }
+                                                                            contentItem: Text {
+                                                                                text: parent.text
+                                                                                color: "#F7FAFF"
+                                                                                horizontalAlignment: Text.AlignHCenter
+                                                                                verticalAlignment: Text.AlignVCenter
+                                                                                font.pixelSize: 12
+                                                                                font.bold: true
                                                                             }
                                                                         }
                                                                     }
@@ -873,14 +972,31 @@ ApplicationWindow {
                         RowLayout {
                             Layout.fillWidth: true
 
-                            OutlineButton {
+                            Button {
                                 text: appState.text("button_back")
                                 onClicked: appState.workflowBack()
+                                hoverEnabled: true
+
+                                background: Rectangle {
+                                    radius: 14
+                                    color: parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent")
+                                    border.width: 1
+                                    border.color: parent.hovered ? "#4A82D7" : "#30465F"
+                                }
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: "#F7FAFF"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    font.pixelSize: 15
+                                    font.bold: true
+                                }
                             }
 
                             Item { Layout.fillWidth: true }
 
-                            AccentActionButton {
+                            Button {
                                 visible: appState.canAdvanceWorkflow
                                          && appState.workflowStageKey !== "sorting"
                                          && appState.workflowStageKey !== "rename"
@@ -890,6 +1006,22 @@ ApplicationWindow {
                                 onClicked: appState.workflowNext()
                                 Layout.preferredWidth: 176
                                 Layout.preferredHeight: 54
+
+                                background: Rectangle {
+                                    radius: 16
+                                    color: parent.down ? "#234FAE" : "#2F6FED"
+                                    border.width: 1
+                                    border.color: "#7BA7FF"
+                                }
+
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: "#F7FAFF"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    font.pixelSize: 17
+                                    font.bold: true
+                                }
                             }
                         }
                     }
@@ -966,11 +1098,26 @@ ApplicationWindow {
                         elide: Text.ElideMiddle
                     }
 
-                    OutlineButton {
-                        implicitWidth: 100
-                        implicitHeight: 36
+                    Button {
                         text: appState.text("button_remove")
                         onClicked: appState.removeSourceFolder(index)
+                        hoverEnabled: true
+
+                        background: Rectangle {
+                            radius: 10
+                            color: parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent")
+                            border.width: 1
+                            border.color: parent.hovered ? "#4A82D7" : "#30465F"
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: "#F7FAFF"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font.pixelSize: 12
+                            font.bold: true
+                        }
                     }
                 }
             }

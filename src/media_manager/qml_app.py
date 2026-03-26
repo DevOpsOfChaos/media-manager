@@ -7,7 +7,7 @@ from datetime import datetime
 from importlib import resources
 from pathlib import Path
 
-from PySide6.QtCore import Property, QObject, QStandardPaths, QTimer, QUrl, Signal, Slot
+from PySide6.QtCore import Property, QObject, QSettings, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
@@ -27,7 +27,7 @@ TRANSLATIONS = {
         "home_dismiss": "Dismiss",
         "home_restart": "Start guided questionnaire",
         "home_info_title": "How it works",
-        "home_info_body": "The workflow helps you clean duplicates first, then organize the result, then rename the remaining media. Manual tools remain available in the side menu if you already know exactly what you want to do.",
+        "home_info_body": "Clean duplicates first, then organize, then rename. The guided path stays the recommended path.",
         "problem_full_cleanup_label": "My folders are messy and I want a full cleanup",
         "problem_full_cleanup_desc": "Duplicates, organize, and rename in one guided run.",
         "problem_ready_for_sorting_label": "Duplicates are already handled, now I need sorting",
@@ -53,9 +53,9 @@ TRANSLATIONS = {
         "mode_move": "Move",
         "mode_delete": "Delete",
         "stage_duplicates_title": "Duplicate review preview",
-        "stage_duplicates_subtitle": "The scan already started in the background. The Start button mainly opens the visible review phase.",
+        "stage_duplicates_subtitle": "Start the visible review phase for exact duplicates.",
         "stage_duplicates_action": "Start duplicate review",
-        "stage_duplicates_hint": "This is still a quick review foundation.",
+        "stage_duplicates_hint": "This is still a review popup, not the final comparison tool.",
         "table_name": "Name",
         "table_size": "Size",
         "table_date": "Date",
@@ -64,13 +64,13 @@ TRANSLATIONS = {
         "table_action": "Action",
         "table_show": "Show",
         "stage_sorting_title": "Sorting setup preview",
-        "stage_sorting_subtitle": "Later this page will let the user define folder structure blocks like year / month / day and optional trip support.",
+        "stage_sorting_subtitle": "Sorting configuration comes after cleanup.",
         "stage_sorting_action": "Continue to rename",
         "stage_rename_title": "Rename setup preview",
-        "stage_rename_subtitle": "Later this page will support readable templates, rename blocks, and preset patterns.",
+        "stage_rename_subtitle": "Rename configuration comes after sorting.",
         "stage_rename_action": "Continue to summary",
         "stage_done_title": "Congratulations",
-        "stage_done_subtitle": "This preview foundation shows the future shell: guided flow, bottom status bar, staged review, and a modern entry point.",
+        "stage_done_subtitle": "This is the preview shell for the future guided product.",
         "stage_done_action": "Finish preview",
         "button_back": "Back",
         "button_next": "Next",
@@ -82,13 +82,13 @@ TRANSLATIONS = {
         "bottom_mode": "Mode",
         "bottom_step": "Step",
         "bottom_files": "Files found",
-        "tip_1": "Start with exact duplicates.",
-        "tip_2": "Keep the safest version.",
-        "tip_3": "Sort only after cleanup.",
-        "tip_4": "Rename last, not first.",
+        "tip_1": "Exact duplicates are the safest wins.",
+        "tip_2": "Good cleanup reduces later sorting work.",
+        "tip_3": "RAW and JPEG can belong together.",
+        "tip_4": "Preview first, execute later.",
         "manual_placeholder_title": "Manual tool page preview",
-        "manual_placeholder_body": "This page will later reuse the same workflow logic, but without the guided entry path.",
-        "manual_hint": "Use the guided workflow unless you already know exactly which tool you want.",
+        "manual_placeholder_body": "This page will later reuse the same workflow logic.",
+        "manual_hint": "Use the guided workflow unless you know exactly what you want.",
         "language_tooltip": "Switch language",
         "status_sources_updated": "Source folders updated",
         "status_target_updated": "Target folder selected",
@@ -100,7 +100,7 @@ TRANSLATIONS = {
         "status_duplicates_finished": "Exact groups: {groups} | duplicate files: {files} | extra duplicates: {extra} | errors: {errors}",
         "status_duplicates_none": "No exact duplicates found. Errors: {errors}",
         "status_duplicate_selection_saved": "Keep candidate set to {name}",
-        "duplicate_detail_hint": "This is still a quick review popup, not the final advanced compare tool.",
+        "duplicate_detail_hint": "Quick review popup, not the final compare tool.",
         "duplicate_detail_selected": "Selected keep candidate",
         "duplicate_detail_keep_selected": "Keep selected",
         "duplicate_detail_keep_newest": "Keep newest",
@@ -122,7 +122,7 @@ TRANSLATIONS = {
         "home_dismiss": "Ausblenden",
         "home_restart": "Geführte Umfrage starten",
         "home_info_title": "How it works",
-        "home_info_body": "Der Workflow hilft zuerst beim Duplikat-Bereinigen, danach beim Sortieren und anschließend beim Umbenennen. Manuelle Werkzeuge bleiben in der Seitenleiste verfügbar, wenn du schon genau weißt, was du tun willst.",
+        "home_info_body": "Erst Duplikate, dann sortieren, dann umbenennen. Der geführte Pfad bleibt der empfohlene Weg.",
         "problem_full_cleanup_label": "Meine Ordner sind unordentlich und ich will eine komplette Bereinigung",
         "problem_full_cleanup_desc": "Duplikate, Sortieren und Umbenennen in einem geführten Durchlauf.",
         "problem_ready_for_sorting_label": "Duplikate sind schon erledigt, jetzt brauche ich Sortierung",
@@ -139,18 +139,18 @@ TRANSLATIONS = {
         "stage_sources_list_title": "Gewählte Quellordner",
         "stage_sources_empty": "Noch keine Quellordner ausgewählt.",
         "stage_target_title": "Wähle deinen Zielordner aus",
-        "stage_target_subtitle": "Wähle den Ort, an dem die bereinigte Bibliothek später liegen soll.",
+        "stage_target_subtitle": "Wähle, wo die bereinigte Bibliothek liegen soll.",
         "stage_target_action": "Zielordner auswählen",
         "stage_target_empty": "Noch kein Zielordner ausgewählt.",
         "stage_mode_title": "Was soll mit den Dateien passieren?",
-        "stage_mode_subtitle": "Das kann vor der echten Ausführung später noch geändert werden.",
+        "stage_mode_subtitle": "Das kannst du vor der echten Ausführung noch ändern.",
         "mode_copy": "Kopieren",
         "mode_move": "Verschieben",
         "mode_delete": "Löschen",
         "stage_duplicates_title": "Duplikat-Prüfung Vorschau",
-        "stage_duplicates_subtitle": "Der Scan läuft im Hintergrund bereits an. Der Start-Button öffnet hauptsächlich die sichtbare Review-Phase.",
+        "stage_duplicates_subtitle": "Starte die sichtbare Review-Phase für exakte Duplikate.",
         "stage_duplicates_action": "Duplikat-Prüfung starten",
-        "stage_duplicates_hint": "Das ist noch ein schnelles Review-Grundgerüst.",
+        "stage_duplicates_hint": "Das ist noch ein Review-Popup, nicht das finale Vergleichstool.",
         "table_name": "Name",
         "table_size": "Größe",
         "table_date": "Datum",
@@ -159,13 +159,13 @@ TRANSLATIONS = {
         "table_action": "Aktion",
         "table_show": "Anzeigen",
         "stage_sorting_title": "Sortier-Setup Vorschau",
-        "stage_sorting_subtitle": "Später kann der Nutzer hier Ordner-Ebenen wie Jahr / Monat / Tag und optional eine Trip-Unterstützung definieren.",
+        "stage_sorting_subtitle": "Die Sortierkonfiguration kommt nach der Bereinigung.",
         "stage_sorting_action": "Weiter zu Umbenennen",
         "stage_rename_title": "Umbenennen-Setup Vorschau",
-        "stage_rename_subtitle": "Später wird diese Seite lesbare Templates, Namensblöcke und Vorlagen unterstützen.",
+        "stage_rename_subtitle": "Die Umbenennungs-Konfiguration kommt nach dem Sortieren.",
         "stage_rename_action": "Weiter zur Zusammenfassung",
         "stage_done_title": "Glückwunsch",
-        "stage_done_subtitle": "Dieses Grundgerüst zeigt die künftige Hülle: geführter Ablauf, untere Statusleiste, gestufte Review und ein moderner Einstiegspunkt.",
+        "stage_done_subtitle": "Das ist die Vorschau-Hülle für das spätere geführte Produkt.",
         "stage_done_action": "Vorschau beenden",
         "button_back": "Zurück",
         "button_next": "Weiter",
@@ -177,13 +177,13 @@ TRANSLATIONS = {
         "bottom_mode": "Modus",
         "bottom_step": "Schritt",
         "bottom_files": "Dateien gefunden",
-        "tip_1": "Starte mit exakten Duplikaten.",
-        "tip_2": "Behalte die sicherste Version.",
-        "tip_3": "Erst bereinigen, dann sortieren.",
-        "tip_4": "Umbenennen erst am Schluss.",
+        "tip_1": "Exakte Duplikate sind die sichersten Treffer.",
+        "tip_2": "Gute Bereinigung spart spätere Sortierarbeit.",
+        "tip_3": "RAW und JPEG können zusammengehören.",
+        "tip_4": "Erst prüfen, dann ausführen.",
         "manual_placeholder_title": "Vorschau für manuelle Werkzeugseite",
-        "manual_placeholder_body": "Diese Seite wird später dieselbe Workflow-Logik nutzen, aber ohne geführten Einstiegspfad.",
-        "manual_hint": "Nutze den geführten Workflow, außer du weißt schon ganz genau, welches Werkzeug du willst.",
+        "manual_placeholder_body": "Diese Seite wird später dieselbe Workflow-Logik nutzen.",
+        "manual_hint": "Nutze den geführten Workflow, außer du weißt schon genau, was du willst.",
         "language_tooltip": "Sprache wechseln",
         "status_sources_updated": "Quellordner aktualisiert",
         "status_target_updated": "Zielordner ausgewählt",
@@ -195,7 +195,7 @@ TRANSLATIONS = {
         "status_duplicates_finished": "Exakte Gruppen: {groups} | Duplikat-Dateien: {files} | zusätzliche Duplikate: {extra} | Fehler: {errors}",
         "status_duplicates_none": "Keine exakten Duplikate gefunden. Fehler: {errors}",
         "status_duplicate_selection_saved": "Keep-Kandidat gesetzt auf {name}",
-        "duplicate_detail_hint": "Das ist noch ein schnelles Review-Popup und nicht das finale Vergleichstool.",
+        "duplicate_detail_hint": "Schnelles Review-Popup, nicht das finale Vergleichstool.",
         "duplicate_detail_selected": "Gewählter Keep-Kandidat",
         "duplicate_detail_keep_selected": "Auswahl behalten",
         "duplicate_detail_keep_newest": "Neueste behalten",
@@ -225,7 +225,12 @@ class QmlAppState(QObject):
 
     def __init__(self) -> None:
         super().__init__()
-        self._language = "en"
+        self._settings = QSettings("DevOpsOfChaos", "MediaManager")
+        saved_language = str(self._settings.value("ui/language", "en"))
+        if saved_language not in ("en", "de"):
+            saved_language = "en"
+
+        self._language = saved_language
         self._current_page = "home"
         self._wizard_visible = True
         self._selected_problem = "full_cleanup"
@@ -248,8 +253,6 @@ class QmlAppState(QObject):
         self._status_text = ""
         self._tips = ["tip_1", "tip_2", "tip_3", "tip_4"]
 
-        self._load_settings()
-
         self.duplicateScanProgressEvent.connect(self._on_duplicate_scan_progress)
         self.duplicateScanResultEvent.connect(self._on_duplicate_scan_result)
 
@@ -264,36 +267,6 @@ class QmlAppState(QObject):
         self._duplicate_reveal_timer = QTimer(self)
         self._duplicate_reveal_timer.timeout.connect(self._advance_duplicate_preview)
         self._duplicate_reveal_timer.start(180)
-
-    def _settings_dir(self) -> Path:
-        location = QStandardPaths.writableLocation(QStandardPaths.AppConfigLocation)
-        if location:
-            return Path(location) / "media-manager"
-        return Path.home() / ".media-manager"
-
-    def _settings_file(self) -> Path:
-        return self._settings_dir() / "settings.json"
-
-    def _load_settings(self) -> None:
-        try:
-            settings_file = self._settings_file()
-            if not settings_file.exists():
-                return
-            data = json.loads(settings_file.read_text(encoding="utf-8"))
-            language = str(data.get("language", "en"))
-            if language in ("en", "de"):
-                self._language = language
-        except Exception:
-            self._language = "en"
-
-    def _save_settings(self) -> None:
-        try:
-            settings_dir = self._settings_dir()
-            settings_dir.mkdir(parents=True, exist_ok=True)
-            payload = {"language": self._language}
-            self._settings_file().write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        except Exception:
-            pass
 
     def _format_text(self, key: str, **kwargs) -> str:
         text = TRANSLATIONS[self._language].get(key, key)
@@ -557,7 +530,7 @@ class QmlAppState(QObject):
 
     @Property(int, notify=liveStatsChanged)
     def discoveredFileCount(self) -> int:
-        return self._discovered_file_count
+        return self._discoveredFileCount if hasattr(self, "_discoveredFileCount") else self._discovered_file_count
 
     @Property(str, notify=tipChanged)
     def currentTip(self) -> str:
@@ -625,16 +598,9 @@ class QmlAppState(QObject):
 
     @Slot()
     def toggleLanguage(self) -> None:
-        self.setLanguage("de" if self._language == "en" else "en")
-
-    @Slot(str)
-    def setLanguage(self, language: str) -> None:
-        if language not in ("en", "de"):
-            return
-        if language == self._language:
-            return
-        self._language = language
-        self._save_settings()
+        self._language = "de" if self._language == "en" else "en"
+        self._settings.setValue("ui/language", self._language)
+        self._settings.sync()
         self.languageChanged.emit()
         self.flagPathChanged.emit()
         self.tipChanged.emit()
@@ -912,6 +878,7 @@ class QmlAppState(QObject):
 
 def main() -> int:
     app = QGuiApplication(sys.argv)
+    app.setOrganizationName("DevOpsOfChaos")
     app.setApplicationName("Media Manager QML")
 
     engine = QQmlApplicationEngine()
