@@ -3,13 +3,13 @@ import QtQuick.Controls
 
 Button {
     id: control
-    implicitHeight: 60
-    implicitWidth: 280
+    implicitHeight: 54
+    implicitWidth: 220
+    hoverEnabled: true
 
     background: Rectangle {
-        radius: 18
-        color: control.down ? "#275BC2" : (control.hovered ? "#2A63D1" : "#2F6FED")
-        border.color: control.hovered ? "#7BA7FF" : "transparent"
+        radius: 16
+        color: control.down ? "#275BC2" : (control.hovered ? "#2A64D5" : "#2F6FED")
     }
 
     contentItem: Text {

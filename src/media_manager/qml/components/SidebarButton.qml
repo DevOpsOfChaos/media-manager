@@ -4,18 +4,23 @@ import QtQuick.Controls
 Button {
     id: control
     property bool active: false
-    implicitHeight: 48
+    implicitHeight: 44
+    implicitWidth: 156
+    hoverEnabled: true
+
     background: Rectangle {
-        radius: 16
-        color: control.active ? "#18345B" : (control.hovered ? "#122033" : "transparent")
-        border.color: control.active ? "#2F6FED" : "transparent"
+        radius: 14
+        color: control.active ? "#132B4A" : (control.hovered ? "#0E1827" : "transparent")
+        border.width: 1
+        border.color: control.active ? "#4A82D7" : (control.hovered ? "#314C70" : "transparent")
     }
+
     contentItem: Text {
         text: control.text
         color: "#F7FAFF"
+        horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
-        leftPadding: 14
-        font.pixelSize: 15
+        font.pixelSize: 14
         font.bold: control.active
     }
 }
