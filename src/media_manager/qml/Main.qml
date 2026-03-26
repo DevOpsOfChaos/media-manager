@@ -11,8 +11,26 @@ ApplicationWindow {
     height: 860
     minimumWidth: 1180
     minimumHeight: 760
-    title: appState.text("app_title")
+    title: root.trKey("app_title")
     color: "#07111F"
+
+    property string langTick: appState.language
+
+    function trKey(key) {
+        const _ = appState.language
+        return appState.text(key)
+    }
+
+    function problemLabelText(key) {
+        const _ = appState.language
+        return appState.problemLabel(key)
+    }
+
+    function problemDescriptionText(key) {
+        const _ = appState.language
+        return appState.problemDescription(key)
+    }
+
 
     function pageIndex() {
         if (appState.currentPage === "home")
@@ -106,7 +124,7 @@ ApplicationWindow {
             }
 
             Label {
-                text: appState.text("duplicate_detail_hint")
+                text: root.trKey("duplicate_detail_hint")
                 color: "#8FB0E1"
                 font.pixelSize: 14
                 wrapMode: Text.WordWrap
@@ -174,7 +192,7 @@ ApplicationWindow {
 
                                             Label {
                                                 anchors.centerIn: parent
-                                                text: modelData.selected ? appState.text("duplicate_detail_selected") : ""
+                                                text: modelData.selected ? root.trKey("duplicate_detail_selected") : ""
                                                 color: "#F7FAFF"
                                                 font.pixelSize: 12
                                                 font.bold: true
@@ -200,7 +218,7 @@ ApplicationWindow {
                                     }
 
                                     Label {
-                                        text: appState.text("duplicate_detail_path") + ": " + modelData.path
+                                        text: root.trKey("duplicate_detail_path") + ": " + modelData.path
                                         color: "#93A8C6"
                                         font.pixelSize: 12
                                         wrapMode: Text.WrapAnywhere
@@ -218,7 +236,7 @@ ApplicationWindow {
                 spacing: 10
 
                 Button {
-                    text: appState.text("duplicate_detail_keep_selected")
+                    text: root.trKey("duplicate_detail_keep_selected")
                     onClicked: appState.keepSelectedDuplicateCandidate()
                     background: Rectangle {
                         radius: 14
@@ -237,7 +255,7 @@ ApplicationWindow {
                 }
 
                 Button {
-                    text: appState.text("duplicate_detail_keep_newest")
+                    text: root.trKey("duplicate_detail_keep_newest")
                     onClicked: appState.chooseDuplicateKeepNewest()
                     background: Rectangle {
                         radius: 14
@@ -256,7 +274,7 @@ ApplicationWindow {
                 }
 
                 Button {
-                    text: appState.text("duplicate_detail_keep_oldest")
+                    text: root.trKey("duplicate_detail_keep_oldest")
                     onClicked: appState.chooseDuplicateKeepOldest()
                     background: Rectangle {
                         radius: 14
@@ -277,7 +295,7 @@ ApplicationWindow {
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    text: appState.text("duplicate_detail_close")
+                    text: root.trKey("duplicate_detail_close")
                     onClicked: duplicateDetailPopup.close()
                     background: Rectangle {
                         radius: 14
@@ -325,9 +343,9 @@ ApplicationWindow {
                 spacing: 8
 
                 Label {
-                    text: appState.text("app_title")
+                    text: root.trKey("app_title")
                     color: "#F7FAFF"
-                    font.pixelSize: 20
+                    font.pixelSize: 16
                     font.bold: true
                     font.family: "SF Pro Display, Segoe UI Variable, Segoe UI, Arial"
                     horizontalAlignment: Text.AlignHCenter
@@ -335,7 +353,7 @@ ApplicationWindow {
                 }
 
                 Label {
-                    text: appState.text("nav_subtitle")
+                    text: root.trKey("nav_subtitle")
                     color: "#8FA7C7"
                     font.pixelSize: 11
                     horizontalAlignment: Text.AlignHCenter
@@ -345,11 +363,11 @@ ApplicationWindow {
 
                 Item { Layout.preferredHeight: 6 }
 
-                SidebarButton { text: appState.text("nav_home"); active: appState.currentPage === "home"; onClicked: appState.setPage("home") }
-                SidebarButton { text: appState.text("nav_workflow"); active: appState.currentPage === "workflow"; onClicked: appState.setPage("workflow") }
-                SidebarButton { text: appState.text("nav_duplicates"); active: appState.currentPage === "duplicates"; onClicked: appState.setPage("duplicates") }
-                SidebarButton { text: appState.text("nav_organize"); active: appState.currentPage === "organize"; onClicked: appState.setPage("organize") }
-                SidebarButton { text: appState.text("nav_rename"); active: appState.currentPage === "rename"; onClicked: appState.setPage("rename") }
+                SidebarButton { text: root.trKey("nav_home"); active: appState.currentPage === "home"; onClicked: appState.setPage("home") }
+                SidebarButton { text: root.trKey("nav_workflow"); active: appState.currentPage === "workflow"; onClicked: appState.setPage("workflow") }
+                SidebarButton { text: root.trKey("nav_duplicates"); active: appState.currentPage === "duplicates"; onClicked: appState.setPage("duplicates") }
+                SidebarButton { text: root.trKey("nav_organize"); active: appState.currentPage === "organize"; onClicked: appState.setPage("organize") }
+                SidebarButton { text: root.trKey("nav_rename"); active: appState.currentPage === "rename"; onClicked: appState.setPage("rename") }
 
                 Item { Layout.fillHeight: true }
             }
@@ -369,7 +387,7 @@ ApplicationWindow {
                     Layout.preferredWidth: 60
                     Layout.preferredHeight: 36
                     ToolTip.visible: hovered
-                    ToolTip.text: appState.text("language_tooltip")
+                    ToolTip.text: root.trKey("language_tooltip")
                     onClicked: appState.toggleLanguage()
 
                     background: Rectangle {
@@ -412,7 +430,7 @@ ApplicationWindow {
 
                             Label {
                                 Layout.alignment: Qt.AlignHCenter
-                                text: appState.text("home_title")
+                                text: root.trKey("home_title")
                                 color: "#F7FAFF"
                                 font.pixelSize: 58
                                 font.bold: true
@@ -421,7 +439,7 @@ ApplicationWindow {
 
                             Label {
                                 Layout.alignment: Qt.AlignHCenter
-                                text: appState.text("home_subtitle")
+                                text: root.trKey("home_subtitle")
                                 color: "#B7CAE2"
                                 font.pixelSize: 16
                                 horizontalAlignment: Text.AlignHCenter
@@ -461,7 +479,7 @@ ApplicationWindow {
                                         }
 
                                         contentItem: Text {
-                                            text: appState.problemLabel(modelData)
+                                            text: root.problemLabelText(modelData)
                                             color: "#F7FAFF"
                                             horizontalAlignment: Text.AlignHCenter
                                             verticalAlignment: Text.AlignVCenter
@@ -478,7 +496,7 @@ ApplicationWindow {
                                 Layout.alignment: Qt.AlignHCenter
                                 Layout.preferredWidth: 230
                                 Layout.preferredHeight: 52
-                                text: appState.text("home_dismiss")
+                                text: root.trKey("home_dismiss")
                                 onClicked: appState.dismissWizard()
                                 hoverEnabled: true
 
@@ -504,7 +522,7 @@ ApplicationWindow {
                                 Layout.alignment: Qt.AlignHCenter
                                 Layout.preferredWidth: 260
                                 Layout.preferredHeight: 54
-                                text: appState.text("home_restart")
+                                text: root.trKey("home_restart")
                                 onClicked: appState.restartWizard()
 
                                 background: Rectangle {
@@ -528,7 +546,7 @@ ApplicationWindow {
 
                             Label {
                                 Layout.alignment: Qt.AlignHCenter
-                                text: appState.text("home_info_title")
+                                text: root.trKey("home_info_title")
                                 color: "#F7FAFF"
                                 font.pixelSize: 28
                                 font.bold: true
@@ -536,7 +554,7 @@ ApplicationWindow {
 
                             Label {
                                 Layout.alignment: Qt.AlignHCenter
-                                text: appState.text("home_info_body")
+                                text: root.trKey("home_info_body")
                                 color: "#C9D9EE"
                                 font.pixelSize: 16
                                 horizontalAlignment: Text.AlignHCenter
@@ -564,14 +582,14 @@ ApplicationWindow {
                                 spacing: 4
 
                                 Label {
-                                    text: appState.text("workflow_title")
+                                    text: root.trKey("workflow_title")
                                     color: "#F7FAFF"
                                     font.pixelSize: 30
                                     font.bold: true
                                 }
 
                                 Label {
-                                    text: appState.text("workflow_subtitle")
+                                    text: root.trKey("workflow_subtitle")
                                     color: "#AFC1D9"
                                     font.pixelSize: 14
                                 }
@@ -657,7 +675,7 @@ ApplicationWindow {
                                                 Label {
                                                     visible: appState.sourceCount === 0
                                                     anchors.centerIn: parent
-                                                    text: appState.text("stage_sources_empty")
+                                                    text: root.trKey("stage_sources_empty")
                                                     color: "#8FB0E1"
                                                     font.pixelSize: 16
                                                 }
@@ -665,9 +683,9 @@ ApplicationWindow {
 
                                             RowLayout {
                                                 Layout.fillWidth: true
-                                                PrimaryButton { text: appState.text("stage_sources_action"); onClicked: sourceFolderDialog.open() }
+                                                PrimaryButton { text: root.trKey("stage_sources_action"); onClicked: sourceFolderDialog.open() }
                                                 Button {
-                                                    text: appState.text("button_clear")
+                                                    text: root.trKey("button_clear")
                                                     enabled: appState.sourceCount > 0
                                                     onClicked: appState.clearSourceFolders()
                                                     hoverEnabled: true
@@ -710,7 +728,7 @@ ApplicationWindow {
                                                     anchors.margins: 18
                                                     spacing: 12
                                                     Label {
-                                                        text: appState.targetPath.length > 0 ? appState.targetPath : appState.text("stage_target_empty")
+                                                        text: appState.targetPath.length > 0 ? appState.targetPath : root.trKey("stage_target_empty")
                                                         color: appState.targetPath.length > 0 ? "#F7FAFF" : "#8FB0E1"
                                                         wrapMode: Text.WordWrap
                                                         font.pixelSize: 16
@@ -719,9 +737,9 @@ ApplicationWindow {
                                                     Item { Layout.fillHeight: true }
                                                     RowLayout {
                                                         Layout.fillWidth: true
-                                                        PrimaryButton { text: appState.text("stage_target_action"); onClicked: targetFolderDialog.open() }
+                                                        PrimaryButton { text: root.trKey("stage_target_action"); onClicked: targetFolderDialog.open() }
                                                         Button {
-                                                            text: appState.text("button_clear")
+                                                            text: root.trKey("button_clear")
                                                             enabled: appState.targetPath.length > 0
                                                             onClicked: appState.clearTargetFolder()
                                                             hoverEnabled: true
@@ -755,7 +773,7 @@ ApplicationWindow {
                                             Label { text: appState.workflowStageSubtitle; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
 
                                             ColumnLayout {
-                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                Layout.alignment: Qt.AlignHCenter
                                                 spacing: 12
 
                                                 Repeater {
@@ -777,7 +795,7 @@ ApplicationWindow {
                                                         }
 
                                                         contentItem: Text {
-                                                            text: appState.text("mode_" + modelData)
+                                                            text: root.trKey("mode_" + modelData)
                                                             color: "#F7FAFF"
                                                             horizontalAlignment: Text.AlignHCenter
                                                             verticalAlignment: Text.AlignVCenter
@@ -799,7 +817,7 @@ ApplicationWindow {
                                             Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 26; font.bold: true }
                                             Label { text: appState.workflowStageSubtitle; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
 
-                                            PrimaryButton { text: appState.text("stage_duplicates_action"); enabled: appState.sourceCount > 0; onClicked: appState.startDuplicatePreview() }
+                                            PrimaryButton { text: root.trKey("stage_duplicates_action"); enabled: appState.sourceCount > 0; onClicked: appState.startDuplicatePreview() }
 
                                             ProgressBar {
                                                 Layout.fillWidth: true
@@ -835,7 +853,7 @@ ApplicationWindow {
                                                             anchors.margins: 10
                                                             spacing: 8
                                                             Repeater {
-                                                                model: [appState.text("table_name"), appState.text("table_size"), appState.text("table_date"), appState.text("table_matches"), appState.text("table_score"), appState.text("table_action")]
+                                                                model: [root.trKey("table_name"), root.trKey("table_size"), root.trKey("table_date"), root.trKey("table_matches"), root.trKey("table_score"), root.trKey("table_action")]
                                                                 delegate: Label {
                                                                     Layout.fillWidth: true
                                                                     text: modelData
@@ -879,7 +897,7 @@ ApplicationWindow {
                                                                         Label { Layout.fillWidth: true; text: modelData.score; color: modelData.score === "100%" ? "#8CE99A" : "#FFD18C"; font.pixelSize: 13; font.bold: true }
                                                                         Button {
                                                                             Layout.fillWidth: true
-                                                                            text: appState.text("table_show")
+                                                                            text: root.trKey("table_show")
                                                                             hoverEnabled: true
                                                                             onClicked: {
                                                                                 appState.openDuplicateGroup(Number(modelData.index))
@@ -938,10 +956,10 @@ ApplicationWindow {
                                         ColumnLayout {
                                             anchors.fill: parent
                                             spacing: 12
-                                            Label { text: appState.text("stage_done_title"); color: "#F7FAFF"; font.pixelSize: 28; font.bold: true; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
-                                            Label { text: appState.text("stage_done_subtitle"); color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
+                                            Label { text: root.trKey("stage_done_title"); color: "#F7FAFF"; font.pixelSize: 28; font.bold: true; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
+                                            Label { text: root.trKey("stage_done_subtitle"); color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
                                             Item { Layout.fillHeight: true }
-                                            PrimaryButton { text: appState.text("button_home"); onClicked: appState.backToHome() }
+                                            PrimaryButton { text: root.trKey("button_home"); onClicked: appState.backToHome() }
                                         }
                                     }
                                 }
@@ -973,7 +991,7 @@ ApplicationWindow {
                             Layout.fillWidth: true
 
                             Button {
-                                text: appState.text("button_back")
+                                text: root.trKey("button_back")
                                 onClicked: appState.workflowBack()
                                 hoverEnabled: true
 
@@ -1002,7 +1020,7 @@ ApplicationWindow {
                                          && appState.workflowStageKey !== "rename"
                                          && appState.workflowStageKey !== "done"
                                 enabled: appState.canAdvanceWorkflow
-                                text: appState.text("button_next")
+                                text: root.trKey("button_next")
                                 onClicked: appState.workflowNext()
                                 Layout.preferredWidth: 176
                                 Layout.preferredHeight: 54
@@ -1036,7 +1054,7 @@ ApplicationWindow {
                         spacing: 14
 
                         Label {
-                            text: appState.text("manual_placeholder_title")
+                            text: root.trKey("manual_placeholder_title")
                             color: "#F7FAFF"
                             font.pixelSize: 30
                             font.bold: true
@@ -1045,7 +1063,7 @@ ApplicationWindow {
                         }
 
                         Label {
-                            text: appState.text("manual_placeholder_body")
+                            text: root.trKey("manual_placeholder_body")
                             color: "#C8D9EE"
                             wrapMode: Text.WordWrap
                             horizontalAlignment: Text.AlignHCenter
@@ -1053,7 +1071,7 @@ ApplicationWindow {
                         }
 
                         Label {
-                            text: appState.text("manual_hint")
+                            text: root.trKey("manual_hint")
                             color: "#CFE1FF"
                             wrapMode: Text.WordWrap
                             horizontalAlignment: Text.AlignHCenter
@@ -1061,7 +1079,7 @@ ApplicationWindow {
                         }
 
                         PrimaryButton {
-                            text: appState.text("nav_workflow")
+                            text: root.trKey("nav_workflow")
                             onClicked: appState.setPage("workflow")
                         }
                     }
@@ -1099,7 +1117,7 @@ ApplicationWindow {
                     }
 
                     Button {
-                        text: appState.text("button_remove")
+                        text: root.trKey("button_remove")
                         onClicked: appState.removeSourceFolder(index)
                         hoverEnabled: true
 

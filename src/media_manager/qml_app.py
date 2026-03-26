@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import os
 import json
 import sys
+os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
+os.environ.setdefault("QT_QUICK_CONTROLS_FALLBACK_STYLE", "Basic")
+
 import threading
 from datetime import datetime
 from importlib import resources
