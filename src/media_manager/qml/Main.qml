@@ -1137,6 +1137,186 @@ ApplicationWindow {
                                                                 Label { text: "• " + root.trKey("summary_plan_line_2"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                                                                 Label { text: "• " + root.trKey("summary_plan_line_3"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
 
+                                                                RowLayout {
+                                                                    Layout.fillWidth: true
+                                                                    spacing: 10
+
+                                                                    Rectangle {
+                                                                        Layout.fillWidth: true
+                                                                        Layout.preferredHeight: 82
+                                                                        radius: 14
+                                                                        color: "#091321"
+                                                                        border.color: "#22324A"
+
+                                                                        ColumnLayout {
+                                                                            anchors.fill: parent
+                                                                            anchors.margins: 12
+                                                                            spacing: 4
+
+                                                                            Label {
+                                                                                text: root.trKey("summary_remove_candidate_label")
+                                                                                color: "#AFC1D9"
+                                                                                font.pixelSize: 12
+                                                                            }
+
+                                                                            Label {
+                                                                                text: appState.summaryPlannedRemovalCount.toString()
+                                                                                color: "#F7FAFF"
+                                                                                font.pixelSize: 20
+                                                                                font.bold: true
+                                                                            }
+                                                                        }
+                                                                    }
+
+                                                                    Rectangle {
+                                                                        Layout.fillWidth: true
+                                                                        Layout.preferredHeight: 82
+                                                                        radius: 14
+                                                                        color: "#091321"
+                                                                        border.color: "#22324A"
+
+                                                                        ColumnLayout {
+                                                                            anchors.fill: parent
+                                                                            anchors.margins: 12
+                                                                            spacing: 4
+
+                                                                            Label {
+                                                                                text: root.trKey("summary_estimated_reclaimable_label")
+                                                                                color: "#AFC1D9"
+                                                                                font.pixelSize: 12
+                                                                            }
+
+                                                                            Label {
+                                                                                text: appState.summaryEstimatedReclaimableSizeLabel
+                                                                                color: "#F7FAFF"
+                                                                                font.pixelSize: 20
+                                                                                font.bold: true
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+
+                                                                Label {
+                                                                    text: root.trKey("summary_planned_removals_title")
+                                                                    color: "#F7FAFF"
+                                                                    font.pixelSize: 16
+                                                                    font.bold: true
+                                                                    Layout.fillWidth: true
+                                                                }
+
+                                                                ColumnLayout {
+                                                                    Layout.fillWidth: true
+                                                                    spacing: 8
+                                                                    visible: appState.summaryPlannedRemovalsPreview.length > 0
+
+                                                                    Repeater {
+                                                                        model: appState.summaryPlannedRemovalsPreview
+
+                                                                        delegate: Rectangle {
+                                                                            required property var modelData
+                                                                            Layout.fillWidth: true
+                                                                            radius: 14
+                                                                            color: "#091321"
+                                                                            border.color: "#22324A"
+
+                                                                            ColumnLayout {
+                                                                                anchors.fill: parent
+                                                                                anchors.margins: 12
+                                                                                spacing: 4
+
+                                                                                Label {
+                                                                                    text: root.trKey("summary_remove_candidate_label") + ": " + modelData.remove_name + "  •  " + modelData.size
+                                                                                    color: "#F7FAFF"
+                                                                                    font.pixelSize: 13
+                                                                                    font.bold: true
+                                                                                    wrapMode: Text.WordWrap
+                                                                                    Layout.fillWidth: true
+                                                                                }
+
+                                                                                Label {
+                                                                                    text: root.trKey("summary_keep_survivor_label") + ": " + modelData.keep_name
+                                                                                    color: "#AFC1D9"
+                                                                                    font.pixelSize: 12
+                                                                                    wrapMode: Text.WordWrap
+                                                                                    Layout.fillWidth: true
+                                                                                }
+
+                                                                                Label {
+                                                                                    text: modelData.remove_path
+                                                                                    color: "#8FB0E1"
+                                                                                    font.pixelSize: 11
+                                                                                    wrapMode: Text.WrapAnywhere
+                                                                                    Layout.fillWidth: true
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+
+                                                                Label {
+                                                                    visible: appState.summaryPlannedRemovalsPreview.length === 0
+                                                                    text: root.trKey("summary_planned_removals_empty")
+                                                                    color: "#AFC1D9"
+                                                                    wrapMode: Text.WordWrap
+                                                                    Layout.fillWidth: true
+                                                                }
+
+                                                                Label {
+                                                                    text: root.trKey("summary_unresolved_list_title")
+                                                                    color: "#F7FAFF"
+                                                                    font.pixelSize: 16
+                                                                    font.bold: true
+                                                                    Layout.fillWidth: true
+                                                                }
+
+                                                                ColumnLayout {
+                                                                    Layout.fillWidth: true
+                                                                    spacing: 8
+                                                                    visible: appState.summaryUnresolvedGroupsPreview.length > 0
+
+                                                                    Repeater {
+                                                                        model: appState.summaryUnresolvedGroupsPreview
+
+                                                                        delegate: Rectangle {
+                                                                            required property var modelData
+                                                                            Layout.fillWidth: true
+                                                                            radius: 14
+                                                                            color: "#091321"
+                                                                            border.color: "#22324A"
+
+                                                                            ColumnLayout {
+                                                                                anchors.fill: parent
+                                                                                anchors.margins: 12
+                                                                                spacing: 4
+
+                                                                                Label {
+                                                                                    text: root.trKey("summary_candidates_label") + ": " + modelData.candidate_count + "  •  " + modelData.size
+                                                                                    color: "#F7FAFF"
+                                                                                    font.pixelSize: 13
+                                                                                    font.bold: true
+                                                                                    Layout.fillWidth: true
+                                                                                }
+
+                                                                                Label {
+                                                                                    text: modelData.preview_names
+                                                                                    color: "#AFC1D9"
+                                                                                    font.pixelSize: 12
+                                                                                    wrapMode: Text.WordWrap
+                                                                                    Layout.fillWidth: true
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+
+                                                                Label {
+                                                                    visible: appState.summaryUnresolvedGroupsPreview.length === 0
+                                                                    text: root.trKey("summary_unresolved_empty")
+                                                                    color: "#AFC1D9"
+                                                                    wrapMode: Text.WordWrap
+                                                                    Layout.fillWidth: true
+                                                                }
+
                                                                 PrimaryButton {
                                                                     text: root.trKey("stage_summary_action")
                                                                     enabled: appState.summaryReadyForDryRun

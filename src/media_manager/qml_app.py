@@ -15,6 +15,7 @@ from PySide6.QtCore import Property, QObject, QSettings, QTimer, QUrl, Signal, S
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
+from .cleanup_plan import build_exact_cleanup_plan
 from .duplicates import DuplicateScanConfig, scan_exact_duplicates
 
 TRANSLATIONS = {
@@ -80,6 +81,14 @@ TRANSLATIONS = {
         "summary_plan_line_1": "Resolved groups keep one selected survivor and mark the remaining exact matches as removable candidates.",
         "summary_plan_line_2": "Unresolved groups stay blocked from trustworthy dry-run planning until a keep candidate is chosen.",
         "summary_plan_line_3": "Later workflow stages will extend this into copy / move / delete previews and storage impact estimates.",
+        "summary_planned_removals_title": "Planned remove candidates",
+        "summary_planned_removals_empty": "No removable exact-match candidates are planned yet.",
+        "summary_unresolved_list_title": "Open exact groups",
+        "summary_unresolved_empty": "No open exact groups remain.",
+        "summary_keep_survivor_label": "Keep",
+        "summary_remove_candidate_label": "Remove",
+        "summary_candidates_label": "Candidates",
+        "summary_estimated_reclaimable_label": "Estimated reclaimable",
         "table_name": "Name",
         "table_size": "Size",
         "table_date": "Date",
@@ -195,6 +204,14 @@ TRANSLATIONS = {
         "summary_plan_line_1": "Gelöste Gruppen behalten einen ausgewählten Survivor und markieren die restlichen exakten Treffer als entfernbaren Kandidatenbestand.",
         "summary_plan_line_2": "Offene Gruppen bleiben für eine vertrauenswürdige Dry-Run-Planung blockiert, bis ein Keep-Kandidat gewählt wurde.",
         "summary_plan_line_3": "Spätere Workflow-Stufen erweitern das zu Copy / Move / Delete-Vorschauen und Speicher-Einschätzungen.",
+        "summary_planned_removals_title": "Geplante Entfern-Kandidaten",
+        "summary_planned_removals_empty": "Aktuell sind noch keine entfernbaren exakten Treffer geplant.",
+        "summary_unresolved_list_title": "Offene exakte Gruppen",
+        "summary_unresolved_empty": "Es sind keine offenen exakten Gruppen mehr übrig.",
+        "summary_keep_survivor_label": "Behalten",
+        "summary_remove_candidate_label": "Entfernen",
+        "summary_candidates_label": "Kandidaten",
+        "summary_estimated_reclaimable_label": "Geschätzt freisetzbar",
         "table_name": "Name",
         "table_size": "Größe",
         "table_date": "Datum",
@@ -265,7 +282,7 @@ class QmlAppState(QObject):
     duplicateDetailChanged = Signal()
     flagPathChanged = Signal()
     duplicateScanProgressEvent = Signal(int, int, str)
-    duplicateScanResultEvent = Signal(int, object, object, int, int, int, int, int)
+    duplicateScanResultEvent = Signal(int, object, object, object, int, int, int, int, int)
 
     def __init__(self) -> None:
         super().__init__()
@@ -290,6 +307,7 @@ class QmlAppState(QObject):
         self._duplicate_rows_visible = 0
         self._duplicate_all_rows: list[dict[str, str]] = []
         self._duplicate_group_details: list[dict[str, object]] = []
+        self._exact_duplicate_groups = []
         self._duplicate_decisions: dict[str, str] = {}
         self._duplicate_detail_group_index = -1
         self._duplicate_detail_selected_index = 0
@@ -301,6 +319,10 @@ class QmlAppState(QObject):
         self._summary_extra_duplicates = 0
         self._summary_resolved_duplicate_groups = 0
         self._summary_unresolved_duplicate_groups = 0
+        self._summary_planned_removals_preview: list[dict[str, str]] = []
+        self._summary_unresolved_groups_preview: list[dict[str, str]] = []
+        self._summary_planned_removal_count = 0
+        self._summary_estimated_reclaimable_bytes = 0
 
         self.duplicateScanProgressEvent.connect(self._on_duplicate_scan_progress)
         self.duplicateScanResultEvent.connect(self._on_duplicate_scan_result)
@@ -441,16 +463,47 @@ class QmlAppState(QObject):
         return rows, details
 
     def _recompute_summary_state(self) -> None:
-        self._summary_exact_group_count = len(self._duplicate_group_details)
-        self._summary_resolved_duplicate_groups = 0
-        self._summary_unresolved_duplicate_groups = 0
+        plan = build_exact_cleanup_plan(
+            self._exact_duplicate_groups,
+            self._duplicate_decisions,
+            self._operation_mode,
+        )
 
-        for detail in self._duplicate_group_details:
-            group_id = str(detail.get("group_id", ""))
-            if group_id and group_id in self._duplicate_decisions:
-                self._summary_resolved_duplicate_groups += 1
-            else:
-                self._summary_unresolved_duplicate_groups += 1
+        self._summary_exact_group_count = plan.total_groups
+        self._summary_exact_duplicate_files = plan.duplicate_files
+        self._summary_extra_duplicates = plan.extra_duplicates
+        self._summary_resolved_duplicate_groups = plan.resolved_groups
+        self._summary_unresolved_duplicate_groups = plan.unresolved_groups
+        self._summary_planned_removal_count = len(plan.planned_removals)
+        self._summary_estimated_reclaimable_bytes = plan.estimated_reclaimable_bytes
+
+        self._summary_planned_removals_preview = [
+            {
+                "group_id": item.group_id,
+                "keep_name": item.keep_path.name,
+                "keep_path": str(item.keep_path).replace("\\", "/"),
+                "remove_name": item.remove_path.name,
+                "remove_path": str(item.remove_path).replace("\\", "/"),
+                "size": self._format_size(item.file_size),
+                "mode": self.text(f"mode_{item.operation_mode}"),
+            }
+            for item in plan.planned_removals[:8]
+        ]
+
+        self._summary_unresolved_groups_preview = []
+        for item in plan.unresolved[:6]:
+            names = [path.name for path in item.candidate_paths]
+            preview_names = ", ".join(names[:3])
+            if len(names) > 3:
+                preview_names += ", ..."
+            self._summary_unresolved_groups_preview.append(
+                {
+                    "group_id": item.group_id,
+                    "candidate_count": str(len(item.candidate_paths)),
+                    "size": self._format_size(item.file_size),
+                    "preview_names": preview_names,
+                }
+            )
 
         self.workflowChanged.emit()
         self.liveStatsChanged.emit()
@@ -462,6 +515,7 @@ class QmlAppState(QObject):
         self._duplicate_rows_visible = 0
         self._duplicate_all_rows = []
         self._duplicate_group_details = []
+        self._exact_duplicate_groups = []
         self._duplicate_decisions = {}
         self._duplicate_detail_group_index = -1
         self._duplicate_detail_selected_index = 0
@@ -470,6 +524,10 @@ class QmlAppState(QObject):
         self._summary_extra_duplicates = 0
         self._summary_resolved_duplicate_groups = 0
         self._summary_unresolved_duplicate_groups = 0
+        self._summary_planned_removals_preview = []
+        self._summary_unresolved_groups_preview = []
+        self._summary_planned_removal_count = 0
+        self._summary_estimated_reclaimable_bytes = 0
         self.duplicateRowsChanged.emit()
         self.duplicateDetailChanged.emit()
         self.workflowChanged.emit()
@@ -495,7 +553,7 @@ class QmlAppState(QObject):
                     progress_callback=progress_callback,
                 )
             except Exception:
-                self.duplicateScanResultEvent.emit(current_token, [], [], 0, 0, 0, 0, 1)
+                self.duplicateScanResultEvent.emit(current_token, [], [], [], 0, 0, 0, 0, 1)
                 return
 
             rows, details = self._build_duplicate_rows_and_details(result)
@@ -503,6 +561,7 @@ class QmlAppState(QObject):
                 current_token,
                 rows,
                 details,
+                list(result.exact_groups),
                 result.scanned_files,
                 len(result.exact_groups),
                 result.exact_duplicate_files,
@@ -656,6 +715,22 @@ class QmlAppState(QObject):
             resolved=self._summary_resolved_duplicate_groups,
             unresolved=self._summary_unresolved_duplicate_groups,
         )
+
+    @Property(int, notify=workflowChanged)
+    def summaryPlannedRemovalCount(self) -> int:
+        return self._summary_planned_removal_count
+
+    @Property(str, notify=workflowChanged)
+    def summaryEstimatedReclaimableSizeLabel(self) -> str:
+        return self._format_size(self._summary_estimated_reclaimable_bytes)
+
+    @Property("QVariantList", notify=workflowChanged)
+    def summaryPlannedRemovalsPreview(self) -> list[dict[str, str]]:
+        return list(self._summary_planned_removals_preview)
+
+    @Property("QVariantList", notify=workflowChanged)
+    def summaryUnresolvedGroupsPreview(self) -> list[dict[str, str]]:
+        return list(self._summary_unresolved_groups_preview)
 
     @Property(str, notify=duplicateDetailChanged)
     def duplicateDetailTitle(self) -> str:
@@ -918,12 +993,13 @@ class QmlAppState(QObject):
         self.workflowChanged.emit()
         self.duplicateRowsChanged.emit()
 
-    @Slot(int, object, object, int, int, int, int, int)
+    @Slot(int, object, object, object, int, int, int, int, int)
     def _on_duplicate_scan_result(
         self,
         token: int,
         rows: object,
         details: object,
+        exact_groups_payload: object,
         scanned_files: int,
         exact_groups: int,
         duplicate_files: int,
@@ -935,9 +1011,8 @@ class QmlAppState(QObject):
         self._duplicate_scan_ready = True
         self._duplicate_all_rows = list(rows)
         self._duplicate_group_details = list(details)
+        self._exact_duplicate_groups = list(exact_groups_payload)
         self._duplicate_rows_visible = 0
-        self._summary_exact_duplicate_files = duplicate_files
-        self._summary_extra_duplicates = extra_duplicates
         self._discovered_file_count = max(self._discovered_file_count, scanned_files)
         self._recompute_summary_state()
         if exact_groups > 0:
