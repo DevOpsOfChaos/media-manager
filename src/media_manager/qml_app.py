@@ -121,6 +121,11 @@ TRANSLATIONS = {
         "sorting_preview_date": "Date",
         "sorting_preview_target": "Target folder",
         "sorting_preview_empty": "Add source folders with media files to see a sorting preview.",
+        "sorting_template_title": "Live structure template",
+        "sorting_template_body": "This updates immediately and shows how the folder structure will look later.",
+        "sorting_template_live_source": "Template based on the first detected source file date.",
+        "sorting_template_sample_source": "Template based on a sample date until real source dates are available.",
+        "sorting_preview_count": "{count} preview item(s)",
         "stage_rename_title": "Rename setup preview",
         "stage_rename_subtitle": "Rename configuration comes after sorting.",
         "stage_rename_action": "Continue to summary",
@@ -268,6 +273,11 @@ TRANSLATIONS = {
         "sorting_preview_date": "Datum",
         "sorting_preview_target": "Zielordner",
         "sorting_preview_empty": "Füge Quellordner mit Mediendateien hinzu, um eine Sortier-Vorschau zu sehen.",
+        "sorting_template_title": "Live-Strukturvorlage",
+        "sorting_template_body": "Diese Vorlage aktualisiert sich sofort und zeigt, wie die Ordnerstruktur später aussehen wird.",
+        "sorting_template_live_source": "Vorlage basierend auf dem Datum der ersten gefundenen Quelldatei.",
+        "sorting_template_sample_source": "Vorlage basierend auf einem Beispieldatum, bis echte Quelldaten verfügbar sind.",
+        "sorting_preview_count": "{count} Vorschau-Einträge",
         "stage_rename_title": "Umbenennen-Setup Vorschau",
         "stage_rename_subtitle": "Die Umbenennungs-Konfiguration kommt nach dem Sortieren.",
         "stage_rename_action": "Weiter zur Zusammenfassung",
@@ -379,6 +389,8 @@ class QmlAppState(QObject):
         self._summary_estimated_reclaimable_bytes = 0
         self._sorting_levels = [SortLevel(level.kind, level.style) for level in DEFAULT_SORT_LEVELS]
         self._sorting_preview_rows: list[dict[str, str]] = []
+        self._sorting_template_path = ""
+        self._sorting_template_hint = ""
 
         self.duplicateScanProgressEvent.connect(self._on_duplicate_scan_progress)
         self.duplicateScanResultEvent.connect(self._on_duplicate_scan_result)
@@ -502,6 +514,19 @@ class QmlAppState(QObject):
 
     def _rebuild_sorting_preview(self) -> None:
         inputs = self._collect_sort_preview_inputs()
+        template_reference = inputs[0][1] if inputs else datetime.now()
+
+        try:
+            template_path = build_sort_preview(
+                [(Path("template.jpg"), template_reference)],
+                self._sorting_levels,
+                language=self._language,
+            )[0].relative_directory
+            self._sorting_template_path = str(template_path).replace("\\", " / ")
+        except Exception:
+            self._sorting_template_path = ""
+        self._sorting_template_hint = self.text("sorting_template_live_source") if inputs else self.text("sorting_template_sample_source")
+
         if not inputs:
             self._sorting_preview_rows = []
             self.workflowChanged.emit()
@@ -877,6 +902,18 @@ class QmlAppState(QObject):
     def sortingDayStyleLabel(self) -> str:
         level = self._sorting_level("day")
         return self._sorting_style_label("day", level.style)
+
+    @Property(str, notify=workflowChanged)
+    def sortingTemplatePathLabel(self) -> str:
+        return self._sorting_template_path
+
+    @Property(str, notify=workflowChanged)
+    def sortingTemplateHintLabel(self) -> str:
+        return self._sorting_template_hint
+
+    @Property(str, notify=workflowChanged)
+    def sortingPreviewCountLabel(self) -> str:
+        return self._format_text("sorting_preview_count", count=len(self._sorting_preview_rows))
 
     @Property("QVariantList", notify=workflowChanged)
     def sortingPreviewRows(self) -> list[dict[str, str]]:
