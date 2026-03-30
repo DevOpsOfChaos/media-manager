@@ -1371,22 +1371,23 @@ ApplicationWindow {
 
                         Rectangle {
                             Layout.alignment: Qt.AlignHCenter
-                            Layout.preferredWidth: 520
-                            Layout.preferredHeight: 72
-                            radius: 20
-                            color: "#173A63"
-                            border.color: "#4A82D7"
+                            Layout.preferredWidth: 460
+                            Layout.preferredHeight: 54
+                            radius: 16
+                            color: "#0A1626"
+                            border.color: "#22324A"
+                            opacity: 0.88
 
                             Label {
                                 anchors.fill: parent
-                                anchors.margins: 16
+                                anchors.margins: 12
                                 text: appState.currentTip
-                                color: "#F7FAFF"
+                                color: "#AFC1D9"
                                 wrapMode: Text.WordWrap
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
-                                font.pixelSize: 13
-                                font.bold: true
+                                font.pixelSize: 11
+                                font.bold: false
                             }
                         }
 

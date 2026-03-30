@@ -115,10 +115,14 @@ TRANSLATIONS = {
         "bottom_mode": "Mode",
         "bottom_step": "Step",
         "bottom_files": "Files found",
-        "tip_1": "Exact duplicates are the safest wins.",
-        "tip_2": "Good cleanup reduces later sorting work.",
-        "tip_3": "RAW and JPEG can belong together.",
-        "tip_4": "Preview first, execute later.",
+        "tip_1": "RAW files usually preserve much more editing latitude than JPEG exports.",
+        "tip_2": "Exact duplicates are the safest cleanup target because the file content is byte-identical.",
+        "tip_3": "Good folder structure saves more time later than aggressive early renaming.",
+        "tip_4": "A consistent backup matters more than a perfect first cleanup pass.",
+        "tip_5": "Blue hour usually gives softer contrast than harsh midday light.",
+        "tip_6": "Long focal lengths amplify camera shake more than wide angles.",
+        "tip_7": "Video and photo sidecar files often belong together and should not be split carelessly.",
+        "tip_8": "A trustworthy dry run is more valuable than rushing into deletion.",
         "manual_placeholder_title": "Manual tool page preview",
         "manual_placeholder_body": "This page will later reuse the same workflow logic.",
         "manual_hint": "Use the guided workflow unless you know exactly what you want.",
@@ -238,10 +242,14 @@ TRANSLATIONS = {
         "bottom_mode": "Modus",
         "bottom_step": "Schritt",
         "bottom_files": "Dateien gefunden",
-        "tip_1": "Exakte Duplikate sind die sichersten Treffer.",
-        "tip_2": "Gute Bereinigung spart spätere Sortierarbeit.",
-        "tip_3": "RAW und JPEG können zusammengehören.",
-        "tip_4": "Erst prüfen, dann ausführen.",
+        "tip_1": "RAW-Dateien bieten meist deutlich mehr Spielraum für Bearbeitung als JPEG-Exporte.",
+        "tip_2": "Exakte Duplikate sind das sicherste Ziel für eine erste Bereinigung, weil der Inhalt byte-identisch ist.",
+        "tip_3": "Eine gute Ordnerstruktur spart später oft mehr Zeit als aggressives frühes Umbenennen.",
+        "tip_4": "Ein verlässliches Backup ist wichtiger als ein perfekter erster Bereinigungsdurchlauf.",
+        "tip_5": "Die blaue Stunde liefert oft weichere Kontraste als hartes Mittagslicht.",
+        "tip_6": "Lange Brennweiten verstärken Verwacklungen stärker als Weitwinkel.",
+        "tip_7": "Video-, Foto- und Sidecar-Dateien gehören oft zusammen und sollten nicht leichtfertig getrennt werden.",
+        "tip_8": "Ein vertrauenswürdiger Dry Run ist wertvoller als ein vorschnelles Löschen.",
         "manual_placeholder_title": "Vorschau für manuelle Werkzeugseite",
         "manual_placeholder_body": "Diese Seite wird später dieselbe Workflow-Logik nutzen.",
         "manual_hint": "Nutze den geführten Workflow, außer du weißt schon genau, was du willst.",
@@ -313,7 +321,7 @@ class QmlAppState(QObject):
         self._duplicate_detail_selected_index = 0
         self._duplicate_scan_token = 0
         self._status_text = ""
-        self._tips = ["tip_1", "tip_2", "tip_3", "tip_4"]
+        self._tips = ["tip_1", "tip_2", "tip_3", "tip_4", "tip_5", "tip_6", "tip_7", "tip_8"]
         self._summary_exact_group_count = 0
         self._summary_exact_duplicate_files = 0
         self._summary_extra_duplicates = 0
@@ -329,7 +337,7 @@ class QmlAppState(QObject):
 
         self._tip_timer = QTimer(self)
         self._tip_timer.timeout.connect(self._advance_tip)
-        self._tip_timer.start(15000)
+        self._tip_timer.start(45000)
 
         self._live_timer = QTimer(self)
         self._live_timer.timeout.connect(self._advance_live_scan)
