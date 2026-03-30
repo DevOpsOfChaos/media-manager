@@ -17,6 +17,8 @@ from PySide6.QtQml import QQmlApplicationEngine
 
 from .cleanup_plan import build_exact_cleanup_plan
 from .duplicates import DuplicateScanConfig, scan_exact_duplicates
+from .sorter import iter_media_files
+from .sorting_plan import DEFAULT_SORT_LEVELS, SortLevel, build_sort_preview
 
 TRANSLATIONS = {
     "en": {
@@ -96,9 +98,29 @@ TRANSLATIONS = {
         "table_score": "Score",
         "table_action": "Action",
         "table_show": "Show",
-        "stage_sorting_title": "Sorting setup preview",
-        "stage_sorting_subtitle": "Sorting configuration comes after cleanup.",
+        "stage_sorting_title": "Sorting builder",
+        "stage_sorting_subtitle": "Choose how the cleaned library should be structured before the rename stage.",
         "stage_sorting_action": "Continue to rename",
+        "sorting_config_title": "Sorting configuration",
+        "sorting_config_body": "Set the folder structure for year, month, and day. This preview currently uses source file timestamps.",
+        "sorting_level_year": "Year",
+        "sorting_level_month": "Month",
+        "sorting_level_day": "Day",
+        "sorting_style_year_yyyy": "4-digit year",
+        "sorting_style_year_yy": "2-digit year",
+        "sorting_style_month_mm": "Month number",
+        "sorting_style_month_name": "Month name",
+        "sorting_style_month_yyyy-mm": "Year-Month",
+        "sorting_style_day_dd": "Day number",
+        "sorting_style_day_yyyy-mm-dd": "Full date",
+        "sorting_cycle_action": "Change style",
+        "sorting_reset_action": "Reset defaults",
+        "sorting_preview_title": "Preview target structure",
+        "sorting_preview_body": "A few real source files are mapped to their future relative target folders.",
+        "sorting_preview_source": "Source",
+        "sorting_preview_date": "Date",
+        "sorting_preview_target": "Target folder",
+        "sorting_preview_empty": "Add source folders with media files to see a sorting preview.",
         "stage_rename_title": "Rename setup preview",
         "stage_rename_subtitle": "Rename configuration comes after sorting.",
         "stage_rename_action": "Continue to summary",
@@ -223,9 +245,29 @@ TRANSLATIONS = {
         "table_score": "Übereinstimmung",
         "table_action": "Aktion",
         "table_show": "Anzeigen",
-        "stage_sorting_title": "Sortier-Setup Vorschau",
-        "stage_sorting_subtitle": "Die Sortierkonfiguration kommt nach der Bereinigung.",
+        "stage_sorting_title": "Sorting-Builder",
+        "stage_sorting_subtitle": "Lege die Zielstruktur fest, bevor der Umbenennen-Schritt folgt.",
         "stage_sorting_action": "Weiter zu Umbenennen",
+        "sorting_config_title": "Sortier-Konfiguration",
+        "sorting_config_body": "Lege fest, wie Jahr, Monat und Tag in der Zielstruktur erscheinen sollen. Diese Vorschau nutzt aktuell die Zeitstempel der Quelldateien.",
+        "sorting_level_year": "Jahr",
+        "sorting_level_month": "Monat",
+        "sorting_level_day": "Tag",
+        "sorting_style_year_yyyy": "4-stelliges Jahr",
+        "sorting_style_year_yy": "2-stelliges Jahr",
+        "sorting_style_month_mm": "Monatszahl",
+        "sorting_style_month_name": "Monatsname",
+        "sorting_style_month_yyyy-mm": "Jahr-Monat",
+        "sorting_style_day_dd": "Tageszahl",
+        "sorting_style_day_yyyy-mm-dd": "Vollständiges Datum",
+        "sorting_cycle_action": "Stil wechseln",
+        "sorting_reset_action": "Standard zurücksetzen",
+        "sorting_preview_title": "Vorschau Zielstruktur",
+        "sorting_preview_body": "Einige echte Quelldateien werden auf ihre zukünftigen relativen Zielordner abgebildet.",
+        "sorting_preview_source": "Quelle",
+        "sorting_preview_date": "Datum",
+        "sorting_preview_target": "Zielordner",
+        "sorting_preview_empty": "Füge Quellordner mit Mediendateien hinzu, um eine Sortier-Vorschau zu sehen.",
         "stage_rename_title": "Umbenennen-Setup Vorschau",
         "stage_rename_subtitle": "Die Umbenennungs-Konfiguration kommt nach dem Sortieren.",
         "stage_rename_action": "Weiter zur Zusammenfassung",
@@ -276,6 +318,10 @@ TRANSLATIONS = {
 }
 
 STAGE_KEYS = ["sources", "target", "mode", "duplicates", "summary", "sorting", "rename", "done"]
+
+YEAR_STYLE_OPTIONS = ["yyyy", "yy"]
+MONTH_STYLE_OPTIONS = ["mm", "name", "yyyy-mm"]
+DAY_STYLE_OPTIONS = ["dd", "yyyy-mm-dd"]
 
 
 class QmlAppState(QObject):
@@ -331,6 +377,8 @@ class QmlAppState(QObject):
         self._summary_unresolved_groups_preview: list[dict[str, str]] = []
         self._summary_planned_removal_count = 0
         self._summary_estimated_reclaimable_bytes = 0
+        self._sorting_levels = [SortLevel(level.kind, level.style) for level in DEFAULT_SORT_LEVELS]
+        self._sorting_preview_rows: list[dict[str, str]] = []
 
         self.duplicateScanProgressEvent.connect(self._on_duplicate_scan_progress)
         self.duplicateScanResultEvent.connect(self._on_duplicate_scan_result)
@@ -346,6 +394,8 @@ class QmlAppState(QObject):
         self._duplicate_reveal_timer = QTimer(self)
         self._duplicate_reveal_timer.timeout.connect(self._advance_duplicate_preview)
         self._duplicate_reveal_timer.start(180)
+
+        self._rebuild_sorting_preview()
 
     def _format_text(self, key: str, **kwargs) -> str:
         text = TRANSLATIONS[self._language].get(key, key)
@@ -378,6 +428,9 @@ class QmlAppState(QObject):
         except OSError:
             return "-"
 
+    def _format_datetime(self, value: datetime) -> str:
+        return value.strftime("%Y-%m-%d %H:%M")
+
     def _progress_from_duplicate_message(self, message: str) -> tuple[int, str]:
         if message.startswith("Scanning source folders") or message.startswith("Found "):
             return 8, self._format_text("status_duplicates_preparing")
@@ -409,6 +462,75 @@ class QmlAppState(QObject):
                 if str(item.get("path", "")) == decision_path:
                     return index
         return 0
+
+    def _sorting_level(self, kind: str) -> SortLevel:
+        for level in self._sorting_levels:
+            if level.kind == kind:
+                return level
+        raise ValueError(f"Missing sorting level for kind {kind}")
+
+    def _sorting_style_options(self, kind: str) -> list[str]:
+        if kind == "year":
+            return YEAR_STYLE_OPTIONS
+        if kind == "month":
+            return MONTH_STYLE_OPTIONS
+        if kind == "day":
+            return DAY_STYLE_OPTIONS
+        raise ValueError(f"Unsupported sorting kind {kind}")
+
+    def _sorting_style_label(self, kind: str, style: str) -> str:
+        return self.text(f"sorting_style_{kind}_{style}")
+
+    def _collect_sort_preview_inputs(self, max_items: int = 8) -> list[tuple[Path, datetime]]:
+        if not self._source_folders:
+            return []
+
+        items: list[tuple[Path, datetime]] = []
+        source_paths = [Path(folder) for folder in self._source_folders]
+        try:
+            for path in iter_media_files(source_paths):
+                try:
+                    captured_at = datetime.fromtimestamp(path.stat().st_mtime)
+                except OSError:
+                    continue
+                items.append((path, captured_at))
+                if len(items) >= max_items:
+                    break
+        except Exception:
+            return []
+        return items
+
+    def _rebuild_sorting_preview(self) -> None:
+        inputs = self._collect_sort_preview_inputs()
+        if not inputs:
+            self._sorting_preview_rows = []
+            self.workflowChanged.emit()
+            return
+
+        try:
+            preview = build_sort_preview(inputs, self._sorting_levels, language=self._language)
+        except Exception:
+            self._sorting_preview_rows = []
+            self.workflowChanged.emit()
+            return
+
+        self._sorting_preview_rows = [
+            {
+                "source_name": item.source_path.name,
+                "source_path": str(item.source_path).replace("\\", "/"),
+                "captured_at": self._format_datetime(item.captured_at),
+                "relative_directory": str(item.relative_directory).replace("\\", "/"),
+            }
+            for item in preview
+        ]
+        self.workflowChanged.emit()
+
+    def _cycle_sorting_style(self, kind: str) -> None:
+        level = self._sorting_level(kind)
+        options = self._sorting_style_options(kind)
+        current_index = options.index(level.style)
+        level.style = options[(current_index + 1) % len(options)]
+        self._rebuild_sorting_preview()
 
     def _build_duplicate_rows_and_details(self, result) -> tuple[list[dict[str, str]], list[dict[str, object]]]:
         rows: list[dict[str, str]] = []
@@ -546,6 +668,7 @@ class QmlAppState(QObject):
         self._reset_duplicate_state()
 
         if not self._source_folders:
+            self._rebuild_sorting_preview()
             return
 
         source_paths = [Path(folder) for folder in self._source_folders]
@@ -666,7 +789,7 @@ class QmlAppState(QObject):
 
     @Property(int, notify=liveStatsChanged)
     def discoveredFileCount(self) -> int:
-        return self._discoveredFileCount if hasattr(self, "_discoveredFileCount") else self._discovered_file_count
+        return self._discovered_file_count
 
     @Property(str, notify=tipChanged)
     def currentTip(self) -> str:
@@ -740,6 +863,29 @@ class QmlAppState(QObject):
     def summaryUnresolvedGroupsPreview(self) -> list[dict[str, str]]:
         return list(self._summary_unresolved_groups_preview)
 
+    @Property(str, notify=workflowChanged)
+    def sortingYearStyleLabel(self) -> str:
+        level = self._sorting_level("year")
+        return self._sorting_style_label("year", level.style)
+
+    @Property(str, notify=workflowChanged)
+    def sortingMonthStyleLabel(self) -> str:
+        level = self._sorting_level("month")
+        return self._sorting_style_label("month", level.style)
+
+    @Property(str, notify=workflowChanged)
+    def sortingDayStyleLabel(self) -> str:
+        level = self._sorting_level("day")
+        return self._sorting_style_label("day", level.style)
+
+    @Property("QVariantList", notify=workflowChanged)
+    def sortingPreviewRows(self) -> list[dict[str, str]]:
+        return list(self._sorting_preview_rows)
+
+    @Property(bool, notify=workflowChanged)
+    def sortingPreviewReady(self) -> bool:
+        return len(self._sorting_preview_rows) > 0
+
     @Property(str, notify=duplicateDetailChanged)
     def duplicateDetailTitle(self) -> str:
         detail = self._selected_detail()
@@ -786,6 +932,8 @@ class QmlAppState(QObject):
             return self._duplicate_started and self._duplicate_progress >= 100
         if key == "summary":
             return self.summaryReadyForDryRun
+        if key == "sorting":
+            return self.sortingPreviewReady or len(self._source_folders) > 0
         return True
 
     @Slot()
@@ -793,6 +941,7 @@ class QmlAppState(QObject):
         self._language = "de" if self._language == "en" else "en"
         self._settings.setValue("ui/language", self._language)
         self._settings.sync()
+        self._rebuild_sorting_preview()
         self.languageChanged.emit()
         self.flagPathChanged.emit()
         self.tipChanged.emit()
@@ -836,6 +985,23 @@ class QmlAppState(QObject):
         self._recompute_summary_state()
         self.workflowChanged.emit()
 
+    @Slot()
+    def cycleSortingYearStyle(self) -> None:
+        self._cycle_sorting_style("year")
+
+    @Slot()
+    def cycleSortingMonthStyle(self) -> None:
+        self._cycle_sorting_style("month")
+
+    @Slot()
+    def cycleSortingDayStyle(self) -> None:
+        self._cycle_sorting_style("day")
+
+    @Slot()
+    def resetSortingDefaults(self) -> None:
+        self._sorting_levels = [SortLevel(level.kind, level.style) for level in DEFAULT_SORT_LEVELS]
+        self._rebuild_sorting_preview()
+
     @Slot(str)
     def addSourceFolder(self, folder_value: str) -> None:
         folder = self._normalize_folder_input(folder_value)
@@ -847,6 +1013,7 @@ class QmlAppState(QObject):
         self._status_text = self._format_text("status_sources_updated")
         self.liveStatsChanged.emit()
         self.workflowChanged.emit()
+        self._rebuild_sorting_preview()
         self._start_background_duplicate_scan()
 
     @Slot(int)
@@ -858,6 +1025,7 @@ class QmlAppState(QObject):
         self._status_text = self._format_text("status_sources_updated")
         self.liveStatsChanged.emit()
         self.workflowChanged.emit()
+        self._rebuild_sorting_preview()
         self._start_background_duplicate_scan()
 
     @Slot()
@@ -865,6 +1033,7 @@ class QmlAppState(QObject):
         self._source_folders = []
         self._discovered_file_count = 0
         self._status_text = self._format_text("status_sources_updated")
+        self._rebuild_sorting_preview()
         self._start_background_duplicate_scan()
         self.liveStatsChanged.emit()
         self.workflowChanged.emit()
@@ -1023,6 +1192,7 @@ class QmlAppState(QObject):
         self._duplicate_rows_visible = 0
         self._discovered_file_count = max(self._discovered_file_count, scanned_files)
         self._recompute_summary_state()
+        self._rebuild_sorting_preview()
         if exact_groups > 0:
             self._status_text = self._format_text(
                 "status_duplicates_finished",
