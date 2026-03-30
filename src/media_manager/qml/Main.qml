@@ -921,71 +921,229 @@ ApplicationWindow {
                                         ColumnLayout {
                                             anchors.fill: parent
                                             spacing: 12
-                                            Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 26; font.bold: true }
-                                            Label { text: appState.workflowStageSubtitle; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
 
-                                            Rectangle {
+                                            Label {
+                                                text: appState.workflowStageTitle
+                                                color: "#F7FAFF"
+                                                font.pixelSize: 26
+                                                font.bold: true
+                                            }
+
+                                            Label {
+                                                text: appState.workflowStageSubtitle
+                                                color: "#AFC1D9"
+                                                font.pixelSize: 15
+                                                wrapMode: Text.WordWrap
+                                                Layout.fillWidth: true
+                                            }
+
+                                            Flickable {
                                                 Layout.fillWidth: true
                                                 Layout.fillHeight: true
-                                                radius: 18
-                                                color: "#091321"
-                                                border.color: "#22324A"
+                                                contentWidth: width
+                                                contentHeight: summaryScrollColumn.implicitHeight
+                                                clip: true
 
-                                                Flickable {
-                                                    anchors.fill: parent
-                                                    anchors.margins: 18
-                                                    contentWidth: width
-                                                    contentHeight: summaryColumn.implicitHeight
-                                                    clip: true
+                                                ColumnLayout {
+                                                    id: summaryScrollColumn
+                                                    width: parent.width
+                                                    spacing: 14
 
-                                                    ColumnLayout {
-                                                        id: summaryColumn
-                                                        width: parent.width
-                                                        spacing: 16
+                                                    Rectangle {
+                                                        Layout.fillWidth: true
+                                                        implicitHeight: summaryHeroColumn.implicitHeight + 32
+                                                        radius: 18
+                                                        color: appState.summaryReadyForDryRun ? "#123926" : "#40241F"
+                                                        border.color: appState.summaryReadyForDryRun ? "#47B36A" : "#D07A63"
 
-                                                        Rectangle {
-                                                            Layout.fillWidth: true
-                                                            radius: 18
-                                                            color: appState.summaryReadyForDryRun ? "#102B1E" : "#352019"
-                                                            border.color: appState.summaryReadyForDryRun ? "#47B36A" : "#D07A63"
+                                                        ColumnLayout {
+                                                            id: summaryHeroColumn
+                                                            anchors.fill: parent
+                                                            anchors.margins: 16
+                                                            spacing: 8
 
-                                                            RowLayout {
-                                                                anchors.fill: parent
-                                                                anchors.margins: 16
-                                                                spacing: 14
+                                                            Label {
+                                                                text: appState.summaryDecisionStatus
+                                                                color: "#F7FAFF"
+                                                                font.pixelSize: 22
+                                                                font.bold: true
+                                                                Layout.fillWidth: true
+                                                            }
+
+                                                            Label {
+                                                                text: appState.summaryReadyForDryRun ? root.trKey("summary_ready_body") : root.trKey("summary_unresolved_body")
+                                                                color: "#F7FAFF"
+                                                                font.pixelSize: 14
+                                                                wrapMode: Text.WordWrap
+                                                                Layout.fillWidth: true
+                                                            }
+                                                        }
+                                                    }
+
+                                                    GridLayout {
+                                                        Layout.fillWidth: true
+                                                        columns: 4
+                                                        columnSpacing: 10
+                                                        rowSpacing: 10
+
+                                                        Repeater {
+                                                            model: [
+                                                                [root.trKey("summary_groups"), appState.summaryExactGroupCount.toString()],
+                                                                [root.trKey("summary_duplicate_files"), appState.summaryExactDuplicateFiles.toString()],
+                                                                [root.trKey("summary_extra_duplicates"), appState.summaryExtraDuplicates.toString()],
+                                                                [root.trKey("summary_mode"), appState.summaryOperationModeLabel]
+                                                            ]
+
+                                                            delegate: Rectangle {
+                                                                required property var modelData
+                                                                Layout.fillWidth: true
+                                                                Layout.preferredHeight: 86
+                                                                radius: 16
+                                                                color: "#0F1A2C"
+                                                                border.color: "#22324A"
 
                                                                 ColumnLayout {
-                                                                    Layout.fillWidth: true
+                                                                    anchors.fill: parent
+                                                                    anchors.margins: 14
                                                                     spacing: 6
 
                                                                     Label {
-                                                                        text: root.trKey("summary_resolved_title")
-                                                                        color: "#F7FAFF"
-                                                                        font.pixelSize: 18
-                                                                        font.bold: true
-                                                                    }
-
-                                                                    Label {
-                                                                        text: appState.summaryDecisionStatus
-                                                                        color: "#F7FAFF"
-                                                                        font.pixelSize: 24
-                                                                        font.bold: true
+                                                                        text: modelData[0]
+                                                                        color: "#AFC1D9"
+                                                                        font.pixelSize: 12
                                                                         wrapMode: Text.WordWrap
                                                                         Layout.fillWidth: true
                                                                     }
 
                                                                     Label {
-                                                                        text: appState.summaryReadyForDryRun ? root.trKey("summary_ready_body") : root.trKey("summary_unresolved_body")
-                                                                        color: "#D8E7FB"
-                                                                        wrapMode: Text.WordWrap
+                                                                        text: modelData[1]
+                                                                        color: "#F7FAFF"
+                                                                        font.pixelSize: 22
+                                                                        font.bold: true
                                                                         Layout.fillWidth: true
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+
+                                                    Rectangle {
+                                                        Layout.fillWidth: true
+                                                        implicitHeight: dryRunColumn.implicitHeight + 28
+                                                        radius: 18
+                                                        color: "#0F1A2C"
+                                                        border.color: "#22324A"
+
+                                                        ColumnLayout {
+                                                            id: dryRunColumn
+                                                            anchors.fill: parent
+                                                            anchors.margins: 14
+                                                            spacing: 8
+
+                                                            Label {
+                                                                text: root.trKey("summary_dry_run_title")
+                                                                color: "#F7FAFF"
+                                                                font.pixelSize: 18
+                                                                font.bold: true
+                                                                Layout.fillWidth: true
+                                                            }
+
+                                                            Label {
+                                                                text: root.trKey("summary_dry_run_body")
+                                                                color: "#CFE1FF"
+                                                                wrapMode: Text.WordWrap
+                                                                Layout.fillWidth: true
+                                                            }
+
+                                                            RowLayout {
+                                                                Layout.fillWidth: true
+                                                                spacing: 10
+
+                                                                Rectangle {
+                                                                    Layout.fillWidth: true
+                                                                    Layout.preferredHeight: 78
+                                                                    radius: 14
+                                                                    color: "#091321"
+                                                                    border.color: "#22324A"
+
+                                                                    ColumnLayout {
+                                                                        anchors.fill: parent
+                                                                        anchors.margins: 12
+                                                                        spacing: 4
+
+                                                                        Label {
+                                                                            text: root.trKey("summary_resolved_groups")
+                                                                            color: "#AFC1D9"
+                                                                            font.pixelSize: 12
+                                                                        }
+
+                                                                        Label {
+                                                                            text: appState.summaryResolvedDuplicateGroups.toString()
+                                                                            color: "#F7FAFF"
+                                                                            font.pixelSize: 20
+                                                                            font.bold: true
+                                                                        }
                                                                     }
                                                                 }
 
                                                                 Rectangle {
-                                                                    Layout.preferredWidth: 180
-                                                                    Layout.preferredHeight: 96
-                                                                    radius: 16
+                                                                    Layout.fillWidth: true
+                                                                    Layout.preferredHeight: 78
+                                                                    radius: 14
+                                                                    color: "#091321"
+                                                                    border.color: "#22324A"
+
+                                                                    ColumnLayout {
+                                                                        anchors.fill: parent
+                                                                        anchors.margins: 12
+                                                                        spacing: 4
+
+                                                                        Label {
+                                                                            text: root.trKey("summary_unresolved_groups")
+                                                                            color: "#AFC1D9"
+                                                                            font.pixelSize: 12
+                                                                        }
+
+                                                                        Label {
+                                                                            text: appState.summaryUnresolvedDuplicateGroups.toString()
+                                                                            color: "#F7FAFF"
+                                                                            font.pixelSize: 20
+                                                                            font.bold: true
+                                                                        }
+                                                                    }
+                                                                }
+
+                                                                Rectangle {
+                                                                    Layout.fillWidth: true
+                                                                    Layout.preferredHeight: 78
+                                                                    radius: 14
+                                                                    color: "#091321"
+                                                                    border.color: "#22324A"
+
+                                                                    ColumnLayout {
+                                                                        anchors.fill: parent
+                                                                        anchors.margins: 12
+                                                                        spacing: 4
+
+                                                                        Label {
+                                                                            text: root.trKey("summary_remove_candidate_label")
+                                                                            color: "#AFC1D9"
+                                                                            font.pixelSize: 12
+                                                                        }
+
+                                                                        Label {
+                                                                            text: appState.summaryPlannedRemovalCount.toString()
+                                                                            color: "#F7FAFF"
+                                                                            font.pixelSize: 20
+                                                                            font.bold: true
+                                                                        }
+                                                                    }
+                                                                }
+
+                                                                Rectangle {
+                                                                    Layout.fillWidth: true
+                                                                    Layout.preferredHeight: 78
+                                                                    radius: 14
                                                                     color: "#091321"
                                                                     border.color: "#22324A"
 
@@ -998,8 +1156,6 @@ ApplicationWindow {
                                                                             text: root.trKey("summary_estimated_reclaimable_label")
                                                                             color: "#AFC1D9"
                                                                             font.pixelSize: 12
-                                                                            wrapMode: Text.WordWrap
-                                                                            Layout.fillWidth: true
                                                                         }
 
                                                                         Label {
@@ -1007,226 +1163,266 @@ ApplicationWindow {
                                                                             color: "#F7FAFF"
                                                                             font.pixelSize: 20
                                                                             font.bold: true
-                                                                            Layout.fillWidth: true
-                                                                        }
-
-                                                                        Label {
-                                                                            text: root.trKey("summary_remove_candidate_label") + ": " + appState.summaryPlannedRemovalCount
-                                                                            color: "#8FB0E1"
-                                                                            font.pixelSize: 12
-                                                                            Layout.fillWidth: true
                                                                         }
                                                                     }
                                                                 }
                                                             }
-                                                        }
 
-                                                        Label {
-                                                            text: root.trKey("summary_totals_title")
-                                                            color: "#F7FAFF"
-                                                            font.pixelSize: 18
-                                                            font.bold: true
-                                                        }
-
-                                                        RowLayout {
-                                                            Layout.fillWidth: true
-                                                            spacing: 10
-
-                                                            Repeater {
-                                                                model: [
-                                                                    [root.trKey("summary_groups"), appState.summaryExactGroupCount.toString()],
-                                                                    [root.trKey("summary_duplicate_files"), appState.summaryExactDuplicateFiles.toString()],
-                                                                    [root.trKey("summary_extra_duplicates"), appState.summaryExtraDuplicates.toString()],
-                                                                    [root.trKey("summary_mode"), appState.summaryOperationModeLabel]
-                                                                ]
-
-                                                                delegate: Rectangle {
-                                                                    required property var modelData
-                                                                    Layout.fillWidth: true
-                                                                    Layout.preferredHeight: 76
-                                                                    radius: 16
-                                                                    color: "#0F1A2C"
-                                                                    border.color: "#22324A"
-
-                                                                    ColumnLayout {
-                                                                        anchors.fill: parent
-                                                                        anchors.margins: 12
-                                                                        spacing: 4
-
-                                                                        Label {
-                                                                            text: modelData[0]
-                                                                            color: "#AFC1D9"
-                                                                            font.pixelSize: 12
-                                                                            wrapMode: Text.WordWrap
-                                                                            Layout.fillWidth: true
-                                                                        }
-
-                                                                        Label {
-                                                                            text: modelData[1]
-                                                                            color: "#F7FAFF"
-                                                                            font.pixelSize: 20
-                                                                            font.bold: true
-                                                                            Layout.fillWidth: true
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-
-                                                        RowLayout {
-                                                            Layout.fillWidth: true
-                                                            spacing: 12
-
-                                                            Rectangle {
+                                                            Label {
+                                                                text: root.trKey("summary_plan_intro")
+                                                                color: "#F7FAFF"
+                                                                font.pixelSize: 15
+                                                                font.bold: true
                                                                 Layout.fillWidth: true
-                                                                radius: 18
-                                                                color: "#0F1A2C"
-                                                                border.color: "#22324A"
+                                                            }
 
-                                                                ColumnLayout {
-                                                                    anchors.fill: parent
-                                                                    anchors.margins: 14
-                                                                    spacing: 10
+                                                            Label { text: "• " + root.trKey("summary_plan_line_1"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                            Label { text: "• " + root.trKey("summary_plan_line_2"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                            Label { text: "• " + root.trKey("summary_plan_line_3"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                        }
+                                                    }
 
-                                                                    Label {
-                                                                        text: root.trKey("summary_planned_removals_title")
-                                                                        color: "#F7FAFF"
-                                                                        font.pixelSize: 16
-                                                                        font.bold: true
+                                                    Rectangle {
+                                                        Layout.fillWidth: true
+                                                        implicitHeight: plannedColumn.implicitHeight + 28
+                                                        radius: 18
+                                                        color: "#0F1A2C"
+                                                        border.color: "#22324A"
+
+                                                        ColumnLayout {
+                                                            id: plannedColumn
+                                                            anchors.fill: parent
+                                                            anchors.margins: 14
+                                                            spacing: 8
+
+                                                            Label {
+                                                                text: root.trKey("summary_planned_removals_title")
+                                                                color: "#F7FAFF"
+                                                                font.pixelSize: 18
+                                                                font.bold: true
+                                                                Layout.fillWidth: true
+                                                            }
+
+                                                            ColumnLayout {
+                                                                Layout.fillWidth: true
+                                                                spacing: 8
+                                                                visible: appState.summaryPlannedRemovalsPreview.length > 0
+
+                                                                Repeater {
+                                                                    model: appState.summaryPlannedRemovalsPreview
+
+                                                                    delegate: Rectangle {
+                                                                        required property var modelData
                                                                         Layout.fillWidth: true
-                                                                    }
+                                                                        implicitHeight: plannedItemColumn.implicitHeight + 24
+                                                                        radius: 14
+                                                                        color: "#091321"
+                                                                        border.color: "#22324A"
 
-                                                                    ColumnLayout {
-                                                                        Layout.fillWidth: true
-                                                                        spacing: 8
-                                                                        visible: appState.summaryPlannedRemovalsPreview.length > 0
+                                                                        ColumnLayout {
+                                                                            id: plannedItemColumn
+                                                                            anchors.fill: parent
+                                                                            anchors.margins: 12
+                                                                            spacing: 4
 
-                                                                        Repeater {
-                                                                            model: appState.summaryPlannedRemovalsPreview
-
-                                                                            delegate: Rectangle {
-                                                                                required property var modelData
+                                                                            Label {
+                                                                                text: root.trKey("summary_remove_candidate_label") + ": " + modelData.remove_name + "  •  " + modelData.size
+                                                                                color: "#F7FAFF"
+                                                                                font.pixelSize: 13
+                                                                                font.bold: true
+                                                                                wrapMode: Text.WordWrap
                                                                                 Layout.fillWidth: true
-                                                                                radius: 14
-                                                                                color: "#091321"
-                                                                                border.color: "#22324A"
+                                                                            }
 
-                                                                                ColumnLayout {
-                                                                                    anchors.fill: parent
-                                                                                    anchors.margins: 12
-                                                                                    spacing: 4
+                                                                            Label {
+                                                                                text: root.trKey("summary_keep_survivor_label") + ": " + modelData.keep_name
+                                                                                color: "#AFC1D9"
+                                                                                font.pixelSize: 12
+                                                                                wrapMode: Text.WordWrap
+                                                                                Layout.fillWidth: true
+                                                                            }
 
-                                                                                    Label {
-                                                                                        text: modelData.remove_name + "  •  " + modelData.size
-                                                                                        color: "#F7FAFF"
-                                                                                        font.pixelSize: 13
-                                                                                        font.bold: true
-                                                                                        wrapMode: Text.WordWrap
-                                                                                        Layout.fillWidth: true
-                                                                                    }
-
-                                                                                    Label {
-                                                                                        text: root.trKey("summary_keep_survivor_label") + ": " + modelData.keep_name
-                                                                                        color: "#AFC1D9"
-                                                                                        font.pixelSize: 12
-                                                                                        wrapMode: Text.WordWrap
-                                                                                        Layout.fillWidth: true
-                                                                                    }
-
-                                                                                    Label {
-                                                                                        text: modelData.remove_path
-                                                                                        color: "#8FB0E1"
-                                                                                        font.pixelSize: 11
-                                                                                        wrapMode: Text.WrapAnywhere
-                                                                                        Layout.fillWidth: true
-                                                                                    }
-                                                                                }
+                                                                            Label {
+                                                                                text: modelData.remove_path
+                                                                                color: "#8FB0E1"
+                                                                                font.pixelSize: 11
+                                                                                wrapMode: Text.WrapAnywhere
+                                                                                Layout.fillWidth: true
                                                                             }
                                                                         }
                                                                     }
-
-                                                                    Label {
-                                                                        visible: appState.summaryPlannedRemovalsPreview.length === 0
-                                                                        text: root.trKey("summary_planned_removals_empty")
-                                                                        color: "#AFC1D9"
-                                                                        wrapMode: Text.WordWrap
-                                                                        Layout.fillWidth: true
-                                                                    }
                                                                 }
                                                             }
 
-                                                            Rectangle {
+                                                            Label {
+                                                                visible: appState.summaryPlannedRemovalsPreview.length === 0
+                                                                text: root.trKey("summary_planned_removals_empty")
+                                                                color: "#AFC1D9"
+                                                                wrapMode: Text.WordWrap
                                                                 Layout.fillWidth: true
-                                                                radius: 18
-                                                                color: "#0F1A2C"
-                                                                border.color: "#22324A"
+                                                            }
+                                                        }
+                                                    }
 
-                                                                ColumnLayout {
-                                                                    anchors.fill: parent
-                                                                    anchors.margins: 14
-                                                                    spacing: 10
+                                                    Rectangle {
+                                                        Layout.fillWidth: true
+                                                        implicitHeight: unresolvedColumn.implicitHeight + 28
+                                                        radius: 18
+                                                        color: "#0F1A2C"
+                                                        border.color: "#22324A"
 
-                                                                    Label {
-                                                                        text: root.trKey("summary_unresolved_list_title")
-                                                                        color: "#F7FAFF"
-                                                                        font.pixelSize: 16
-                                                                        font.bold: true
+                                                        ColumnLayout {
+                                                            id: unresolvedColumn
+                                                            anchors.fill: parent
+                                                            anchors.margins: 14
+                                                            spacing: 8
+
+                                                            Label {
+                                                                text: root.trKey("summary_unresolved_list_title")
+                                                                color: "#F7FAFF"
+                                                                font.pixelSize: 18
+                                                                font.bold: true
+                                                                Layout.fillWidth: true
+                                                            }
+
+                                                            ColumnLayout {
+                                                                Layout.fillWidth: true
+                                                                spacing: 8
+                                                                visible: appState.summaryUnresolvedGroupsPreview.length > 0
+
+                                                                Repeater {
+                                                                    model: appState.summaryUnresolvedGroupsPreview
+
+                                                                    delegate: Rectangle {
+                                                                        required property var modelData
                                                                         Layout.fillWidth: true
-                                                                    }
+                                                                        implicitHeight: unresolvedItemColumn.implicitHeight + 24
+                                                                        radius: 14
+                                                                        color: "#091321"
+                                                                        border.color: "#22324A"
 
-                                                                    ColumnLayout {
-                                                                        Layout.fillWidth: true
-                                                                        spacing: 8
-                                                                        visible: appState.summaryUnresolvedGroupsPreview.length > 0
+                                                                        ColumnLayout {
+                                                                            id: unresolvedItemColumn
+                                                                            anchors.fill: parent
+                                                                            anchors.margins: 12
+                                                                            spacing: 4
 
-                                                                        Repeater {
-                                                                            model: appState.summaryUnresolvedGroupsPreview
-
-                                                                            delegate: Rectangle {
-                                                                                required property var modelData
+                                                                            Label {
+                                                                                text: root.trKey("summary_candidates_label") + ": " + modelData.candidate_count + "  •  " + modelData.size
+                                                                                color: "#F7FAFF"
+                                                                                font.pixelSize: 13
+                                                                                font.bold: true
                                                                                 Layout.fillWidth: true
-                                                                                radius: 14
-                                                                                color: "#091321"
-                                                                                border.color: "#22324A"
+                                                                            }
 
-                                                                                ColumnLayout {
-                                                                                    anchors.fill: parent
-                                                                                    anchors.margins: 12
-                                                                                    spacing: 4
-
-                                                                                    Label {
-                                                                                        text: root.trKey("summary_candidates_label") + ": " + modelData.candidate_count + "  •  " + modelData.size
-                                                                                        color: "#F7FAFF"
-                                                                                        font.pixelSize: 13
-                                                                                        font.bold: true
-                                                                                        Layout.fillWidth: true
-                                                                                    }
-
-                                                                                    Label {
-                                                                                        text: modelData.preview_names
-                                                                                        color: "#AFC1D9"
-                                                                                        font.pixelSize: 12
-                                                                                        wrapMode: Text.WordWrap
-                                                                                        Layout.fillWidth: true
-                                                                                    }
-                                                                                }
+                                                                            Label {
+                                                                                text: modelData.preview_names
+                                                                                color: "#AFC1D9"
+                                                                                font.pixelSize: 12
+                                                                                wrapMode: Text.WordWrap
+                                                                                Layout.fillWidth: true
                                                                             }
                                                                         }
                                                                     }
-
-                                                                    Label {
-                                                                        visible: appState.summaryUnresolvedGroupsPreview.length === 0
-                                                                        text: root.trKey("summary_unresolved_empty")
-                                                                        color: "#AFC1D9"
-                                                                        wrapMode: Text.WordWrap
-                                                                        Layout.fillWidth: true
-                                                                    }
                                                                 }
                                                             }
+
+                                                            Label {
+                                                                visible: appState.summaryUnresolvedGroupsPreview.length === 0
+                                                                text: root.trKey("summary_unresolved_empty")
+                                                                color: "#AFC1D9"
+                                                                wrapMode: Text.WordWrap
+                                                                Layout.fillWidth: true
+                                                            }
                                                         }
+                                                    }
+
+                                                    RowLayout {
+                                                        Layout.fillWidth: true
+                                                        Item { Layout.fillWidth: true }
+
+                                                        PrimaryButton {
+                                                            text: root.trKey("stage_summary_action")
+                                                            enabled: appState.summaryReadyForDryRun
+                                                            onClicked: appState.workflowNext()
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+
+                                    // sorting
+                                    Item {
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            spacing: 12
+
+                                            Label {
+                                                text: appState.workflowStageTitle
+                                                color: "#F7FAFF"
+                                                font.pixelSize: 26
+                                                font.bold: true
+                                            }
+
+                                            Label {
+                                                text: appState.workflowStageSubtitle
+                                                color: "#AFC1D9"
+                                                font.pixelSize: 15
+                                                wrapMode: Text.WordWrap
+                                                Layout.fillWidth: true
+                                            }
+
+                                            Flickable {
+                                                Layout.fillWidth: true
+                                                Layout.fillHeight: true
+                                                contentWidth: width
+                                                contentHeight: sortingScrollColumn.implicitHeight
+                                                clip: true
+
+                                                ColumnLayout {
+                                                    id: sortingScrollColumn
+                                                    width: parent.width
+                                                    spacing: 14
+
+                                                    Rectangle {
+                                                        Layout.fillWidth: true
+                                                        implicitHeight: sortingIntroColumn.implicitHeight + 28
+                                                        radius: 18
+                                                        color: "#0F1A2C"
+                                                        border.color: "#22324A"
+
+                                                        ColumnLayout {
+                                                            id: sortingIntroColumn
+                                                            anchors.fill: parent
+                                                            anchors.margins: 14
+                                                            spacing: 8
+
+                                                            Label {
+                                                                text: root.trKey("sorting_config_title")
+                                                                color: "#F7FAFF"
+                                                                font.pixelSize: 18
+                                                                font.bold: true
+                                                                Layout.fillWidth: true
+                                                            }
+
+                                                            Label {
+                                                                text: root.trKey("sorting_config_body")
+                                                                color: "#CFE1FF"
+                                                                wrapMode: Text.WordWrap
+                                                                Layout.fillWidth: true
+                                                            }
+                                                        }
+                                                    }
+
+                                                    RowLayout {
+                                                        Layout.fillWidth: true
+                                                        spacing: 10
 
                                                         Rectangle {
                                                             Layout.fillWidth: true
+                                                            Layout.preferredHeight: 126
                                                             radius: 16
                                                             color: "#0F1A2C"
                                                             border.color: "#22324A"
@@ -1236,335 +1432,218 @@ ApplicationWindow {
                                                                 anchors.margins: 14
                                                                 spacing: 8
 
-                                                                Label {
-                                                                    text: root.trKey("summary_dry_run_title")
-                                                                    color: "#F7FAFF"
-                                                                    font.pixelSize: 16
-                                                                    font.bold: true
-                                                                    Layout.fillWidth: true
-                                                                }
+                                                                Label { text: root.trKey("sorting_level_year"); color: "#F7FAFF"; font.pixelSize: 16; font.bold: true }
+                                                                Label { text: appState.sortingYearStyleLabel; color: "#AFC1D9"; font.pixelSize: 14; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                                Item { Layout.fillHeight: true }
 
-                                                                Label {
-                                                                    text: root.trKey("summary_dry_run_body")
-                                                                    color: "#CFE1FF"
-                                                                    wrapMode: Text.WordWrap
-                                                                    Layout.fillWidth: true
-                                                                }
-
-                                                                Label { text: "• " + root.trKey("summary_plan_line_1"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                                                                Label { text: "• " + root.trKey("summary_plan_line_2"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                                                                Label { text: "• " + root.trKey("summary_plan_line_3"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-
-                                                                RowLayout {
-                                                                    Layout.fillWidth: true
-                                                                    PrimaryButton {
-                                                                        text: root.trKey("stage_summary_action")
-                                                                        enabled: appState.summaryReadyForDryRun
-                                                                        onClicked: appState.workflowNext()
-                                                                    }
-                                                                    Item { Layout.fillWidth: true }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    // sorting
-                                    Item {
-                                        ColumnLayout {
-                                            anchors.fill: parent
-                                            spacing: 12
-                                            Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 26; font.bold: true }
-                                            Label { text: appState.workflowStageSubtitle; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-
-                                            Rectangle {
-                                                Layout.fillWidth: true
-                                                Layout.fillHeight: true
-                                                radius: 18
-                                                color: "#091321"
-                                                border.color: "#22324A"
-
-                                                Flickable {
-                                                    anchors.fill: parent
-                                                    anchors.margins: 18
-                                                    contentWidth: width
-                                                    contentHeight: sortingColumn.implicitHeight
-                                                    clip: true
-
-                                                    ColumnLayout {
-                                                        id: sortingColumn
-                                                        width: parent.width
-                                                        spacing: 16
-
-                                                        Rectangle {
-                                                            Layout.fillWidth: true
-                                                            radius: 18
-                                                            color: "#0F1A2C"
-                                                            border.color: "#22324A"
-
-                                                            ColumnLayout {
-                                                                anchors.fill: parent
-                                                                anchors.margins: 16
-                                                                spacing: 8
-
-                                                                Label {
-                                                                    text: root.trKey("sorting_config_title")
-                                                                    color: "#F7FAFF"
-                                                                    font.pixelSize: 18
-                                                                    font.bold: true
-                                                                }
-
-                                                                Label {
-                                                                    text: root.trKey("sorting_config_body")
-                                                                    color: "#CFE1FF"
-                                                                    wrapMode: Text.WordWrap
-                                                                    Layout.fillWidth: true
-                                                                }
-                                                            }
-                                                        }
-
-                                                        RowLayout {
-                                                            Layout.fillWidth: true
-                                                            spacing: 10
-
-                                                            Rectangle {
-                                                                Layout.fillWidth: true
-                                                                Layout.preferredHeight: 112
-                                                                radius: 16
-                                                                color: "#0F1A2C"
-                                                                border.color: "#22324A"
-
-                                                                ColumnLayout {
-                                                                    anchors.fill: parent
-                                                                    anchors.margins: 14
-                                                                    spacing: 8
-
-                                                                    Label { text: root.trKey("sorting_level_year"); color: "#F7FAFF"; font.pixelSize: 16; font.bold: true }
-                                                                    Label { text: appState.sortingYearStyleLabel; color: "#AFC1D9"; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                                                                    Item { Layout.fillHeight: true }
-                                                                    Button {
-                                                                        text: root.trKey("sorting_cycle_action")
-                                                                        onClicked: appState.cycleSortingYearStyle()
-                                                                        hoverEnabled: true
-                                                                        background: subtleOutlineButtonBackground
-                                                                        contentItem: Text {
-                                                                            text: parent.text
-                                                                            color: "#F7FAFF"
-                                                                            horizontalAlignment: Text.AlignHCenter
-                                                                            verticalAlignment: Text.AlignVCenter
-                                                                            font.pixelSize: 13
-                                                                            font.bold: true
-                                                                        }
+                                                                Button {
+                                                                    text: root.trKey("sorting_cycle_action")
+                                                                    onClicked: appState.cycleSortingYearStyle()
+                                                                    hoverEnabled: true
+                                                                    background: subtleOutlineButtonBackground
+                                                                    contentItem: Text {
+                                                                        text: parent.text
+                                                                        color: "#F7FAFF"
+                                                                        horizontalAlignment: Text.AlignHCenter
+                                                                        verticalAlignment: Text.AlignVCenter
+                                                                        font.pixelSize: 13
+                                                                        font.bold: true
                                                                     }
                                                                 }
-                                                            }
-
-                                                            Rectangle {
-                                                                Layout.fillWidth: true
-                                                                Layout.preferredHeight: 112
-                                                                radius: 16
-                                                                color: "#0F1A2C"
-                                                                border.color: "#22324A"
-
-                                                                ColumnLayout {
-                                                                    anchors.fill: parent
-                                                                    anchors.margins: 14
-                                                                    spacing: 8
-
-                                                                    Label { text: root.trKey("sorting_level_month"); color: "#F7FAFF"; font.pixelSize: 16; font.bold: true }
-                                                                    Label { text: appState.sortingMonthStyleLabel; color: "#AFC1D9"; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                                                                    Item { Layout.fillHeight: true }
-                                                                    Button {
-                                                                        text: root.trKey("sorting_cycle_action")
-                                                                        onClicked: appState.cycleSortingMonthStyle()
-                                                                        hoverEnabled: true
-                                                                        background: subtleOutlineButtonBackground
-                                                                        contentItem: Text {
-                                                                            text: parent.text
-                                                                            color: "#F7FAFF"
-                                                                            horizontalAlignment: Text.AlignHCenter
-                                                                            verticalAlignment: Text.AlignVCenter
-                                                                            font.pixelSize: 13
-                                                                            font.bold: true
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-
-                                                            Rectangle {
-                                                                Layout.fillWidth: true
-                                                                Layout.preferredHeight: 112
-                                                                radius: 16
-                                                                color: "#0F1A2C"
-                                                                border.color: "#22324A"
-
-                                                                ColumnLayout {
-                                                                    anchors.fill: parent
-                                                                    anchors.margins: 14
-                                                                    spacing: 8
-
-                                                                    Label { text: root.trKey("sorting_level_day"); color: "#F7FAFF"; font.pixelSize: 16; font.bold: true }
-                                                                    Label { text: appState.sortingDayStyleLabel; color: "#AFC1D9"; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                                                                    Item { Layout.fillHeight: true }
-                                                                    Button {
-                                                                        text: root.trKey("sorting_cycle_action")
-                                                                        onClicked: appState.cycleSortingDayStyle()
-                                                                        hoverEnabled: true
-                                                                        background: subtleOutlineButtonBackground
-                                                                        contentItem: Text {
-                                                                            text: parent.text
-                                                                            color: "#F7FAFF"
-                                                                            horizontalAlignment: Text.AlignHCenter
-                                                                            verticalAlignment: Text.AlignVCenter
-                                                                            font.pixelSize: 13
-                                                                            font.bold: true
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-
-                                                        RowLayout {
-                                                            Layout.fillWidth: true
-                                                            Button {
-                                                                text: root.trKey("sorting_reset_action")
-                                                                onClicked: appState.resetSortingDefaults()
-                                                                hoverEnabled: true
-                                                                background: subtleOutlineButtonBackground
-                                                                contentItem: Text {
-                                                                    text: parent.text
-                                                                    color: "#F7FAFF"
-                                                                    horizontalAlignment: Text.AlignHCenter
-                                                                    verticalAlignment: Text.AlignVCenter
-                                                                    font.pixelSize: 13
-                                                                    font.bold: true
-                                                                }
-                                                            }
-                                                            Item { Layout.fillWidth: true }
-                                                            PrimaryButton {
-                                                                text: root.trKey("stage_sorting_action")
-                                                                enabled: appState.canAdvanceWorkflow
-                                                                onClicked: appState.workflowNext()
                                                             }
                                                         }
 
                                                         Rectangle {
                                                             Layout.fillWidth: true
-                                                            radius: 18
+                                                            Layout.preferredHeight: 126
+                                                            radius: 16
                                                             color: "#0F1A2C"
                                                             border.color: "#22324A"
 
                                                             ColumnLayout {
                                                                 anchors.fill: parent
                                                                 anchors.margins: 14
-                                                                spacing: 10
+                                                                spacing: 8
 
-                                                                Label {
-                                                                    text: root.trKey("sorting_preview_title")
-                                                                    color: "#F7FAFF"
-                                                                    font.pixelSize: 18
-                                                                    font.bold: true
-                                                                }
+                                                                Label { text: root.trKey("sorting_level_month"); color: "#F7FAFF"; font.pixelSize: 16; font.bold: true }
+                                                                Label { text: appState.sortingMonthStyleLabel; color: "#AFC1D9"; font.pixelSize: 14; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                                Item { Layout.fillHeight: true }
 
-                                                                Label {
-                                                                    text: root.trKey("sorting_preview_body")
-                                                                    color: "#CFE1FF"
-                                                                    wrapMode: Text.WordWrap
-                                                                    Layout.fillWidth: true
-                                                                }
-
-                                                                Rectangle {
-                                                                    visible: appState.sortingPreviewRows.length > 0
-                                                                    Layout.fillWidth: true
-                                                                    Layout.preferredHeight: 38
-                                                                    radius: 10
-                                                                    color: "#091321"
-
-                                                                    RowLayout {
-                                                                        anchors.fill: parent
-                                                                        anchors.margins: 10
-                                                                        spacing: 8
-                                                                        Label { Layout.fillWidth: true; text: root.trKey("sorting_preview_source"); color: "#F7FAFF"; font.pixelSize: 12; font.bold: true }
-                                                                        Label { Layout.fillWidth: true; text: root.trKey("sorting_preview_date"); color: "#F7FAFF"; font.pixelSize: 12; font.bold: true }
-                                                                        Label { Layout.fillWidth: true; text: root.trKey("sorting_preview_target"); color: "#F7FAFF"; font.pixelSize: 12; font.bold: true }
+                                                                Button {
+                                                                    text: root.trKey("sorting_cycle_action")
+                                                                    onClicked: appState.cycleSortingMonthStyle()
+                                                                    hoverEnabled: true
+                                                                    background: subtleOutlineButtonBackground
+                                                                    contentItem: Text {
+                                                                        text: parent.text
+                                                                        color: "#F7FAFF"
+                                                                        horizontalAlignment: Text.AlignHCenter
+                                                                        verticalAlignment: Text.AlignVCenter
+                                                                        font.pixelSize: 13
+                                                                        font.bold: true
                                                                     }
                                                                 }
+                                                            }
+                                                        }
 
-                                                                ColumnLayout {
-                                                                    Layout.fillWidth: true
-                                                                    spacing: 8
-                                                                    visible: appState.sortingPreviewRows.length > 0
+                                                        Rectangle {
+                                                            Layout.fillWidth: true
+                                                            Layout.preferredHeight: 126
+                                                            radius: 16
+                                                            color: "#0F1A2C"
+                                                            border.color: "#22324A"
 
-                                                                    Repeater {
-                                                                        model: appState.sortingPreviewRows
+                                                            ColumnLayout {
+                                                                anchors.fill: parent
+                                                                anchors.margins: 14
+                                                                spacing: 8
 
-                                                                        delegate: Rectangle {
-                                                                            required property var modelData
-                                                                            Layout.fillWidth: true
-                                                                            radius: 12
-                                                                            color: "#091321"
-                                                                            border.color: "#22324A"
+                                                                Label { text: root.trKey("sorting_level_day"); color: "#F7FAFF"; font.pixelSize: 16; font.bold: true }
+                                                                Label { text: appState.sortingDayStyleLabel; color: "#AFC1D9"; font.pixelSize: 14; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                                Item { Layout.fillHeight: true }
 
-                                                                            ColumnLayout {
-                                                                                anchors.fill: parent
-                                                                                anchors.margins: 12
-                                                                                spacing: 6
+                                                                Button {
+                                                                    text: root.trKey("sorting_cycle_action")
+                                                                    onClicked: appState.cycleSortingDayStyle()
+                                                                    hoverEnabled: true
+                                                                    background: subtleOutlineButtonBackground
+                                                                    contentItem: Text {
+                                                                        text: parent.text
+                                                                        color: "#F7FAFF"
+                                                                        horizontalAlignment: Text.AlignHCenter
+                                                                        verticalAlignment: Text.AlignVCenter
+                                                                        font.pixelSize: 13
+                                                                        font.bold: true
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
 
-                                                                                RowLayout {
-                                                                                    Layout.fillWidth: true
-                                                                                    Label {
-                                                                                        Layout.fillWidth: true
-                                                                                        text: modelData.source_name
-                                                                                        color: "#F7FAFF"
-                                                                                        font.pixelSize: 13
-                                                                                        font.bold: true
-                                                                                        elide: Text.ElideRight
-                                                                                    }
-                                                                                    Label {
-                                                                                        text: modelData.captured_at
-                                                                                        color: "#CFE1FF"
-                                                                                        font.pixelSize: 12
-                                                                                    }
+                                                    RowLayout {
+                                                        Layout.fillWidth: true
+
+                                                        Button {
+                                                            text: root.trKey("sorting_reset_action")
+                                                            onClicked: appState.resetSortingDefaults()
+                                                            hoverEnabled: true
+                                                            background: subtleOutlineButtonBackground
+                                                            contentItem: Text {
+                                                                text: parent.text
+                                                                color: "#F7FAFF"
+                                                                horizontalAlignment: Text.AlignHCenter
+                                                                verticalAlignment: Text.AlignVCenter
+                                                                font.pixelSize: 13
+                                                                font.bold: true
+                                                            }
+                                                        }
+
+                                                        Item { Layout.fillWidth: true }
+
+                                                        PrimaryButton {
+                                                            text: root.trKey("stage_sorting_action")
+                                                            enabled: appState.canAdvanceWorkflow
+                                                            onClicked: appState.workflowNext()
+                                                        }
+                                                    }
+
+                                                    Rectangle {
+                                                        Layout.fillWidth: true
+                                                        implicitHeight: sortingPreviewColumn.implicitHeight + 28
+                                                        radius: 18
+                                                        color: "#0F1A2C"
+                                                        border.color: "#22324A"
+
+                                                        ColumnLayout {
+                                                            id: sortingPreviewColumn
+                                                            anchors.fill: parent
+                                                            anchors.margins: 14
+                                                            spacing: 8
+
+                                                            Label {
+                                                                text: root.trKey("sorting_preview_title")
+                                                                color: "#F7FAFF"
+                                                                font.pixelSize: 18
+                                                                font.bold: true
+                                                                Layout.fillWidth: true
+                                                            }
+
+                                                            Label {
+                                                                text: root.trKey("sorting_preview_body")
+                                                                color: "#CFE1FF"
+                                                                wrapMode: Text.WordWrap
+                                                                Layout.fillWidth: true
+                                                            }
+
+                                                            ColumnLayout {
+                                                                Layout.fillWidth: true
+                                                                spacing: 8
+                                                                visible: appState.sortingPreviewRows.length > 0
+
+                                                                Repeater {
+                                                                    model: appState.sortingPreviewRows
+
+                                                                    delegate: Rectangle {
+                                                                        required property var modelData
+                                                                        Layout.fillWidth: true
+                                                                        implicitHeight: sortingPreviewItemColumn.implicitHeight + 24
+                                                                        radius: 14
+                                                                        color: "#091321"
+                                                                        border.color: "#22324A"
+
+                                                                        ColumnLayout {
+                                                                            id: sortingPreviewItemColumn
+                                                                            anchors.fill: parent
+                                                                            anchors.margins: 12
+                                                                            spacing: 4
+
+                                                                            Label {
+                                                                                text: modelData.source_name
+                                                                                color: "#F7FAFF"
+                                                                                font.pixelSize: 13
+                                                                                font.bold: true
+                                                                                elide: Text.ElideRight
+                                                                                Layout.fillWidth: true
+                                                                            }
+
+                                                                            Label {
+                                                                                text: modelData.source_path
+                                                                                color: "#8FB0E1"
+                                                                                font.pixelSize: 11
+                                                                                elide: Text.ElideMiddle
+                                                                                Layout.fillWidth: true
+                                                                            }
+
+                                                                            RowLayout {
+                                                                                Layout.fillWidth: true
+                                                                                spacing: 10
+
+                                                                                Label {
+                                                                                    Layout.preferredWidth: 170
+                                                                                    text: modelData.captured_at
+                                                                                    color: "#CFE1FF"
+                                                                                    font.pixelSize: 12
                                                                                 }
 
                                                                                 Label {
-                                                                                    text: modelData.source_path
-                                                                                    color: "#8FB0E1"
-                                                                                    font.pixelSize: 11
-                                                                                    elide: Text.ElideMiddle
                                                                                     Layout.fillWidth: true
-                                                                                }
-
-                                                                                Rectangle {
-                                                                                    Layout.fillWidth: true
-                                                                                    radius: 10
-                                                                                    color: "#0F1A2C"
-                                                                                    border.color: "#22324A"
-
-                                                                                    Label {
-                                                                                        anchors.fill: parent
-                                                                                        anchors.margins: 10
-                                                                                        text: modelData.relative_directory
-                                                                                        color: "#AFC1D9"
-                                                                                        font.pixelSize: 12
-                                                                                        wrapMode: Text.WordWrap
-                                                                                    }
+                                                                                    text: modelData.relative_directory
+                                                                                    color: "#AFC1D9"
+                                                                                    font.pixelSize: 12
+                                                                                    wrapMode: Text.WordWrap
                                                                                 }
                                                                             }
                                                                         }
                                                                     }
                                                                 }
+                                                            }
 
-                                                                Label {
-                                                                    visible: appState.sortingPreviewRows.length === 0
-                                                                    text: root.trKey("sorting_preview_empty")
-                                                                    color: "#AFC1D9"
-                                                                    wrapMode: Text.WordWrap
-                                                                    Layout.fillWidth: true
-                                                                }
+                                                            Label {
+                                                                visible: appState.sortingPreviewRows.length === 0
+                                                                text: root.trKey("sorting_preview_empty")
+                                                                color: "#AFC1D9"
+                                                                wrapMode: Text.WordWrap
+                                                                Layout.fillWidth: true
                                                             }
                                                         }
                                                     }
@@ -1572,6 +1651,7 @@ ApplicationWindow {
                                             }
                                         }
                                     }
+
 
                                     // rename
                                     Item {
