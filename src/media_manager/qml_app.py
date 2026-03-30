@@ -1,15 +1,15 @@
+
 from __future__ import annotations
 
 import os
-import json
 import sys
-os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
-os.environ.setdefault("QT_QUICK_CONTROLS_FALLBACK_STYLE", "Basic")
-
 import threading
 from datetime import datetime
 from importlib import resources
 from pathlib import Path
+
+os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
+os.environ.setdefault("QT_QUICK_CONTROLS_FALLBACK_STYLE", "Basic")
 
 from PySide6.QtCore import Property, QObject, QSettings, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QGuiApplication
@@ -17,6 +17,13 @@ from PySide6.QtQml import QQmlApplicationEngine
 
 from .cleanup_plan import build_exact_cleanup_plan
 from .duplicates import DuplicateScanConfig, scan_exact_duplicates
+from .rename_plan import (
+    RenameBlock,
+    build_filename_preview,
+    build_rename_preview,
+    blocks_for_template,
+    template_names,
+)
 from .sorter import iter_media_files
 from .sorting_plan import DEFAULT_SORT_LEVELS, SortLevel, build_sort_preview
 
@@ -129,6 +136,28 @@ TRANSLATIONS = {
         "stage_rename_title": "Rename setup preview",
         "stage_rename_subtitle": "Rename configuration comes after sorting.",
         "stage_rename_action": "Continue to summary",
+        "rename_config_title": "Rename builder",
+        "rename_config_body": "Choose a naming template first. The preview already uses real source files and keeps the rename logic centralized in Python instead of hardcoded QML strings.",
+        "rename_template_title": "Live filename template",
+        "rename_template_selector": "Template",
+        "rename_template_reset_action": "Reset template",
+        "rename_template_live_source": "Preview based on the first detected source file.",
+        "rename_template_sample_source": "Preview based on a sample filename until real source files are available.",
+        "rename_preview_count": "{count} preview item(s)",
+        "rename_blocks_title": "Active blocks",
+        "rename_preview_title": "Rename preview",
+        "rename_preview_body": "Real source files are mapped to their proposed names.",
+        "rename_preview_empty": "Add source folders with media files to see rename previews.",
+        "rename_template_readable_datetime_original": "Readable date + time + original name",
+        "rename_template_year_month_day_time_original": "Year + month + day + time + original name",
+        "rename_template_date_original": "ISO date + original name",
+        "rename_block_original_stem": "Original name",
+        "rename_block_year": "Year",
+        "rename_block_month_name": "Month name",
+        "rename_block_day": "Day",
+        "rename_block_date_iso": "ISO date",
+        "rename_block_date_readable": "Readable date",
+        "rename_block_time_hhmmss": "Time",
         "stage_done_title": "Congratulations",
         "stage_done_subtitle": "This is the preview shell for the future guided product.",
         "stage_done_action": "Finish preview",
@@ -281,6 +310,28 @@ TRANSLATIONS = {
         "stage_rename_title": "Umbenennen-Setup Vorschau",
         "stage_rename_subtitle": "Die Umbenennungs-Konfiguration kommt nach dem Sortieren.",
         "stage_rename_action": "Weiter zur Zusammenfassung",
+        "rename_config_title": "Umbenennen-Builder",
+        "rename_config_body": "Wähle zuerst eine Namensvorlage. Die Vorschau nutzt bereits echte Quelldateien und hält die Umbenennen-Logik im Python-Backend statt in hartcodierten QML-Strings.",
+        "rename_template_title": "Live-Dateinamen-Vorlage",
+        "rename_template_selector": "Vorlage",
+        "rename_template_reset_action": "Vorlage zurücksetzen",
+        "rename_template_live_source": "Vorschau basierend auf der ersten gefundenen Quelldatei.",
+        "rename_template_sample_source": "Vorschau basierend auf einem Beispiel-Dateinamen, bis echte Quelldateien verfügbar sind.",
+        "rename_preview_count": "{count} Vorschau-Einträge",
+        "rename_blocks_title": "Aktive Blöcke",
+        "rename_preview_title": "Umbenennen-Vorschau",
+        "rename_preview_body": "Echte Quelldateien werden auf ihre vorgeschlagenen Namen abgebildet.",
+        "rename_preview_empty": "Füge Quellordner mit Mediendateien hinzu, um Umbenennen-Vorschauen zu sehen.",
+        "rename_template_readable_datetime_original": "Lesbares Datum + Uhrzeit + Originalname",
+        "rename_template_year_month_day_time_original": "Jahr + Monat + Tag + Uhrzeit + Originalname",
+        "rename_template_date_original": "ISO-Datum + Originalname",
+        "rename_block_original_stem": "Originalname",
+        "rename_block_year": "Jahr",
+        "rename_block_month_name": "Monatsname",
+        "rename_block_day": "Tag",
+        "rename_block_date_iso": "ISO-Datum",
+        "rename_block_date_readable": "Lesbares Datum",
+        "rename_block_time_hhmmss": "Uhrzeit",
         "stage_done_title": "Glückwunsch",
         "stage_done_subtitle": "Das ist die Vorschau-Hülle für das spätere geführte Produkt.",
         "stage_done_action": "Vorschau beenden",
@@ -328,10 +379,10 @@ TRANSLATIONS = {
 }
 
 STAGE_KEYS = ["sources", "target", "mode", "duplicates", "summary", "sorting", "rename", "done"]
-
 YEAR_STYLE_OPTIONS = ["yyyy", "yy"]
 MONTH_STYLE_OPTIONS = ["mm", "name", "yyyy-mm"]
 DAY_STYLE_OPTIONS = ["dd", "yyyy-mm-dd"]
+DEFAULT_RENAME_TEMPLATE = "readable_datetime_original"
 
 
 class QmlAppState(QObject):
@@ -365,6 +416,7 @@ class QmlAppState(QObject):
         self._operation_mode = "copy"
         self._discovered_file_count = 0
         self._tip_index = 0
+
         self._duplicate_started = False
         self._duplicate_scan_ready = False
         self._duplicate_progress = 0
@@ -378,6 +430,7 @@ class QmlAppState(QObject):
         self._duplicate_scan_token = 0
         self._status_text = ""
         self._tips = ["tip_1", "tip_2", "tip_3", "tip_4", "tip_5", "tip_6", "tip_7", "tip_8"]
+
         self._summary_exact_group_count = 0
         self._summary_exact_duplicate_files = 0
         self._summary_extra_duplicates = 0
@@ -387,10 +440,24 @@ class QmlAppState(QObject):
         self._summary_unresolved_groups_preview: list[dict[str, str]] = []
         self._summary_planned_removal_count = 0
         self._summary_estimated_reclaimable_bytes = 0
+
         self._sorting_levels = [SortLevel(level.kind, level.style) for level in DEFAULT_SORT_LEVELS]
         self._sorting_preview_rows: list[dict[str, str]] = []
         self._sorting_template_path = ""
         self._sorting_template_hint = ""
+
+        self._rename_template_keys = template_names()
+        if DEFAULT_RENAME_TEMPLATE in self._rename_template_keys:
+            default_template = DEFAULT_RENAME_TEMPLATE
+        elif self._rename_template_keys:
+            default_template = self._rename_template_keys[0]
+        else:
+            default_template = ""
+        self._rename_template_key = default_template
+        self._rename_blocks = blocks_for_template(default_template) if default_template else []
+        self._rename_preview_rows: list[dict[str, str]] = []
+        self._rename_live_template_name = ""
+        self._rename_live_template_hint = ""
 
         self.duplicateScanProgressEvent.connect(self._on_duplicate_scan_progress)
         self.duplicateScanResultEvent.connect(self._on_duplicate_scan_result)
@@ -407,7 +474,7 @@ class QmlAppState(QObject):
         self._duplicate_reveal_timer.timeout.connect(self._advance_duplicate_preview)
         self._duplicate_reveal_timer.start(180)
 
-        self._rebuild_sorting_preview()
+        self._rebuild_previews()
 
     def _format_text(self, key: str, **kwargs) -> str:
         text = TRANSLATIONS[self._language].get(key, key)
@@ -493,7 +560,7 @@ class QmlAppState(QObject):
     def _sorting_style_label(self, kind: str, style: str) -> str:
         return self.text(f"sorting_style_{kind}_{style}")
 
-    def _collect_sort_preview_inputs(self, max_items: int = 8) -> list[tuple[Path, datetime]]:
+    def _collect_media_preview_inputs(self, max_items: int = 8) -> list[tuple[Path, datetime]]:
         if not self._source_folders:
             return []
 
@@ -512,8 +579,12 @@ class QmlAppState(QObject):
             return []
         return items
 
+    def _rebuild_previews(self) -> None:
+        self._rebuild_sorting_preview()
+        self._rebuild_rename_preview()
+
     def _rebuild_sorting_preview(self) -> None:
-        inputs = self._collect_sort_preview_inputs()
+        inputs = self._collect_media_preview_inputs()
         template_reference = inputs[0][1] if inputs else datetime.now()
 
         try:
@@ -525,7 +596,11 @@ class QmlAppState(QObject):
             self._sorting_template_path = str(template_path).replace("\\", " / ")
         except Exception:
             self._sorting_template_path = ""
-        self._sorting_template_hint = self.text("sorting_template_live_source") if inputs else self.text("sorting_template_sample_source")
+        self._sorting_template_hint = (
+            self.text("sorting_template_live_source")
+            if inputs
+            else self.text("sorting_template_sample_source")
+        )
 
         if not inputs:
             self._sorting_preview_rows = []
@@ -545,6 +620,56 @@ class QmlAppState(QObject):
                 "source_path": str(item.source_path).replace("\\", "/"),
                 "captured_at": self._format_datetime(item.captured_at),
                 "relative_directory": str(item.relative_directory).replace("\\", "/"),
+            }
+            for item in preview
+        ]
+        self.workflowChanged.emit()
+
+    def _rebuild_rename_preview(self) -> None:
+        inputs = self._collect_media_preview_inputs()
+        sample_path = inputs[0][0] if inputs else Path("IMG_1234.JPG")
+        sample_dt = inputs[0][1] if inputs else datetime.now()
+
+        if self._rename_blocks:
+            try:
+                self._rename_live_template_name = build_filename_preview(
+                    sample_path,
+                    sample_dt,
+                    self._rename_blocks,
+                    language=self._language,
+                )
+            except Exception:
+                self._rename_live_template_name = sample_path.name
+        else:
+            self._rename_live_template_name = sample_path.name
+
+        self._rename_live_template_hint = (
+            self.text("rename_template_live_source")
+            if inputs
+            else self.text("rename_template_sample_source")
+        )
+
+        if not inputs or not self._rename_blocks:
+            self._rename_preview_rows = []
+            self.workflowChanged.emit()
+            return
+
+        try:
+            preview = build_rename_preview(
+                inputs,
+                self._rename_blocks,
+                language=self._language,
+            )
+        except Exception:
+            self._rename_preview_rows = []
+            self.workflowChanged.emit()
+            return
+
+        self._rename_preview_rows = [
+            {
+                "source_name": item.source_path.name,
+                "source_path": str(item.source_path).replace("\\", "/"),
+                "proposed_name": item.proposed_name,
             }
             for item in preview
         ]
@@ -693,7 +818,7 @@ class QmlAppState(QObject):
         self._reset_duplicate_state()
 
         if not self._source_folders:
-            self._rebuild_sorting_preview()
+            self._rebuild_previews()
             return
 
         source_paths = [Path(folder) for folder in self._source_folders]
@@ -923,6 +1048,36 @@ class QmlAppState(QObject):
     def sortingPreviewReady(self) -> bool:
         return len(self._sorting_preview_rows) > 0
 
+    @Property(str, notify=workflowChanged)
+    def renameLiveTemplateName(self) -> str:
+        return self._rename_live_template_name
+
+    @Property(str, notify=workflowChanged)
+    def renameLiveTemplateHint(self) -> str:
+        return self._rename_live_template_hint
+
+    @Property("QVariantList", notify=workflowChanged)
+    def renameTemplateOptions(self) -> list[dict[str, str]]:
+        return [{"key": key, "label": self.text(f"rename_template_{key}")} for key in self._rename_template_keys]
+
+    @Property(int, notify=workflowChanged)
+    def renameSelectedTemplateIndex(self) -> int:
+        if self._rename_template_key in self._rename_template_keys:
+            return self._rename_template_keys.index(self._rename_template_key)
+        return 0
+
+    @Property(str, notify=workflowChanged)
+    def renamePreviewCountLabel(self) -> str:
+        return self._format_text("rename_preview_count", count=len(self._rename_preview_rows))
+
+    @Property("QVariantList", notify=workflowChanged)
+    def renameBlockLabels(self) -> list[str]:
+        return [self.text(f"rename_block_{block.kind}") for block in self._rename_blocks]
+
+    @Property("QVariantList", notify=workflowChanged)
+    def renamePreviewRows(self) -> list[dict[str, str]]:
+        return list(self._rename_preview_rows)
+
     @Property(str, notify=duplicateDetailChanged)
     def duplicateDetailTitle(self) -> str:
         detail = self._selected_detail()
@@ -978,7 +1133,7 @@ class QmlAppState(QObject):
         self._language = "de" if self._language == "en" else "en"
         self._settings.setValue("ui/language", self._language)
         self._settings.sync()
-        self._rebuild_sorting_preview()
+        self._rebuild_previews()
         self.languageChanged.emit()
         self.flagPathChanged.emit()
         self.tipChanged.emit()
@@ -1039,6 +1194,29 @@ class QmlAppState(QObject):
         self._sorting_levels = [SortLevel(level.kind, level.style) for level in DEFAULT_SORT_LEVELS]
         self._rebuild_sorting_preview()
 
+    @Slot(int, result=str)
+    def renameTemplateKeyAt(self, index: int) -> str:
+        if index < 0 or index >= len(self._rename_template_keys):
+            return ""
+        return self._rename_template_keys[index]
+
+    @Slot(str)
+    def setRenameTemplate(self, template_key: str) -> None:
+        if template_key not in self._rename_template_keys:
+            return
+        self._rename_template_key = template_key
+        self._rename_blocks = blocks_for_template(template_key)
+        self._rebuild_rename_preview()
+
+    @Slot()
+    def resetRenameTemplate(self) -> None:
+        if not self._rename_template_keys:
+            return
+        reset_key = DEFAULT_RENAME_TEMPLATE if DEFAULT_RENAME_TEMPLATE in self._rename_template_keys else self._rename_template_keys[0]
+        self._rename_template_key = reset_key
+        self._rename_blocks = blocks_for_template(reset_key)
+        self._rebuild_rename_preview()
+
     @Slot(str)
     def addSourceFolder(self, folder_value: str) -> None:
         folder = self._normalize_folder_input(folder_value)
@@ -1050,7 +1228,7 @@ class QmlAppState(QObject):
         self._status_text = self._format_text("status_sources_updated")
         self.liveStatsChanged.emit()
         self.workflowChanged.emit()
-        self._rebuild_sorting_preview()
+        self._rebuild_previews()
         self._start_background_duplicate_scan()
 
     @Slot(int)
@@ -1062,7 +1240,7 @@ class QmlAppState(QObject):
         self._status_text = self._format_text("status_sources_updated")
         self.liveStatsChanged.emit()
         self.workflowChanged.emit()
-        self._rebuild_sorting_preview()
+        self._rebuild_previews()
         self._start_background_duplicate_scan()
 
     @Slot()
@@ -1070,7 +1248,7 @@ class QmlAppState(QObject):
         self._source_folders = []
         self._discovered_file_count = 0
         self._status_text = self._format_text("status_sources_updated")
-        self._rebuild_sorting_preview()
+        self._rebuild_previews()
         self._start_background_duplicate_scan()
         self.liveStatsChanged.emit()
         self.workflowChanged.emit()
@@ -1229,7 +1407,7 @@ class QmlAppState(QObject):
         self._duplicate_rows_visible = 0
         self._discovered_file_count = max(self._discovered_file_count, scanned_files)
         self._recompute_summary_state()
-        self._rebuild_sorting_preview()
+        self._rebuild_previews()
         if exact_groups > 0:
             self._status_text = self._format_text(
                 "status_duplicates_finished",
