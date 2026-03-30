@@ -1848,11 +1848,283 @@ ApplicationWindow {
                                         ColumnLayout {
                                             anchors.fill: parent
                                             spacing: 12
-                                            Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 26; font.bold: true }
-                                            Label { text: appState.workflowStageSubtitle; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                                            Item { Layout.fillHeight: true }
-                                            Label { text: "Readable date + time + original stem"; color: "#F7FAFF"; font.pixelSize: 22; font.bold: true; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
-                                            Item { Layout.fillHeight: true }
+
+                                            Label {
+                                                text: appState.workflowStageTitle
+                                                color: "#F7FAFF"
+                                                font.pixelSize: 26
+                                                font.bold: true
+                                            }
+
+                                            Label {
+                                                text: appState.workflowStageSubtitle
+                                                color: "#AFC1D9"
+                                                font.pixelSize: 15
+                                                wrapMode: Text.WordWrap
+                                                Layout.fillWidth: true
+                                            }
+
+                                            Rectangle {
+                                                Layout.fillWidth: true
+                                                Layout.fillHeight: true
+                                                radius: 18
+                                                color: "#091321"
+                                                border.color: "#22324A"
+
+                                                Flickable {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 18
+                                                    contentWidth: width
+                                                    contentHeight: renameColumn.implicitHeight
+                                                    clip: true
+
+                                                    ColumnLayout {
+                                                        id: renameColumn
+                                                        width: parent.width
+                                                        spacing: 16
+
+                                                        Label {
+                                                            text: root.trKey("rename_config_title")
+                                                            color: "#F7FAFF"
+                                                            font.pixelSize: 20
+                                                            font.bold: true
+                                                        }
+
+                                                        Label {
+                                                            text: root.trKey("rename_config_body")
+                                                            color: "#CFE1FF"
+                                                            wrapMode: Text.WordWrap
+                                                            Layout.fillWidth: true
+                                                        }
+
+                                                        Rectangle {
+                                                            Layout.fillWidth: true
+                                                            Layout.preferredHeight: 132
+                                                            radius: 18
+                                                            color: "#0F1A2C"
+                                                            border.color: "#27456E"
+
+                                                            ColumnLayout {
+                                                                anchors.fill: parent
+                                                                anchors.margins: 16
+                                                                spacing: 8
+
+                                                                Label {
+                                                                    text: root.trKey("rename_template_title")
+                                                                    color: "#AFC1D9"
+                                                                    font.pixelSize: 13
+                                                                    font.bold: true
+                                                                    Layout.fillWidth: true
+                                                                }
+
+                                                                Label {
+                                                                    text: appState.renameLiveTemplateName
+                                                                    color: "#F7FAFF"
+                                                                    font.pixelSize: 26
+                                                                    font.bold: true
+                                                                    wrapMode: Text.WrapAnywhere
+                                                                    maximumLineCount: 2
+                                                                    elide: Text.ElideRight
+                                                                    Layout.fillWidth: true
+                                                                }
+
+                                                                Label {
+                                                                    text: appState.renameLiveTemplateHint
+                                                                    color: "#8FB0E1"
+                                                                    font.pixelSize: 12
+                                                                    wrapMode: Text.WordWrap
+                                                                    Layout.fillWidth: true
+                                                                }
+                                                            }
+                                                        }
+
+                                                        RowLayout {
+                                                            Layout.fillWidth: true
+                                                            spacing: 10
+
+                                                            Label {
+                                                                text: root.trKey("rename_template_selector")
+                                                                color: "#F7FAFF"
+                                                                font.pixelSize: 14
+                                                                font.bold: true
+                                                            }
+
+                                                            ComboBox {
+                                                                Layout.preferredWidth: 340
+                                                                model: appState.renameTemplateOptions
+                                                                textRole: "label"
+                                                                currentIndex: appState.renameSelectedTemplateIndex
+                                                                onActivated: appState.setRenameTemplate(appState.renameTemplateKeyAt(index))
+
+                                                                background: Rectangle {
+                                                                    radius: 12
+                                                                    color: "#0F1A2C"
+                                                                    border.color: "#30465F"
+                                                                }
+
+                                                                contentItem: Text {
+                                                                    leftPadding: 12
+                                                                    rightPadding: 28
+                                                                    text: parent.displayText
+                                                                    color: "#F7FAFF"
+                                                                    verticalAlignment: Text.AlignVCenter
+                                                                    font.pixelSize: 13
+                                                                    elide: Text.ElideRight
+                                                                }
+                                                            }
+
+                                                            Button {
+                                                                text: root.trKey("rename_template_reset_action")
+                                                                onClicked: appState.resetRenameTemplate()
+                                                                hoverEnabled: true
+                                                                background: subtleOutlineButtonBackground
+                                                                contentItem: Text {
+                                                                    text: parent.text
+                                                                    color: "#F7FAFF"
+                                                                    horizontalAlignment: Text.AlignHCenter
+                                                                    verticalAlignment: Text.AlignVCenter
+                                                                    font.pixelSize: 13
+                                                                    font.bold: true
+                                                                }
+                                                            }
+
+                                                            Item { Layout.fillWidth: true }
+
+                                                            Rectangle {
+                                                                radius: 12
+                                                                color: "transparent"
+                                                                border.color: "#30465F"
+                                                                Layout.preferredWidth: 170
+                                                                Layout.preferredHeight: 32
+
+                                                                Label {
+                                                                    anchors.centerIn: parent
+                                                                    text: appState.renamePreviewCountLabel
+                                                                    color: "#B8D3FF"
+                                                                    font.pixelSize: 12
+                                                                    font.bold: true
+                                                                }
+                                                            }
+                                                        }
+
+                                                        Label {
+                                                            text: root.trKey("rename_blocks_title")
+                                                            color: "#F7FAFF"
+                                                            font.pixelSize: 18
+                                                            font.bold: true
+                                                        }
+
+                                                        Flow {
+                                                            Layout.fillWidth: true
+                                                            spacing: 8
+
+                                                            Repeater {
+                                                                model: appState.renameBlockLabels
+                                                                delegate: Rectangle {
+                                                                    radius: 12
+                                                                    color: "#132B4A"
+                                                                    border.color: "#4A82D7"
+                                                                    height: 34
+                                                                    width: Math.max(120, label.implicitWidth + 24)
+
+                                                                    Label {
+                                                                        id: label
+                                                                        anchors.centerIn: parent
+                                                                        text: modelData
+                                                                        color: "#F7FAFF"
+                                                                        font.pixelSize: 12
+                                                                        font.bold: true
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+
+                                                        Label {
+                                                            text: root.trKey("rename_preview_title")
+                                                            color: "#F7FAFF"
+                                                            font.pixelSize: 20
+                                                            font.bold: true
+                                                        }
+
+                                                        Label {
+                                                            text: root.trKey("rename_preview_body")
+                                                            color: "#CFE1FF"
+                                                            wrapMode: Text.WordWrap
+                                                            Layout.fillWidth: true
+                                                        }
+
+                                                        Column {
+                                                            width: parent.width
+                                                            spacing: 10
+                                                            visible: appState.renamePreviewRows.length > 0
+
+                                                            Repeater {
+                                                                model: appState.renamePreviewRows
+
+                                                                delegate: Rectangle {
+                                                                    required property var modelData
+                                                                    width: renameColumn.width
+                                                                    height: 92
+                                                                    radius: 14
+                                                                    color: "#0F1A2C"
+                                                                    border.color: "#22324A"
+
+                                                                    ColumnLayout {
+                                                                        anchors.fill: parent
+                                                                        anchors.margins: 12
+                                                                        spacing: 4
+
+                                                                        Label {
+                                                                            text: modelData.source_name
+                                                                            color: "#AFC1D9"
+                                                                            font.pixelSize: 12
+                                                                            font.bold: true
+                                                                            Layout.fillWidth: true
+                                                                            elide: Text.ElideRight
+                                                                        }
+
+                                                                        Label {
+                                                                            text: modelData.proposed_name
+                                                                            color: "#F7FAFF"
+                                                                            font.pixelSize: 17
+                                                                            font.bold: true
+                                                                            wrapMode: Text.WrapAnywhere
+                                                                            Layout.fillWidth: true
+                                                                        }
+
+                                                                        Label {
+                                                                            text: modelData.source_path
+                                                                            color: "#8FB0E1"
+                                                                            font.pixelSize: 11
+                                                                            Layout.fillWidth: true
+                                                                            elide: Text.ElideMiddle
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+
+                                                        Label {
+                                                            visible: appState.renamePreviewRows.length === 0
+                                                            text: root.trKey("rename_preview_empty")
+                                                            color: "#AFC1D9"
+                                                            wrapMode: Text.WordWrap
+                                                            Layout.fillWidth: true
+                                                        }
+
+                                                        RowLayout {
+                                                            Layout.fillWidth: true
+                                                            Item { Layout.fillWidth: true }
+
+                                                            PrimaryButton {
+                                                                text: root.trKey("stage_rename_action")
+                                                                enabled: appState.canAdvanceWorkflow
+                                                                onClicked: appState.workflowNext()
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
 
