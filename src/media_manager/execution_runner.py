@@ -1,0 +1,157 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from .execution_plan import DuplicateExecutionPreview, ExecutionPreviewRow
+
+
+@dataclass(slots=True)
+class ExecutionRunEntry:
+    row_type: str
+    status: str
+    source_path: Path
+    survivor_path: Path | None
+    target_path: Path | None
+    outcome: str
+    reason: str
+
+
+@dataclass(slots=True)
+class DuplicateExecutionRunResult:
+    processed_rows: int = 0
+    executable_rows: int = 0
+    executed_rows: int = 0
+    deferred_rows: int = 0
+    blocked_rows: int = 0
+    error_rows: int = 0
+    entries: list[ExecutionRunEntry] = field(default_factory=list)
+
+
+
+def run_duplicate_execution_preview(
+    preview: DuplicateExecutionPreview,
+    *,
+    apply: bool = False,
+) -> DuplicateExecutionRunResult:
+    """
+    Execute or preview only the currently executable duplicate rows.
+
+    Current scope intentionally stays narrow:
+    - `filesystem_delete` rows can be executed when `apply=True`
+    - `pipeline_exclusion` rows stay deferred because later copy/move pipeline integration does not exist yet
+    - `blocked` rows stay blocked
+    """
+    result = DuplicateExecutionRunResult()
+
+    for row in preview.rows:
+        result.processed_rows += 1
+
+        if row.status == "blocked" or row.row_type == "blocked":
+            result.blocked_rows += 1
+            result.entries.append(
+                ExecutionRunEntry(
+                    row_type=row.row_type,
+                    status=row.status,
+                    source_path=row.source_path,
+                    survivor_path=row.survivor_path,
+                    target_path=row.target_path,
+                    outcome="blocked",
+                    reason=row.reason,
+                )
+            )
+            continue
+
+        if row.row_type == "pipeline_exclusion" or row.status == "deferred":
+            result.deferred_rows += 1
+            result.entries.append(
+                ExecutionRunEntry(
+                    row_type=row.row_type,
+                    status=row.status,
+                    source_path=row.source_path,
+                    survivor_path=row.survivor_path,
+                    target_path=row.target_path,
+                    outcome="deferred",
+                    reason=row.reason,
+                )
+            )
+            continue
+
+        if row.row_type != "filesystem_delete" or row.status != "executable":
+            result.error_rows += 1
+            result.entries.append(
+                ExecutionRunEntry(
+                    row_type=row.row_type,
+                    status=row.status,
+                    source_path=row.source_path,
+                    survivor_path=row.survivor_path,
+                    target_path=row.target_path,
+                    outcome="error",
+                    reason=f"unsupported execution row: {row.row_type}/{row.status}",
+                )
+            )
+            continue
+
+        result.executable_rows += 1
+
+        if not row.source_path.exists():
+            result.error_rows += 1
+            result.entries.append(
+                ExecutionRunEntry(
+                    row_type=row.row_type,
+                    status=row.status,
+                    source_path=row.source_path,
+                    survivor_path=row.survivor_path,
+                    target_path=row.target_path,
+                    outcome="error",
+                    reason="source_missing",
+                )
+            )
+            continue
+
+        if not apply:
+            result.executed_rows += 1
+            result.entries.append(
+                ExecutionRunEntry(
+                    row_type=row.row_type,
+                    status=row.status,
+                    source_path=row.source_path,
+                    survivor_path=row.survivor_path,
+                    target_path=row.target_path,
+                    outcome="preview-delete",
+                    reason=row.reason,
+                )
+            )
+            continue
+
+        try:
+            row.source_path.unlink()
+        except Exception as exc:  # pragma: no cover - runtime safeguard
+            result.error_rows += 1
+            result.entries.append(
+                ExecutionRunEntry(
+                    row_type=row.row_type,
+                    status=row.status,
+                    source_path=row.source_path,
+                    survivor_path=row.survivor_path,
+                    target_path=row.target_path,
+                    outcome="error",
+                    reason=str(exc),
+                )
+            )
+            continue
+
+        result.executed_rows += 1
+        result.entries.append(
+            ExecutionRunEntry(
+                row_type=row.row_type,
+                status=row.status,
+                source_path=row.source_path,
+                survivor_path=row.survivor_path,
+                target_path=row.target_path,
+                outcome="deleted",
+                reason=row.reason,
+            )
+        )
+
+    return result
