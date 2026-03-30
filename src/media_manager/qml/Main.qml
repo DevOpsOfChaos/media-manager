@@ -2338,44 +2338,1084 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
 
-                    ColumnLayout {
-                        anchors.centerIn: parent
-                        spacing: 14
+                    property int manualPageIndex: appState.currentPage === "duplicates" ? 0 : (appState.currentPage === "organize" ? 1 : 2)
 
-                        Label {
-                            text: root.trKey("manual_placeholder_title")
-                            color: "#F7FAFF"
-                            font.pixelSize: 30
-                            font.bold: true
-                            horizontalAlignment: Text.AlignHCenter
+                    StackLayout {
+                        anchors.fill: parent
+                        currentIndex: manualPageIndex
+
+                        Item {
                             Layout.fillWidth: true
+                            Layout.fillHeight: true
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                spacing: 12
+
+                                Label {
+                                    text: root.trKey("nav_duplicates")
+                                    color: "#F7FAFF"
+                                    font.pixelSize: 30
+                                    font.bold: true
+                                }
+
+                                Label {
+                                    text: appState.language === "de"
+                                          ? "Manueller Zugriff auf die exakte Duplikat-Prüfung. Für eine vollständige Bereinigung bleibt der Workflow der bessere Pfad."
+                                          : "Manual access to the exact duplicate review. The guided workflow remains the better path for a full cleanup."
+                                    color: "#AFC1D9"
+                                    font.pixelSize: 14
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    radius: 18
+                                    color: "#091321"
+                                    border.color: "#22324A"
+
+                                    Loader {
+                                        anchors.fill: parent
+                                        active: appState.sourceCount === 0
+                                        sourceComponent: manualEmptyStateDuplicates
+                                    }
+
+                                    Loader {
+                                        anchors.fill: parent
+                                        active: appState.sourceCount > 0
+                                        sourceComponent: manualDuplicatesContent
+                                    }
+                                }
+                            }
                         }
 
-                        Label {
-                            text: root.trKey("manual_placeholder_body")
-                            color: "#C8D9EE"
-                            wrapMode: Text.WordWrap
-                            horizontalAlignment: Text.AlignHCenter
-                            Layout.preferredWidth: 660
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                spacing: 12
+
+                                Label {
+                                    text: root.trKey("nav_organize")
+                                    color: "#F7FAFF"
+                                    font.pixelSize: 30
+                                    font.bold: true
+                                }
+
+                                Label {
+                                    text: appState.language === "de"
+                                          ? "Manueller Zugriff auf den Sortier-Builder. Nutze dieselbe Vorschau-Logik ohne den geführten Gesamtpfad."
+                                          : "Manual access to the sorting builder. Use the same preview logic without the full guided path."
+                                    color: "#AFC1D9"
+                                    font.pixelSize: 14
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    radius: 18
+                                    color: "#091321"
+                                    border.color: "#22324A"
+
+                                    Loader {
+                                        anchors.fill: parent
+                                        active: appState.sourceCount === 0
+                                        sourceComponent: manualEmptyStateOrganize
+                                    }
+
+                                    Loader {
+                                        anchors.fill: parent
+                                        active: appState.sourceCount > 0
+                                        sourceComponent: manualOrganizeContent
+                                    }
+                                }
+                            }
                         }
 
-                        Label {
-                            text: root.trKey("manual_hint")
-                            color: "#CFE1FF"
-                            wrapMode: Text.WordWrap
-                            horizontalAlignment: Text.AlignHCenter
-                            Layout.preferredWidth: 620
-                        }
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
 
-                        PrimaryButton {
-                            text: root.trKey("nav_workflow")
-                            onClicked: appState.setPage("workflow")
+                            ColumnLayout {
+                                anchors.fill: parent
+                                spacing: 12
+
+                                Label {
+                                    text: root.trKey("nav_rename")
+                                    color: "#F7FAFF"
+                                    font.pixelSize: 30
+                                    font.bold: true
+                                }
+
+                                Label {
+                                    text: appState.language === "de"
+                                          ? "Manueller Zugriff auf den Rename-Builder. Die Dateinamenvorschau wird direkt aus den aktiven Blöcken aufgebaut."
+                                          : "Manual access to the rename builder. Filename previews are built directly from the active block list."
+                                    color: "#AFC1D9"
+                                    font.pixelSize: 14
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    radius: 18
+                                    color: "#091321"
+                                    border.color: "#22324A"
+
+                                    Loader {
+                                        anchors.fill: parent
+                                        active: appState.sourceCount === 0
+                                        sourceComponent: manualEmptyStateRename
+                                    }
+
+                                    Loader {
+                                        anchors.fill: parent
+                                        active: appState.sourceCount > 0
+                                        sourceComponent: manualRenameContent
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     }
+
+    Component {
+        id: manualEmptyStateDuplicates
+
+        ColumnLayout {
+            anchors.centerIn: parent
+            spacing: 12
+
+            Label {
+                text: appState.language === "de" ? "Wähle zuerst Quellordner aus." : "Select source folders first."
+                color: "#F7FAFF"
+                font.pixelSize: 24
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                Layout.alignment: Qt.AlignHCenter
+            }
+
+            Label {
+                text: appState.language === "de"
+                      ? "Ohne Quellordner kann die manuelle Duplikat-Prüfung nichts anzeigen."
+                      : "Without source folders, manual duplicate review cannot show anything yet."
+                color: "#CFE1FF"
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+                Layout.preferredWidth: 560
+                Layout.alignment: Qt.AlignHCenter
+            }
+
+            RowLayout {
+                spacing: 10
+                Layout.alignment: Qt.AlignHCenter
+
+                PrimaryButton {
+                    text: root.trKey("stage_sources_action")
+                    onClicked: sourceFolderDialog.open()
+                }
+
+                Button {
+                    text: root.trKey("nav_workflow")
+                    onClicked: appState.setPage("workflow")
+                    hoverEnabled: true
+                    background: SubtleOutlineButtonBackground {}
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#F7FAFF"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 14
+                        font.bold: true
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: manualEmptyStateOrganize
+
+        ColumnLayout {
+            anchors.centerIn: parent
+            spacing: 12
+
+            Label {
+                text: appState.language === "de" ? "Wähle zuerst Quellordner aus." : "Select source folders first."
+                color: "#F7FAFF"
+                font.pixelSize: 24
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                Layout.alignment: Qt.AlignHCenter
+            }
+
+            Label {
+                text: appState.language === "de"
+                      ? "Ohne Quellordner gibt es keine echte Sortier-Vorschau."
+                      : "Without source folders, there is no real sorting preview yet."
+                color: "#CFE1FF"
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+                Layout.preferredWidth: 560
+                Layout.alignment: Qt.AlignHCenter
+            }
+
+            RowLayout {
+                spacing: 10
+                Layout.alignment: Qt.AlignHCenter
+
+                PrimaryButton {
+                    text: root.trKey("stage_sources_action")
+                    onClicked: sourceFolderDialog.open()
+                }
+
+                Button {
+                    text: root.trKey("nav_workflow")
+                    onClicked: appState.setPage("workflow")
+                    hoverEnabled: true
+                    background: SubtleOutlineButtonBackground {}
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#F7FAFF"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 14
+                        font.bold: true
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: manualEmptyStateRename
+
+        ColumnLayout {
+            anchors.centerIn: parent
+            spacing: 12
+
+            Label {
+                text: appState.language === "de" ? "Wähle zuerst Quellordner aus." : "Select source folders first."
+                color: "#F7FAFF"
+                font.pixelSize: 24
+                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                Layout.alignment: Qt.AlignHCenter
+            }
+
+            Label {
+                text: appState.language === "de"
+                      ? "Ohne Quellordner gibt es keine echte Rename-Vorschau."
+                      : "Without source folders, there is no real rename preview yet."
+                color: "#CFE1FF"
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+                Layout.preferredWidth: 560
+                Layout.alignment: Qt.AlignHCenter
+            }
+
+            RowLayout {
+                spacing: 10
+                Layout.alignment: Qt.AlignHCenter
+
+                PrimaryButton {
+                    text: root.trKey("stage_sources_action")
+                    onClicked: sourceFolderDialog.open()
+                }
+
+                Button {
+                    text: root.trKey("nav_workflow")
+                    onClicked: appState.setPage("workflow")
+                    hoverEnabled: true
+                    background: SubtleOutlineButtonBackground {}
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#F7FAFF"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 14
+                        font.bold: true
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: manualDuplicatesContent
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 18
+            spacing: 12
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                PrimaryButton {
+                    text: root.trKey("stage_duplicates_action")
+                    enabled: appState.sourceCount > 0
+                    onClicked: appState.startDuplicatePreview()
+                }
+
+                Button {
+                    text: root.trKey("stage_sources_action")
+                    onClicked: sourceFolderDialog.open()
+                    hoverEnabled: true
+                    background: SubtleOutlineButtonBackground {}
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#F7FAFF"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 13
+                        font.bold: true
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
+            }
+
+            ProgressBar {
+                Layout.fillWidth: true
+                from: 0
+                to: 100
+                value: appState.duplicateProgress
+                background: Rectangle { radius: 8; color: "#101B2D" }
+                contentItem: Item { Rectangle { width: parent.width * (appState.duplicateProgress / 100.0); height: parent.height; radius: 8; color: "#2F6FED" } }
+            }
+
+            Label {
+                text: appState.statusText
+                color: "#CFE1FF"
+                wrapMode: Text.WordWrap
+                font.pixelSize: 14
+                Layout.fillWidth: true
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                radius: 18
+                color: "#0F1A2C"
+                border.color: "#22324A"
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: 8
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 42
+                        radius: 12
+                        color: "#091321"
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 8
+                            Repeater {
+                                model: [root.trKey("table_name"), root.trKey("table_size"), root.trKey("table_date"), root.trKey("table_matches"), root.trKey("table_score"), root.trKey("table_action")]
+                                delegate: Label {
+                                    Layout.fillWidth: true
+                                    text: modelData
+                                    color: "#F7FAFF"
+                                    font.pixelSize: 13
+                                    font.bold: true
+                                }
+                            }
+                        }
+                    }
+
+                    Flickable {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        contentWidth: width
+                        contentHeight: manualDuplicateRowsColumn.implicitHeight
+                        clip: true
+
+                        Column {
+                            id: manualDuplicateRowsColumn
+                            width: parent.width
+                            spacing: 8
+
+                            Repeater {
+                                model: appState.duplicateRows
+                                delegate: Rectangle {
+                                    width: manualDuplicateRowsColumn.width
+                                    height: 52
+                                    radius: 12
+                                    color: "#091321"
+                                    border.color: "#22324A"
+
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.margins: 10
+                                        spacing: 8
+                                        Label { Layout.fillWidth: true; text: modelData.name; color: "#E6EEF8"; font.pixelSize: 13 }
+                                        Label { Layout.fillWidth: true; text: modelData.size; color: "#E6EEF8"; font.pixelSize: 13 }
+                                        Label { Layout.fillWidth: true; text: modelData.date; color: "#E6EEF8"; font.pixelSize: 13 }
+                                        Label { Layout.fillWidth: true; text: modelData.matches; color: "#E6EEF8"; font.pixelSize: 13 }
+                                        Label { Layout.fillWidth: true; text: modelData.score; color: modelData.score === "100%" ? "#8CE99A" : "#FFD18C"; font.pixelSize: 13; font.bold: true }
+                                        Button {
+                                            Layout.fillWidth: true
+                                            text: root.trKey("table_show")
+                                            hoverEnabled: true
+                                            onClicked: {
+                                                appState.openDuplicateGroup(Number(modelData.index))
+                                                duplicateDetailPopup.open()
+                                            }
+                                            background: SubtleOutlineButtonBackground {}
+                                            contentItem: Text {
+                                                text: parent.text
+                                                color: "#F7FAFF"
+                                                horizontalAlignment: Text.AlignHCenter
+                                                verticalAlignment: Text.AlignVCenter
+                                                font.pixelSize: 12
+                                                font.bold: true
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: manualOrganizeContent
+
+        Flickable {
+            anchors.fill: parent
+            anchors.margins: 18
+            contentWidth: width
+            contentHeight: manualSortingColumn.implicitHeight
+            clip: true
+
+            ColumnLayout {
+                id: manualSortingColumn
+                width: parent.width
+                spacing: 16
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    implicitHeight: manualSortingTemplateColumn.implicitHeight + 34
+                    radius: 18
+                    color: "#0F1A2C"
+                    border.color: "#2D4A72"
+
+                    ColumnLayout {
+                        id: manualSortingTemplateColumn
+                        anchors.fill: parent
+                        anchors.margins: 16
+                        spacing: 8
+
+                        Label {
+                            text: root.trKey("sorting_template_title")
+                            color: "#AFC1D9"
+                            font.pixelSize: 14
+                            font.bold: true
+                            Layout.fillWidth: true
+                        }
+
+                        Label {
+                            text: appState.sortingTemplatePathLabel.length > 0 ? appState.sortingTemplatePathLabel : "2025 / 07 / 14"
+                            color: "#F7FAFF"
+                            font.pixelSize: 34
+                            font.bold: true
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
+
+                        Label {
+                            text: appState.sortingTemplateHintLabel
+                            color: "#8FB0E1"
+                            font.pixelSize: 13
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 132
+                        radius: 16
+                        color: "#0F1A2C"
+                        border.color: "#22324A"
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 14
+                            spacing: 8
+                            Label { text: root.trKey("sorting_level_year"); color: "#F7FAFF"; font.pixelSize: 16; font.bold: true }
+                            Label { text: appState.sortingYearStyleLabel; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            Item { Layout.fillHeight: true }
+                            Button {
+                                text: root.trKey("sorting_cycle_action")
+                                onClicked: appState.cycleSortingYearStyle()
+                                hoverEnabled: true
+                                background: SubtleOutlineButtonBackground {}
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: "#F7FAFF"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    font.pixelSize: 13
+                                    font.bold: true
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 132
+                        radius: 16
+                        color: "#0F1A2C"
+                        border.color: "#22324A"
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 14
+                            spacing: 8
+                            Label { text: root.trKey("sorting_level_month"); color: "#F7FAFF"; font.pixelSize: 16; font.bold: true }
+                            Label { text: appState.sortingMonthStyleLabel; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            Item { Layout.fillHeight: true }
+                            Button {
+                                text: root.trKey("sorting_cycle_action")
+                                onClicked: appState.cycleSortingMonthStyle()
+                                hoverEnabled: true
+                                background: SubtleOutlineButtonBackground {}
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: "#F7FAFF"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    font.pixelSize: 13
+                                    font.bold: true
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 132
+                        radius: 16
+                        color: "#0F1A2C"
+                        border.color: "#22324A"
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 14
+                            spacing: 8
+                            Label { text: root.trKey("sorting_level_day"); color: "#F7FAFF"; font.pixelSize: 16; font.bold: true }
+                            Label { text: appState.sortingDayStyleLabel; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            Item { Layout.fillHeight: true }
+                            Button {
+                                text: root.trKey("sorting_cycle_action")
+                                onClicked: appState.cycleSortingDayStyle()
+                                hoverEnabled: true
+                                background: SubtleOutlineButtonBackground {}
+                                contentItem: Text {
+                                    text: parent.text
+                                    color: "#F7FAFF"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    font.pixelSize: 13
+                                    font.bold: true
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Button {
+                        text: root.trKey("sorting_reset_action")
+                        onClicked: appState.resetSortingDefaults()
+                        hoverEnabled: true
+                        background: SubtleOutlineButtonBackground {}
+                        contentItem: Text {
+                            text: parent.text
+                            color: "#F7FAFF"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font.pixelSize: 13
+                            font.bold: true
+                        }
+                    }
+
+                    Button {
+                        text: root.trKey("stage_sources_action")
+                        onClicked: sourceFolderDialog.open()
+                        hoverEnabled: true
+                        background: SubtleOutlineButtonBackground {}
+                        contentItem: Text {
+                            text: parent.text
+                            color: "#F7FAFF"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font.pixelSize: 13
+                            font.bold: true
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    Label {
+                        text: root.trKey("sorting_preview_title")
+                        color: "#F7FAFF"
+                        font.pixelSize: 20
+                        font.bold: true
+                        Layout.fillWidth: true
+                    }
+
+                    Rectangle {
+                        radius: 12
+                        color: "transparent"
+                        border.color: "#355988"
+                        implicitWidth: manualSortingCountLabel.implicitWidth + 28
+                        implicitHeight: manualSortingCountLabel.implicitHeight + 14
+
+                        Label {
+                            id: manualSortingCountLabel
+                            anchors.centerIn: parent
+                            text: appState.sortingPreviewCountLabel
+                            color: "#B8D3FF"
+                            font.pixelSize: 12
+                            font.bold: true
+                        }
+                    }
+                }
+
+                Label {
+                    text: root.trKey("sorting_preview_body")
+                    color: "#CFE1FF"
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+                    visible: appState.sortingPreviewRows.length > 0
+
+                    Repeater {
+                        model: appState.sortingPreviewRows
+
+                        delegate: Rectangle {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            implicitHeight: 96
+                            radius: 14
+                            color: "#0F1A2C"
+                            border.color: "#22324A"
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                spacing: 6
+
+                                Label {
+                                    text: modelData.source_name
+                                    color: "#F7FAFF"
+                                    font.pixelSize: 14
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+
+                                    Label {
+                                        text: modelData.captured_at
+                                        color: "#CFE1FF"
+                                        font.pixelSize: 12
+                                        Layout.preferredWidth: 150
+                                    }
+
+                                    Label {
+                                        text: modelData.relative_directory
+                                        color: "#8FB0E1"
+                                        font.pixelSize: 12
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                    }
+                                }
+
+                                Label {
+                                    text: modelData.source_path
+                                    color: "#6F8FB9"
+                                    font.pixelSize: 11
+                                    elide: Text.ElideMiddle
+                                    Layout.fillWidth: true
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Label {
+                    visible: appState.sortingPreviewRows.length === 0
+                    text: root.trKey("sorting_preview_empty")
+                    color: "#AFC1D9"
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+            }
+        }
+    }
+
+    Component {
+        id: manualRenameContent
+
+        Flickable {
+            anchors.fill: parent
+            anchors.margins: 18
+            contentWidth: width
+            contentHeight: manualRenameColumn.implicitHeight
+            clip: true
+
+            ColumnLayout {
+                id: manualRenameColumn
+                width: parent.width
+                spacing: 16
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    implicitHeight: manualRenameTemplateColumn.implicitHeight + 34
+                    radius: 18
+                    color: "#0F1A2C"
+                    border.color: "#27456E"
+
+                    ColumnLayout {
+                        id: manualRenameTemplateColumn
+                        anchors.fill: parent
+                        anchors.margins: 16
+                        spacing: 8
+
+                        Label {
+                            text: root.trKey("rename_template_title")
+                            color: "#AFC1D9"
+                            font.pixelSize: 13
+                            font.bold: true
+                            Layout.fillWidth: true
+                        }
+
+                        Label {
+                            text: appState.renameLiveTemplateName
+                            color: "#F7FAFF"
+                            font.pixelSize: 28
+                            font.bold: true
+                            wrapMode: Text.WrapAnywhere
+                            maximumLineCount: 2
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                        }
+
+                        Label {
+                            text: appState.renameLiveTemplateHint
+                            color: "#8FB0E1"
+                            font.pixelSize: 12
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
+                    }
+                }
+
+                Label {
+                    text: root.trKey("rename_blocks_body")
+                    color: "#CFE1FF"
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Repeater {
+                        model: appState.renameTemplateOptions
+
+                        delegate: Button {
+                            required property var modelData
+                            visible: modelData.key !== "custom"
+                            text: modelData.label
+                            hoverEnabled: true
+                            onClicked: appState.setRenameTemplate(modelData.key)
+                            background: Rectangle {
+                                radius: 14
+                                color: index === appState.renameSelectedTemplateIndex ? "#132B4A" : (parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent"))
+                                border.width: 1
+                                border.color: index === appState.renameSelectedTemplateIndex ? "#4A82D7" : (parent.hovered ? "#4A82D7" : "#30465F")
+                            }
+                            contentItem: Text {
+                                text: parent.text
+                                color: "#F7FAFF"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                font.pixelSize: 12
+                                font.bold: true
+                            }
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Button {
+                        text: root.trKey("rename_template_reset_action")
+                        onClicked: appState.resetRenameTemplate()
+                        hoverEnabled: true
+                        background: SubtleOutlineButtonBackground {}
+                        contentItem: Text {
+                            text: parent.text
+                            color: "#F7FAFF"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font.pixelSize: 13
+                            font.bold: true
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Label {
+                        text: root.trKey("rename_blocks_title")
+                        color: "#F7FAFF"
+                        font.pixelSize: 18
+                        font.bold: true
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Button {
+                        text: root.trKey("rename_add_block_action")
+                        onClicked: appState.addRenameBlock()
+                        hoverEnabled: true
+                        background: SubtleOutlineButtonBackground {}
+                        contentItem: Text {
+                            text: parent.text
+                            color: "#F7FAFF"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font.pixelSize: 13
+                            font.bold: true
+                        }
+                    }
+                }
+
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Repeater {
+                        model: appState.renameBlocks
+
+                        delegate: Rectangle {
+                            required property var modelData
+                            width: 220
+                            height: 112
+                            radius: 16
+                            color: "#0F1A2C"
+                            border.color: "#22324A"
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: appState.cycleRenameBlock(modelData.index)
+                            }
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                spacing: 6
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+
+                                    Label {
+                                        text: modelData.slot_label
+                                        color: "#8FB0E1"
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Button {
+                                        visible: modelData.removable
+                                        text: "✕"
+                                        onClicked: appState.removeRenameBlock(modelData.index)
+                                        hoverEnabled: true
+                                        background: Rectangle {
+                                            radius: 10
+                                            color: parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent")
+                                            border.width: 1
+                                            border.color: parent.hovered ? "#4A82D7" : "#30465F"
+                                        }
+                                        contentItem: Text {
+                                            text: parent.text
+                                            color: "#F7FAFF"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                            font.pixelSize: 12
+                                            font.bold: true
+                                        }
+                                    }
+                                }
+
+                                Item { Layout.fillHeight: true }
+
+                                Label {
+                                    text: modelData.label
+                                    color: "#F7FAFF"
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+
+                                Label {
+                                    text: modelData.hint
+                                    color: "#AFC1D9"
+                                    font.pixelSize: 12
+                                    Layout.fillWidth: true
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    Label {
+                        text: root.trKey("rename_preview_title")
+                        color: "#F7FAFF"
+                        font.pixelSize: 20
+                        font.bold: true
+                        Layout.fillWidth: true
+                    }
+
+                    Rectangle {
+                        radius: 12
+                        color: "transparent"
+                        border.color: "#30465F"
+                        implicitWidth: manualRenameCountLabel.implicitWidth + 28
+                        implicitHeight: manualRenameCountLabel.implicitHeight + 14
+
+                        Label {
+                            id: manualRenameCountLabel
+                            anchors.centerIn: parent
+                            text: appState.renamePreviewCountLabel
+                            color: "#B8D3FF"
+                            font.pixelSize: 12
+                            font.bold: true
+                        }
+                    }
+                }
+
+                Label {
+                    text: root.trKey("rename_preview_body")
+                    color: "#CFE1FF"
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
+                Column {
+                    width: parent.width
+                    spacing: 10
+                    visible: appState.renamePreviewRows.length > 0
+
+                    Repeater {
+                        model: appState.renamePreviewRows
+
+                        delegate: Rectangle {
+                            required property var modelData
+                            width: manualRenameColumn.width
+                            height: 92
+                            radius: 14
+                            color: "#0F1A2C"
+                            border.color: "#22324A"
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                spacing: 4
+
+                                Label {
+                                    text: modelData.source_name
+                                    color: "#AFC1D9"
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideRight
+                                }
+
+                                Label {
+                                    text: modelData.proposed_name
+                                    color: "#F7FAFF"
+                                    font.pixelSize: 17
+                                    font.bold: true
+                                    wrapMode: Text.WrapAnywhere
+                                    Layout.fillWidth: true
+                                }
+
+                                Label {
+                                    text: modelData.source_path
+                                    color: "#8FB0E1"
+                                    font.pixelSize: 11
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideMiddle
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Label {
+                    visible: appState.renamePreviewRows.length === 0
+                    text: root.trKey("rename_preview_empty")
+                    color: "#AFC1D9"
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+            }
+        }
+    }
+
 
     Component {
         id: sourceListComponent
