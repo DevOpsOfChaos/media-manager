@@ -137,7 +137,13 @@ TRANSLATIONS = {
         "stage_rename_subtitle": "Rename configuration comes after sorting.",
         "stage_rename_action": "Continue to summary",
         "rename_config_title": "Rename builder",
-        "rename_config_body": "Choose a naming template first. The preview already uses real source files and keeps the rename logic centralized in Python instead of hardcoded QML strings.",
+        "rename_config_body": "Start with two core blocks and add more when needed. Templates are only presets now. The real rename preview is always built from the active block list.",
+        "rename_blocks_body": "Each block stands for one filename part. Click a block to change it. Add optional blocks only when they improve the result.",
+        "rename_add_block_action": "Add block",
+        "rename_remove_block_action": "Remove",
+        "rename_block_press_to_change": "Press to change",
+        "rename_block_optional": "Optional block",
+        "rename_block_primary": "Core block",
         "rename_template_title": "Live filename template",
         "rename_template_selector": "Template",
         "rename_template_reset_action": "Reset template",
@@ -148,6 +154,7 @@ TRANSLATIONS = {
         "rename_preview_title": "Rename preview",
         "rename_preview_body": "Real source files are mapped to their proposed names.",
         "rename_preview_empty": "Add source folders with media files to see rename previews.",
+        "rename_template_custom": "Custom blocks",
         "rename_template_readable_datetime_original": "Readable date + time + original name",
         "rename_template_year_month_day_time_original": "Year + month + day + time + original name",
         "rename_template_date_original": "ISO date + original name",
@@ -311,7 +318,13 @@ TRANSLATIONS = {
         "stage_rename_subtitle": "Die Umbenennungs-Konfiguration kommt nach dem Sortieren.",
         "stage_rename_action": "Weiter zur Zusammenfassung",
         "rename_config_title": "Umbenennen-Builder",
-        "rename_config_body": "Wähle zuerst eine Namensvorlage. Die Vorschau nutzt bereits echte Quelldateien und hält die Umbenennen-Logik im Python-Backend statt in hartcodierten QML-Strings.",
+        "rename_config_body": "Starte mit zwei Kernblöcken und füge weitere nur bei Bedarf hinzu. Vorlagen sind jetzt nur noch Presets. Die echte Vorschau wird immer aus der aktiven Blockliste gebaut.",
+        "rename_blocks_body": "Jeder Block steht für einen Teil des Dateinamens. Klicke auf einen Block, um ihn zu ändern. Zusätzliche Blöcke nur dann hinzufügen, wenn sie wirklich helfen.",
+        "rename_add_block_action": "Block hinzufügen",
+        "rename_remove_block_action": "Entfernen",
+        "rename_block_press_to_change": "Klicken zum Ändern",
+        "rename_block_optional": "Optionaler Block",
+        "rename_block_primary": "Kernblock",
         "rename_template_title": "Live-Dateinamen-Vorlage",
         "rename_template_selector": "Vorlage",
         "rename_template_reset_action": "Vorlage zurücksetzen",
@@ -322,6 +335,7 @@ TRANSLATIONS = {
         "rename_preview_title": "Umbenennen-Vorschau",
         "rename_preview_body": "Echte Quelldateien werden auf ihre vorgeschlagenen Namen abgebildet.",
         "rename_preview_empty": "Füge Quellordner mit Mediendateien hinzu, um Umbenennen-Vorschauen zu sehen.",
+        "rename_template_custom": "Eigene Blöcke",
         "rename_template_readable_datetime_original": "Lesbares Datum + Uhrzeit + Originalname",
         "rename_template_year_month_day_time_original": "Jahr + Monat + Tag + Uhrzeit + Originalname",
         "rename_template_date_original": "ISO-Datum + Originalname",
@@ -383,6 +397,19 @@ YEAR_STYLE_OPTIONS = ["yyyy", "yy"]
 MONTH_STYLE_OPTIONS = ["mm", "name", "yyyy-mm"]
 DAY_STYLE_OPTIONS = ["dd", "yyyy-mm-dd"]
 DEFAULT_RENAME_TEMPLATE = "readable_datetime_original"
+DEFAULT_RENAME_BLOCKS = [
+    RenameBlock(kind="date_readable", position="prefix"),
+    RenameBlock(kind="original_stem", position="suffix"),
+]
+RENAME_BLOCK_KIND_OPTIONS = [
+    "date_readable",
+    "date_iso",
+    "time_hhmmss",
+    "year",
+    "month_name",
+    "day",
+    "original_stem",
+]
 
 
 class QmlAppState(QObject):
@@ -446,15 +473,9 @@ class QmlAppState(QObject):
         self._sorting_template_path = ""
         self._sorting_template_hint = ""
 
-        self._rename_template_keys = template_names()
-        if DEFAULT_RENAME_TEMPLATE in self._rename_template_keys:
-            default_template = DEFAULT_RENAME_TEMPLATE
-        elif self._rename_template_keys:
-            default_template = self._rename_template_keys[0]
-        else:
-            default_template = ""
-        self._rename_template_key = default_template
-        self._rename_blocks = blocks_for_template(default_template) if default_template else []
+        self._rename_template_keys = ["custom", *template_names()]
+        self._rename_template_key = "custom"
+        self._rename_blocks = [RenameBlock(block.kind, block.position) for block in DEFAULT_RENAME_BLOCKS]
         self._rename_preview_rows: list[dict[str, str]] = []
         self._rename_live_template_name = ""
         self._rename_live_template_hint = ""
@@ -625,7 +646,37 @@ class QmlAppState(QObject):
         ]
         self.workflowChanged.emit()
 
+    def _rename_block_kind_label(self, kind: str) -> str:
+        return self.text(f"rename_block_{kind}")
+
+    def _rename_block_index(self, kind: str) -> int:
+        if kind in RENAME_BLOCK_KIND_OPTIONS:
+            return RENAME_BLOCK_KIND_OPTIONS.index(kind)
+        return 0
+
+    def _rename_blocks_match_template(self, template_key: str) -> bool:
+        if template_key == "custom":
+            return False
+        try:
+            template_blocks = blocks_for_template(template_key)
+        except Exception:
+            return False
+        if len(template_blocks) != len(self._rename_blocks):
+            return False
+        return all(
+            left.kind == right.kind and left.position == right.position
+            for left, right in zip(self._rename_blocks, template_blocks)
+        )
+
+    def _sync_rename_template_key(self) -> None:
+        for template_key in self._rename_template_keys:
+            if self._rename_blocks_match_template(template_key):
+                self._rename_template_key = template_key
+                return
+        self._rename_template_key = "custom"
+
     def _rebuild_rename_preview(self) -> None:
+        self._sync_rename_template_key()
         inputs = self._collect_media_preview_inputs()
         sample_path = inputs[0][0] if inputs else Path("IMG_1234.JPG")
         sample_dt = inputs[0][1] if inputs else datetime.now()
@@ -1075,6 +1126,22 @@ class QmlAppState(QObject):
         return [self.text(f"rename_block_{block.kind}") for block in self._rename_blocks]
 
     @Property("QVariantList", notify=workflowChanged)
+    def renameBlocks(self) -> list[dict[str, object]]:
+        rows: list[dict[str, object]] = []
+        for index, block in enumerate(self._rename_blocks):
+            rows.append(
+                {
+                    "index": index,
+                    "kind": block.kind,
+                    "label": self._rename_block_kind_label(block.kind),
+                    "removable": index >= 2,
+                    "slot_label": self.text("rename_block_primary") if index < 2 else self.text("rename_block_optional"),
+                    "hint": self.text("rename_block_press_to_change"),
+                }
+            )
+        return rows
+
+    @Property("QVariantList", notify=workflowChanged)
     def renamePreviewRows(self) -> list[dict[str, str]]:
         return list(self._rename_preview_rows)
 
@@ -1202,7 +1269,7 @@ class QmlAppState(QObject):
 
     @Slot(str)
     def setRenameTemplate(self, template_key: str) -> None:
-        if template_key not in self._rename_template_keys:
+        if template_key not in self._rename_template_keys or template_key == "custom":
             return
         self._rename_template_key = template_key
         self._rename_blocks = blocks_for_template(template_key)
@@ -1210,11 +1277,8 @@ class QmlAppState(QObject):
 
     @Slot()
     def resetRenameTemplate(self) -> None:
-        if not self._rename_template_keys:
-            return
-        reset_key = DEFAULT_RENAME_TEMPLATE if DEFAULT_RENAME_TEMPLATE in self._rename_template_keys else self._rename_template_keys[0]
-        self._rename_template_key = reset_key
-        self._rename_blocks = blocks_for_template(reset_key)
+        self._rename_template_key = "custom"
+        self._rename_blocks = [RenameBlock(block.kind, block.position) for block in DEFAULT_RENAME_BLOCKS]
         self._rebuild_rename_preview()
 
     @Slot(str)
@@ -1370,6 +1434,28 @@ class QmlAppState(QObject):
         self._recompute_summary_state()
         self.workflowChanged.emit()
         self.duplicateDetailChanged.emit()
+
+    @Slot(int)
+    def cycleRenameBlock(self, index: int) -> None:
+        if index < 0 or index >= len(self._rename_blocks):
+            return
+        current_kind = self._rename_blocks[index].kind
+        current_index = self._rename_block_index(current_kind)
+        next_kind = RENAME_BLOCK_KIND_OPTIONS[(current_index + 1) % len(RENAME_BLOCK_KIND_OPTIONS)]
+        self._rename_blocks[index] = RenameBlock(kind=next_kind, position=self._rename_blocks[index].position)
+        self._rebuild_rename_preview()
+
+    @Slot()
+    def addRenameBlock(self) -> None:
+        self._rename_blocks.append(RenameBlock(kind="time_hhmmss", position="prefix"))
+        self._rebuild_rename_preview()
+
+    @Slot(int)
+    def removeRenameBlock(self, index: int) -> None:
+        if index < 2 or index >= len(self._rename_blocks):
+            return
+        del self._rename_blocks[index]
+        self._rebuild_rename_preview()
 
     @Slot()
     def backToHome(self) -> None:
