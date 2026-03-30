@@ -655,62 +655,21 @@ ApplicationWindow {
                                         ColumnLayout {
                                             anchors.fill: parent
                                             spacing: 12
-                                            Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 26; font.bold: true }
-                                            Label { text: appState.workflowStageSubtitle; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
 
-                                            Rectangle {
-                                                Layout.fillWidth: true
-                                                Layout.fillHeight: true
-                                                radius: 18
-                                                color: "#091321"
-                                                border.color: "#22324A"
-
-                                                Loader {
-                                                    anchors.fill: parent
-                                                    anchors.margins: 16
-                                                    active: appState.sourceCount > 0
-                                                    sourceComponent: sourceListComponent
-                                                }
-
-                                                Label {
-                                                    visible: appState.sourceCount === 0
-                                                    anchors.centerIn: parent
-                                                    text: root.trKey("stage_sources_empty")
-                                                    color: "#8FB0E1"
-                                                    font.pixelSize: 16
-                                                }
+                                            Label {
+                                                text: appState.workflowStageTitle
+                                                color: "#F7FAFF"
+                                                font.pixelSize: 26
+                                                font.bold: true
                                             }
 
-                                            RowLayout {
+                                            Label {
+                                                text: appState.workflowStageSubtitle
+                                                color: "#AFC1D9"
+                                                font.pixelSize: 15
+                                                wrapMode: Text.WordWrap
                                                 Layout.fillWidth: true
-                                                PrimaryButton { text: root.trKey("stage_sources_action"); onClicked: sourceFolderDialog.open() }
-                                                Button {
-                                                    text: root.trKey("button_clear")
-                                                    enabled: appState.sourceCount > 0
-                                                    onClicked: appState.clearSourceFolders()
-                                                    hoverEnabled: true
-                                                    background: subtleOutlineButtonBackground
-                                                    contentItem: Text {
-                                                        text: parent.text
-                                                        color: "#F7FAFF"
-                                                        horizontalAlignment: Text.AlignHCenter
-                                                        verticalAlignment: Text.AlignVCenter
-                                                        font.pixelSize: 14
-                                                        font.bold: true
-                                                    }
-                                                }
-                                                Item { Layout.fillWidth: true }
                                             }
-                                        }
-                                    }
-
-                                    // target
-                                    Item {
-                                        ColumnLayout {
-                                            anchors.fill: parent
-                                            spacing: 12
-                                            Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 26; font.bold: true }
-                                            Label { text: appState.workflowStageSubtitle; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
 
                                             Rectangle {
                                                 Layout.fillWidth: true
@@ -721,19 +680,218 @@ ApplicationWindow {
 
                                                 ColumnLayout {
                                                     anchors.fill: parent
-                                                    anchors.margins: 18
-                                                    spacing: 12
+                                                    anchors.margins: 22
+                                                    spacing: 16
+
                                                     Label {
-                                                        text: appState.targetPath.length > 0 ? appState.targetPath : root.trKey("stage_target_empty")
-                                                        color: appState.targetPath.length > 0 ? "#F7FAFF" : "#8FB0E1"
-                                                        wrapMode: Text.WordWrap
-                                                        font.pixelSize: 16
-                                                        Layout.fillWidth: true
+                                                        visible: appState.sourceCount === 0
+                                                        Layout.alignment: Qt.AlignHCenter
+                                                        text: root.trKey("stage_sources_empty")
+                                                        color: "#8FB0E1"
+                                                        font.pixelSize: 18
+                                                        horizontalAlignment: Text.AlignHCenter
                                                     }
-                                                    Item { Layout.fillHeight: true }
+
+                                                    Rectangle {
+                                                        visible: appState.sourceCount > 0
+                                                        Layout.alignment: Qt.AlignHCenter
+                                                        radius: 14
+                                                        color: "#102038"
+                                                        border.color: "#4A82D7"
+                                                        implicitWidth: sourceCountChip.implicitWidth + 28
+                                                        implicitHeight: sourceCountChip.implicitHeight + 16
+
+                                                        Label {
+                                                            id: sourceCountChip
+                                                            anchors.centerIn: parent
+                                                            text: appState.sourceCount + " " + (appState.sourceCount === 1 ? "folder selected" : "folders selected")
+                                                            color: "#F7FAFF"
+                                                            font.pixelSize: 14
+                                                            font.bold: true
+                                                        }
+                                                    }
+
+                                                    Rectangle {
+                                                        Layout.fillWidth: true
+                                                        Layout.fillHeight: true
+                                                        radius: 18
+                                                        color: "#0F1A2C"
+                                                        border.color: "#22324A"
+
+                                                        Loader {
+                                                            anchors.fill: parent
+                                                            anchors.margins: 14
+                                                            active: appState.sourceCount > 0
+                                                            sourceComponent: sourceListComponent
+                                                        }
+
+                                                        ColumnLayout {
+                                                            visible: appState.sourceCount === 0
+                                                            anchors.centerIn: parent
+                                                            spacing: 10
+
+                                                            Label {
+                                                                text: "1"
+                                                                color: "#4A82D7"
+                                                                font.pixelSize: 22
+                                                                font.bold: true
+                                                                horizontalAlignment: Text.AlignHCenter
+                                                                Layout.alignment: Qt.AlignHCenter
+                                                            }
+
+                                                            Label {
+                                                                text: "Choose one or more source folders to begin the guided cleanup."
+                                                                color: "#CFE1FF"
+                                                                font.pixelSize: 15
+                                                                horizontalAlignment: Text.AlignHCenter
+                                                                wrapMode: Text.WordWrap
+                                                                Layout.preferredWidth: 520
+                                                                Layout.alignment: Qt.AlignHCenter
+                                                            }
+                                                        }
+                                                    }
+
                                                     RowLayout {
                                                         Layout.fillWidth: true
-                                                        PrimaryButton { text: root.trKey("stage_target_action"); onClicked: targetFolderDialog.open() }
+                                                        spacing: 10
+
+                                                        PrimaryButton {
+                                                            text: root.trKey("stage_sources_action")
+                                                            onClicked: sourceFolderDialog.open()
+                                                        }
+
+                                                        Button {
+                                                            text: root.trKey("button_clear")
+                                                            enabled: appState.sourceCount > 0
+                                                            onClicked: appState.clearSourceFolders()
+                                                            hoverEnabled: true
+                                                            background: subtleOutlineButtonBackground
+                                                            contentItem: Text {
+                                                                text: parent.text
+                                                                color: "#F7FAFF"
+                                                                horizontalAlignment: Text.AlignHCenter
+                                                                verticalAlignment: Text.AlignVCenter
+                                                                font.pixelSize: 14
+                                                                font.bold: true
+                                                            }
+                                                        }
+
+                                                        Item { Layout.fillWidth: true }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+// target
+                                    Item {
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            spacing: 12
+
+                                            Label {
+                                                text: appState.workflowStageTitle
+                                                color: "#F7FAFF"
+                                                font.pixelSize: 26
+                                                font.bold: true
+                                            }
+
+                                            Label {
+                                                text: appState.workflowStageSubtitle
+                                                color: "#AFC1D9"
+                                                font.pixelSize: 15
+                                                wrapMode: Text.WordWrap
+                                                Layout.fillWidth: true
+                                            }
+
+                                            Rectangle {
+                                                Layout.fillWidth: true
+                                                Layout.fillHeight: true
+                                                radius: 18
+                                                color: "#091321"
+                                                border.color: "#22324A"
+
+                                                ColumnLayout {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 22
+                                                    spacing: 16
+
+                                                    Rectangle {
+                                                        visible: appState.targetPath.length > 0
+                                                        Layout.alignment: Qt.AlignHCenter
+                                                        radius: 14
+                                                        color: "#102038"
+                                                        border.color: "#4A82D7"
+                                                        implicitWidth: targetChipLabel.implicitWidth + 28
+                                                        implicitHeight: targetChipLabel.implicitHeight + 16
+
+                                                        Label {
+                                                            id: targetChipLabel
+                                                            anchors.centerIn: parent
+                                                            text: "Target selected"
+                                                            color: "#F7FAFF"
+                                                            font.pixelSize: 14
+                                                            font.bold: true
+                                                        }
+                                                    }
+
+                                                    Rectangle {
+                                                        Layout.fillWidth: true
+                                                        Layout.fillHeight: true
+                                                        radius: 18
+                                                        color: "#0F1A2C"
+                                                        border.color: "#22324A"
+
+                                                        ColumnLayout {
+                                                            anchors.fill: parent
+                                                            anchors.margins: 18
+                                                            spacing: 12
+
+                                                            Label {
+                                                                text: appState.targetPath.length > 0 ? "Chosen target folder" : "No target folder selected yet"
+                                                                color: appState.targetPath.length > 0 ? "#F7FAFF" : "#8FB0E1"
+                                                                font.pixelSize: 18
+                                                                font.bold: true
+                                                                Layout.fillWidth: true
+                                                            }
+
+                                                            Rectangle {
+                                                                Layout.fillWidth: true
+                                                                Layout.fillHeight: true
+                                                                radius: 14
+                                                                color: "#091321"
+                                                                border.color: "#22324A"
+
+                                                                Label {
+                                                                    anchors.fill: parent
+                                                                    anchors.margins: 16
+                                                                    text: appState.targetPath.length > 0 ? appState.targetPath : root.trKey("stage_target_empty")
+                                                                    color: appState.targetPath.length > 0 ? "#E6EEF8" : "#8FB0E1"
+                                                                    wrapMode: Text.WrapAnywhere
+                                                                    verticalAlignment: Text.AlignVCenter
+                                                                    font.pixelSize: 15
+                                                                }
+                                                            }
+
+                                                            Label {
+                                                                text: "The action mode can still be changed later before real execution."
+                                                                color: "#AFC1D9"
+                                                                font.pixelSize: 13
+                                                                wrapMode: Text.WordWrap
+                                                                Layout.fillWidth: true
+                                                            }
+                                                        }
+                                                    }
+
+                                                    RowLayout {
+                                                        Layout.fillWidth: true
+                                                        spacing: 10
+
+                                                        PrimaryButton {
+                                                            text: root.trKey("stage_target_action")
+                                                            onClicked: targetFolderDialog.open()
+                                                        }
+
                                                         Button {
                                                             text: root.trKey("button_clear")
                                                             enabled: appState.targetPath.length > 0
@@ -749,6 +907,7 @@ ApplicationWindow {
                                                                 font.bold: true
                                                             }
                                                         }
+
                                                         Item { Layout.fillWidth: true }
                                                     }
                                                 }
@@ -756,7 +915,7 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    // mode
+// mode
                                     Item {
                                         ColumnLayout {
                                             anchors.fill: parent
@@ -1393,37 +1552,32 @@ ApplicationWindow {
                                                         width: parent.width
                                                         spacing: 16
 
-                                                        Label {
-                                                            text: root.trKey("sorting_template_title")
-                                                            color: "#F7FAFF"
-                                                            font.pixelSize: 18
-                                                            font.bold: true
-                                                        }
-
                                                         Rectangle {
                                                             Layout.fillWidth: true
+                                                            implicitHeight: sortingTemplateColumn.implicitHeight + 34
                                                             radius: 18
                                                             color: "#0F1A2C"
                                                             border.color: "#2D4A72"
 
                                                             ColumnLayout {
+                                                                id: sortingTemplateColumn
                                                                 anchors.fill: parent
                                                                 anchors.margins: 16
                                                                 spacing: 8
 
                                                                 Label {
-                                                                    text: appState.sortingTemplatePathLabel.length > 0 ? appState.sortingTemplatePathLabel : "2025 / 07 / 14"
-                                                                    color: "#F7FAFF"
-                                                                    font.pixelSize: 28
+                                                                    text: root.trKey("sorting_template_title")
+                                                                    color: "#AFC1D9"
+                                                                    font.pixelSize: 14
                                                                     font.bold: true
-                                                                    wrapMode: Text.WordWrap
                                                                     Layout.fillWidth: true
                                                                 }
 
                                                                 Label {
-                                                                    text: root.trKey("sorting_template_body")
-                                                                    color: "#CFE1FF"
-                                                                    font.pixelSize: 13
+                                                                    text: appState.sortingTemplatePathLabel.length > 0 ? appState.sortingTemplatePathLabel : "2025 / 07 / 14"
+                                                                    color: "#F7FAFF"
+                                                                    font.pixelSize: 34
+                                                                    font.bold: true
                                                                     wrapMode: Text.WordWrap
                                                                     Layout.fillWidth: true
                                                                 }
@@ -1431,7 +1585,7 @@ ApplicationWindow {
                                                                 Label {
                                                                     text: appState.sortingTemplateHintLabel
                                                                     color: "#8FB0E1"
-                                                                    font.pixelSize: 12
+                                                                    font.pixelSize: 13
                                                                     wrapMode: Text.WordWrap
                                                                     Layout.fillWidth: true
                                                                 }
@@ -1458,7 +1612,7 @@ ApplicationWindow {
 
                                                             Rectangle {
                                                                 Layout.fillWidth: true
-                                                                Layout.preferredHeight: 120
+                                                                Layout.preferredHeight: 132
                                                                 radius: 16
                                                                 color: "#0F1A2C"
                                                                 border.color: "#22324A"
@@ -1467,7 +1621,6 @@ ApplicationWindow {
                                                                     anchors.fill: parent
                                                                     anchors.margins: 14
                                                                     spacing: 8
-
                                                                     Label { text: root.trKey("sorting_level_year"); color: "#F7FAFF"; font.pixelSize: 16; font.bold: true }
                                                                     Label { text: appState.sortingYearStyleLabel; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                                                                     Item { Layout.fillHeight: true }
@@ -1490,7 +1643,7 @@ ApplicationWindow {
 
                                                             Rectangle {
                                                                 Layout.fillWidth: true
-                                                                Layout.preferredHeight: 120
+                                                                Layout.preferredHeight: 132
                                                                 radius: 16
                                                                 color: "#0F1A2C"
                                                                 border.color: "#22324A"
@@ -1499,7 +1652,6 @@ ApplicationWindow {
                                                                     anchors.fill: parent
                                                                     anchors.margins: 14
                                                                     spacing: 8
-
                                                                     Label { text: root.trKey("sorting_level_month"); color: "#F7FAFF"; font.pixelSize: 16; font.bold: true }
                                                                     Label { text: appState.sortingMonthStyleLabel; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                                                                     Item { Layout.fillHeight: true }
@@ -1522,7 +1674,7 @@ ApplicationWindow {
 
                                                             Rectangle {
                                                                 Layout.fillWidth: true
-                                                                Layout.preferredHeight: 120
+                                                                Layout.preferredHeight: 132
                                                                 radius: 16
                                                                 color: "#0F1A2C"
                                                                 border.color: "#22324A"
@@ -1531,7 +1683,6 @@ ApplicationWindow {
                                                                     anchors.fill: parent
                                                                     anchors.margins: 14
                                                                     spacing: 8
-
                                                                     Label { text: root.trKey("sorting_level_day"); color: "#F7FAFF"; font.pixelSize: 16; font.bold: true }
                                                                     Label { text: appState.sortingDayStyleLabel; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                                                                     Item { Layout.fillHeight: true }
@@ -1581,33 +1732,26 @@ ApplicationWindow {
                                                             }
                                                         }
 
-                                                        Label {
-                                                            text: root.trKey("sorting_preview_title")
-                                                            color: "#F7FAFF"
-                                                            font.pixelSize: 18
-                                                            font.bold: true
-                                                        }
-
                                                         RowLayout {
                                                             Layout.fillWidth: true
-                                                            spacing: 10
 
                                                             Label {
-                                                                text: root.trKey("sorting_preview_body")
-                                                                color: "#CFE1FF"
-                                                                wrapMode: Text.WordWrap
+                                                                text: root.trKey("sorting_preview_title")
+                                                                color: "#F7FAFF"
+                                                                font.pixelSize: 20
+                                                                font.bold: true
                                                                 Layout.fillWidth: true
                                                             }
 
                                                             Rectangle {
-                                                                visible: appState.sortingPreviewRows.length > 0
                                                                 radius: 12
-                                                                color: "#102038"
-                                                                border.color: "#27456E"
-                                                                Layout.preferredHeight: 32
-                                                                Layout.preferredWidth: 160
+                                                                color: "transparent"
+                                                                border.color: "#355988"
+                                                                implicitWidth: sortingCountLabel.implicitWidth + 28
+                                                                implicitHeight: sortingCountLabel.implicitHeight + 14
 
                                                                 Label {
+                                                                    id: sortingCountLabel
                                                                     anchors.centerIn: parent
                                                                     text: appState.sortingPreviewCountLabel
                                                                     color: "#B8D3FF"
@@ -1617,9 +1761,16 @@ ApplicationWindow {
                                                             }
                                                         }
 
+                                                        Label {
+                                                            text: root.trKey("sorting_preview_body")
+                                                            color: "#CFE1FF"
+                                                            wrapMode: Text.WordWrap
+                                                            Layout.fillWidth: true
+                                                        }
+
                                                         ColumnLayout {
                                                             Layout.fillWidth: true
-                                                            spacing: 8
+                                                            spacing: 10
                                                             visible: appState.sortingPreviewRows.length > 0
 
                                                             Repeater {
@@ -1628,6 +1779,7 @@ ApplicationWindow {
                                                                 delegate: Rectangle {
                                                                     required property var modelData
                                                                     Layout.fillWidth: true
+                                                                    implicitHeight: 96
                                                                     radius: 14
                                                                     color: "#0F1A2C"
                                                                     border.color: "#22324A"
@@ -1637,48 +1789,41 @@ ApplicationWindow {
                                                                         anchors.margins: 12
                                                                         spacing: 6
 
+                                                                        Label {
+                                                                            text: modelData.source_name
+                                                                            color: "#F7FAFF"
+                                                                            font.pixelSize: 14
+                                                                            font.bold: true
+                                                                            elide: Text.ElideRight
+                                                                            Layout.fillWidth: true
+                                                                        }
+
                                                                         RowLayout {
                                                                             Layout.fillWidth: true
                                                                             spacing: 10
 
                                                                             Label {
-                                                                                text: modelData.source_name
-                                                                                color: "#F7FAFF"
-                                                                                font.pixelSize: 13
-                                                                                font.bold: true
-                                                                                elide: Text.ElideRight
-                                                                                Layout.fillWidth: true
-                                                                            }
-
-                                                                            Label {
                                                                                 text: modelData.captured_at
                                                                                 color: "#CFE1FF"
                                                                                 font.pixelSize: 12
+                                                                                Layout.preferredWidth: 150
+                                                                            }
+
+                                                                            Label {
+                                                                                text: modelData.relative_directory
+                                                                                color: "#8FB0E1"
+                                                                                font.pixelSize: 12
+                                                                                wrapMode: Text.WordWrap
+                                                                                Layout.fillWidth: true
                                                                             }
                                                                         }
 
                                                                         Label {
                                                                             text: modelData.source_path
-                                                                            color: "#8FB0E1"
+                                                                            color: "#6F8FB9"
                                                                             font.pixelSize: 11
                                                                             elide: Text.ElideMiddle
                                                                             Layout.fillWidth: true
-                                                                        }
-
-                                                                        Rectangle {
-                                                                            Layout.fillWidth: true
-                                                                            radius: 10
-                                                                            color: "#091321"
-                                                                            border.color: "#22324A"
-
-                                                                            Label {
-                                                                                anchors.fill: parent
-                                                                                anchors.margins: 10
-                                                                                text: modelData.relative_directory
-                                                                                color: "#AFC1D9"
-                                                                                font.pixelSize: 12
-                                                                                wrapMode: Text.WordWrap
-                                                                            }
                                                                         }
                                                                     }
                                                                 }
@@ -1698,7 +1843,7 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    // rename
+// rename
                                     Item {
                                         ColumnLayout {
                                             anchors.fill: parent
