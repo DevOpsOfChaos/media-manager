@@ -1,4 +1,4 @@
-import QtQuick
+﻿import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
@@ -39,14 +39,11 @@ ApplicationWindow {
         return 2
     }
 
-    Component {
-        id: subtleOutlineButtonBackground
-        Rectangle {
-            radius: 16
-            color: parent.down ? "#102038" : ((parent.hovered || (typeof parent.active !== "undefined" && parent.active)) ? "#132B4A" : "transparent")
-            border.width: 1
-            border.color: (parent.hovered || (typeof parent.active !== "undefined" && parent.active)) ? "#4A82D7" : "#30465F"
-        }
+        component SubtleOutlineButtonBackground : Rectangle {
+        radius: 16
+        color: parent.down ? "#102038" : ((parent.hovered || (typeof parent.active !== "undefined" && parent.active)) ? "#132B4A" : "transparent")
+        border.width: 1
+        border.color: (parent.hovered || (typeof parent.active !== "undefined" && parent.active)) ? "#4A82D7" : "#30465F"
     }
 
     FolderDialog {
@@ -765,7 +762,7 @@ ApplicationWindow {
                                                             enabled: appState.sourceCount > 0
                                                             onClicked: appState.clearSourceFolders()
                                                             hoverEnabled: true
-                                                            background: subtleOutlineButtonBackground
+                                                            background: SubtleOutlineButtonBackground {}
                                                             contentItem: Text {
                                                                 text: parent.text
                                                                 color: "#F7FAFF"
@@ -897,7 +894,7 @@ ApplicationWindow {
                                                             enabled: appState.targetPath.length > 0
                                                             onClicked: appState.clearTargetFolder()
                                                             hoverEnabled: true
-                                                            background: subtleOutlineButtonBackground
+                                                            background: SubtleOutlineButtonBackground {}
                                                             contentItem: Text {
                                                                 text: parent.text
                                                                 color: "#F7FAFF"
@@ -1055,7 +1052,7 @@ ApplicationWindow {
                                                                                 appState.openDuplicateGroup(Number(modelData.index))
                                                                                 duplicateDetailPopup.open()
                                                                             }
-                                                                            background: subtleOutlineButtonBackground
+                                                                            background: SubtleOutlineButtonBackground {}
                                                                             contentItem: Text {
                                                                                 text: parent.text
                                                                                 color: "#F7FAFF"
@@ -1628,7 +1625,7 @@ ApplicationWindow {
                                                                         text: root.trKey("sorting_cycle_action")
                                                                         onClicked: appState.cycleSortingYearStyle()
                                                                         hoverEnabled: true
-                                                                        background: subtleOutlineButtonBackground
+                                                                        background: SubtleOutlineButtonBackground {}
                                                                         contentItem: Text {
                                                                             text: parent.text
                                                                             color: "#F7FAFF"
@@ -1659,7 +1656,7 @@ ApplicationWindow {
                                                                         text: root.trKey("sorting_cycle_action")
                                                                         onClicked: appState.cycleSortingMonthStyle()
                                                                         hoverEnabled: true
-                                                                        background: subtleOutlineButtonBackground
+                                                                        background: SubtleOutlineButtonBackground {}
                                                                         contentItem: Text {
                                                                             text: parent.text
                                                                             color: "#F7FAFF"
@@ -1690,7 +1687,7 @@ ApplicationWindow {
                                                                         text: root.trKey("sorting_cycle_action")
                                                                         onClicked: appState.cycleSortingDayStyle()
                                                                         hoverEnabled: true
-                                                                        background: subtleOutlineButtonBackground
+                                                                        background: SubtleOutlineButtonBackground {}
                                                                         contentItem: Text {
                                                                             text: parent.text
                                                                             color: "#F7FAFF"
@@ -1712,7 +1709,7 @@ ApplicationWindow {
                                                                 text: root.trKey("sorting_reset_action")
                                                                 onClicked: appState.resetSortingDefaults()
                                                                 hoverEnabled: true
-                                                                background: subtleOutlineButtonBackground
+                                                                background: SubtleOutlineButtonBackground {}
                                                                 contentItem: Text {
                                                                     text: parent.text
                                                                     color: "#F7FAFF"
@@ -1954,7 +1951,7 @@ ApplicationWindow {
                                                                 model: appState.renameTemplateOptions
                                                                 textRole: "label"
                                                                 currentIndex: appState.renameSelectedTemplateIndex
-                                                                onActivated: appState.setRenameTemplate(appState.renameTemplateKeyAt(index))
+                                                                onActivated: function(activatedIndex) { appState.setRenameTemplate(appState.renameTemplateKeyAt(activatedIndex)) }
 
                                                                 background: Rectangle {
                                                                     radius: 12
@@ -1977,7 +1974,7 @@ ApplicationWindow {
                                                                 text: root.trKey("rename_template_reset_action")
                                                                 onClicked: appState.resetRenameTemplate()
                                                                 hoverEnabled: true
-                                                                background: subtleOutlineButtonBackground
+                                                                background: SubtleOutlineButtonBackground {}
                                                                 contentItem: Text {
                                                                     text: parent.text
                                                                     color: "#F7FAFF"
@@ -2173,7 +2170,7 @@ ApplicationWindow {
                                 onClicked: appState.workflowBack()
                                 hoverEnabled: true
 
-                                background: subtleOutlineButtonBackground
+                                background: SubtleOutlineButtonBackground {}
 
                                 contentItem: Text {
                                     text: parent.text
@@ -2295,7 +2292,7 @@ ApplicationWindow {
                         onClicked: appState.removeSourceFolder(index)
                         hoverEnabled: true
 
-                        background: subtleOutlineButtonBackground
+                        background: SubtleOutlineButtonBackground {}
 
                         contentItem: Text {
                             text: parent.text
@@ -2311,3 +2308,4 @@ ApplicationWindow {
         }
     }
 }
+
