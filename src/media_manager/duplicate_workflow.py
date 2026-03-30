@@ -8,6 +8,7 @@ from .cleanup_plan import ExactCleanupDryRun, ExactCleanupPlan, build_exact_clea
 from .duplicates import DuplicateScanResult, ExactDuplicateGroup
 from .execution_plan import DuplicateExecutionPreview, build_duplicate_execution_preview
 from .execution_runner import DuplicateExecutionRunResult, run_duplicate_execution_preview
+from .execution_safety import protect_duplicate_execution_preview
 
 KeepPolicy = Literal["first", "newest", "oldest"]
 
@@ -62,7 +63,7 @@ def build_duplicate_workflow_bundle(
 ) -> DuplicateWorkflowBundle:
     cleanup_plan = build_exact_cleanup_plan(exact_groups, decisions, operation_mode)
     dry_run = build_exact_cleanup_dry_run(exact_groups, decisions, operation_mode, target_root=target_root)
-    execution_preview = build_duplicate_execution_preview(dry_run)
+    execution_preview = protect_duplicate_execution_preview(build_duplicate_execution_preview(dry_run))
     return DuplicateWorkflowBundle(
         decisions=dict(decisions),
         cleanup_plan=cleanup_plan,

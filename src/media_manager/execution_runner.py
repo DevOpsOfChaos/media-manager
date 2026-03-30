@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .execution_plan import DuplicateExecutionPreview, ExecutionPreviewRow
+from .execution_safety import find_associated_sibling_paths
 
 
 @dataclass(slots=True)
@@ -105,6 +106,21 @@ def run_duplicate_execution_preview(
                     target_path=row.target_path,
                     outcome="error",
                     reason="source_missing",
+                )
+            )
+            continue
+
+        if find_associated_sibling_paths(row.source_path):
+            result.blocked_rows += 1
+            result.entries.append(
+                ExecutionRunEntry(
+                    row_type="blocked_associated_files",
+                    status="blocked",
+                    source_path=row.source_path,
+                    survivor_path=row.survivor_path,
+                    target_path=row.target_path,
+                    outcome="blocked",
+                    reason="associated_files_present",
                 )
             )
             continue
