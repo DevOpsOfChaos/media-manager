@@ -2344,142 +2344,1145 @@ ApplicationWindow {
                         anchors.fill: parent
                         currentIndex: manualPageIndex
 
+                        // Manual duplicates
                         Item {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
 
-                            ColumnLayout {
+                            Flickable {
                                 anchors.fill: parent
-                                spacing: 12
+                                contentWidth: width
+                                contentHeight: manualDuplicatesColumn.implicitHeight
+                                clip: true
 
-                                Label {
-                                    text: root.trKey("nav_duplicates")
-                                    color: "#F7FAFF"
-                                    font.pixelSize: 30
-                                    font.bold: true
-                                }
+                                ColumnLayout {
+                                    id: manualDuplicatesColumn
+                                    width: parent.width
+                                    spacing: 16
 
-                                Label {
-                                    text: appState.language === "de"
-                                          ? "Manueller Zugriff auf die exakte Duplikat-Prüfung. Für eine vollständige Bereinigung bleibt der Workflow der bessere Pfad."
-                                          : "Manual access to the exact duplicate review. The guided workflow remains the better path for a full cleanup."
-                                    color: "#AFC1D9"
-                                    font.pixelSize: 14
-                                    wrapMode: Text.WordWrap
-                                    Layout.fillWidth: true
-                                }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    radius: 18
-                                    color: "#091321"
-                                    border.color: "#22324A"
-
-                                    Loader {
-                                        anchors.fill: parent
-                                        active: appState.sourceCount === 0
-                                        sourceComponent: manualEmptyStateDuplicates
+                                    Label {
+                                        text: appState.language === "de" ? "Manuelle Duplikat-Prüfung" : "Manual duplicate review"
+                                        color: "#F7FAFF"
+                                        font.pixelSize: 34
+                                        font.bold: true
                                     }
 
-                                    Loader {
-                                        anchors.fill: parent
-                                        active: appState.sourceCount > 0
-                                        sourceComponent: manualDuplicatesContent
+                                    Label {
+                                        text: appState.language === "de"
+                                              ? "Hier darf die Seite bewusst größer und direkter sein als im Workflow. Du wählst Quellen, Ziel und arbeitest direkt auf der exakten Duplikat-Prüfung."
+                                              : "This page is intentionally larger and more direct than the workflow. Select sources, target, and work directly with exact duplicate review."
+                                        color: "#AFC1D9"
+                                        font.pixelSize: 15
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 14
+
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 260
+                                            radius: 18
+                                            color: "#0F1A2C"
+                                            border.color: "#22324A"
+
+                                            ColumnLayout {
+                                                anchors.fill: parent
+                                                anchors.margins: 16
+                                                spacing: 10
+
+                                                Label {
+                                                    text: appState.language === "de" ? "Quellordner" : "Source folders"
+                                                    color: "#F7FAFF"
+                                                    font.pixelSize: 20
+                                                    font.bold: true
+                                                }
+
+                                                Label {
+                                                    text: appState.sourceCount === 0
+                                                          ? (appState.language === "de" ? "Noch keine Quellordner gewählt." : "No source folders selected yet.")
+                                                          : (appState.sourceCount + (appState.language === "de" ? " Ordner aktiv" : " folder(s) active"))
+                                                    color: "#AFC1D9"
+                                                    font.pixelSize: 14
+                                                    wrapMode: Text.WordWrap
+                                                    Layout.fillWidth: true
+                                                }
+
+                                                Rectangle {
+                                                    Layout.fillWidth: true
+                                                    Layout.fillHeight: true
+                                                    radius: 14
+                                                    color: "#091321"
+                                                    border.color: "#22324A"
+
+                                                    Flickable {
+                                                        anchors.fill: parent
+                                                        anchors.margins: 10
+                                                        contentWidth: width
+                                                        contentHeight: manualDuplicateSources.implicitHeight
+                                                        clip: true
+
+                                                        Column {
+                                                            id: manualDuplicateSources
+                                                            width: parent.width
+                                                            spacing: 8
+
+                                                            Repeater {
+                                                                model: appState.sourceFolders
+                                                                delegate: Rectangle {
+                                                                    width: manualDuplicateSources.width
+                                                                    height: 42
+                                                                    radius: 12
+                                                                    color: "#102038"
+                                                                    border.color: "#30465F"
+
+                                                                    RowLayout {
+                                                                        anchors.fill: parent
+                                                                        anchors.margins: 8
+                                                                        spacing: 8
+
+                                                                        Label {
+                                                                            Layout.fillWidth: true
+                                                                            text: modelData
+                                                                            color: "#E6EEF8"
+                                                                            elide: Text.ElideMiddle
+                                                                            font.pixelSize: 12
+                                                                        }
+
+                                                                        Button {
+                                                                            text: root.trKey("button_remove")
+                                                                            onClicked: appState.removeSourceFolder(index)
+                                                                            hoverEnabled: true
+                                                                            background: SubtleOutlineButtonBackground {}
+                                                                            contentItem: Text {
+                                                                                text: parent.text
+                                                                                color: "#F7FAFF"
+                                                                                horizontalAlignment: Text.AlignHCenter
+                                                                                verticalAlignment: Text.AlignVCenter
+                                                                                font.pixelSize: 11
+                                                                                font.bold: true
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+
+                                                            Label {
+                                                                visible: appState.sourceCount === 0
+                                                                width: manualDuplicateSources.width
+                                                                text: appState.language === "de" ? "Wähle hier einen oder mehrere Quellordner aus." : "Choose one or more source folders here."
+                                                                color: "#8FB0E1"
+                                                                wrapMode: Text.WordWrap
+                                                                font.pixelSize: 13
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                RowLayout {
+                                                    Layout.fillWidth: true
+                                                    spacing: 10
+
+                                                    PrimaryButton {
+                                                        text: root.trKey("stage_sources_action")
+                                                        onClicked: sourceFolderDialog.open()
+                                                    }
+
+                                                    Button {
+                                                        text: root.trKey("button_clear")
+                                                        enabled: appState.sourceCount > 0
+                                                        onClicked: appState.clearSourceFolders()
+                                                        hoverEnabled: true
+                                                        background: SubtleOutlineButtonBackground {}
+                                                        contentItem: Text {
+                                                            text: parent.text
+                                                            color: "#F7FAFF"
+                                                            horizontalAlignment: Text.AlignHCenter
+                                                            verticalAlignment: Text.AlignVCenter
+                                                            font.pixelSize: 13
+                                                            font.bold: true
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 260
+                                            radius: 18
+                                            color: "#0F1A2C"
+                                            border.color: "#22324A"
+
+                                            ColumnLayout {
+                                                anchors.fill: parent
+                                                anchors.margins: 16
+                                                spacing: 10
+
+                                                Label {
+                                                    text: appState.language === "de" ? "Zielordner" : "Target folder"
+                                                    color: "#F7FAFF"
+                                                    font.pixelSize: 20
+                                                    font.bold: true
+                                                }
+
+                                                Rectangle {
+                                                    Layout.fillWidth: true
+                                                    Layout.fillHeight: true
+                                                    radius: 14
+                                                    color: "#091321"
+                                                    border.color: "#22324A"
+
+                                                    Label {
+                                                        anchors.fill: parent
+                                                        anchors.margins: 14
+                                                        text: appState.targetPath.length > 0
+                                                              ? appState.targetPath
+                                                              : (appState.language === "de" ? "Noch kein Zielordner ausgewählt." : "No target folder selected yet.")
+                                                        color: appState.targetPath.length > 0 ? "#F7FAFF" : "#8FB0E1"
+                                                        wrapMode: Text.WrapAnywhere
+                                                        verticalAlignment: Text.AlignVCenter
+                                                        font.pixelSize: 14
+                                                    }
+                                                }
+
+                                                Label {
+                                                    text: (appState.sourceCount > 0 && appState.targetPath === appState.sourceFolders[0])
+                                                          ? (appState.language === "de" ? "Quelle und Ziel sind aktuell identisch." : "Source and target are currently identical.")
+                                                          : (appState.language === "de" ? "Du kannst das Ziel separat setzen oder bewusst mit der ersten Quelle gleichsetzen." : "You can set a separate target or intentionally match it to the first source.")
+                                                    color: "#AFC1D9"
+                                                    wrapMode: Text.WordWrap
+                                                    font.pixelSize: 13
+                                                    Layout.fillWidth: true
+                                                }
+
+                                                Flow {
+                                                    Layout.fillWidth: true
+                                                    spacing: 10
+
+                                                    PrimaryButton {
+                                                        text: root.trKey("stage_target_action")
+                                                        onClicked: targetFolderDialog.open()
+                                                    }
+
+                                                    Button {
+                                                        text: appState.language === "de" ? "Quelle = Ziel" : "Source = target"
+                                                        enabled: appState.sourceCount > 0
+                                                        onClicked: appState.setTargetFolder(appState.sourceFolders[0])
+                                                        hoverEnabled: true
+                                                        background: SubtleOutlineButtonBackground {}
+                                                        contentItem: Text {
+                                                            text: parent.text
+                                                            color: "#F7FAFF"
+                                                            horizontalAlignment: Text.AlignHCenter
+                                                            verticalAlignment: Text.AlignVCenter
+                                                            font.pixelSize: 13
+                                                            font.bold: true
+                                                        }
+                                                    }
+
+                                                    Button {
+                                                        text: root.trKey("button_clear")
+                                                        enabled: appState.targetPath.length > 0
+                                                        onClicked: appState.clearTargetFolder()
+                                                        hoverEnabled: true
+                                                        background: SubtleOutlineButtonBackground {}
+                                                        contentItem: Text {
+                                                            text: parent.text
+                                                            color: "#F7FAFF"
+                                                            horizontalAlignment: Text.AlignHCenter
+                                                            verticalAlignment: Text.AlignVCenter
+                                                            font.pixelSize: 13
+                                                            font.bold: true
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        implicitHeight: duplicatesToolColumn.implicitHeight + 34
+                                        radius: 20
+                                        color: "#091321"
+                                        border.color: "#22324A"
+
+                                        ColumnLayout {
+                                            id: duplicatesToolColumn
+                                            anchors.fill: parent
+                                            anchors.margins: 18
+                                            spacing: 12
+
+                                            RowLayout {
+                                                Layout.fillWidth: true
+
+                                                ColumnLayout {
+                                                    Layout.fillWidth: true
+                                                    spacing: 4
+
+                                                    Label {
+                                                        text: appState.language === "de" ? "Exakte Duplikate" : "Exact duplicates"
+                                                        color: "#F7FAFF"
+                                                        font.pixelSize: 24
+                                                        font.bold: true
+                                                    }
+
+                                                    Label {
+                                                        text: appState.language === "de"
+                                                              ? "Direkter Zugriff auf dieselbe Prüflogik, aber mit mehr Platz und weniger Workflow-Rahmen."
+                                                              : "Direct access to the same review logic, but with more space and less workflow framing."
+                                                        color: "#AFC1D9"
+                                                        font.pixelSize: 14
+                                                        wrapMode: Text.WordWrap
+                                                        Layout.fillWidth: true
+                                                    }
+                                                }
+
+                                                Button {
+                                                    text: appState.language === "de" ? "Geführten Workflow öffnen" : "Open guided workflow"
+                                                    onClicked: appState.setPage("workflow")
+                                                    hoverEnabled: true
+                                                    background: SubtleOutlineButtonBackground {}
+                                                    contentItem: Text {
+                                                        text: parent.text
+                                                        color: "#F7FAFF"
+                                                        horizontalAlignment: Text.AlignHCenter
+                                                        verticalAlignment: Text.AlignVCenter
+                                                        font.pixelSize: 12
+                                                        font.bold: true
+                                                    }
+                                                }
+                                            }
+
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 10
+
+                                                PrimaryButton {
+                                                    text: root.trKey("stage_duplicates_action")
+                                                    enabled: appState.sourceCount > 0
+                                                    onClicked: appState.startDuplicatePreview()
+                                                }
+
+                                                Rectangle {
+                                                    radius: 12
+                                                    color: "transparent"
+                                                    border.color: "#30465F"
+                                                    implicitWidth: duplicateManualHint.implicitWidth + 24
+                                                    implicitHeight: duplicateManualHint.implicitHeight + 14
+
+                                                    Label {
+                                                        id: duplicateManualHint
+                                                        anchors.centerIn: parent
+                                                        text: appState.sourceCount > 0
+                                                              ? (appState.language === "de" ? "Bereit für direkte Prüfung" : "Ready for direct review")
+                                                              : (appState.language === "de" ? "Bitte zuerst Quellen setzen" : "Select sources first")
+                                                        color: "#B8D3FF"
+                                                        font.pixelSize: 12
+                                                        font.bold: true
+                                                    }
+                                                }
+
+                                                Item { Layout.fillWidth: true }
+                                            }
+
+                                            ProgressBar {
+                                                Layout.fillWidth: true
+                                                from: 0
+                                                to: 100
+                                                value: appState.duplicateProgress
+                                                background: Rectangle { radius: 8; color: "#101B2D" }
+                                                contentItem: Item { Rectangle { width: parent.width * (appState.duplicateProgress / 100.0); height: parent.height; radius: 8; color: "#2F6FED" } }
+                                            }
+
+                                            Label {
+                                                text: appState.statusText
+                                                color: "#CFE1FF"
+                                                wrapMode: Text.WordWrap
+                                                font.pixelSize: 14
+                                                Layout.fillWidth: true
+                                            }
+
+                                            Rectangle {
+                                                Layout.fillWidth: true
+                                                Layout.preferredHeight: 46
+                                                radius: 12
+                                                color: "#0F1A2C"
+
+                                                RowLayout {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 10
+                                                    spacing: 8
+                                                    Repeater {
+                                                        model: [root.trKey("table_name"), root.trKey("table_size"), root.trKey("table_date"), root.trKey("table_matches"), root.trKey("table_score"), root.trKey("table_action")]
+                                                        delegate: Label {
+                                                            Layout.fillWidth: true
+                                                            text: modelData
+                                                            color: "#F7FAFF"
+                                                            font.pixelSize: 13
+                                                            font.bold: true
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            Rectangle {
+                                                Layout.fillWidth: true
+                                                implicitHeight: manualDuplicateRows.implicitHeight + 20
+                                                radius: 16
+                                                color: "#0F1A2C"
+                                                border.color: "#22324A"
+
+                                                Column {
+                                                    id: manualDuplicateRows
+                                                    width: parent.width - 20
+                                                    anchors.margins: 10
+                                                    anchors.left: parent.left
+                                                    anchors.top: parent.top
+                                                    spacing: 8
+
+                                                    Repeater {
+                                                        model: appState.duplicateRows
+                                                        delegate: Rectangle {
+                                                            width: manualDuplicateRows.width
+                                                            height: 60
+                                                            radius: 12
+                                                            color: "#102038"
+                                                            border.color: "#30465F"
+
+                                                            RowLayout {
+                                                                anchors.fill: parent
+                                                                anchors.margins: 10
+                                                                spacing: 8
+                                                                Label { Layout.fillWidth: true; text: modelData.name; color: "#E6EEF8"; font.pixelSize: 13 }
+                                                                Label { Layout.fillWidth: true; text: modelData.size; color: "#E6EEF8"; font.pixelSize: 13 }
+                                                                Label { Layout.fillWidth: true; text: modelData.date; color: "#E6EEF8"; font.pixelSize: 13 }
+                                                                Label { Layout.fillWidth: true; text: modelData.matches; color: "#E6EEF8"; font.pixelSize: 13 }
+                                                                Label { Layout.fillWidth: true; text: modelData.score; color: modelData.score === "100%" ? "#8CE99A" : "#FFD18C"; font.pixelSize: 13; font.bold: true }
+                                                                Button {
+                                                                    Layout.fillWidth: true
+                                                                    text: root.trKey("table_show")
+                                                                    hoverEnabled: true
+                                                                    onClicked: {
+                                                                        appState.openDuplicateGroup(Number(modelData.index))
+                                                                        duplicateDetailPopup.open()
+                                                                    }
+                                                                    background: SubtleOutlineButtonBackground {}
+                                                                    contentItem: Text {
+                                                                        text: parent.text
+                                                                        color: "#F7FAFF"
+                                                                        horizontalAlignment: Text.AlignHCenter
+                                                                        verticalAlignment: Text.AlignVCenter
+                                                                        font.pixelSize: 12
+                                                                        font.bold: true
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+
+                                                    Label {
+                                                        visible: appState.duplicateRows.length === 0
+                                                        width: manualDuplicateRows.width
+                                                        text: appState.sourceCount === 0
+                                                              ? (appState.language === "de" ? "Wähle zuerst Quellordner aus. Danach kannst du die direkte Duplikat-Prüfung starten." : "Select source folders first. Then you can start direct duplicate review.")
+                                                              : (appState.language === "de" ? "Noch keine sichtbaren Duplikat-Ergebnisse. Starte die Prüfung oder warte auf den laufenden Scan." : "No visible duplicate results yet. Start the review or wait for the current scan.")
+                                                        color: "#AFC1D9"
+                                                        wrapMode: Text.WordWrap
+                                                        font.pixelSize: 14
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
 
+                        // Manual organize
                         Item {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
 
-                            ColumnLayout {
+                            Flickable {
                                 anchors.fill: parent
-                                spacing: 12
+                                contentWidth: width
+                                contentHeight: manualOrganizeColumn.implicitHeight
+                                clip: true
 
-                                Label {
-                                    text: root.trKey("nav_organize")
-                                    color: "#F7FAFF"
-                                    font.pixelSize: 30
-                                    font.bold: true
-                                }
+                                ColumnLayout {
+                                    id: manualOrganizeColumn
+                                    width: parent.width
+                                    spacing: 16
 
-                                Label {
-                                    text: appState.language === "de"
-                                          ? "Manueller Zugriff auf den Sortier-Builder. Nutze dieselbe Vorschau-Logik ohne den geführten Gesamtpfad."
-                                          : "Manual access to the sorting builder. Use the same preview logic without the full guided path."
-                                    color: "#AFC1D9"
-                                    font.pixelSize: 14
-                                    wrapMode: Text.WordWrap
-                                    Layout.fillWidth: true
-                                }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    radius: 18
-                                    color: "#091321"
-                                    border.color: "#22324A"
-
-                                    Loader {
-                                        anchors.fill: parent
-                                        active: appState.sourceCount === 0
-                                        sourceComponent: manualEmptyStateOrganize
+                                    Label {
+                                        text: appState.language === "de" ? "Manuelles Sortieren" : "Manual organize"
+                                        color: "#F7FAFF"
+                                        font.pixelSize: 34
+                                        font.bold: true
                                     }
 
-                                    Loader {
-                                        anchors.fill: parent
-                                        active: appState.sourceCount > 0
-                                        sourceComponent: manualOrganizeContent
+                                    Label {
+                                        text: appState.language === "de"
+                                              ? "Hier darf die Sortierseite ausführlicher sein als im Workflow. Quellen und Ziel setzt du direkt hier, die Strukturvorschau bleibt permanent sichtbar."
+                                              : "This organize page is intentionally more detailed than the workflow. Set sources and target directly here while keeping the structure preview always visible."
+                                        color: "#AFC1D9"
+                                        font.pixelSize: 15
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 14
+
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 240
+                                            radius: 18
+                                            color: "#0F1A2C"
+                                            border.color: "#22324A"
+
+                                            ColumnLayout {
+                                                anchors.fill: parent
+                                                anchors.margins: 16
+                                                spacing: 10
+
+                                                Label { text: appState.language === "de" ? "Quellen" : "Sources"; color: "#F7FAFF"; font.pixelSize: 20; font.bold: true }
+                                                Label {
+                                                    text: appState.sourceCount === 0
+                                                          ? (appState.language === "de" ? "Noch keine Quellordner gewählt." : "No source folders selected yet.")
+                                                          : (appState.sourceCount + (appState.language === "de" ? " Ordner aktiv" : " folder(s) active"))
+                                                    color: "#AFC1D9"
+                                                    wrapMode: Text.WordWrap
+                                                    Layout.fillWidth: true
+                                                }
+                                                Rectangle {
+                                                    Layout.fillWidth: true
+                                                    Layout.fillHeight: true
+                                                    radius: 14
+                                                    color: "#091321"
+                                                    border.color: "#22324A"
+                                                    Label {
+                                                        anchors.fill: parent
+                                                        anchors.margins: 14
+                                                        text: appState.sourceCount > 0 ? appState.sourceFolders.join("
+") : (appState.language === "de" ? "Wähle hier die Quellordner für das manuelle Sortieren." : "Choose source folders here for manual organize.")
+                                                        color: appState.sourceCount > 0 ? "#F7FAFF" : "#8FB0E1"
+                                                        wrapMode: Text.WrapAnywhere
+                                                        verticalAlignment: Text.AlignTop
+                                                        font.pixelSize: 13
+                                                    }
+                                                }
+                                                Flow {
+                                                    Layout.fillWidth: true
+                                                    spacing: 10
+                                                    PrimaryButton { text: root.trKey("stage_sources_action"); onClicked: sourceFolderDialog.open() }
+                                                    Button {
+                                                        text: root.trKey("button_clear")
+                                                        enabled: appState.sourceCount > 0
+                                                        onClicked: appState.clearSourceFolders()
+                                                        hoverEnabled: true
+                                                        background: SubtleOutlineButtonBackground {}
+                                                        contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 13; font.bold: true }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 240
+                                            radius: 18
+                                            color: "#0F1A2C"
+                                            border.color: "#22324A"
+
+                                            ColumnLayout {
+                                                anchors.fill: parent
+                                                anchors.margins: 16
+                                                spacing: 10
+
+                                                Label { text: appState.language === "de" ? "Ziel" : "Target"; color: "#F7FAFF"; font.pixelSize: 20; font.bold: true }
+                                                Rectangle {
+                                                    Layout.fillWidth: true
+                                                    Layout.fillHeight: true
+                                                    radius: 14
+                                                    color: "#091321"
+                                                    border.color: "#22324A"
+                                                    Label {
+                                                        anchors.fill: parent
+                                                        anchors.margins: 14
+                                                        text: appState.targetPath.length > 0 ? appState.targetPath : (appState.language === "de" ? "Noch kein Ziel gesetzt." : "No target selected yet.")
+                                                        color: appState.targetPath.length > 0 ? "#F7FAFF" : "#8FB0E1"
+                                                        wrapMode: Text.WrapAnywhere
+                                                        verticalAlignment: Text.AlignVCenter
+                                                        font.pixelSize: 14
+                                                    }
+                                                }
+                                                Label {
+                                                    text: appState.language === "de" ? "Für manuelles Sortieren kannst du Ziel und Quelle bewusst gleichsetzen." : "For manual organize, you can intentionally make source and target identical."
+                                                    color: "#AFC1D9"
+                                                    wrapMode: Text.WordWrap
+                                                    Layout.fillWidth: true
+                                                    font.pixelSize: 13
+                                                }
+                                                Flow {
+                                                    Layout.fillWidth: true
+                                                    spacing: 10
+                                                    PrimaryButton { text: root.trKey("stage_target_action"); onClicked: targetFolderDialog.open() }
+                                                    Button {
+                                                        text: appState.language === "de" ? "Quelle = Ziel" : "Source = target"
+                                                        enabled: appState.sourceCount > 0
+                                                        onClicked: appState.setTargetFolder(appState.sourceFolders[0])
+                                                        hoverEnabled: true
+                                                        background: SubtleOutlineButtonBackground {}
+                                                        contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 13; font.bold: true }
+                                                    }
+                                                    Button {
+                                                        text: root.trKey("button_clear")
+                                                        enabled: appState.targetPath.length > 0
+                                                        onClicked: appState.clearTargetFolder()
+                                                        hoverEnabled: true
+                                                        background: SubtleOutlineButtonBackground {}
+                                                        contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 13; font.bold: true }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        implicitHeight: manualOrganizeToolColumn.implicitHeight + 34
+                                        radius: 20
+                                        color: "#091321"
+                                        border.color: "#22324A"
+
+                                        ColumnLayout {
+                                            id: manualOrganizeToolColumn
+                                            anchors.fill: parent
+                                            anchors.margins: 18
+                                            spacing: 14
+
+                                            Rectangle {
+                                                Layout.fillWidth: true
+                                                implicitHeight: 132
+                                                radius: 18
+                                                color: "#0F1A2C"
+                                                border.color: "#2D4A72"
+
+                                                ColumnLayout {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 16
+                                                    spacing: 8
+                                                    Label { text: appState.language === "de" ? "Aktuelle Zielstruktur" : "Current target structure"; color: "#AFC1D9"; font.pixelSize: 14; font.bold: true }
+                                                    Label { text: appState.sortingTemplatePathLabel.length > 0 ? appState.sortingTemplatePathLabel : "2025 / 07 / 14"; color: "#F7FAFF"; font.pixelSize: 34; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                    Label { text: appState.sortingTemplateHintLabel; color: "#8FB0E1"; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                }
+                                            }
+
+                                            Label { text: appState.language === "de" ? "Sortierblöcke" : "Sorting blocks"; color: "#F7FAFF"; font.pixelSize: 20; font.bold: true }
+                                            Label { text: appState.language === "de" ? "Aktuell sind Jahr, Monat und Tag die festen Ebenen. Die Seite ist größer, damit Vorschau und Entscheidungen besser lesbar sind." : "Year, month, and day are still the fixed levels for now. This page is larger so preview and decisions are easier to read."; color: "#CFE1FF"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 12
+
+                                                Rectangle {
+                                                    Layout.fillWidth: true
+                                                    Layout.preferredHeight: 152
+                                                    radius: 16
+                                                    color: "#0F1A2C"
+                                                    border.color: "#22324A"
+                                                    MouseArea { anchors.fill: parent; onClicked: appState.cycleSortingYearStyle() }
+                                                    ColumnLayout {
+                                                        anchors.fill: parent
+                                                        anchors.margins: 14
+                                                        spacing: 8
+                                                        Label { text: root.trKey("sorting_level_year"); color: "#F7FAFF"; font.pixelSize: 17; font.bold: true }
+                                                        Label { text: appState.sortingYearStyleLabel; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                        Item { Layout.fillHeight: true }
+                                                        Label { text: appState.language === "de" ? "Klicken zum Ändern" : "Press to change"; color: "#6F8FB9"; font.pixelSize: 12 }
+                                                    }
+                                                }
+
+                                                Rectangle {
+                                                    Layout.fillWidth: true
+                                                    Layout.preferredHeight: 152
+                                                    radius: 16
+                                                    color: "#0F1A2C"
+                                                    border.color: "#22324A"
+                                                    MouseArea { anchors.fill: parent; onClicked: appState.cycleSortingMonthStyle() }
+                                                    ColumnLayout {
+                                                        anchors.fill: parent
+                                                        anchors.margins: 14
+                                                        spacing: 8
+                                                        Label { text: root.trKey("sorting_level_month"); color: "#F7FAFF"; font.pixelSize: 17; font.bold: true }
+                                                        Label { text: appState.sortingMonthStyleLabel; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                        Item { Layout.fillHeight: true }
+                                                        Label { text: appState.language === "de" ? "Klicken zum Ändern" : "Press to change"; color: "#6F8FB9"; font.pixelSize: 12 }
+                                                    }
+                                                }
+
+                                                Rectangle {
+                                                    Layout.fillWidth: true
+                                                    Layout.preferredHeight: 152
+                                                    radius: 16
+                                                    color: "#0F1A2C"
+                                                    border.color: "#22324A"
+                                                    MouseArea { anchors.fill: parent; onClicked: appState.cycleSortingDayStyle() }
+                                                    ColumnLayout {
+                                                        anchors.fill: parent
+                                                        anchors.margins: 14
+                                                        spacing: 8
+                                                        Label { text: root.trKey("sorting_level_day"); color: "#F7FAFF"; font.pixelSize: 17; font.bold: true }
+                                                        Label { text: appState.sortingDayStyleLabel; color: "#AFC1D9"; font.pixelSize: 15; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                        Item { Layout.fillHeight: true }
+                                                        Label { text: appState.language === "de" ? "Klicken zum Ändern" : "Press to change"; color: "#6F8FB9"; font.pixelSize: 12 }
+                                                    }
+                                                }
+                                            }
+
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 10
+                                                Button {
+                                                    text: root.trKey("sorting_reset_action")
+                                                    onClicked: appState.resetSortingDefaults()
+                                                    hoverEnabled: true
+                                                    background: SubtleOutlineButtonBackground {}
+                                                    contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 13; font.bold: true }
+                                                }
+                                                Item { Layout.fillWidth: true }
+                                                Button {
+                                                    text: appState.language === "de" ? "Geführten Workflow öffnen" : "Open guided workflow"
+                                                    onClicked: appState.setPage("workflow")
+                                                    hoverEnabled: true
+                                                    background: SubtleOutlineButtonBackground {}
+                                                    contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 12; font.bold: true }
+                                                }
+                                            }
+
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                Label { text: appState.language === "de" ? "Vorschau" : "Preview"; color: "#F7FAFF"; font.pixelSize: 20; font.bold: true; Layout.fillWidth: true }
+                                                Rectangle {
+                                                    radius: 12
+                                                    color: "transparent"
+                                                    border.color: "#355988"
+                                                    implicitWidth: manualSortingCount.implicitWidth + 28
+                                                    implicitHeight: manualSortingCount.implicitHeight + 14
+                                                    Label { id: manualSortingCount; anchors.centerIn: parent; text: appState.sortingPreviewCountLabel; color: "#B8D3FF"; font.pixelSize: 12; font.bold: true }
+                                                }
+                                            }
+
+                                            Label { text: appState.language === "de" ? "Einige echte Quelldateien werden hier auf ihre Zielordner abgebildet." : "A few real source files are mapped to their future target folders here."; color: "#CFE1FF"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+
+                                            ColumnLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 10
+                                                visible: appState.sortingPreviewRows.length > 0
+
+                                                Repeater {
+                                                    model: appState.sortingPreviewRows
+                                                    delegate: Rectangle {
+                                                        required property var modelData
+                                                        Layout.fillWidth: true
+                                                        implicitHeight: 110
+                                                        radius: 14
+                                                        color: "#0F1A2C"
+                                                        border.color: "#22324A"
+
+                                                        ColumnLayout {
+                                                            anchors.fill: parent
+                                                            anchors.margins: 12
+                                                            spacing: 6
+                                                            Label { text: modelData.source_name; color: "#F7FAFF"; font.pixelSize: 15; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+                                                            RowLayout {
+                                                                Layout.fillWidth: true
+                                                                spacing: 10
+                                                                Label { text: modelData.captured_at; color: "#CFE1FF"; font.pixelSize: 12; Layout.preferredWidth: 150 }
+                                                                Label { text: modelData.relative_directory; color: "#8FB0E1"; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                            }
+                                                            Label { text: modelData.source_path; color: "#6F8FB9"; font.pixelSize: 11; elide: Text.ElideMiddle; Layout.fillWidth: true }
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            Label {
+                                                visible: appState.sortingPreviewRows.length === 0
+                                                text: appState.language === "de" ? "Noch keine Vorschau verfügbar. Wähle Quellordner mit Mediendateien aus." : "No preview available yet. Choose source folders containing media files."
+                                                color: "#AFC1D9"
+                                                wrapMode: Text.WordWrap
+                                                Layout.fillWidth: true
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
 
+                        // Manual rename
                         Item {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
 
-                            ColumnLayout {
+                            Flickable {
                                 anchors.fill: parent
-                                spacing: 12
+                                contentWidth: width
+                                contentHeight: manualRenameColumn.implicitHeight
+                                clip: true
 
-                                Label {
-                                    text: root.trKey("nav_rename")
-                                    color: "#F7FAFF"
-                                    font.pixelSize: 30
-                                    font.bold: true
-                                }
+                                ColumnLayout {
+                                    id: manualRenameColumn
+                                    width: parent.width
+                                    spacing: 16
 
-                                Label {
-                                    text: appState.language === "de"
-                                          ? "Manueller Zugriff auf den Rename-Builder. Die Dateinamenvorschau wird direkt aus den aktiven Blöcken aufgebaut."
-                                          : "Manual access to the rename builder. Filename previews are built directly from the active block list."
-                                    color: "#AFC1D9"
-                                    font.pixelSize: 14
-                                    wrapMode: Text.WordWrap
-                                    Layout.fillWidth: true
-                                }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    radius: 18
-                                    color: "#091321"
-                                    border.color: "#22324A"
-
-                                    Loader {
-                                        anchors.fill: parent
-                                        active: appState.sourceCount === 0
-                                        sourceComponent: manualEmptyStateRename
+                                    Label {
+                                        text: appState.language === "de" ? "Manuelles Umbenennen" : "Manual rename"
+                                        color: "#F7FAFF"
+                                        font.pixelSize: 34
+                                        font.bold: true
                                     }
 
-                                    Loader {
-                                        anchors.fill: parent
-                                        active: appState.sourceCount > 0
-                                        sourceComponent: manualRenameContent
+                                    Label {
+                                        text: appState.language === "de"
+                                              ? "Hier ist Rename bewusst größer und detaillierter als im Workflow. Quellen und Ziel setzt du direkt hier, danach arbeitest du sofort mit den aktiven Namensblöcken."
+                                              : "Rename is intentionally larger and more detailed here than in the workflow. Set sources and target directly here, then work immediately with the active naming blocks."
+                                        color: "#AFC1D9"
+                                        font.pixelSize: 15
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 14
+
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 230
+                                            radius: 18
+                                            color: "#0F1A2C"
+                                            border.color: "#22324A"
+                                            ColumnLayout {
+                                                anchors.fill: parent
+                                                anchors.margins: 16
+                                                spacing: 10
+                                                Label { text: appState.language === "de" ? "Quellen" : "Sources"; color: "#F7FAFF"; font.pixelSize: 20; font.bold: true }
+                                                Rectangle {
+                                                    Layout.fillWidth: true
+                                                    Layout.fillHeight: true
+                                                    radius: 14
+                                                    color: "#091321"
+                                                    border.color: "#22324A"
+                                                    Label {
+                                                        anchors.fill: parent
+                                                        anchors.margins: 14
+                                                        text: appState.sourceCount > 0 ? appState.sourceFolders.join("
+") : (appState.language === "de" ? "Wähle Quellordner für das manuelle Umbenennen." : "Choose source folders for manual rename.")
+                                                        color: appState.sourceCount > 0 ? "#F7FAFF" : "#8FB0E1"
+                                                        wrapMode: Text.WrapAnywhere
+                                                        verticalAlignment: Text.AlignTop
+                                                        font.pixelSize: 13
+                                                    }
+                                                }
+                                                Flow {
+                                                    Layout.fillWidth: true
+                                                    spacing: 10
+                                                    PrimaryButton { text: root.trKey("stage_sources_action"); onClicked: sourceFolderDialog.open() }
+                                                    Button {
+                                                        text: root.trKey("button_clear")
+                                                        enabled: appState.sourceCount > 0
+                                                        onClicked: appState.clearSourceFolders()
+                                                        hoverEnabled: true
+                                                        background: SubtleOutlineButtonBackground {}
+                                                        contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 13; font.bold: true }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 230
+                                            radius: 18
+                                            color: "#0F1A2C"
+                                            border.color: "#22324A"
+                                            ColumnLayout {
+                                                anchors.fill: parent
+                                                anchors.margins: 16
+                                                spacing: 10
+                                                Label { text: appState.language === "de" ? "Ziel" : "Target"; color: "#F7FAFF"; font.pixelSize: 20; font.bold: true }
+                                                Rectangle {
+                                                    Layout.fillWidth: true
+                                                    Layout.fillHeight: true
+                                                    radius: 14
+                                                    color: "#091321"
+                                                    border.color: "#22324A"
+                                                    Label {
+                                                        anchors.fill: parent
+                                                        anchors.margins: 14
+                                                        text: appState.targetPath.length > 0 ? appState.targetPath : (appState.language === "de" ? "Noch kein Ziel gesetzt." : "No target selected yet.")
+                                                        color: appState.targetPath.length > 0 ? "#F7FAFF" : "#8FB0E1"
+                                                        wrapMode: Text.WrapAnywhere
+                                                        verticalAlignment: Text.AlignVCenter
+                                                        font.pixelSize: 14
+                                                    }
+                                                }
+                                                Label {
+                                                    text: appState.language === "de" ? "Auch beim Umbenennen kannst du Quelle und Ziel absichtlich identisch setzen." : "You can intentionally make source and target identical for rename too."
+                                                    color: "#AFC1D9"
+                                                    wrapMode: Text.WordWrap
+                                                    Layout.fillWidth: true
+                                                    font.pixelSize: 13
+                                                }
+                                                Flow {
+                                                    Layout.fillWidth: true
+                                                    spacing: 10
+                                                    PrimaryButton { text: root.trKey("stage_target_action"); onClicked: targetFolderDialog.open() }
+                                                    Button {
+                                                        text: appState.language === "de" ? "Quelle = Ziel" : "Source = target"
+                                                        enabled: appState.sourceCount > 0
+                                                        onClicked: appState.setTargetFolder(appState.sourceFolders[0])
+                                                        hoverEnabled: true
+                                                        background: SubtleOutlineButtonBackground {}
+                                                        contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 13; font.bold: true }
+                                                    }
+                                                    Button {
+                                                        text: root.trKey("button_clear")
+                                                        enabled: appState.targetPath.length > 0
+                                                        onClicked: appState.clearTargetFolder()
+                                                        hoverEnabled: true
+                                                        background: SubtleOutlineButtonBackground {}
+                                                        contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 13; font.bold: true }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        implicitHeight: manualRenameToolColumn.implicitHeight + 34
+                                        radius: 20
+                                        color: "#091321"
+                                        border.color: "#22324A"
+
+                                        ColumnLayout {
+                                            id: manualRenameToolColumn
+                                            anchors.fill: parent
+                                            anchors.margins: 18
+                                            spacing: 14
+
+                                            Rectangle {
+                                                Layout.fillWidth: true
+                                                implicitHeight: 138
+                                                radius: 18
+                                                color: "#0F1A2C"
+                                                border.color: "#27456E"
+
+                                                ColumnLayout {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 16
+                                                    spacing: 8
+                                                    Label { text: root.trKey("rename_template_title"); color: "#AFC1D9"; font.pixelSize: 13; font.bold: true; Layout.fillWidth: true }
+                                                    Label { text: appState.renameLiveTemplateName; color: "#F7FAFF"; font.pixelSize: 28; font.bold: true; wrapMode: Text.WrapAnywhere; maximumLineCount: 2; elide: Text.ElideRight; Layout.fillWidth: true }
+                                                    Label { text: appState.renameLiveTemplateHint; color: "#8FB0E1"; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                }
+                                            }
+
+                                            Label { text: appState.language === "de" ? "Presets" : "Presets"; color: "#F7FAFF"; font.pixelSize: 19; font.bold: true }
+                                            Label { text: appState.language === "de" ? "Die Presets setzen nur die Blockliste. Die eigentliche Dateinamenvorschau entsteht immer aus den aktiven Blöcken darunter." : "Presets only set the block list. The real filename preview is always built from the active blocks below."; color: "#CFE1FF"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+
+                                            Flow {
+                                                Layout.fillWidth: true
+                                                spacing: 10
+
+                                                Button {
+                                                    text: appState.text("rename_template_readable_datetime_original")
+                                                    onClicked: appState.setRenameTemplate("readable_datetime_original")
+                                                    hoverEnabled: true
+                                                    background: SubtleOutlineButtonBackground {}
+                                                    contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 12; font.bold: true }
+                                                }
+
+                                                Button {
+                                                    text: appState.text("rename_template_year_month_day_time_original")
+                                                    onClicked: appState.setRenameTemplate("year_month_day_time_original")
+                                                    hoverEnabled: true
+                                                    background: SubtleOutlineButtonBackground {}
+                                                    contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 12; font.bold: true }
+                                                }
+
+                                                Button {
+                                                    text: appState.text("rename_template_date_original")
+                                                    onClicked: appState.setRenameTemplate("date_original")
+                                                    hoverEnabled: true
+                                                    background: SubtleOutlineButtonBackground {}
+                                                    contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 12; font.bold: true }
+                                                }
+
+                                                Button {
+                                                    text: root.trKey("rename_template_reset_action")
+                                                    onClicked: appState.resetRenameTemplate()
+                                                    hoverEnabled: true
+                                                    background: SubtleOutlineButtonBackground {}
+                                                    contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 12; font.bold: true }
+                                                }
+                                            }
+
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                Label { text: root.trKey("rename_blocks_title"); color: "#F7FAFF"; font.pixelSize: 20; font.bold: true; Layout.fillWidth: true }
+                                                Rectangle {
+                                                    radius: 12
+                                                    color: "transparent"
+                                                    border.color: "#30465F"
+                                                    implicitWidth: manualRenameCount.implicitWidth + 24
+                                                    implicitHeight: manualRenameCount.implicitHeight + 14
+                                                    Label { id: manualRenameCount; anchors.centerIn: parent; text: appState.renamePreviewCountLabel; color: "#B8D3FF"; font.pixelSize: 12; font.bold: true }
+                                                }
+                                            }
+
+                                            Label { text: appState.text("rename_blocks_body"); color: "#CFE1FF"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+
+                                            Flow {
+                                                Layout.fillWidth: true
+                                                spacing: 10
+
+                                                Repeater {
+                                                    model: appState.renameBlocks
+                                                    delegate: Rectangle {
+                                                        required property var modelData
+                                                        width: 230
+                                                        height: 136
+                                                        radius: 16
+                                                        color: "#0F1A2C"
+                                                        border.color: "#22324A"
+
+                                                        MouseArea {
+                                                            anchors.fill: parent
+                                                            onClicked: appState.cycleRenameBlock(modelData.index)
+                                                        }
+
+                                                        ColumnLayout {
+                                                            anchors.fill: parent
+                                                            anchors.margins: 14
+                                                            spacing: 8
+
+                                                            RowLayout {
+                                                                Layout.fillWidth: true
+                                                                Label {
+                                                                    text: modelData.slot_label
+                                                                    color: "#8FB0E1"
+                                                                    font.pixelSize: 12
+                                                                    font.bold: true
+                                                                    Layout.fillWidth: true
+                                                                }
+
+                                                                Button {
+                                                                    visible: modelData.removable
+                                                                    text: root.trKey("rename_remove_block_action")
+                                                                    onClicked: appState.removeRenameBlock(modelData.index)
+                                                                    hoverEnabled: true
+                                                                    background: SubtleOutlineButtonBackground {}
+                                                                    contentItem: Text {
+                                                                        text: parent.text
+                                                                        color: "#F7FAFF"
+                                                                        horizontalAlignment: Text.AlignHCenter
+                                                                        verticalAlignment: Text.AlignVCenter
+                                                                        font.pixelSize: 10
+                                                                        font.bold: true
+                                                                    }
+                                                                }
+                                                            }
+
+                                                            Label {
+                                                                text: modelData.label
+                                                                color: "#F7FAFF"
+                                                                font.pixelSize: 18
+                                                                font.bold: true
+                                                                wrapMode: Text.WordWrap
+                                                                Layout.fillWidth: true
+                                                            }
+
+                                                            Item { Layout.fillHeight: true }
+
+                                                            Label {
+                                                                text: modelData.hint
+                                                                color: "#6F8FB9"
+                                                                font.pixelSize: 12
+                                                                wrapMode: Text.WordWrap
+                                                                Layout.fillWidth: true
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 10
+                                                Button {
+                                                    text: root.trKey("rename_add_block_action")
+                                                    onClicked: appState.addRenameBlock()
+                                                    hoverEnabled: true
+                                                    background: SubtleOutlineButtonBackground {}
+                                                    contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 13; font.bold: true }
+                                                }
+                                                Item { Layout.fillWidth: true }
+                                                Button {
+                                                    text: appState.language === "de" ? "Geführten Workflow öffnen" : "Open guided workflow"
+                                                    onClicked: appState.setPage("workflow")
+                                                    hoverEnabled: true
+                                                    background: SubtleOutlineButtonBackground {}
+                                                    contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 12; font.bold: true }
+                                                }
+                                            }
+
+                                            Label { text: root.trKey("rename_preview_title"); color: "#F7FAFF"; font.pixelSize: 20; font.bold: true }
+                                            Label { text: root.trKey("rename_preview_body"); color: "#CFE1FF"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+
+                                            ColumnLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 10
+                                                visible: appState.renamePreviewRows.length > 0
+
+                                                Repeater {
+                                                    model: appState.renamePreviewRows
+                                                    delegate: Rectangle {
+                                                        required property var modelData
+                                                        Layout.fillWidth: true
+                                                        implicitHeight: 104
+                                                        radius: 14
+                                                        color: "#0F1A2C"
+                                                        border.color: "#22324A"
+
+                                                        ColumnLayout {
+                                                            anchors.fill: parent
+                                                            anchors.margins: 12
+                                                            spacing: 4
+                                                            Label { text: modelData.source_name; color: "#AFC1D9"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
+                                                            Label { text: modelData.proposed_name; color: "#F7FAFF"; font.pixelSize: 18; font.bold: true; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true }
+                                                            Label { text: modelData.source_path; color: "#8FB0E1"; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideMiddle }
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            Label {
+                                                visible: appState.renamePreviewRows.length === 0
+                                                text: appState.language === "de" ? "Noch keine Rename-Vorschau verfügbar. Wähle Quellordner mit Mediendateien aus." : "No rename preview available yet. Choose source folders containing media files."
+                                                color: "#AFC1D9"
+                                                wrapMode: Text.WordWrap
+                                                Layout.fillWidth: true
+                                            }
+                                        }
                                     }
                                 }
                             }
