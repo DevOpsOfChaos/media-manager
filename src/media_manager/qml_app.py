@@ -17,6 +17,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 
 from .cleanup_plan import build_exact_cleanup_dry_run, build_exact_cleanup_plan
 from .duplicates import DuplicateScanConfig, scan_exact_duplicates
+from .execution_plan import build_duplicate_execution_preview
 from .rename_plan import (
     RenameBlock,
     build_filename_preview,
@@ -117,6 +118,17 @@ TRANSLATIONS = {
         "dryrun_reason_missing_keep_decision": "Missing keep decision",
         "dryrun_status_planned": "planned",
         "dryrun_status_blocked": "blocked",
+        "execution_status_ready": "Execution preview is consistent with the current exact-duplicate dry run.",
+        "execution_status_blocked": "Execution preview is still blocked by unresolved exact-duplicate groups.",
+        "execution_rows_count": "{count} execution row(s)",
+        "execution_row_filesystem_delete": "Filesystem delete",
+        "execution_row_pipeline_exclusion": "Pipeline exclusion",
+        "execution_row_blocked": "Blocked",
+        "execution_status_executable": "executable",
+        "execution_status_deferred": "deferred",
+        "execution_status_blocked_row": "blocked",
+        "execution_reason_exact_duplicate_remove_candidate": "Exact duplicate remove candidate",
+        "execution_reason_missing_keep_decision": "Missing keep decision",
         "table_name": "Name",
         "table_size": "Size",
         "table_date": "Date",
@@ -317,6 +329,17 @@ TRANSLATIONS = {
         "dryrun_reason_missing_keep_decision": "Fehlende Keep-Entscheidung",
         "dryrun_status_planned": "geplant",
         "dryrun_status_blocked": "blockiert",
+        "execution_status_ready": "Die Ausführungsvorschau ist mit dem aktuellen exakten Duplikat-Dry-Run konsistent.",
+        "execution_status_blocked": "Die Ausführungsvorschau ist noch durch offene exakte Duplikat-Gruppen blockiert.",
+        "execution_rows_count": "{count} Ausführungszeile(n)",
+        "execution_row_filesystem_delete": "Dateisystem-Löschung",
+        "execution_row_pipeline_exclusion": "Pipeline-Ausschluss",
+        "execution_row_blocked": "Blockiert",
+        "execution_status_executable": "ausführbar",
+        "execution_status_deferred": "zurückgestellt",
+        "execution_status_blocked_row": "blockiert",
+        "execution_reason_exact_duplicate_remove_candidate": "Exakter Duplikat-Entfernkandidat",
+        "execution_reason_missing_keep_decision": "Fehlende Keep-Entscheidung",
         "table_name": "Name",
         "table_size": "Größe",
         "table_date": "Datum",
@@ -515,6 +538,13 @@ class QmlAppState(QObject):
         self._dry_run_exclude_from_copy_count = 0
         self._dry_run_exclude_from_move_count = 0
 
+        self._execution_ready = False
+        self._execution_rows: list[dict[str, str]] = []
+        self._execution_executable_count = 0
+        self._execution_deferred_count = 0
+        self._execution_blocked_count = 0
+        self._execution_delete_count = 0
+
         self._sorting_levels = [SortLevel(level.kind, level.style) for level in DEFAULT_SORT_LEVELS]
         self._sorting_preview_rows: list[dict[str, str]] = []
         self._sorting_template_path = ""
@@ -608,6 +638,39 @@ class QmlAppState(QObject):
                     "reason_label": self._dry_run_reason_label(action.reason),
                     "operation_mode": action.operation_mode,
                     "operation_mode_label": self.text(f"mode_{action.operation_mode}"),
+                }
+            )
+        return rows
+
+    def _execution_status_label(self, key: str) -> str:
+        return self.text(f"execution_status_{key}")
+
+    def _execution_row_label(self, key: str) -> str:
+        return self.text(f"execution_row_{key}")
+
+    def _execution_reason_label(self, key: str) -> str:
+        return self.text(f"execution_reason_{key}")
+
+    def _build_execution_rows(self, execution_preview) -> list[dict[str, str]]:
+        rows: list[dict[str, str]] = []
+        for row in execution_preview.rows:
+            rows.append(
+                {
+                    "row_type": row.row_type,
+                    "row_type_label": self._execution_row_label(row.row_type),
+                    "status": row.status,
+                    "status_label": self._execution_status_label(row.status),
+                    "group_id": row.group_id,
+                    "source_name": row.source_path.name,
+                    "source_path": str(row.source_path).replace("\\", "/"),
+                    "survivor_name": row.survivor_path.name if row.survivor_path else "-",
+                    "survivor_path": str(row.survivor_path).replace("\\", "/") if row.survivor_path else "",
+                    "target_path": str(row.target_path).replace("\\", "/") if row.target_path else "",
+                    "size": self._format_size(row.file_size),
+                    "reason": row.reason,
+                    "reason_label": self._execution_reason_label(row.reason),
+                    "operation_mode": row.operation_mode,
+                    "operation_mode_label": self.text(f"mode_{row.operation_mode}"),
                 }
             )
         return rows
@@ -930,6 +993,14 @@ class QmlAppState(QObject):
         self._dry_run_exclude_from_copy_count = dry_run.exclude_from_copy_count
         self._dry_run_exclude_from_move_count = dry_run.exclude_from_move_count
 
+        execution_preview = build_duplicate_execution_preview(dry_run)
+        self._execution_ready = execution_preview.ready
+        self._execution_rows = self._build_execution_rows(execution_preview)
+        self._execution_executable_count = execution_preview.executable_count
+        self._execution_deferred_count = execution_preview.deferred_count
+        self._execution_blocked_count = execution_preview.blocked_count
+        self._execution_delete_count = execution_preview.delete_count
+
         self.workflowChanged.emit()
         self.liveStatsChanged.emit()
 
@@ -961,6 +1032,12 @@ class QmlAppState(QObject):
         self._dry_run_delete_count = 0
         self._dry_run_exclude_from_copy_count = 0
         self._dry_run_exclude_from_move_count = 0
+        self._execution_ready = False
+        self._execution_rows = []
+        self._execution_executable_count = 0
+        self._execution_deferred_count = 0
+        self._execution_blocked_count = 0
+        self._execution_delete_count = 0
         self.duplicateRowsChanged.emit()
         self.duplicateDetailChanged.emit()
         self.workflowChanged.emit()
@@ -1330,6 +1407,43 @@ class QmlAppState(QObject):
         if self._dry_run_filter_key == "blocked":
             return [row for row in self._dry_run_rows if row["status"] == "blocked"]
         return [row for row in self._dry_run_rows if row["action_type"] == self._dry_run_filter_key]
+
+    @Property(bool, notify=workflowChanged)
+    def executionReady(self) -> bool:
+        return self._execution_ready
+
+    @Property(int, notify=workflowChanged)
+    def executionExecutableCount(self) -> int:
+        return self._execution_executable_count
+
+    @Property(int, notify=workflowChanged)
+    def executionDeferredCount(self) -> int:
+        return self._execution_deferred_count
+
+    @Property(int, notify=workflowChanged)
+    def executionBlockedCount(self) -> int:
+        return self._execution_blocked_count
+
+    @Property(int, notify=workflowChanged)
+    def executionDeleteCount(self) -> int:
+        return self._execution_delete_count
+
+    @Property(str, notify=workflowChanged)
+    def executionModeLabel(self) -> str:
+        return self.text(f"mode_{self._operation_mode}")
+
+    @Property(str, notify=workflowChanged)
+    def executionStatusLabel(self) -> str:
+        return self.text("execution_status_ready") if self._execution_ready else self.text("execution_status_blocked")
+
+    @Property(str, notify=workflowChanged)
+    def executionRowsCountLabel(self) -> str:
+        return self._format_text("execution_rows_count", count=len(self._execution_rows))
+
+    @Property("QVariantList", notify=workflowChanged)
+    def executionRows(self) -> list[dict[str, str]]:
+        return list(self._execution_rows)
+
     @Property(bool, notify=workflowChanged)
     def canAdvanceWorkflow(self) -> bool:
         key = self.workflowStageKey
