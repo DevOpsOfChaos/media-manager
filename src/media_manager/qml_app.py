@@ -15,7 +15,7 @@ from PySide6.QtCore import Property, QObject, QSettings, QTimer, QUrl, Signal, S
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
-from .cleanup_plan import build_exact_cleanup_plan
+from .cleanup_plan import build_exact_cleanup_dry_run, build_exact_cleanup_plan
 from .duplicates import DuplicateScanConfig, scan_exact_duplicates
 from .rename_plan import (
     RenameBlock,
@@ -98,6 +98,25 @@ TRANSLATIONS = {
         "summary_remove_candidate_label": "Remove",
         "summary_candidates_label": "Candidates",
         "summary_estimated_reclaimable_label": "Estimated reclaimable",
+        "dryrun_title": "Dry-run planning",
+        "dryrun_subtitle": "Turn exact duplicate decisions into explicit planned and blocked rows before real execution exists.",
+        "dryrun_ready": "Dry run is ready",
+        "dryrun_blocked": "Dry run is blocked",
+        "dryrun_rows_count": "{count} dry-run row(s)",
+        "dryrun_filter_all": "All rows",
+        "dryrun_filter_planned": "Planned",
+        "dryrun_filter_blocked": "Blocked",
+        "dryrun_filter_delete": "Delete",
+        "dryrun_filter_exclude_from_copy": "Exclude from copy",
+        "dryrun_filter_exclude_from_move": "Exclude from move",
+        "dryrun_action_delete": "Delete",
+        "dryrun_action_exclude_from_copy": "Exclude from copy",
+        "dryrun_action_exclude_from_move": "Exclude from move",
+        "dryrun_action_blocked_exact_group": "Blocked exact group",
+        "dryrun_reason_exact_duplicate_remove_candidate": "Exact duplicate remove candidate",
+        "dryrun_reason_missing_keep_decision": "Missing keep decision",
+        "dryrun_status_planned": "planned",
+        "dryrun_status_blocked": "blocked",
         "table_name": "Name",
         "table_size": "Size",
         "table_date": "Date",
@@ -279,6 +298,25 @@ TRANSLATIONS = {
         "summary_remove_candidate_label": "Entfernen",
         "summary_candidates_label": "Kandidaten",
         "summary_estimated_reclaimable_label": "Geschätzt freisetzbar",
+        "dryrun_title": "Dry-Run-Planung",
+        "dryrun_subtitle": "Exakte Duplikat-Entscheidungen werden in explizite geplante und blockierte Zeilen übersetzt, bevor echte Ausführung existiert.",
+        "dryrun_ready": "Dry Run ist bereit",
+        "dryrun_blocked": "Dry Run ist blockiert",
+        "dryrun_rows_count": "{count} Dry-Run-Zeile(n)",
+        "dryrun_filter_all": "Alle Zeilen",
+        "dryrun_filter_planned": "Geplant",
+        "dryrun_filter_blocked": "Blockiert",
+        "dryrun_filter_delete": "Löschen",
+        "dryrun_filter_exclude_from_copy": "Vom Kopieren ausschließen",
+        "dryrun_filter_exclude_from_move": "Vom Verschieben ausschließen",
+        "dryrun_action_delete": "Löschen",
+        "dryrun_action_exclude_from_copy": "Vom Kopieren ausschließen",
+        "dryrun_action_exclude_from_move": "Vom Verschieben ausschließen",
+        "dryrun_action_blocked_exact_group": "Blockierte exakte Gruppe",
+        "dryrun_reason_exact_duplicate_remove_candidate": "Exakter Duplikat-Entfernkandidat",
+        "dryrun_reason_missing_keep_decision": "Fehlende Keep-Entscheidung",
+        "dryrun_status_planned": "geplant",
+        "dryrun_status_blocked": "blockiert",
         "table_name": "Name",
         "table_size": "Größe",
         "table_date": "Datum",
@@ -468,6 +506,15 @@ class QmlAppState(QObject):
         self._summary_planned_removal_count = 0
         self._summary_estimated_reclaimable_bytes = 0
 
+        self._dry_run_ready = False
+        self._dry_run_rows: list[dict[str, str]] = []
+        self._dry_run_filter_key = "all"
+        self._dry_run_planned_count = 0
+        self._dry_run_blocked_count = 0
+        self._dry_run_delete_count = 0
+        self._dry_run_exclude_from_copy_count = 0
+        self._dry_run_exclude_from_move_count = 0
+
         self._sorting_levels = [SortLevel(level.kind, level.style) for level in DEFAULT_SORT_LEVELS]
         self._sorting_preview_rows: list[dict[str, str]] = []
         self._sorting_template_path = ""
@@ -530,6 +577,40 @@ class QmlAppState(QObject):
 
     def _format_datetime(self, value: datetime) -> str:
         return value.strftime("%Y-%m-%d %H:%M")
+
+    def _dry_run_action_label(self, action_type: str) -> str:
+        return self.text(f"dryrun_action_{action_type}")
+
+    def _dry_run_reason_label(self, reason: str) -> str:
+        return self.text(f"dryrun_reason_{reason}")
+
+    def _dry_run_status_label(self, status: str) -> str:
+        return self.text(f"dryrun_status_{status}")
+
+    def _build_dry_run_rows(self, dry_run) -> list[dict[str, str]]:
+        rows: list[dict[str, str]] = []
+        ordered_actions = [*dry_run.planned_actions, *dry_run.blocked_actions]
+        for action in ordered_actions:
+            rows.append(
+                {
+                    "status": action.status,
+                    "status_label": self._dry_run_status_label(action.status),
+                    "action_type": action.action_type,
+                    "action_label": self._dry_run_action_label(action.action_type),
+                    "group_id": action.group_id,
+                    "source_name": action.source_path.name,
+                    "source_path": str(action.source_path).replace("\\", "/"),
+                    "survivor_name": action.survivor_path.name if action.survivor_path else "-",
+                    "survivor_path": str(action.survivor_path).replace("\\", "/") if action.survivor_path else "",
+                    "target_path": str(action.target_path).replace("\\", "/") if action.target_path else "",
+                    "size": self._format_size(action.file_size),
+                    "reason": action.reason,
+                    "reason_label": self._dry_run_reason_label(action.reason),
+                    "operation_mode": action.operation_mode,
+                    "operation_mode_label": self.text(f"mode_{action.operation_mode}"),
+                }
+            )
+        return rows
 
     def _progress_from_duplicate_message(self, message: str) -> tuple[int, str]:
         if message.startswith("Scanning source folders") or message.startswith("Found "):
@@ -792,7 +873,6 @@ class QmlAppState(QObject):
             )
 
         return rows, details
-
     def _recompute_summary_state(self) -> None:
         plan = build_exact_cleanup_plan(
             self._exact_duplicate_groups,
@@ -836,6 +916,20 @@ class QmlAppState(QObject):
                 }
             )
 
+        dry_run = build_exact_cleanup_dry_run(
+            self._exact_duplicate_groups,
+            self._duplicate_decisions,
+            self._operation_mode,
+            self._target_path or None,
+        )
+        self._dry_run_ready = dry_run.ready
+        self._dry_run_rows = self._build_dry_run_rows(dry_run)
+        self._dry_run_planned_count = dry_run.planned_count
+        self._dry_run_blocked_count = dry_run.blocked_count
+        self._dry_run_delete_count = dry_run.delete_count
+        self._dry_run_exclude_from_copy_count = dry_run.exclude_from_copy_count
+        self._dry_run_exclude_from_move_count = dry_run.exclude_from_move_count
+
         self.workflowChanged.emit()
         self.liveStatsChanged.emit()
 
@@ -859,6 +953,14 @@ class QmlAppState(QObject):
         self._summary_unresolved_groups_preview = []
         self._summary_planned_removal_count = 0
         self._summary_estimated_reclaimable_bytes = 0
+        self._dry_run_ready = False
+        self._dry_run_rows = []
+        self._dry_run_filter_key = "all"
+        self._dry_run_planned_count = 0
+        self._dry_run_blocked_count = 0
+        self._dry_run_delete_count = 0
+        self._dry_run_exclude_from_copy_count = 0
+        self._dry_run_exclude_from_move_count = 0
         self.duplicateRowsChanged.emit()
         self.duplicateDetailChanged.emit()
         self.workflowChanged.emit()
@@ -1179,6 +1281,56 @@ class QmlAppState(QObject):
         return rows
 
     @Property(bool, notify=workflowChanged)
+    def dryRunReady(self) -> bool:
+        return self._dry_run_ready
+
+    @Property(str, notify=workflowChanged)
+    def dryRunFilterKey(self) -> str:
+        return self._dry_run_filter_key
+
+    @Property("QVariantList", notify=workflowChanged)
+    def dryRunFilterOptions(self) -> list[dict[str, str]]:
+        keys = ["all", "planned", "blocked", "delete", "exclude_from_copy", "exclude_from_move"]
+        return [{"key": key, "label": self.text(f"dryrun_filter_{key}")} for key in keys]
+
+    @Property(int, notify=workflowChanged)
+    def dryRunPlannedCount(self) -> int:
+        return self._dry_run_planned_count
+
+    @Property(int, notify=workflowChanged)
+    def dryRunBlockedCount(self) -> int:
+        return self._dry_run_blocked_count
+
+    @Property(int, notify=workflowChanged)
+    def dryRunDeleteCount(self) -> int:
+        return self._dry_run_delete_count
+
+    @Property(int, notify=workflowChanged)
+    def dryRunExcludeFromCopyCount(self) -> int:
+        return self._dry_run_exclude_from_copy_count
+
+    @Property(int, notify=workflowChanged)
+    def dryRunExcludeFromMoveCount(self) -> int:
+        return self._dry_run_exclude_from_move_count
+
+    @Property(str, notify=workflowChanged)
+    def dryRunStatusLabel(self) -> str:
+        return self.text("dryrun_ready") if self._dry_run_ready else self.text("dryrun_blocked")
+
+    @Property(str, notify=workflowChanged)
+    def dryRunRowsCountLabel(self) -> str:
+        return self._format_text("dryrun_rows_count", count=len(self.dryRunRows))
+
+    @Property("QVariantList", notify=workflowChanged)
+    def dryRunRows(self) -> list[dict[str, str]]:
+        if self._dry_run_filter_key == "all":
+            return list(self._dry_run_rows)
+        if self._dry_run_filter_key == "planned":
+            return [row for row in self._dry_run_rows if row["status"] == "planned"]
+        if self._dry_run_filter_key == "blocked":
+            return [row for row in self._dry_run_rows if row["status"] == "blocked"]
+        return [row for row in self._dry_run_rows if row["action_type"] == self._dry_run_filter_key]
+    @Property(bool, notify=workflowChanged)
     def canAdvanceWorkflow(self) -> bool:
         key = self.workflowStageKey
         if key == "sources":
@@ -1456,6 +1608,16 @@ class QmlAppState(QObject):
             return
         del self._rename_blocks[index]
         self._rebuild_rename_preview()
+
+    @Slot(str)
+    def setDryRunFilter(self, key: str) -> None:
+        valid_keys = {"all", "planned", "blocked", "delete", "exclude_from_copy", "exclude_from_move"}
+        if key not in valid_keys:
+            return
+        if key == self._dry_run_filter_key:
+            return
+        self._dry_run_filter_key = key
+        self.workflowChanged.emit()
 
     @Slot()
     def backToHome(self) -> None:
