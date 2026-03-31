@@ -24,10 +24,20 @@
 
 - [x] Exact duplicate detection via hashing / byte identity
 - [x] Guided duplicate review baseline
+- [x] Exact-duplicate cleanup plan and dry-run foundation
+- [x] Exact-duplicate execution preview foundation
+- [x] Exact-duplicate execution runner baseline
+- [x] Duplicate workflow CLI with session save/load
+- [x] Duplicate engine startup self-test
+- [x] Associated-file detection foundation
+- [x] Associated-file safety blocking in duplicate delete path
+- [x] Trash-based duplicate delete execution
+- [x] Structured duplicate execution audit logging
 - [ ] Keep-source / keep-target / keep-both actions
 - [ ] Duplicate decision queue for larger batches
 - [ ] Similarity pipeline for likely duplicates
-- [ ] Associated file detection and handling
+- [ ] Rich associated-file execution handling beyond current safety blocking
+- [ ] Duplicate dry-run / execution surface in the QML workflow UI
 
 ## Phase 4 — comparison workflows
 
@@ -58,14 +68,16 @@
 
 ## Phase 7 — persistence and resumability
 
+- [x] Hidden workflow snapshot baseline
+- [x] Exact-duplicate session snapshot persistence baseline
 - [ ] Hidden workflow database inside target structures
 - [ ] Crash-safe workflow recovery
 - [ ] Resume and re-open prior optimized targets
-- [ ] Decision persistence across sessions
+- [ ] Decision persistence across sessions beyond current exact-duplicate baseline
 
 ## Phase 8 — productization
 
-- [ ] QML / Qt Quick migration for the primary UI
+- [x] QML / Qt Quick migration for the primary workflow shell
 - [ ] Modern desktop UI refinement
 - [ ] Windows packaging
 - [ ] Installer
@@ -76,3 +88,4 @@
 
 - `docs/product_vision.md`
 - `docs/workflow_ux_target.md`
+- `docs/65_exact_duplicate_feature_state.md`

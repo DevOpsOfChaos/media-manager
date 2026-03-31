@@ -36,6 +36,14 @@ This repository fixes that foundation first.
 - Save, load, and delete reusable import sets for organizer source/target combinations
 - Rename media files in place from one or more source folders
 - Preview rename plans before applying them
+- Detect exact duplicates via hashing and byte identity
+- Store exact-duplicate keep decisions in reusable session snapshots
+- Build exact-duplicate cleanup plans, dry-runs, and execution previews
+- Execute exact-duplicate delete rows through a guarded trash-based runner
+- Block duplicate delete execution when associated files or stale scan conditions are detected
+- Run a duplicate-engine startup self-test automatically
+- Write structured duplicate execution audit logs
+- Expose duplicate workflow operations through `media-manager-duplicates`
 - Resolve ExifTool through:
   - `PATH`
   - `EXIFTOOL_PATH`
@@ -43,20 +51,22 @@ This repository fixes that foundation first.
   - common Windows install paths
 - Auto-fill and persist organizer defaults such as ExifTool path and target folder
 - PySide6 app shell with Home, Organize, and Rename workspaces
+- Guided QML workflow shell with source/target setup, duplicate review foundation, sorting foundation, and rename foundation
 - More compact organizer UI with reduced text noise
 - Live organizer and rename progress feedback during runs
 - Readable result tables with content-based column sizing
-- CLI entry point
-- Automated tests for core date, sorting, rename, and settings logic
+- CLI entry points for organize and duplicates workflows
+- Automated tests for core date, sorting, rename, duplicate, and settings logic
 
 ## Planned capabilities
 
-- Duplicate detection
-- Keep-source / keep-target / keep-both decisions for exact duplicates
-- Visual comparison for images and videos
+- Keep-source / keep-target / keep-both actions for duplicate resolution
+- Duplicate decision queue for larger batches
+- Similarity pipeline for likely duplicates
+- Rich associated-file execution handling beyond current safety blocking
 - Flexible sorting rules and filters
-- SQLite-backed media index
 - Faster processing for large libraries
+- Stronger duplicate and execution surfaces in the QML workflow UI
 - Modern desktop UI refinement
 - Optional localization with language switching
 - Windows packaging / installer
@@ -71,7 +81,8 @@ The current product shape is easiest to think about as four user-facing areas:
 3. **Duplicates**
 4. **Compare**
 
-Only the first two areas are actively implemented right now. The others are planned and should be built on top of the same core instead of becoming separate one-off tools.
+The first two areas are the most visible in the GUI right now.  
+The duplicate area already has substantial backend, CLI, and safety work, but its final GUI surface is still incomplete.
 
 ## Architecture
 
@@ -80,10 +91,22 @@ media-manager/
 ├── docs/
 ├── src/
 │   └── media_manager/
+│       ├── associated_files.py
 │       ├── cli.py
+│       ├── cli_duplicates.py
+│       ├── cleanup_plan.py
 │       ├── dates.py
+│       ├── duplicate_session_store.py
+│       ├── duplicate_startup_selftest.py
+│       ├── duplicate_workflow.py
+│       ├── duplicates.py
+│       ├── execution_audit.py
+│       ├── execution_plan.py
+│       ├── execution_runner.py
+│       ├── execution_safety.py
 │       ├── exiftool.py
 │       ├── gui.py
+│       ├── qml_app.py
 │       ├── renamer.py
 │       ├── settings.py
 │       └── sorter.py
@@ -117,28 +140,46 @@ pytest
 
 ## Run the application
 
-GUI:
+QML app:
+
+```powershell
+media-manager-qml
+```
+
+Fallback app:
 
 ```powershell
 python -m media_manager
 ```
 
-CLI preview:
+CLI organize preview:
 
 ```powershell
 python -m media_manager organize --source "C:\Path\To\UnsortedA" --source "C:\Path\To\UnsortedB" --target "C:\Path\To\Sorted"
 ```
 
-CLI apply with copy:
+CLI organize apply with copy:
 
 ```powershell
 python -m media_manager organize --source "C:\Path\To\UnsortedA" --source "C:\Path\To\UnsortedB" --target "C:\Path\To\Sorted" --apply --copy
 ```
 
-CLI apply with move:
+CLI organize apply with move:
 
 ```powershell
 python -m media_manager organize --source "C:\Path\To\UnsortedA" --source "C:\Path\To\UnsortedB" --target "C:\Path\To\Sorted" --apply --move
+```
+
+CLI duplicate workflow with plan output:
+
+```powershell
+media-manager-duplicates --source "C:\Path\To\Library" --policy first --mode delete --show-plan
+```
+
+CLI duplicate workflow with audit log:
+
+```powershell
+media-manager-duplicates --source "C:\Path\To\Library" --policy first --mode delete --show-plan --audit-log ".\duplicate-audit.json"
 ```
 
 ## ExifTool
@@ -177,6 +218,7 @@ See also:
 
 - [Roadmap](docs/roadmap.md)
 - [Architecture notes](docs/architecture.md)
+- [Exact duplicate feature state](docs/65_exact_duplicate_feature_state.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Support](SUPPORT.md)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from media_manager.cli_duplicates import build_parser, main
+from media_manager.cli_duplicates import ROW_STATUS_CHOICES, build_parser, main
 
 
 def test_build_parser_supports_workflow_arguments() -> None:
@@ -17,18 +17,29 @@ def test_build_parser_supports_workflow_arguments() -> None:
             "--mode",
             "delete",
             "--show-plan",
+            "--show-dry-run-rows",
+            "--show-execution-rows",
+            "--row-status",
+            "blocked",
             "--save-session",
             "session.json",
             "--json-report",
             "report.json",
+            "--audit-log",
+            "audit.json",
         ]
     )
 
     assert args.policy == "first"
     assert args.mode == "delete"
     assert args.show_plan is True
+    assert args.show_dry_run_rows is True
+    assert args.show_execution_rows is True
+    assert args.row_status == "blocked"
     assert args.save_session == Path("session.json")
     assert args.json_report == Path("report.json")
+    assert args.audit_log == Path("audit.json")
+    assert ROW_STATUS_CHOICES == ["planned", "blocked", "executable", "deferred"]
 
 
 def test_main_prints_scan_summary_without_groups(tmp_path: Path, capsys) -> None:
@@ -45,7 +56,7 @@ def test_main_prints_scan_summary_without_groups(tmp_path: Path, capsys) -> None
     assert "Exact groups: 1" in out
 
 
-def test_main_builds_plan_and_saves_session_and_report(tmp_path: Path, capsys) -> None:
+def test_main_builds_plan_and_saves_session_report_and_audit(tmp_path: Path, capsys) -> None:
     source = tmp_path / "source"
     source.mkdir()
     (source / "one.jpg").write_bytes(b"duplicate-bytes")
@@ -53,6 +64,7 @@ def test_main_builds_plan_and_saves_session_and_report(tmp_path: Path, capsys) -
 
     session_path = tmp_path / "duplicate-session.json"
     report_path = tmp_path / "duplicate-report.json"
+    audit_path = tmp_path / "duplicate-audit.json"
 
     exit_code = main(
         [
@@ -67,6 +79,8 @@ def test_main_builds_plan_and_saves_session_and_report(tmp_path: Path, capsys) -
             str(session_path),
             "--json-report",
             str(report_path),
+            "--audit-log",
+            str(audit_path),
         ]
     )
 
@@ -77,11 +91,19 @@ def test_main_builds_plan_and_saves_session_and_report(tmp_path: Path, capsys) -
     assert "Execution preview:" in out
     assert session_path.exists()
     assert report_path.exists()
+    assert audit_path.exists()
 
     payload = json.loads(report_path.read_text(encoding="utf-8"))
     assert payload["scan"]["exact_groups"] == 1
     assert payload["dry_run"]["planned_count"] == 1
     assert payload["execution_preview"]["executable_count"] == 1
+
+    audit_payload = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert audit_payload["scan"]["exact_groups"] == 1
+    assert audit_payload["apply_requested"] is False
+    assert audit_payload["execution_status"] == "planned_only"
+    assert audit_payload["recommended_exit_code"] == 0
+    assert audit_payload["execution_run"] is None
 
 
 def test_main_can_restore_saved_session(tmp_path: Path, capsys) -> None:
@@ -120,13 +142,21 @@ def test_main_can_restore_saved_session(tmp_path: Path, capsys) -> None:
     assert "resolved=1" in out
 
 
-def test_main_apply_delete_executes_removal(tmp_path: Path, capsys) -> None:
+def test_main_apply_delete_sends_file_to_trash(monkeypatch, tmp_path: Path, capsys) -> None:
     source = tmp_path / "source"
     source.mkdir()
     keep = source / "one.jpg"
     remove = source / "two.jpg"
     keep.write_bytes(b"duplicate-bytes")
     remove.write_bytes(b"duplicate-bytes")
+
+    trashed: list[str] = []
+
+    def fake_send2trash(path_str: str) -> None:
+        trashed.append(path_str)
+        Path(path_str).unlink()
+
+    monkeypatch.setattr("media_manager.execution_runner.send2trash", fake_send2trash)
 
     exit_code = main(
         [
@@ -146,3 +176,103 @@ def test_main_apply_delete_executes_removal(tmp_path: Path, capsys) -> None:
     assert "Execution run:" in out
     assert keep.exists()
     assert not remove.exists()
+    assert trashed == [str(remove)]
+
+
+def test_main_apply_returns_nonzero_when_delete_is_blocked(monkeypatch, tmp_path: Path, capsys) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    keep = source / "IMG_0001.jpg"
+    remove = source / "IMG_0002.jpg"
+    sidecar = source / "IMG_0002.xmp"
+    keep.write_bytes(b"duplicate-bytes")
+    remove.write_bytes(b"duplicate-bytes")
+    sidecar.write_bytes(b"xmp")
+
+    trashed: list[str] = []
+
+    def fake_send2trash(path_str: str) -> None:
+        trashed.append(path_str)
+        Path(path_str).unlink()
+
+    monkeypatch.setattr("media_manager.execution_runner.send2trash", fake_send2trash)
+
+    exit_code = main(
+        [
+            "--source",
+            str(source),
+            "--policy",
+            "first",
+            "--mode",
+            "delete",
+            "--apply",
+            "--yes",
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert exit_code == 3
+    assert "Execution run:" in out
+    assert keep.exists()
+    assert remove.exists()
+    assert trashed == []
+
+
+def test_main_can_print_blocked_dry_run_and_execution_rows(tmp_path: Path, capsys) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    keep = source / "IMG_0001.jpg"
+    remove = source / "IMG_0002.jpg"
+    sidecar = source / "IMG_0002.xmp"
+    keep.write_bytes(b"duplicate-bytes")
+    remove.write_bytes(b"duplicate-bytes")
+    sidecar.write_bytes(b"xmp")
+
+    exit_code = main(
+        [
+            "--source",
+            str(source),
+            "--policy",
+            "first",
+            "--mode",
+            "delete",
+            "--show-dry-run-rows",
+            "--show-execution-rows",
+            "--row-status",
+            "blocked",
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Dry-run rows:" in out
+    assert "Execution rows:" in out
+    assert "status=blocked" in out
+    assert "reason=associated_files_present" in out
+
+
+def test_main_can_print_planned_dry_run_rows(tmp_path: Path, capsys) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "one.jpg").write_bytes(b"duplicate-bytes")
+    (source / "two.jpg").write_bytes(b"duplicate-bytes")
+
+    exit_code = main(
+        [
+            "--source",
+            str(source),
+            "--policy",
+            "first",
+            "--mode",
+            "delete",
+            "--show-dry-run-rows",
+            "--row-status",
+            "planned",
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Dry-run rows: 1" in out
+    assert "status=planned" in out
+    assert "action=delete" in out
