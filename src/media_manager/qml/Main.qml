@@ -3,7 +3,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
-import "components"
 
 ApplicationWindow {
     id: root
@@ -36,6 +35,13 @@ ApplicationWindow {
         radius: 18
         color: "#0F1A2C"
         border.color: "#22324A"
+        border.width: 1
+    }
+
+    component SectionTitle: Label {
+        color: "#F7FAFF"
+        font.pixelSize: 24
+        font.bold: true
     }
 
     FolderDialog {
@@ -62,6 +68,7 @@ ApplicationWindow {
             radius: 24
             color: "#0C1728"
             border.color: "#27456E"
+            border.width: 1
         }
 
         contentItem: ColumnLayout {
@@ -78,7 +85,7 @@ ApplicationWindow {
                     font.pixelSize: 24
                     font.bold: true
                     Layout.fillWidth: true
-                    elide: Text.ElideRight
+                    elide: Text.Elidd’ight
                 }
 
                 Button {
@@ -125,6 +132,7 @@ ApplicationWindow {
                             radius: 14
                             color: modelData.selected ? "#173056" : "#0F1A2C"
                             border.color: modelData.selected ? "#4A82D7" : "#22324A"
+                            border.width: 1
 
                             MouseArea {
                                 anchors.fill: parent
@@ -168,9 +176,19 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 spacing: 8
 
-                PrimaryButton {
+                Button {
                     text: trKey("duplicate_detail_keep_selected")
+                    hoverEnabled: true
                     onClicked: appState.keepSelectedDuplicateCandidate()
+                    background: OutlineButtonBackground {}
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#F7FAFF"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 12
+                        font.bold: true
+                    }
                 }
 
                 Button {
@@ -228,6 +246,7 @@ ApplicationWindow {
             radius: 24
             color: "#081322"
             border.color: "#1E2C40"
+            border.width: 1
 
             ColumnLayout {
                 anchors.fill: parent
@@ -254,11 +273,38 @@ ApplicationWindow {
 
                 Item { Layout.preferredHeight: 8 }
 
-                SidebarButton { text: trKey("nav_home"); active: appState.currentPage === "home"; onClicked: appState.setPage("home") }
-                SidebarButton { text: trKey("nav_workflow"); active: appState.currentPage === "workflow"; onClicked: appState.setPage("workflow") }
-                SidebarButton { text: trKey("nav_duplicates"); active: appState.currentPage === "duplicates"; onClicked: appState.setPage("duplicates") }
-                SidebarButton { text: trKey("nav_organize"); active: appState.currentPage === "organize"; onClicked: appState.setPage("organize") }
-                SidebarButton { text: trKey("nav_rename"); active: appState.currentPage === "rename"; onClicked: appState.setPage("rename") }
+                Repeater {
+                    model: [
+                        { "key": "home", "label": trKey("nav_home") },
+                        { "key": "workflow", "label": trKey("nav_workflow") },
+                        { "key": "duplicates", "label": trKey("nav_duplicates") },
+                        { "key": "organize", "label": trKey("nav_organize") },
+                        { "key": "rename", "label": trKey("nav_rename") }
+                    ]
+
+                    delegate: Button {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        hoverEnabled: true
+                        onClicked: appState.setPage(modelData.key)
+
+                        background: Rectangle {
+                            radius: 14
+                            color: appState.currentPage === modelData.key ? "#132B4A" : (parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent"))
+                            border.width: 1
+                            border.color: appState.currentPage === modelData.key ? "#4A82D7" : "#30465F"
+                        }
+
+                        contentItem: Text {
+                            text: modelData.label
+                            color: "#F7FAFF"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font.pixelSize: 13
+                            font.bold: true
+                        }
+                    }
+                }
 
                 Item { Layout.fillHeight: true }
             }
@@ -378,7 +424,7 @@ ApplicationWindow {
                                 anchors.margins: 18
                                 spacing: 10
 
-                                Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 24; font.bold: true }
+                                SectionTitle { text: appState.workflowStageTitle }
                                 Label { text: appState.workflowStageSubtitle; color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
 
                                 ListView {
@@ -398,9 +444,19 @@ ApplicationWindow {
                                 RowLayout {
                                     Layout.fillWidth: true
 
-                                    PrimaryButton {
+                                    Button {
                                         text: trKey("stage_sources_action")
+                                        hoverEnabled: true
                                         onClicked: sourceFolderDialog.open()
+                                        background: OutlineButtonBackground {}
+                                        contentItem: Text {
+                                            text: parent.text
+                                            color: "#F7FAFF"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                            font.pixelSize: 12
+                                            font.bold: true
+                                        }
                                     }
 
                                     Button {
@@ -419,6 +475,7 @@ ApplicationWindow {
                                         }
                                     }
                                 }
+                            }
                         }
                         }
 
@@ -428,7 +485,7 @@ ApplicationWindow {
                                 anchors.margins: 18
                                 spacing: 10
 
-                                Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 24; font.bold: true }
+                                SectionTitle { text: appState.workflowStageTitle }
 
                                 Label {
                                     text: appState.targetPath.length > 0 ? appState.targetPath : trKey("stage_target_empty")
@@ -441,13 +498,23 @@ ApplicationWindow {
                                 RowLayout {
                                     Layout.fillWidth: true
 
-                                    PrimaryButton {
+                                    Button {
                                         text: trKey("stage_target_action")
+                                        hoverEnabled: true
                                         onClicked: targetFolderDialog.open()
+                                        background: OutlineButtonBackground {}
+                                        contentItem: Text {
+                                            text: parent.text
+                                            color: "#F7FAFF"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                            font.pixelSize: 12
+                                            font.bold: true
+                                        }
                                     }
 
                                     Button {
-                                        text: trKey("button_clear")
+                                        text: trKey"("button_clear")
                                         hoverEnabled: true
                                         enabled: appState.targetPath.length > 0
                                         onClicked: appState.clearTargetFolder()
@@ -471,7 +538,7 @@ ApplicationWindow {
                                 anchors.margins: 18
                                 spacing: 10
 
-                                Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 24; font.bold: true }
+                                SectionTitle { text: appState.workflowStageTitle }
 
                                 Repeater {
                                     model: ["copy", "move", "delete"]
@@ -497,6 +564,7 @@ ApplicationWindow {
                                             font.pixelSize: 14
                                             font.bold: true
                                         }
+                                    }
                                 }
                             }
                         }
@@ -507,12 +575,22 @@ ApplicationWindow {
                                 anchors.margins: 18
                                 spacing: 10
 
-                                Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 24; font.bold: true }
+                                SectionTitle { text: appState.workflowStageTitle }
 
-                                PrimaryButton {
+                                Button {
                                     text: trKey("stage_duplicates_action")
+                                    hoverEnabled: true
                                     enabled: appState.sourceCount > 0
                                     onClicked: appState.startDuplicatePreview()
+                                    background: OutlineButtonBackground {}
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: "#F7FAFF"
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        font.pixelSize: 12
+                                        font.bold: true
+                                    }
                                 }
 
                                 ProgressBar {
@@ -542,6 +620,7 @@ ApplicationWindow {
                                         radius: 12
                                         color: "#091321"
                                         border.color: "#22324A"
+                                        border.width: 1
 
                                         RowLayout {
                                             anchors.fill: parent
@@ -585,7 +664,7 @@ ApplicationWindow {
                                 width: parent.width
                                 spacing: 12
 
-                                Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 24; font.bold: true }
+                                SectionTitle { text: appState.workflowStageTitle }
                                 Label { text: appState.workflowStageSubtitle; color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
 
                                 CardPanel {
@@ -674,7 +753,7 @@ ApplicationWindow {
                                         }
 
                                         Flow {
-                                            Layout.fillWidth: true
+                                            width: parent.width
                                             spacing: 8
 
                                             Repeater {
@@ -723,15 +802,16 @@ ApplicationWindow {
 
                                                 delegate: Rectangle {
                                                     required property var modelData
-                                                    Layout.fillWidth: true
+                                                    width: dryRunColumn.width
                                                     implicitHeight: 76
                                                     radius: 12
                                                     color: "#091321"
                                                     border.color: modelData.status === "blocked" ? "#D07A63" : "#22324A"
+                                                    border.width: 1
 
                                                     ColumnLayout {
-                                                      anchors.fill: parent
-                                                      anchors.margins: 10
+                                                        anchors.fill: parent
+                                                        anchors.margins: 10
                                                         spacing: 4
 
                                                         Label {
@@ -799,15 +879,16 @@ ApplicationWindow {
 
                                                 delegate: Rectangle {
                                                     required property var modelData
-                                                    Layout.fillWidth: true
+                                                    width: executionColumn.width
                                                     implicitHeight: 76
                                                    radius: 12
                                                     color: "#091321"
                                                     border.color: modelData.status === "blocked" ? "#D07A63" : "#22324A"
+                                                    border.width: 1
 
                                                     ColumnLayout {
-                                                      anchors.fill: parent
-                                                      anchors.margins: 10
+                                                        anchors.fill: parent
+                                                        anchors.margins: 10
                                                         spacing: 4
 
                                                         Label {
@@ -845,10 +926,20 @@ ApplicationWindow {
                                     Layout.fillWidth: true
                                     Item { Layout.fillWidth: true }
 
-                                    PrimaryButton {
+                                    Button {
                                         text: trKey("stage_summary_action")
+                                        hoverEnabled: true
                                         enabled: appState.summaryReadyForDryRun
                                         onClicked: appState.workflowNext()
+                                        background: OutlineButtonBackground {}
+                                        contentItem: Text {
+                                            text: parent.text
+                                            color: "#F7FAFF"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                            font.pixelSize: 12
+                                            font.bold: true
+                                        }
                                     }
                                 }
                             }
@@ -864,7 +955,7 @@ ApplicationWindow {
                                 width: parent.width
                                 spacing: 12
 
-                                Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 24; font.bold: true }
+                                SectionTitle { text: appState.workflowStageTitle }
                                 Label { text: appState.workflowStageSubtitle; color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
 
                                 CardPanel {
@@ -900,63 +991,40 @@ ApplicationWindow {
                                     Layout.fillWidth: true
                                     spacing: 8
 
-                                    CardPanel {
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 118
+                                    Repeater {
+                                        model: [
+                                            { "title": trKey("sorting_level_year"), "value": appState.sortingYearStyleLabel, "action": "year" },
+                                            { "title": trKey("sorting_level_month"), "value": appState.sortingMonthStyleLabel, "action": "month" },
+                                            { "title": trKey("sorting_level_day"), "value": appState.sortingDayStyleLabel, "action": "day" }
+                                        ]
 
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            onClicked: appState.cycleSortingYearStyle()
-                                        }
+                                        delegate: CardPanel {
+                                            required property var modelData
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 118
 
-                                        ColumnLayout {
-                                            anchors.fill: parent
-                                            anchors.margins: 10
-                                            spacing: 6
-                                            Label { text: trKey("sorting_level_year"); color: "#F7FAFF"; font.pixelSize: 15; font.bold: true }
-                                            Label { text: appState.sortingYearStyleLabel; color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                                            Item { Layout.fillHeight: true }
-                                            Label { text: trKey("sorting_cycle_action"); color: "#6F8FB9"; font.pixelSize: 11 }
-                                        }
-                                    }
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                onClicked: {
+                                                    if (modelData.action === "year")
+                                                        appState.cycleSortingYearStyle()
+                                                    else if (modelData.action === "month")
+                                                        appState.cycleSortingMonthStyle()
+                                                      else
+                                                      appState.cycleSortingDayStyle()
+                                                }
+                                            }
 
-                                    CardPanel {
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 118
+                                            ColumnLayout {
+                                                anchors.fill: parent
+                                                anchors.margins: 10
+                                                spacing: 6
 
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            onClicked: appState.cycleSortingMonthStyle()
-                                        }
-
-                                        ColumnLayout {
-                                            anchors.fill: parent
-                                            anchors.margins: 10
-                                            spacing: 6
-                                            Label { text: trKey("sorting_level_month"); color: "#F7FAFF"; font.pixelSize: 15; font.bold: true }
-                                            Label { text: appState.sortingMonthStyleLabel; color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                                            Item { Layout.fillHeight: true }
-                                            Label { text: trKey("sorting_cycle_action"); color: "#6F8FB9"; font.pixelSize: 11 }
-                                        }
-                                    }
-
-                                    CardPanel {
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 118
-
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            onClicked: appState.cycleSortingDayStyle()
-                                        }
-
-                                        ColumnLayout {
-                                            anchors.fill: parent
-                                            anchors.margins: 10
-                                            spacing: 6
-                                            Label { text: trKey("sorting_level_day"); color: "#F7FAFF"; font.pixelSize: 15; font.bold: true }
-                                            Label { text: appState.sortingDayStyleLabel; color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                                            Item { Layout.fillHeight: true }
-                                            Label { text: trKey("sorting_cycle_action"); color: "#6F8FB9"; font.pixelSize: 11 }
+                                                Label { text: modelData.title; color: "#F7FAFF"; font.pixelSize: 15; font.bold: true }
+                                                Label { text: modelData.value; color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                Item { Layout.fillHeight: true }
+                                                Label { text: trKey("sorting_cycle_action"); color: "#6F8FB9"; font.pixelSize: 11 }
+                                            }
                                         }
                                     }
                                 }
@@ -1014,6 +1082,7 @@ ApplicationWindow {
                                                 radius: 12
                                                 color: "#091321"
                                                 border.color: "#22324A"
+                                                border.width: 1
 
                                                 ColumnLayout {
                                                     anchors.fill: parent
@@ -1045,463 +1114,8 @@ ApplicationWindow {
                                                             elide: Text.ElideMiddle
                                                         }
                                                     }
-                                              }
-                                        }
-
-                                        Label {
-                                            visible: appState.sortingPreviewRows.length === 0
-                                            text: trKey("sorting_preview_empty")
-                                            color: "#AFC1D9"
-                                            wrapMode: Text.WordWrap
-                                            Layout.fillWidth: true
-                                        }
-                                    }
-                                }
-
-                                Flickable {
-                                    contentWidth: width
-                                    contentHeight: renameStageColumn.implicitHeight
-                                    clip: true
-
-                                    ColumnLayout {
-                                        id: renameStageColumn
-                                        width: parent.width
-                                        spacing: 12
-
-                                        Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 24; font.bold: true }
-                                        Label { text: appState.workflowStageSubtitle; color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-
-                                        CardPanel {
-                                            Layout.fillWidth: true
-                                            implicitHeight: renameHeroColumn.implicitHeight + 24
-
-                                            ColumnLayout {
-                                                id: renameHeroColumn
-                                                anchors.fill: parent
-                                                anchors.margins: 12
-                                                spacing: 8
-
-                                                Label { text: trKey("rename_template_title"); color: "#AFC1D9"; font.pixelSize: 12; font.bold: true }
-                                                Label {
-                                                    text: appState.renameLiveTemplateName
-                                                    color: "#F7FAFF"
-                                                    font.pixelSize: 26
-                                                    font.bold: true
-                                                    wrapMode: Text.WrapAnywhere
-                                                    Layout.fillWidth: true
-                                                }
-                                                Label {
-                                                    text: appState.renameLiveTemplateHint
-                                                    color: "#8FB0E1"
-                                                    font.pixelSize: 12
-                                                    wrapMode: Text.WordWrap
-                                                    Layout.fillWidth: true
-                                                }
                                             }
                                         }
 
-                                        Flow {
-                                            width: parent.width
-                                            spacing: 8
-
-                                            Repeater {
-                                                model: appState.renameTemplateOptions
-
-                                                delegate: Button {
-                                                    required property var modelData
-                                                    visible: modelData.key !== "custom"
-                                                    text: modelData.label
-                                                    hoverEnabled: true
-                                                    onClicked: appState.setRenameTemplate(modelData.key)
-
-                                                    background: Rectangle {
-                                                        radius: 12
-                                                          color: index === appState.renameSelectedTemplateIndex ? "#132B4A" : (parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent"))
-                                                        border.width: 1
-                                                        border.color: index === appState.renameSelectedTemplateIndex ? "#4A82D7" : "#30465F"
-                                                    }
-
-                                                    contentItem: Text {
-                                                        text: parent.text
-                                                        color: "#F7FAFF"
-                                                        horizontalAlignment: Text.AlignHCenter
-                                                        verticalAlignment: Text.AlignVCenter
-                                                        font.pixelSize: 11
-                                                        font.bold: true
-                                                        wrapMode: Text.WordWrap
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        Flow {
-                                            width: parent.width
-                                            spacing: 8
-
-                                            Repeater {
-                                                model: appState.renameBlocks
-
-                                                delegate: Rectangle {
-                                                    width: 220
-                                                    height: 104
-                                                    radius: 14
-                                                    color: "#091321"
-                                                    border.color: "#22324A"
-
-                                                    MouseArea {
-                                                        anchors.fill: parent
-                                                        onClicked: appState.cycleRenameBlock(modelData.index)
-                                                    }
-
-                                                    ColumnLayout {
-                                                        anchors.fill: parent
-                                                        anchors.margins: 10
-                                                        spacing: 4
-
-                                                        RowLayout {
-                                                          Layout.fillWidth: true
-
-                                                            Label {
-                                                                text: modelData.slot_label
-                                                                color: "#8FB0E1"
-                                                                font.pixelSize: 11
-                                                                font.bold: true
-                                                                  Layout.fillWidth: true
-                                                              }
-
-                                                            Button {
-                                                                visible: modelData.removable
-                                                                text: trKey("rename_remove_block_action")
-                                                                  hoverEnabled: true
-                                                                  onClicked: appState.removeRenameBlock(modelData.index)
-                                                                background: OutlineButtonBackground {}
-                                                                  contentItem: Text {
-                                                                    text: parent.text
-                                                                      color: "#F7FAFF"
-                                                                      horizontalAlignment: Text.AlignHCenter
-                                                                      verticalAlignment: Text.AlignVCenter
-                                                                      font.pixelSize: 10
-                                                                    font.bold: true
-                                                                  }
-                                                            }
-                                                      }
-
-                                                      Label {
-                                                        text: modelData.label
-                                                        color: "#F7FAFF"
-                                                          font.pixelSize: 16
-                                                        font.bold: true
-                                                        wrapMode: Text.WordWrap
-                                                        Layout.fillWidth: true
-                                                    }
-
-                                                      Item { Layout.fillHeight: true }
-
-                                                    Label {
-                                                        text: modelData.hint
-                                                          color: "#6F8FB9"
-                                                          font.pixelSize: 11
-                                                        wrapMode: Text.WordWrap
-                                                        Layout.fillWidth: true
-                                                    }
-                                                  }
-                                                }
-                                            }
-                                        }
-
-                                    Button {
-                                        width: 220
-                                        height: 104
-                                        text: trKey("rename_add_block_action")
-                                        hoverEnabled: true
-                                        onClicked: appState.addRenameBlock()
-                                        background: OutlineButtonBackground {}
-
-                                        contentItem: Text {
-                                            text: parent.text
-                                            color: "#F7FAFF"
-                                            horizontalAlignment: Text.AlignHCenter
-                                            verticalAlignment: Text.AlignVCenter
-                                            font.pixelSize: 13
-                                            font.bold: true
-                                        }
-                                    }
-                                }
-
-                                CardPanel {
-                                    Layout.fillWidth: true
-                                    implicitHeight: renamePreviewColumn.implicitHeight + 24
-
-                                    ColumnLayout {
-                                        id: renamePreviewColumn
-                                        id: renamePreviewColumn
-                                        anchors.fill: parent
-                                        anchors.margins: 12
-                                        spacing: 8
-
-                                        RowLayout {
-                                            Layout.fillWidth: true
-                                            Label { text: trKey("rename_preview_title"); color: "#F7FAFF"; font.pixelSize: 18; font.bold: true; Layout.fillWidth: true }
-                                            Label { text: appState.renamePreviewCountLabel; color: "#8FB0E1"; font.pixelSize: 12; font.bold: true }
-                                        }
-
                                         Label {
-                                            text: trKey("rename_preview_body")
-                                            color: "#CFE1EF"
-                                            wrapMode: Text.WordWrap
-                                            Layout.fillWidth: true
-                                        }
-
-                                        Repeater {
-                                            model: appState.renamePreviewRows
-
-                                                delegate: Rectangle {
-                                                width: renamePreviewColumn.width
-                                                  implicitHeight: 68
-                                                  radius: 12
-                                                  color: "#091321"
-                                                  border.color: "#22324A"
-
-                                                  ColumnLayout {
-                                                    anchors.fill: parent
-                                                    anchors.margins: 10
-                                                    spacing: 4
-
-                                                    Label {
-                                                        text: modelData.source_name
-                                                        color: "#AFC1D9"
-                                                      font.pixelSize: 11
-                                                      font.bold: true
-                                                        Layout.fillWidth: true
-                                                      elide: Text.ElideRight
-                                                    }
-
-                                                    Label {
-                                                        text: modelData.proposed_name
-                                                        color: "#F7FAFF"
-                                                      font.pixelSize: 13
-                                                      font.bold: true
-                                                        wrapMode: Text.WrapAnywhere
-                                                        Layout.fillWidth: true
-                                                    }
-
-                                                    Label {
-                                                            text: modelData.source_path
-                                                            color: "#6F8FB9"
-                                                            font.pixelSize: 10
-                                                            Layout.fillWidth: true
-                                                            elide: Text.ElideMiddle
-                                                        }
-                                                    }
-                                              }
-                                        }
-
-                                        Label {
-                                            visible: appState.renamePreviewRows.length === 0
-                                            text: trKey("rename_preview_empty")
-                                            color: "#AFC1D9"
-                                            wrapMode: Text.WordWrap
-                                            Layout.fillWidth: true
-                                        }
-                                    }
-                                }
-                            }
-
-                        CardPanel {
-                            ColumnLayout {
-                                anchors.fill: parent
-                                anchors.margins: 18
-                                spacing: 10
-
-                                Label { text: trKey("stage_done_title"); color: "#F7FAFF"; font.pixelSize: 24; font.bold: true }
-                                Label { text: trKey("stage_done_subtitle"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                                Item { Layout.fillHeight: true }
-
-                                PrimaryButton {
-                                    text: trKey("button_home")
-                                    onClicked: appState.backToHome()
-                                }
-                            }
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-
-                        Button {
-                            text: trKey("button_back")
-                            hoverEnabled: true
-                            onClicked: appState.workflowBack()
-                            background: OutlineButtonBackground {}
-
-                            contentItem: Text {
-                                text: parent.text
-                                color: "#F7FAFF"
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                                font.pixelSize: 13
-                                font.bold: true
-                            }
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        Button {
-                            visible: appState.canAdvanceWorkflow && appState.workflowStageKey !== "summary" && appState.workflowStageKey !== "done"
-                            text: trKey("button_next")
-                            onClicked: appState.workflowNext()
-                            background: OutlineButtonBackground {}
-
-                            contentItem: Text {
-                                text: parent.text
-                                color: "#F7FAFF"
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                                font.pixelSize: 13
-                                font.bold: true
-                            }
-                        }
-                    }
-                }
-
-                StackLayout {
-                    currentIndex: appState.currentPage === "duplicates" ? 0 : (appState.currentPage === "organize" ? 1 : 2)
-
-                    Flickable {
-                        contentWidth: width
-                        contentHeight: duplicatesManualColumn.implicitHeight
-                        clip: true
-
-                        ColumnLayout {
-                            id: duplicatesManualColumn
-                            width: parent.width
-                            spacing: 12
-
-                            Label { text: "Manual duplicate review"; color: "#F7FAFF"; font.pixelSize: 30; font.bold: true }
-                            Label { text: "Direct access to duplicate rows, dry-run rows, and execution rows."; color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-
-                            CardPanel {
-                                Layout.fillWidth: true
-                                implicitHeight: manualRowsColumn.implicitHeight + 24
-
-                                ColumnLayout {
-                                    id: manualRowsColumn
-                                    anchors.fill: parent
-                                    anchors.margins: 12
-                                    spacing: 8
-
-                                    Repeater {
-                                        model: appState.duplicateRows
-                                        delegate: Label {
-                                            text: modelData.name + " â€¢ " + modelData.size
-                                            color: "#E6EEF8"
-                                            font.pixelSize: 12
-                                            wrapMode: Text.WordWrap
-                                            width: duplicatesManualColumn.width
-                                        }
-                                    }
-                                }
-                            }
-
-                            CardPanel {
-                                Layout.fillWidth: true
-                                implicitHeight: manualDryRunColumn.implicitHeight + 24
-
-                                ColumnLayout {
-                                    id: manualDryRunColumn
-                                    anchors.fill: parent
-                                    anchors.margins: 12
-                                    spacing: 8
-
-                                    Label { text: trKey("dryrun_title"); color: "#F7FAFF"; font.pixelSize: 18; font.bold: true }
-
-                                    Repeater {
-                                        model: appState.dryRunRows
-                                        delegate: Label {
-                                            text: modelData.status_label + " â€¢ " + modelData.action_label + " â€¢ " + modelData.reason_label
-                                            color: "#CFE1EF"
-                                            font.pixelSize: 11
-                                            wrapMode: Text.WordWrap
-                                            width: duplicatesManualColumn.width
-                                        }
-                                    }
-                                }
-                            }
-
-                            CardPanel {
-                                Layout.fillWidth: true
-                                implicitHeight: manualExecColumn.implicitHeight + 24
-
-                                ColumnLayout {
-                                    id: manualExecColumn
-                                    anchors.fill: parent
-                                    anchors.margins: 12
-                                    spacing: 8
-
-                                    Label { text: "Execution preview"; color: "#F7FAFF"; font.pixelSize: 18; font.bold: true }
-
-                                    Repeater {
-                                        model: appState.executionRows
-                                        delegate: Label {
-                                            text: modelData.status_label + " â€¢ " + modelData.row_type_label + " â€¢ " + modelData.reason_label
-                                            color: "#CFE1EF"
-                                            font.pixelSize: 11
-                                            wrapMode: Text.WordWrap
-                                            width: duplicatesManualColumn.width
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        Flickable {
-                            contentWidth: width
-                            contentHeight: organizeColumn.implicitHeight
-                            clip: true
-
-                            ColumnLayout {
-                                id: organizeColumn
-                                width: parent.width
-                                spacing: 12
-
-                                Label { text: "Manual organize"; color: "#F7FAFF"; font.pixelSize: 30; font.bold: true }
-
-                                Repeater {
-                                    model: appState.sortingPreviewRows
-                                    delegate: Label {
-                                        text: modelData.source_name + " â†’ " + modelData.relative_directory
-                                        color: "#CFE1EF"
-                                        font.pixelSize: 12
-                                        wrapMode: Text.WordWrap
-                                        width: organizeColumn.width
-                                    }
-                                }
-                            }
-
-                        Flickable {
-                            contentWidth: width
-                            contentHeight: renameColumn.implicitHeight
-                            clip: true
-
-                            ColumnLayout {
-                                id: renameColumn
-                                width: parent.width
-                                spacing: 12
-
-                                Label { text: "Manual rename"; color: "#F7FAFF"; font.pixelSize: 30; font.bold: true }
-
-                                Repeater {
-                                    model: appState.renamePreviewRows
-                                    delegate: Label {
-                                        text: modelData.source_name + " â†’ " + modelData.proposed_name
-                                        color: "#CFE1EF"
-                                        font.pixelSize: 12
-                                        wrapMode: Text.WordWrap
-                                        width: renameColumn.width
-                                    }
-                                }
-                            }
-                }
-            }
-    }
-}
+                                            visible: appState.sortingPreviewRows.length === 0(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèÑÉ-•ä ‰Í½ÉÑ¥¹}ÁÉ•Ù¥•Ý}•µÁÑäˆ¤(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÅäˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÝÉ…Á5½‘”èQ•áÐ¹]½É‘]É…À(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€±¥­…‰±”ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹Ñ•¹Ñ]¥‘Ñ èÝ¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹Ñ•¹Ñ!•¥¡ÐèÉ•¹…µ•MÑ…•½±Õµ¸¹¥µÁ±¥¥Ñ!•¥¡Ð(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€±¥ÀèÑÉÕ”((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±Õµ¹1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¥èÉ•¹…µ•MÑ…•½±Õµ¸(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ý¥‘Ñ èÁ…É•¹Ð¹Ý¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÍÁ…¥¹œè€ÄÈ((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€M•Ñ¥½¹Q¥Ñ±”ìÑ•áÐè…ÁÁMÑ…Ñ”¹Ý½É­™±½ÝMÑ…•Q¥Ñ±”ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ìÑ•áÐè…ÁÁMÑ…Ñ”¹Ý½É­™±½ÝMÑ…•MÕ‰Ñ¥Ñ±”ì½±½Èè€ˆÅäˆìÝÉ…Á5½‘”èQ•áÐ¹]½É‘]É…Àì1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…É‘A…¹•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¥µÁ±¥¥Ñ!•¥¡ÐèÉ•¹…µ•!•É½½±Õµ¸¹¥µÁ±¥¥Ñ!•¥¡Ð€¬€ÈÐ((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±Õµ¹1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¥èÉ•¹…µ•!•É½½±Õµ¸(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹™¥±°èÁ…É•¹Ð(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹µ…É¥¹Ìè€ÄÈ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÍÁ…¥¹œè€à((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ìÑ•áÐèÑÉ-•ä ‰É•¹…µ•}Ñ•µÁ±…Ñ•}Ñ¥Ñ±”ˆ¤ì½±½Èè€ˆÅäˆì™½¹Ð¹Á¥á•±M¥é”è€ÄÈì™½¹Ð¹‰½±èÑÉÕ”ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐè…ÁÁMÑ…Ñ”¹É•¹…µ•1¥Ù•Q•µÁ±…Ñ•9…µ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÝˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÈØ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹‰½±èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÝÉ…Á5½‘”èQ•áÐ¹]É…Á¹åÝ¡•É”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐè…ÁÁMÑ…Ñ”¹É•¹…µ•1¥Ù•Q•µÁ±…Ñ•!¥¹Ð(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆŒáÁÄˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÈ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÝÉ…Á5½‘”èQ•áÐ¹]½É‘]É…À(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€±½Üì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ý¥‘Ñ èÁ…É•¹Ð¹Ý¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÍÁ…¥¹œè€à((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€I•Á•…Ñ•Èì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€µ½‘•°è…ÁÁMÑ…Ñ”¹É•¹…µ•Q•µÁ±…Ñ•=ÁÑ¥½¹Ì((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‘•±•…Ñ”è	ÕÑÑ½¸ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€É•ÅÕ¥É•ÁÉ½Á•ÉÑäÙ…Èµ½‘•±…Ñ„(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ù¥Í¥‰±”èµ½‘•±…Ñ„¹­•ä€„ôô€‰ÕÍÑ½´ˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèµ½‘•±…Ñ„¹±…‰•°(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¡½Ù•É¹…‰±•èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹±¥­•è…ÁÁMÑ…Ñ”¹Í•ÑI•¹…µ•Q•µÁ±…Ñ”¡µ½‘•±…Ñ„¹­•ä¤((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‰…­É½Õ¹èI•Ñ…¹±”ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€É…‘¥ÕÌè€ÄÈ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè¥¹‘•à€ôôô…ÁÁMÑ…Ñ”¹É•¹…µ•M•±•Ñ•‘Q•µÁ±…Ñ•%¹‘•à€ü€ˆŒÄÌÉÑˆ€è€¡Á…É•¹Ð¹‘½Ý¸€ü€ˆŒÄÀÈÀÌàˆ€è€¡Á…É•¹Ð¹¡½Ù•É•€ü€ˆŒÄÌÉÑˆ€è€‰ÑÉ…¹ÍÁ…É•¹Ðˆ¤¤(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‰½É‘•È¹Ý¥‘Ñ è€Ä(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‰½É‘•È¹½±½Èè¥¹‘•à€ôôô…ÁÁMÑ…Ñ”¹É•¹…µ•M•±•Ñ•‘Q•µÁ±…Ñ•%¹‘•à€ü€ˆŒÑàÉÜˆ€è€ˆŒÌÀÐØÕˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹Ñ•¹Ñ%Ñ•´èQ•áÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèÁ…É•¹Ð¹Ñ•áÐ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÝˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¡½É¥é½¹Ñ…±±¥¹µ•¹ÐèQ•áÐ¹±¥¹!•¹Ñ•È(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ù•ÉÑ¥…±±¥¹µ•¹ÐèQ•áÐ¹±¥¹Y•¹Ñ•È(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÄ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹‰½±èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÝÉ…Á5½‘”èQ•áÐ¹]½É‘]É…À(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€±½Üì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ý¥‘Ñ èÁ…É•¹Ð¹Ý¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÍÁ…¥¹œè€à((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€I•Á•…Ñ•Èì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€µ½‘•°è…ÁÁMÑ…Ñ”¹É•¹…µ•	±½­Ì((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‘•±•…Ñ”èI•Ñ…¹±”ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ý¥‘Ñ è€ÈÈÀ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¡•¥¡Ðè€ÄÀÐ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€É…‘¥ÕÌè€ÄÐ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆŒÀäÄÌÈÄˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‰½É‘•È¹½±½Èè€ˆŒÈÈÌÈÑˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‰½É‘•È¹Ý¥‘Ñ è€Ä((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€5½ÕÍ•É•„ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹™¥±°èÁ…É•¹Ð(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹±¥­•è…ÁÁMÑ…Ñ”¹å±•I•¹…µ•	±½¬¡µ½‘•±…Ñ„¹¥¹‘•à¤(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±Õµ¹1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹™¥±°èÁ…É•¹Ð(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹µ…É¥¹Ìè€ÄÀ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÍÁ…¥¹œè€Ð((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€I½Ý1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèµ½‘•±…Ñ„¹Í±½Ñ}±…‰•°(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆŒáÁÄˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÄ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹‰½±èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€	ÕÑÑ½¸ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ù¥Í¥‰±”èµ½‘•±…Ñ„¹É•µ½Ù…‰±”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèÑÉ-•ä ‰É•¹…µ•}É•µ½Ù•}‰±½­}…Ñ¥½¸ˆ¤(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¡½Ù•É¹…‰±•èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹±¥­•è…ÁÁMÑ…Ñ”¹É•µ½Ù•I•¹…µ•	±½¬¡µ½‘•±…Ñ„¹¥¹‘•à¤(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‰…­É½Õ¹è=ÕÑ±¥¹•	ÕÑÑ½¹	…­É½Õ¹íô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹Ñ•¹Ñ%Ñ•´èQ•áÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèÁ…É•¹Ð¹Ñ•áÐ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÝˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¡½É¥é½¹Ñ…±±¥¹µ•¹ÐèQ•áÐ¹±¥¹!•¹Ñ•È(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ù•ÉÑ¥…±±¥¹µ•¹ÐèQ•áÐ¹±¥¹Y•¹Ñ•È(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÀ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹‰½±èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèµ½‘•±…Ñ„¹±…‰•°(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÝˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄØ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹‰½±èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÝÉ…Á5½‘”èQ•áÐ¹]½É‘]É…À(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€%Ñ•´ì1…å½ÕÐ¹™¥±±!•¥¡ÐèÑÉÕ”ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèµ½‘•±…Ñ„¹¡¥¹Ð(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆŒÙáäˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÄ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÝÉ…Á5½‘”èQ•áÐ¹]½É‘]É…À(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€	ÕÑÑ½¸ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ý¥‘Ñ è€ÈÈÀ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¡•¥¡Ðè€ÄÀÐ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèÑÉ-•ä ‰É•¹…µ•}…‘‘}‰±½­}…Ñ¥½¸ˆ¤(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¡½Ù•É¹…‰±•èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹±¥­•è…ÁÁMÑ…Ñ”¹…‘‘I•¹…µ•	±½¬ ¤(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‰…­É½Õ¹è=ÕÑ±¥¹•	ÕÑÑ½¹	…­É½Õ¹íô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹Ñ•¹Ñ%Ñ•´èQ•áÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèÁ…É•¹Ð¹Ñ•áÐ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÝˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¡½É¥é½¹Ñ…±±¥¹µ•¹ÐèQ•áÐ¹±¥¹!•¹Ñ•È(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ù•ÉÑ¥…±±¥¹µ•¹ÐèQ•áÐ¹±¥¹Y•¹Ñ•È(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÌ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹‰½±èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…É‘A…¹•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¥µÁ±¥¥Ñ!•¥¡ÐèÉ•¹…µ•AÉ•Ù¥•Ý½±Õµ¸¹¥µÁ±¥¥Ñ!•¥¡Ð€¬€ÈÐ((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±Õµ¹1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¥èÉ•¹…µ•AÉ•Ù¥•Ý½±Õµ¸(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹™¥±°èÁ…É•¹Ð(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹µ…É¥¹Ìè€ÄÈ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÍÁ…¥¹œè€à((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€I½Ý1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ìÑ•áÐèÑÉ-•ä ‰É•¹…µ•}ÁÉ•Ù¥•Ý}Ñ¥Ñ±”ˆ¤ì½±½Èè€ˆÝˆì™½¹Ð¹Á¥á•±M¥é”è€Äàì™½¹Ð¹‰½±èÑÉÕ”ì1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ìÑ•áÐè…ÁÁMÑ…Ñ”¹É•¹…µ•AÉ•Ù¥•Ý½Õ¹Ñ1…‰•°ì½±½Èè€ˆŒáÁÄˆì™½¹Ð¹Á¥á•±M¥é”è€ÄÈì™½¹Ð¹‰½±èÑÉÕ”ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèÑÉ-•ä ‰É•¹…µ•}ÁÉ•Ù¥•Ý}‰½‘äˆ¤(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÅˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÝÉ…Á5½‘”èQ•áÐ¹]½É‘]É…À(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€I•Á•…Ñ•Èì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€µ½‘•°è…ÁÁMÑ…Ñ”¹É•¹…µ•AÉ•Ù¥•ÝI½ÝÌ((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‘•±•…Ñ”èI•Ñ…¹±”ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ý¥‘Ñ èÉ•¹…µ•AÉ•Ù¥•Ý½±Õµ¸¹Ý¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¥µÁ±¥¥Ñ!•¥¡Ðè€Øà(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€É…‘¥ÕÌè€ÄÈ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆŒÀäÄÌÈÄˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‰½É‘•È¹½±½Èè€ˆŒÈÈÌÈÑˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‰½É‘•È¹Ý¥‘Ñ è€Ä((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±Õµ¹1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹™¥±°èÁ…É•¹Ð(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹µ…É¥¹Ìè€ÄÀ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÍÁ…¥¹œè€Ð((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèµ½‘•±…Ñ„¹Í½ÕÉ•}¹…µ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÅäˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÄ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹‰½±èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€•±¥‘”èQ•áÐ¹±¥‘•I¥¡Ð(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèµ½‘•±…Ñ„¹ÁÉ½Á½Í•‘}¹…µ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÝˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÌ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹‰½±èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÝÉ…Á5½‘”èQ•áÐ¹]É…Á¹åÝ¡•É”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèµ½‘•±…Ñ„¹Í½ÕÉ•}Á…Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆŒÙáäˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÀ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€•±¥‘”èQ•áÐ¹±¥‘•5¥‘‘±”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ù¥Í¥‰±”è…ÁÁMÑ…Ñ”¹É•¹…µ•AÉ•Ù¥•ÝI½ÝÌ¹±•¹Ñ €ôôô€À(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèÑÉ-•ä ‰É•¹…µ•}ÁÉ•Ù¥•Ý}•µÁÑäˆ¤(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÅäˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÝÉ…Á5½‘”èQ•áÐ¹]½É‘]É…À(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€…É‘A…¹•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€½±Õµ¹1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹™¥±°èÁ…É•¹Ð(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹µ…É¥¹Ìè€Äà(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÍÁ…¥¹œè€ÄÀ((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€M•Ñ¥½¹Q¥Ñ±”ìÑ•áÐèÑÉ-•ä ‰ÍÑ…•}‘½¹•}Ñ¥Ñ±”ˆ¤ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ìÑ•áÐèÑÉ-•ä ‰ÍÑ…•}‘½¹•}ÍÕ‰Ñ¥Ñ±”ˆ¤ì½±½Èè€ˆÅäˆìÝÉ…Á5½‘”èQ•áÐ¹]½É‘]É…Àì1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€%Ñ•´ì1…å½ÕÐ¹™¥±±!•¥¡ÐèÑÉÕ”ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€	ÕÑÑ½¸ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèÑÉ-•ä ‰‰ÕÑÑ½¹}¡½µ”ˆ¤(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¡½Ù•É¹…‰±•èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹±¥­•è…ÁÁMÑ…Ñ”¹‰…­Q½!½µ” ¤(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‰…­É½Õ¹è=ÕÑ±¥¹•	ÕÑÑ½¹	…­É½Õ¹íô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹Ñ•¹Ñ%Ñ•´èQ•áÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèÁ…É•¹Ð¹Ñ•áÐ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÝˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¡½É¥é½¹Ñ…±±¥¹µ•¹ÐèQ•áÐ¹±¥¹!•¹Ñ•È(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ù•ÉÑ¥…±±¥¹µ•¹ÐèQ•áÐ¹±¥¹Y•¹Ñ•È(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÈ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹‰½±èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€I½Ý1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”((€€€€€€€€€€€€€€€€€€€€€€€	ÕÑÑ½¸ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèÑÉ-•ä ‰‰ÕÑÑ½¹}‰…¬ˆ¤(€€€€€€€€€€€€€€€€€€€€€€€€€€€¡½Ù•É¹…‰±•èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹±¥­•è…ÁÁMÑ…Ñ”¹Ý½É­™±½Ý	…¬ ¤(€€€€€€€€€€€€€€€€€€€€€€€€€€€‰…­É½Õ¹è=ÕÑ±¥¹•	ÕÑÑ½¹	…­É½Õ¹íô(€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹Ñ•¹Ñ%Ñ•´èQ•áÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèÁ…É•¹Ð¹Ñ•áÐ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÝˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¡½É¥é½¹Ñ…±±¥¹µ•¹ÐèQ•áÐ¹±¥¹!•¹Ñ•È(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ù•ÉÑ¥…±±¥¹µ•¹ÐèQ•áÐ¹±¥¹Y•¹Ñ•È(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÌ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹‰½±èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€%Ñ•´ì1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”ô((€€€€€€€€€€€€€€€€€€€€€€€	ÕÑÑ½¸ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€Ù¥Í¥‰±”è…ÁÁMÑ…Ñ”¹…¹‘Ù…¹•]½É­™±½Ü€˜˜…ÁÁMÑ…Ñ”¹Ý½É­™±½ÝMÑ…•-•ä€„ôô€‰ÍÕµµ…Éäˆ€˜˜…ÁÁMÑ…Ñ”¹Ý½É­™±½ÝMÑ…•-•ä€„ôô€‰‘½¹”ˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèÑÉ-•ä ‰‰ÕÑÑ½¹}¹•áÐˆ¤(€€€€€€€€€€€€€€€€€€€€€€€€€€€¡½Ù•É¹…‰±•èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹±¥­•è…ÁÁMÑ…Ñ”¹Ý½É­™±½Ý9•áÐ ¤(€€€€€€€€€€€€€€€€€€€€€€€€€€€‰…­É½Õ¹è=ÕÑ±¥¹•	ÕÑÑ½¹	…­É½Õ¹íô(€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹Ñ•¹Ñ%Ñ•´èQ•áÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèÁ…É•¹Ð¹Ñ•áÐ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÝˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¡½É¥é½¹Ñ…±±¥¹µ•¹ÐèQ•áÐ¹±¥¹!•¹Ñ•È(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ù•ÉÑ¥…±±¥¹µ•¹ÐèQ•áÐ¹±¥¹Y•¹Ñ•È(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÌ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹‰½±èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€MÑ…­1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€ÕÉÉ•¹Ñ%¹‘•àè…ÁÁMÑ…Ñ”¹ÕÉÉ•¹ÑA…”€ôôô€‰‘ÕÁ±¥…Ñ•Ìˆ€ü€À€è€¡…ÁÁMÑ…Ñ”¹ÕÉÉ•¹ÑA…”€ôôô€‰½É…¹¥é”ˆ€ü€Ä€è€È¤((€€€€€€€€€€€€€€€€€€€±¥­…‰±”ì(€€€€€€€€€€€€€€€€€€€€€€€½¹Ñ•¹Ñ]¥‘Ñ èÝ¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€½¹Ñ•¹Ñ!•¥¡Ðè‘ÕÁ±¥…Ñ•Í5…¹Õ…±½±Õµ¸¹¥µÁ±¥¥Ñ!•¥¡Ð(€€€€€€€€€€€€€€€€€€€€€€€±¥ÀèÑÉÕ”((€€€€€€€€€€€€€€€€€€€€€€€½±Õµ¹1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€¥è‘ÕÁ±¥…Ñ•Í5…¹Õ…±½±Õµ¸(€€€€€€€€€€€€€€€€€€€€€€€€€€€Ý¥‘Ñ èÁ…É•¹Ð¹Ý¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€ÍÁ…¥¹œè€ÄÈ((€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ìÑ•áÐè€‰5…¹Õ…°‘ÕÁ±¥…Ñ”É•Ù¥•Üˆì½±½Èè€ˆÝˆì™½¹Ð¹Á¥á•±M¥é”è€ÌÀì™½¹Ð¹‰½±èÑÉÕ”ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ìÑ•áÐè€‰¥É•Ð…•ÍÌÑ¼‘ÕÁ±¥…Ñ”É½ÝÌ°‘ÉäµÉÕ¸É½ÝÌ°…¹•á•ÕÑ¥½¸É½ÝÌ¸ˆì½±½Èè€ˆÅäˆìÝÉ…Á5½‘”èQ•áÐ¹]½É‘]É…Àì1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€…É‘A…¹•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¥µÁ±¥¥Ñ!•¥¡Ðèµ…¹Õ…±I½ÝÍ½±Õµ¸¹¥µÁ±¥¥Ñ!•¥¡Ð€¬€ÈÐ((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±Õµ¹1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¥èµ…¹Õ…±I½ÝÍ½±Õµ¸(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹™¥±°èÁ…É•¹Ð(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹µ…É¥¹Ìè€ÄÈ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÍÁ…¥¹œè€à((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€I•Á•…Ñ•Èì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€µ½‘•°è…ÁÁMÑ…Ñ”¹‘ÕÁ±¥…Ñ•I½ÝÌ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‘•±•…Ñ”è1…‰•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèµ½‘•±…Ñ„¹¹…µ”€¬€ˆƒŠˆ€ˆ€¬µ½‘•±…Ñ„¹Í¥é”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÙàˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÈ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÝÉ…Á5½‘”èQ•áÐ¹]½É‘]É…À(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ý¥‘Ñ è‘ÕÁ±¥…Ñ•Í5…¹Õ…±½±Õµ¸¹Ý¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€…É‘A…¹•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¥µÁ±¥¥Ñ!•¥¡Ðèµ…¹Õ…±ÉåIÕ¹½±Õµ¸¹¥µÁ±¥¥Ñ!•¥¡Ð€¬€ÈÐ((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±Õµ¹1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¥èµ…¹Õ…±ÉåIÕ¹½±Õµ¸(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹™¥±°èÁ…É•¹Ð(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹µ…É¥¹Ìè€ÄÈ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÍÁ…¥¹œè€à((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ìÑ•áÐèÑÉ-•ä ‰‘ÉåÉÕ¹}Ñ¥Ñ±”ˆ¤ì½±½Èè€ˆÝˆì™½¹Ð¹Á¥á•±M¥é”è€Äàì™½¹Ð¹‰½±èÑÉÕ”ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€I•Á•…Ñ•Èì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€µ½‘•°è…ÁÁMÑ…Ñ”¹‘ÉåIÕ¹I½ÝÌ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‘•±•…Ñ”è1…‰•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèµ½‘•±…Ñ„¹ÍÑ…ÑÕÍ}±…‰•°€¬€ˆƒŠˆ€ˆ€¬µ½‘•±…Ñ„¹…Ñ¥½¹}±…‰•°€¬€ˆƒŠˆ€ˆ€¬µ½‘•±…Ñ„¹É•…Í½¹}±…‰•°(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÅˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÄ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÝÉ…Á5½‘”èQ•áÐ¹]½É‘]É…À(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ý¥‘Ñ è‘ÕÁ±¥…Ñ•Í5…¹Õ…±½±Õµ¸¹Ý¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€…É‘A…¹•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…å½ÕÐ¹™¥±±]¥‘Ñ èÑÉÕ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¥µÁ±¥¥Ñ!•¥¡Ðèµ…¹Õ…±á•½±Õµ¸¹¥µÁ±¥¥Ñ!•¥¡Ð€¬€ÈÐ((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±Õµ¹1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¥èµ…¹Õ…±á•½±Õµ¸(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹™¥±°èÁ…É•¹Ð(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€…¹¡½ÉÌ¹µ…É¥¹Ìè€ÄÈ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÍÁ…¥¹œè€à((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ìÑ•áÐè€‰á•ÕÑ¥½¸ÁÉ•Ù¥•Üˆì½±½Èè€ˆÝˆì™½¹Ð¹Á¥á•±M¥é”è€Äàì™½¹Ð¹‰½±èÑÉÕ”ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€I•Á•…Ñ•Èì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€µ½‘•°è…ÁÁMÑ…Ñ”¹•á•ÕÑ¥½¹I½ÝÌ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‘•±•…Ñ”è1…‰•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèµ½‘•±…Ñ„¹ÍÑ…ÑÕÍ}±…‰•°€¬€ˆƒŠˆ€ˆ€¬µ½‘•±…Ñ„¹É½Ý}ÑåÁ•}±…‰•°€¬€ˆƒŠˆ€ˆ€¬µ½‘•±…Ñ„¹É•…Í½¹}±…‰•°(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÅˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÄ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÝÉ…Á5½‘”èQ•áÐ¹]½É‘]É…À(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ý¥‘Ñ è‘ÕÁ±¥…Ñ•Í5…¹Õ…±½±Õµ¸¹Ý¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€±¥­…‰±”ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹Ñ•¹Ñ]¥‘Ñ èÝ¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹Ñ•¹Ñ!•¥¡Ðè½É…¹¥é•½±Õµ¸¹¥µÁ±¥¥Ñ!•¥¡Ð(€€€€€€€€€€€€€€€€€€€€€€€€€€€±¥ÀèÑÉÕ”((€€€€€€€€€€€€€€€€€€€€€€€€€€€½±Õµ¹1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¥è½É…¹¥é•½±Õµ¸(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ý¥‘Ñ èÁ…É•¹Ð¹Ý¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÍÁ…¥¹œè€ÄÈ((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ìÑ•áÐè€‰5…¹Õ…°½É…¹¥é”ˆì½±½Èè€ˆÝˆì™½¹Ð¹Á¥á•±M¥é”è€ÌÀì™½¹Ð¹‰½±èÑÉÕ”ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€I•Á•…Ñ•Èì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€µ½‘•°è…ÁÁMÑ…Ñ”¹Í½ÉÑ¥¹AÉ•Ù¥•ÝI½ÝÌ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‘•±•…Ñ”è1…‰•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèµ½‘•±…Ñ„¹Í½ÕÉ•}¹…µ”€¬€ˆƒŠH€ˆ€¬µ½‘•±…Ñ„¹É•±…Ñ¥Ù•}‘¥É•Ñ½Éä(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÅˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÈ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÝÉ…Á5½‘”èQ•áÐ¹]½É‘]É…À(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ý¥‘Ñ è½É…¹¥é•½±Õµ¸¹Ý¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€ô((€€€€€€€€€€€€€€€€€€€€€€€±¥­…‰±”ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹Ñ•¹Ñ]¥‘Ñ èÝ¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€½¹Ñ•¹Ñ!•¥¡ÐèÉ•¹…µ•½±Õµ¸¹¥µÁ±¥¥Ñ!•¥¡Ð(€€€€€€€€€€€€€€€€€€€€€€€€€€€±¥ÀèÑÉÕ”((€€€€€€€€€€€€€€€€€€€€€€€€€€€½±Õµ¹1…å½ÕÐì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€¥èÉ•¹…µ•½±Õµ¸(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ý¥‘Ñ èÁ…É•¹Ð¹Ý¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÍÁ…¥¹œè€ÄÈ((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€1…‰•°ìÑ•áÐè€‰5…¹Õ…°É•¹…µ”ˆì½±½Èè€ˆÝˆì™½¹Ð¹Á¥á•±M¥é”è€ÌÀì™½¹Ð¹‰½±èÑÉÕ”ô((€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€I•Á•…Ñ•Èì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€µ½‘•°è…ÁÁMÑ…Ñ”¹É•¹…µ•AÉ•Ù¥•ÝI½ÝÌ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€‘•±•…Ñ”è1…‰•°ì(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ñ•áÐèµ½‘•±…Ñ„¹Í½ÕÉ•}¹…µ”€¬€ˆƒŠH€ˆ€¬µ½‘•±…Ñ„¹ÁÉ½Á½Í•‘}¹…µ”(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€½±½Èè€ˆÅˆ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€™½¹Ð¹Á¥á•±M¥é”è€ÄÈ(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ÝÉ…Á5½‘”èQ•áÐ¹]½É‘]É…À(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€Ý¥‘Ñ èÉ•¹…µ•½±Õµ¸¹Ý¥‘Ñ (€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€€€€€€€€€€€€€ô(€€€€€€€€€€€€€€€ô(€€€€€€€€€€€ô(€€€ô)ô(
