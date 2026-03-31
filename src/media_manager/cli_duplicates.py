@@ -13,6 +13,8 @@ from .duplicate_workflow import (
 from .duplicates import DuplicateScanConfig, scan_exact_duplicates
 from .execution_audit import determine_duplicate_cli_exit_code, write_duplicate_execution_audit_log
 
+ROW_STATUS_CHOICES = ["planned", "blocked", "executable", "deferred"]
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="media-manager duplicates")
@@ -59,6 +61,21 @@ def build_parser() -> argparse.ArgumentParser:
         "--show-plan",
         action="store_true",
         help="Print cleanup-plan, dry-run, and execution-preview counters.",
+    )
+    parser.add_argument(
+        "--show-dry-run-rows",
+        action="store_true",
+        help="Print individual dry-run rows instead of only counters.",
+    )
+    parser.add_argument(
+        "--show-execution-rows",
+        action="store_true",
+        help="Print individual execution-preview rows instead of only counters.",
+    )
+    parser.add_argument(
+        "--row-status",
+        choices=ROW_STATUS_CHOICES,
+        help="Optional row status filter for --show-dry-run-rows or --show-execution-rows.",
     )
     parser.add_argument(
         "--json-report",
@@ -244,6 +261,37 @@ def _print_workflow_summary(bundle) -> None:
     )
 
 
+def _row_matches_status(row_status: str, wanted_status: str | None) -> bool:
+    return wanted_status is None or row_status == wanted_status
+
+
+def _shorten_path(path: Path | None) -> str:
+    return "-" if path is None else str(path)
+
+
+def _print_dry_run_rows(bundle, wanted_status: str | None) -> None:
+    rows = [*bundle.dry_run.planned_actions, *bundle.dry_run.blocked_actions]
+    filtered = [row for row in rows if _row_matches_status(row.status, wanted_status)]
+    print(f"Dry-run rows: {len(filtered)}")
+    for index, row in enumerate(filtered, start=1):
+        print(
+            f"[{index}] status={row.status} | action={row.action_type} | reason={row.reason} | "
+            f"source={_shorten_path(row.source_path)} | survivor={_shorten_path(row.survivor_path)} | "
+            f"target={_shorten_path(row.target_path)}"
+        )
+
+
+def _print_execution_rows(bundle, wanted_status: str | None) -> None:
+    filtered = [row for row in bundle.execution_preview.rows if _row_matches_status(row.status, wanted_status)]
+    print(f"Execution rows: {len(filtered)}")
+    for index, row in enumerate(filtered, start=1):
+        print(
+            f"[{index}] status={row.status} | row={row.row_type} | reason={row.reason} | "
+            f"source={_shorten_path(row.source_path)} | survivor={_shorten_path(row.survivor_path)} | "
+            f"target={_shorten_path(row.target_path)}"
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -274,6 +322,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.show_plan or args.policy or args.load_session or args.apply or args.audit_log:
         _print_workflow_summary(bundle)
         print(f"Decisions: {len(bundle.decisions)}")
+
+    if args.show_dry_run_rows:
+        _print_dry_run_rows(bundle, args.row_status)
+
+    if args.show_execution_rows:
+        _print_execution_rows(bundle, args.row_status)
 
     execution_result = None
     if args.apply:
