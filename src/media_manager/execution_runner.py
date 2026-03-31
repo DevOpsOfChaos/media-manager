@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from send2trash import send2trash
+
 from .execution_plan import DuplicateExecutionPreview, ExecutionPreviewRow
 from .execution_safety import find_associated_sibling_paths
 
@@ -39,7 +41,7 @@ def run_duplicate_execution_preview(
     Execute or preview only the currently executable duplicate rows.
 
     Current scope intentionally stays narrow:
-    - `filesystem_delete` rows can be executed when `apply=True`
+    - `filesystem_delete` rows are previewed or sent to trash
     - `pipeline_exclusion` rows stay deferred because later copy/move pipeline integration does not exist yet
     - `blocked` rows stay blocked
     """
@@ -134,14 +136,14 @@ def run_duplicate_execution_preview(
                     source_path=row.source_path,
                     survivor_path=row.survivor_path,
                     target_path=row.target_path,
-                    outcome="preview-delete",
+                    outcome="preview-trash",
                     reason=row.reason,
                 )
             )
             continue
 
         try:
-            row.source_path.unlink()
+            send2trash(str(row.source_path))
         except Exception as exc:  # pragma: no cover - runtime safeguard
             result.error_rows += 1
             result.entries.append(
@@ -165,7 +167,7 @@ def run_duplicate_execution_preview(
                 source_path=row.source_path,
                 survivor_path=row.survivor_path,
                 target_path=row.target_path,
-                outcome="deleted",
+                outcome="trashed",
                 reason=row.reason,
             )
         )
