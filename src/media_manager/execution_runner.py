@@ -5,6 +5,7 @@ from pathlib import Path
 
 from send2trash import send2trash
 
+from .duplicates import files_are_identical
 from .execution_plan import DuplicateExecutionPreview, ExecutionPreviewRow
 from .execution_safety import find_associated_sibling_paths
 
@@ -44,6 +45,7 @@ def run_duplicate_execution_preview(
     - `filesystem_delete` rows are previewed or sent to trash
     - `pipeline_exclusion` rows stay deferred because later copy/move pipeline integration does not exist yet
     - `blocked` rows stay blocked
+    - delete rows are revalidated against the current file system before preview/apply
     """
     result = DuplicateExecutionRunResult()
 
@@ -108,6 +110,66 @@ def run_duplicate_execution_preview(
                     target_path=row.target_path,
                     outcome="error",
                     reason="source_missing",
+                )
+            )
+            continue
+
+        if row.source_path.stat().st_size != row.file_size:
+            result.blocked_rows += 1
+            result.entries.append(
+                ExecutionRunEntry(
+                    row_type="blocked_stale_source",
+                    status="blocked",
+                    source_path=row.source_path,
+                    survivor_path=row.survivor_path,
+                    target_path=row.target_path,
+                    outcome="blocked",
+                    reason="source_size_changed_since_scan",
+                )
+            )
+            continue
+
+        if row.survivor_path is None:
+            result.error_rows += 1
+            result.entries.append(
+                ExecutionRunEntry(
+                    row_type="missing_survivor_reference",
+                    status="error",
+                    source_path=row.source_path,
+                    survivor_path=row.survivor_path,
+                    target_path=row.target_path,
+                    outcome="error",
+                    reason="survivor_missing_from_execution_row",
+                )
+            )
+            continue
+
+        if not row.survivor_path.exists():
+            result.blocked_rows += 1
+            result.entries.append(
+                ExecutionRunEntry(
+                    row_type="blocked_missing_survivor",
+                    status="blocked",
+                    source_path=row.source_path,
+                    survivor_path=row.survivor_path,
+                    target_path=row.target_path,
+                    outcome="blocked",
+                    reason="survivor_missing_on_disk",
+                )
+            )
+            continue
+
+        if not files_are_identical(row.source_path, row.survivor_path):
+            result.blocked_rows += 1
+            result.entries.append(
+                ExecutionRunEntry(
+                    row_type="blocked_stale_duplicate",
+                    status="blocked",
+                    source_path=row.source_path,
+                    survivor_path=row.survivor_path,
+                    target_path=row.target_path,
+                    outcome="blocked",
+                    reason="source_no_longer_matches_survivor",
                 )
             )
             continue
