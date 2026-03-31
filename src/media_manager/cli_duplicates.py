@@ -11,7 +11,7 @@ from .duplicate_workflow import (
     execute_duplicate_workflow_bundle,
 )
 from .duplicates import DuplicateScanConfig, scan_exact_duplicates
-from .execution_audit import write_duplicate_execution_audit_log
+from .execution_audit import determine_duplicate_cli_exit_code, write_duplicate_execution_audit_log
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -301,6 +301,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"Wrote audit log: {args.audit_log}")
 
-    if execution_result is not None and execution_result.error_rows > 0:
-        return 2
-    return 0 if result.errors == 0 else 1
+    return determine_duplicate_cli_exit_code(
+        result,
+        execution_result,
+        apply_requested=args.apply,
+    )

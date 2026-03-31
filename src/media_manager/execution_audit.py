@@ -5,6 +5,37 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+def determine_duplicate_cli_exit_code(
+    scan_result,
+    execution_result,
+    *,
+    apply_requested: bool,
+) -> int:
+    if execution_result is not None:
+        if execution_result.error_rows > 0:
+            return 2
+        if apply_requested and (execution_result.blocked_rows > 0 or execution_result.deferred_rows > 0):
+            return 3
+    return 0 if scan_result.errors == 0 else 1
+
+
+def classify_duplicate_execution_status(
+    scan_result,
+    execution_result,
+    *,
+    apply_requested: bool,
+) -> str:
+    if execution_result is None:
+        return "planned_only" if scan_result.errors == 0 else "scan_errors"
+    if execution_result.error_rows > 0:
+        return "execution_errors"
+    if apply_requested and (execution_result.blocked_rows > 0 or execution_result.deferred_rows > 0):
+        return "apply_incomplete"
+    if apply_requested:
+        return "applied"
+    return "preview_only"
+
+
 def build_duplicate_execution_audit_payload(
     scan_result,
     bundle,
@@ -12,10 +43,23 @@ def build_duplicate_execution_audit_payload(
     *,
     apply_requested: bool,
 ) -> dict[str, object]:
+    recommended_exit_code = determine_duplicate_cli_exit_code(
+        scan_result,
+        execution_result,
+        apply_requested=apply_requested,
+    )
+    execution_status = classify_duplicate_execution_status(
+        scan_result,
+        execution_result,
+        apply_requested=apply_requested,
+    )
+
     return {
         "schema_version": 1,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "apply_requested": apply_requested,
+        "execution_status": execution_status,
+        "recommended_exit_code": recommended_exit_code,
         "operation_mode": bundle.dry_run.planned_actions[0].operation_mode if bundle.dry_run.planned_actions else (bundle.dry_run.blocked_actions[0].operation_mode if bundle.dry_run.blocked_actions else None),
         "scan": {
             "scanned_files": scan_result.scanned_files,
