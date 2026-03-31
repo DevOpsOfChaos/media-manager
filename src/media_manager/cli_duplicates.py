@@ -11,6 +11,7 @@ from .duplicate_workflow import (
     execute_duplicate_workflow_bundle,
 )
 from .duplicates import DuplicateScanConfig, scan_exact_duplicates
+from .execution_audit import write_duplicate_execution_audit_log
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -63,6 +64,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--json-report",
         type=Path,
         help="Write a JSON report with scan, decision, dry-run, and execution-preview data.",
+    )
+    parser.add_argument(
+        "--audit-log",
+        type=Path,
+        help="Write a structured execution audit log for this duplicate workflow run.",
     )
     parser.add_argument(
         "--apply",
@@ -265,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
         save_duplicate_session_snapshot(args.save_session, result.exact_groups, bundle.decisions)
         print(f"Saved duplicate session: {args.save_session}")
 
-    if args.show_plan or args.policy or args.load_session or args.apply:
+    if args.show_plan or args.policy or args.load_session or args.apply or args.audit_log:
         _print_workflow_summary(bundle)
         print(f"Decisions: {len(bundle.decisions)}")
 
@@ -284,6 +290,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.json_report is not None:
         _write_json_report(args.json_report, result, bundle, execution_result)
         print(f"Wrote JSON report: {args.json_report}")
+
+    if args.audit_log is not None:
+        write_duplicate_execution_audit_log(
+            args.audit_log,
+            result,
+            bundle,
+            execution_result,
+            apply_requested=args.apply,
+        )
+        print(f"Wrote audit log: {args.audit_log}")
 
     if execution_result is not None and execution_result.error_rows > 0:
         return 2
