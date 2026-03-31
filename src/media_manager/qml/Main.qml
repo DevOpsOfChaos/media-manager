@@ -147,7 +147,7 @@ ApplicationWindow {
                                 }
 
                                 Label {
-                                    text: modelData.size + " • " + modelData.date
+                                    text: modelData.size + " • + modelData.date
                                     color: "#AFC1D9"
                                     font.pixelSize: 12
                                 }
@@ -424,7 +424,7 @@ ApplicationWindow {
                                 Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 24; font.bold: true }
                                 PrimaryButton { text: trKey("stage_duplicates_action"); enabled: appState.sourceCount > 0; onClicked: appState.startDuplicatePreview() }
                                 ProgressBar { Layout.fillWidth: true; from: 0; to: 100; value: appState.duplicateProgress }
-                                Label { text: appState.statusText; color: "#CFE1FF"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                Label { text: appState.statusText; color: "#CFE1EF"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                                 ListView {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
@@ -439,18 +439,18 @@ ApplicationWindow {
                                         border.color: "#22324A"
                                         RowLayout {
                                             anchors.fill: parent
-                                            anchors.margins: 10
+                                          anchors.margins: 10
                                             spacing: 8
-                                            Label { Layout.fillWidth: true; text: modelData.name; color: "#E6EEF8"; font.pixelSize: 13 }
-                                            Label { Layout.fillWidth: true; text: modelData.size; color: "#E6EEF8"; font.pixelSize: 13 }
-                                            Label { Layout.fillWidth: true; text: modelData.matches; color: "#E6EEF8"; font.pixelSize: 13 }
-                                            Button {
-                                                text: trKey("table_show")
-                                                hoverEnabled: true
-                                                onClicked: { appState.openDuplicateGroup(Number(modelData.index)); duplicateDetailPopup.open() }
-                                                background: OutlineButtonBackground {}
-                                                contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 12; font.bold: true }
-                                            }
+                                              Label { Layout.fillWidth: true; text: modelData.name; color: "#E6EEF8"; font.pixelSize: 13 }
+                                                Label { Layout.fillWidth: true; text: modelData.size; color: "#E6EEF8"; font.pixelSize: 13 }
+                                                Label { Layout.fillWidth: true; text: modelData.matches; color: "#E6EEF8"; font.pixelSize: 13 }
+                                                Button {
+                                                    text: trKey("table_show")
+                                                    hoverEnabled: true
+                                                    onClicked: { appState.openDuplicateGroup(Number(modelData.index)); duplicateDetailPopup.open() }
+                                                      background: OutlineButtonBackground {}
+                                                      contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 12; font.bold: true }
+                                                }
                                         }
                                     }
                                 }
@@ -522,7 +522,7 @@ ApplicationWindow {
                                             Label { text: trKey("dryrun_title"); color: "#F7FAFF"; font.pixelSize: 18; font.bold: true; Layout.fillWidth: true }
                                             Label { text: appState.dryRunStatusLabel; color: appState.dryRunReady ? "#8CE99A" : "#FFD18C"; font.pixelSize: 12; font.bold: true }
                                         }
-                                        Label { text: trKey("dryrun_subtitle"); color: "#CFE1FF"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                        Label { text: trKey("dryrun_subtitle"); color: "#CFE1EF"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                                         Flow {
                                             Layout.fillWidth: true
                                             spacing: 8
@@ -536,7 +536,7 @@ ApplicationWindow {
                                                     background: Rectangle {
                                                         radius: 12
                                                         color: appState.dryRunFilterKey === modelData.key ? "#132B4A" : (parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent"))
-                                                        border.width: 1
+                                                          border.width: 1
                                                         border.color: appState.dryRunFilterKey === modelData.key ? "#4A82D7" : "#30465F"
                                                     }
                                                     contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 11; font.bold: true }
@@ -554,22 +554,21 @@ ApplicationWindow {
                                                     required property var modelData
                                                     Layout.fillWidth: true
                                                     implicitHeight: 76
-                                                    radius: 12
+                                                   radius: 12
                                                     color: "#091321"
                                                     border.color: modelData.status === "blocked" ? "#D07A63" : "#22324A"
                                                     ColumnLayout {
                                                         anchors.fill: parent
                                                         anchors.margins: 10
-                                                        spacing: 4
-                                                        Label { text: modelData.status_label + " • " + modelData.action_label; color: "#F7FAFF"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                                                        Label { text: modelData.reason_label; color: "#CFE1FF"; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                                                        Label { text: modelData.source_path; color: "#8FB0E1"; font.pixelSize: 10; Layout.fillWidth: true; wrapMode: Text.WrapAnywhere }
+                                                          spacing: 4
+                                                          Label { text: modelData.status_label + " • " + modelData.action_label; color: "#F7FAFF"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                                                        Label { text: modelData.reason_label; color: "#CFE1EF"; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                                                      Label { text: modelData.source_path; color: "#8FB0E1"; font.pixelSize: 10; Layout.fillWidth: true; wrapMode: Text.WrapAnywhere }
                                                     }
                                                 }
                                             }
                                         }
                                     }
-                                }
 
                                 CardPanel {
                                     Layout.fillWidth: true
@@ -601,16 +600,15 @@ ApplicationWindow {
                                                     ColumnLayout {
                                                         anchors.fill: parent
                                                         anchors.margins: 10
-                                                        spacing: 4
-                                                        Label { text: modelData.status_label + " • " + modelData.row_type_label; color: "#F7FAFF"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                                                        Label { text: modelData.reason_label; color: "#CFE1FF"; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                                                        Label { text: modelData.source_path; color: "#8FB0E1"; font.pixelSize: 10; Layout.fillWidth: true; wrapMode: Text.WrapAnywhere }
+                                                          spacing: 4
+                                                          Label { text: modelData.status_label + " • " + modelData.row_type_label; color: "#F7FAFF"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                                                      Label { text: modelData.reason_label; color: "#CFE1EF"; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                                                      Label { text: modelData.source_path; color: "#8FB0E1"; font.pixelSize: 10; Layout.fillWidth: true; wrapMode: Text.WrapAnywhere }
                                                     }
                                                 }
                                             }
                                         }
                                     }
-                                }
 
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -620,20 +618,276 @@ ApplicationWindow {
                             }
                         }
 
-                        CardPanel { }
-                        CardPanel { }
-                        CardPanel {
+                        Flickable {
+                            contentWidth: width
+                            contentHeight: sortingStageColumn.implicitHeight
+                            clip: true
+
                             ColumnLayout {
-                                anchors.fill: parent
-                                anchors.margins: 18
-                                spacing: 10
-                                Label { text: trKey("stage_done_title"); color: "#F7FAFF"; font.pixelSize: 24; font.bold: true }
-                                Label { text: trKey("stage_done_subtitle"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                                Item { Layout.fillHeight: true }
-                                PrimaryButton { text: trKey("button_home"); onClicked: appState.backToHome() }
+                                id: sortingStageColumn
+                                width: parent.width
+                                spacing: 12
+
+                                Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 24; font.bold: true }
+                                Label { text: appState.workflowStageSubtitle; color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+
+                                CardPanel {
+                                    Layout.fillWidth: true
+                                    implicitHeight: sortingHeroColumn.implicitHeight + 24
+                                    ColumnLayout {
+                                        id: sortingHeroColumn
+                                        anchors.fill: parent
+                                        anchors.margins: 12
+                                        spacing: 8
+                                        Label { text: trKey("sorting_template_title"); color: "#AFC1D9"; font.pixelSize: 12; font.bold: true }
+                                        Label { text: appState.sortingTemplatePathLabel.length > 0 ? appState.sortingTemplatePathLabel : "2025 / 07 / 14"; color: "#F7FAFF"; font.pixelSize: 28; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                        Label { text: appState.sortingTemplateHintLabel; color: "#8FB0E1"; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    CardPanel {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 118
+                                        MouseArea { anchors.fill: parent; onClicked: appState.cycleSortingYearStyle() }
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 10
+                                            spacing: 6
+                                            Label { text: trKey("sorting_level_year"); color: "#F7FAFF"; font.pixelSize: 15; font.bold: true }
+                                            Label { text: appState.sortingYearStyleLabel; color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                            Item { Layout.fillHeight: true }
+                                            Label { text: trKey("sorting_cycle_action"); color: "#6F8FB9"; font.pixelSize: 11 }
+                                        }
+                                    }
+
+                                    CardPanel {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 118
+                                        MouseArea { anchors.fill: parent; onClicked: appState.cycleSortingMonthStyle() }
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 10
+                                            spacing: 6
+                                            Label { text: trKey("sorting_level_month"); color: "#F7FAFF"; font.pixelSize: 15; font.bold: true }
+                                            Label { text: appState.sortingMonthStyleLabel; color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                            Item { Layout.fillHeight: true }
+                                            Label { text: trKey("sorting_cycle_action"); color: "#6F8FB9"; font.pixelSize: 11 }
+                                        }
+                                    }
+
+                                    CardPanel {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 118
+                                        MouseArea { anchors.fill: parent; onClicked: appState.cycleSortingDayStyle() }
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 10
+                                            spacing: 6
+                                            Label { text: trKey("sorting_level_day"); color: "#F7FAFF"; font.pixelSize: 15; font.bold: true }
+                                            Label { text: appState.sortingDayStyleLabel; color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                            Item { Layout.fillHeight: true }
+                                            Label { text: trKey("sorting_cycle_action"); color: "#6F8FB9"; font.pixelSize: 11 }
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Button {
+                                        text: trKey("sorting_reset_action")
+                                        hoverEnabled: true
+                                        onClicked: appState.resetSortingDefaults()
+                                        background: OutlineButtonBackground {}
+                                        contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 12; font.bold: true }
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
+
+                                CardPanel {
+                                    Layout.fillWidth: true
+                                    implicitHeight: sortingPreviewColumn.implicitHeight + 24
+                                    ColumnLayout {
+                                        id: sortingPreviewColumn
+                                        anchors.fill: parent
+                                        anchors.margins: 12
+                                        spacing: 8
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Label { text: trKey("sorting_preview_title"); color: "#F7FAFF"; font.pixelSize: 18; font.bold: true; Layout.fillWidth: true }
+                                            Label { text: appState.sortingPreviewCountLabel; color: "#8FB0E1"; font.pixelSize: 12; font.bold: true }
+                                        }
+                                        Label { text: trKey("sorting_preview_body"); color: "#CFE1EF"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                        Repeater {
+                                            model: appState.sortingPreviewRows
+                                              delegate: Rectangle {
+                                                width: sortingPreviewColumn.width
+                                                implicitHeight: 68
+                                                radius: 12
+                                                color: "#091321"
+                                                border.color: "#22324A"
+                                                ColumnLayout {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 10
+                                                    spacing: 4
+                                                    Label { text: modelData.source_name; color: "#F7FAFF"; font.pixelSize: 12; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
+                                                    Label { text: modelData.relative_directory; color: "#8FB0E1"; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                    Label { text: modelData.source_path; color: "#6F8FB9"; font.pixelSize: 10; Layout.fillWidth: true; elide: Text.ElideMiddle }
+                                                }
+                                              }
+                                        }
+                                        Label { visible: appState.sortingPreviewRows.length === 0; text: trKey("sorting_preview_empty"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                    }
+                                }
                             }
+
+                        Flickable {
+                            contentWidth: width
+                            contentHeight: renameStageColumn.implicitHeight
+                            clip: true
+
+                            ColumnLayout {
+                                id: renameStageColumn
+                                width: parent.width
+                                spacing: 12
+
+                                Label { text: appState.workflowStageTitle; color: "#F7FAFF"; font.pixelSize: 24; font.bold: true }
+                                Label { text: appState.workflowStageSubtitle; color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+
+                                CardPanel {
+                                    Layout.fillWidth: true
+                                    implicitHeight: renameHeroColumn.implicitHeight + 24
+                                    ColumnLayout {
+                                        id: renameHeroColumn
+                                        anchors.fill: parent
+                                        anchors.margins: 12
+                                        spacing: 8
+                                        Label { text: trKey("rename_template_title"); color: "#AFC1D9"; font.pixelSize: 12; font.bold: true }
+                                        Label { text: appState.renameLiveTemplateName; color: "#F7FAFF"; font.pixelSize: 26; font.bold: true; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true }
+                                        Label { text: appState.renameLiveTemplateHint; color: "#8FB0E1"; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                    }
+                                }
+
+                                Flow {
+                                    width: parent.width
+                                    spacing: 8
+                                    Repeater {
+                                        model: appState.renameTemplateOptions
+                                        delegate: Button {
+                                            required property var modelData
+                                            visible: modelData.key !== "custom"
+                                            text: modelData.label
+                                            hoverEnabled: true
+                                            onClicked: appState.setRenameTemplate(modelData.key)
+                                            background: Rectangle {
+                                                radius: 12
+                                                color: index === appState.renameSelectedTemplateIndex ? "#132B4A" : (parent.down ? "#102038" : (parent.hovered ? "#132B4A" : "transparent"))
+                                                border.width: 1
+                                                border.color: index === appState.renameSelectedTemplateIndex ? "#4A82D7" : "#30465F"
+                                            }
+                                            contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 11; font.bold: true; wrapMode: Text.WordWrap }
+                                        }
+                                    }
+                                }
+
+                                Flow {
+                                    width: parent.width
+                                    spacing: 8
+                                    Repeater {
+                                        model: appState.renameBlocks
+                                        delegate: Rectangle {
+                                            width: 220
+                                            height: 104
+                                            radius: 14
+                                            color: "#091321"
+                                            border.color: "#22324A"
+                                            MouseArea { anchors.fill: parent; onClicked: appState.cycleRenameBlock(modelData.index) }
+                                            ColumnLayout {
+                                                anchors.fill: parent
+                                                anchors.margins: 10
+                                                spacing: 4
+                                                RowLayout {
+                                                    Layout.fillWidth: true
+                                                    Label { text: modelData.slot_label; color: "#8FB0E1"; font.pixelSize: 11; font.bold: true; Layout.fillWidth: true }
+                                                    Button {
+                                                        visible: modelData.removable
+                                                        text: trKey("rename_remove_block_action")
+                                                        hoverEnabled: true
+                                                        onClicked: appState.removeRenameBlock(modelData.index)
+                                                        background: OutlineButtonBackground {}
+                                                        contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 10; font.bold: true }
+                                                    }
+                                                }
+                                                Label { text: modelData.label; color: "#F7FAFF"; font.pixelSize: 16; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                                Item { Layout.fillHeight: true }
+                                                Label { text: modelData.hint; color: "#6F8FB9"; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                            }
+                                        }
+                                    }
+
+                                    Button {
+                                        width: 220
+                                        height: 104
+                                        text: trKey("rename_add_block_action")
+                                        hoverEnabled: true
+                                        onClicked: appState.addRenameBlock()
+                                        background: OutlineButtonBackground {}
+                                        contentItem: Text { text: parent.text; color: "#F7FAFF"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pixelSize: 13; font.bold: true }
+                                    }
+                                }
+
+                                CardPanel {
+                                    Layout.fillWidth: true
+                                    implicitHeight: renamePreviewColumn.implicitHeight + 24
+                                    ColumnLayout {
+                                        id: renamePreviewColumn
+                                        id: renamePreviewColumn
+                                        anchors.fill: parent
+                                        anchors.margins: 12
+                                        spacing: 8
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Label { text: trKey("rename_preview_title"); color: "#F7FAFF"; font.pixelSize: 18; font.bold: true; Layout.fillWidth: true }
+                                            Label { text: appState.renamePreviewCountLabel; color: "#8FB0E1"; font.pixelSize: 12; font.bold: true }
+                                        }
+                                        Label { text: trKey("rename_preview_body"); color: "#CFE1EF"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                        Repeater {
+                                            model: appState.renamePreviewRows
+                                            delegate: Rectangle {
+                                                width: renamePreviewColumn.width
+                                                implicitHeight: 68
+                                                radius: 12
+                                                color: "#091321"
+                                                border.color: "#22324A"
+                                                ColumnLayout {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 10
+                                                    spacing: 4
+                                                    Label { text: modelData.source_name; color: "#AFC1D9"; font.pixelSize: 11; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
+                                                    Label { text: modelData.proposed_name; color: "#F7FAFF"; font.pixelSize: 13; font.bold: true; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true }
+                                                    Label { text: modelData.source_path; color: "#6F8FB9"; font.pixelSize: 10; Layout.fillWidth: true; elide: Text.ElideMiddle }
+                                                }
+                                              }
+                                        }
+                                        Label { visible: appState.renamePreviewRows.length === 0; text: trKey("rename_preview_empty"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                    }
+                                }
+
+                                CardPanel {
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.margins: 18
+                                        spacing: 10
+                                        Label { text: trKey("stage_done_title"); color: "#F7FAFF"; font.pixelSize: 24; font.bold: true }
+                                        Label { text: trKey("stage_done_subtitle"); color: "#AFC1D9"; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                        Item { Layout.fillHeight: true }
+                                        PrimaryButton { text: trKey("button_home"); onClicked: appState.backToHome() }
+                                    }
+                                }
                         }
-                    }
 
                     RowLayout {
                         Layout.fillWidth: true
@@ -693,7 +947,7 @@ ApplicationWindow {
                                     Label { text: trKey("dryrun_title"); color: "#F7FAFF"; font.pixelSize: 18; font.bold: true }
                                     Repeater {
                                         model: appState.dryRunRows
-                                        delegate: Label { text: modelData.status_label + " • " + modelData.action_label + " • " + modelData.reason_label; color: "#CFE1FF"; font.pixelSize: 11; wrapMode: Text.WordWrap; width: duplicatesManualColumn.width }
+                                        delegate: Label { text: modelData.status_label + " • " + modelData.action_label + " • " + modelData.reason_label; color: "#CFE1EF"; font.pixelSize: 11; wrapMode: Text.WordWrap; width: duplicatesManualColumn.width }
                                     }
                                 }
                             }
@@ -708,11 +962,10 @@ ApplicationWindow {
                                     Label { text: "Execution preview"; color: "#F7FAFF"; font.pixelSize: 18; font.bold: true }
                                     Repeater {
                                         model: appState.executionRows
-                                        delegate: Label { text: modelData.status_label + " • " + modelData.row_type_label + " • " + modelData.reason_label; color: "#CFE1FF"; font.pixelSize: 11; wrapMode: Text.WordWrap; width: duplicatesManualColumn.width }
+                                        delegate: Label { text: modelData.status_label + " • " + modelData.row_type_label + " • " + modelData.reason_label; color: "#CFE1EF"; font.pixelSize: 11; wrapMode: Text.WordWrap; width: duplicatesManualColumn.width }
                                     }
                                 }
                             }
-                        }
                     }
 
                     Flickable {
@@ -726,9 +979,8 @@ ApplicationWindow {
                             Label { text: "Manual organize"; color: "#F7FAFF"; font.pixelSize: 30; font.bold: true }
                             Repeater {
                                 model: appState.sortingPreviewRows
-                                delegate: Label { text: modelData.source_name + " → " + modelData.relative_directory; color: "#CFE1FF"; font.pixelSize: 12; wrapMode: Text.WordWrap; width: organizeColumn.width }
+                                delegate: Label { text: modelData.source_name + " → " + modelData.relative_directory; color: "#CFE1EF"; font.pixelSize: 12; wrapMode: Text.WordWrap; width: organizeColumn.width }
                             }
-                        }
                     }
 
                     Flickable {
@@ -742,12 +994,10 @@ ApplicationWindow {
                             Label { text: "Manual rename"; color: "#F7FAFF"; font.pixelSize: 30; font.bold: true }
                             Repeater {
                                 model: appState.renamePreviewRows
-                                delegate: Label { text: modelData.source_name + " → " + modelData.proposed_name; color: "#CFE1FF"; font.pixelSize: 12; wrapMode: Text.WordWrap; width: renameColumn.width }
+                                delegate: Label { text: modelData.source_name + " →" + modelData.proposed_name; color: "#CFE1EF"; font.pixelSize: 12; wrapMode: Text.WordWrap; width: renameColumn.width }
                             }
-                        }
                     }
                 }
             }
-        }
     }
 }
