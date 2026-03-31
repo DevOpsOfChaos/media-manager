@@ -93,6 +93,8 @@ def test_main_builds_plan_and_saves_session_report_and_audit(tmp_path: Path, cap
     audit_payload = json.loads(audit_path.read_text(encoding="utf-8"))
     assert audit_payload["scan"]["exact_groups"] == 1
     assert audit_payload["apply_requested"] is False
+    assert audit_payload["execution_status"] == "planned_only"
+    assert audit_payload["recommended_exit_code"] == 0
     assert audit_payload["execution_run"] is None
 
 
@@ -167,3 +169,42 @@ def test_main_apply_delete_sends_file_to_trash(monkeypatch, tmp_path: Path, caps
     assert keep.exists()
     assert not remove.exists()
     assert trashed == [str(remove)]
+
+
+def test_main_apply_returns_nonzero_when_delete_is_blocked(monkeypatch, tmp_path: Path, capsys) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    keep = source / "IMG_0001.jpg"
+    remove = source / "IMG_0002.jpg"
+    sidecar = source / "IMG_0002.xmp"
+    keep.write_bytes(b"duplicate-bytes")
+    remove.write_bytes(b"duplicate-bytes")
+    sidecar.write_bytes(b"xmp")
+
+    trashed: list[str] = []
+
+    def fake_send2trash(path_str: str) -> None:
+        trashed.append(path_str)
+        Path(path_str).unlink()
+
+    monkeypatch.setattr("media_manager.execution_runner.send2trash", fake_send2trash)
+
+    exit_code = main(
+        [
+            "--source",
+            str(source),
+            "--policy",
+            "first",
+            "--mode",
+            "delete",
+            "--apply",
+            "--yes",
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert exit_code == 3
+    assert "Execution run:" in out
+    assert keep.exists()
+    assert remove.exists()
+    assert trashed == []
