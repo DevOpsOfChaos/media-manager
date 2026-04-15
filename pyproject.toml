@@ -37,7 +37,7 @@ Changelog = "https://github.com/DevOpsOfChaos/media-manager/blob/main/CHANGELOG.
 
 [project.optional-dependencies]
 dev = [
-  "pytest>=8.0"
+  "pytest>=9.0.3"
 ]
 
 [project.scripts]
