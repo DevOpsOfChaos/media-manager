@@ -2,95 +2,165 @@
 
 ## Design goal
 
-Keep media handling logic independent from the user interface.
+Build a trustworthy media-management core first.
 
-That is the core rule that allows the project to evolve from the current organizer baseline into a more complete and more professional desktop application without rewriting the sorting engine.
+That core must remain independent from the CLI and from any later GUI so the project can evolve without rewriting the actual media logic every time the interface changes.
 
-## Current layers
+## Architectural reset
 
-### 1. Core logic
+Earlier repository phases explored desktop-first directions too early.
 
-Core behavior lives in modules such as:
+The current reset changes the order of work:
 
-- `dates.py`
-- `exiftool.py`
-- `sorter.py`
+1. core media logic
+2. CLI workflows
+3. state and idempotent processing
+4. duplicate handling
+5. guided workflows
+6. GUI later
 
-This layer should decide:
+This is not cosmetic repositioning. It is a structural correction.
 
-- how dates are resolved
-- how media files are classified
-- where files should go
-- how collisions are handled
-- how multiple source folders are processed
+## Target layers
 
-This layer should **not** know anything about buttons, windows, or widget state.
+### 1. Core domain
 
-### 2. CLI layer
+This layer is responsible for:
 
-`cli.py` exposes the core logic in a script-friendly interface.
+- discovering media files
+- reading metadata through ExifTool
+- resolving the best available capture date
+- planning target paths
+- planning rename results
+- detecting duplicates
+- deciding what is already compliant and should be skipped
 
-This is useful for:
+This layer must not know anything about widgets, windows, or presentation state.
 
-- testing
-- automation
-- debugging
-- environments where the GUI is unavailable
+### 2. State layer
 
-### 3. GUI layer
+This layer is responsible for:
 
-`gui.py` is the current desktop entry point.
+- run history
+- file fingerprints
+- planned versus executed actions
+- idempotent skip decisions
+- undo / journal support later
 
-Its job is only to:
+A lightweight SQLite-backed implementation is the intended direction.
 
-- collect user input
-- call core behavior
-- display results and errors
-- manage application-level presentation state
+### 3. CLI layer
 
-It should not become the place where business logic silently accumulates.
+The CLI is the first real product surface.
 
-### 4. Settings layer
+Its responsibilities are:
 
-`settings.py` stores lightweight application defaults such as the ExifTool path or target folder.
+- collecting user options
+- launching scans, inspections, plans, and apply steps
+- rendering safe human-readable output
+- exporting machine-readable reports later
 
-This layer should remain small and focused. It is not a substitute for future project data models such as saved import sets.
+The CLI should expose the real engine clearly enough that the later GUI becomes a thinner interface, not a second system.
 
-## Product modules
+### 4. GUI layer
 
-The long-term product direction is better understood as four modules built on one core:
+A GUI is still part of the long-term plan.
 
-1. **Organize**
-2. **Rename**
-3. **Duplicates**
-4. **Compare**
+But it comes after the core and CLI are stable enough that the interface is wrapping good behavior instead of compensating for missing foundations.
 
-The current repository implements the **Organize** baseline only.
+## Target product modules
 
-## Why this matters
+The intended product shape is best understood as these modules built on one shared core:
 
-Most small utility tools decay because the UI and the actual logic get fused together.  
-Once that happens, every future UI change becomes expensive.
+1. **Scan / Inspect**
+2. **Organize**
+3. **Rename**
+4. **Duplicates**
+5. **Workflows**
 
-The current structure avoids that trap on purpose.
+## Target package direction
 
-## Evolution path
+```text
+src/media_manager/
+  cli.py
+  config.py
+  scanner/
+  metadata/
+  date_resolver/
+  organizer/
+  renamer/
+  state/
+  reporting/
+  workflows/
+  duplicates/
+  utils/
+```
 
-The intended long-term direction is:
+## Key technical rules
 
-1. stabilize the current core
-2. expand the organizer flow with better user-facing controls
-3. add reusable import sets for source-folder groups
-4. add duplicate detection and duplicate decisions
-5. add visual comparison workflows for images and videos
-6. improve test coverage
-7. refine the desktop UI
-8. add optional localization without mixing translations into the core logic
-9. add packaging and releases
+### Core/UI separation
 
-## Non-goals for now
+No GUI code should decide:
 
-- broad refactors without user value
-- premature plugin systems
-- fake enterprise architecture
-- pretending the project is further along than it is
+- which metadata date wins
+- whether a file is already compliant
+- how duplicates are grouped
+- how collisions are resolved
+- whether a file should be skipped or processed
+
+Those decisions belong in the core.
+
+### Safety first
+
+Preview modes and reviewable plans should come before destructive actions.
+
+Deleting or overwriting media without a visible review path is not acceptable.
+
+### Idempotence
+
+The project must move beyond one-shot scripting behavior.
+
+Important examples:
+
+- files already in the correct target location should be skipped
+- files already matching the naming template should not be renamed again
+- prior processing decisions should be reusable where safe
+- rerunning the same operation should not create avoidable churn
+
+### Date resolution must be explainable
+
+The project cannot rely on a flat metadata-date shortcut forever.
+
+It needs a real date-resolution system that can report:
+
+- chosen date
+- source tag or fallback source
+- confidence level
+- timezone status
+- reasoning
+
+### Legacy code is reference, not authority
+
+Older desktop-oriented code may still hold useful snippets or tests.
+
+But the new architecture must not be forced to preserve weak abstractions just because they already exist in the repository.
+
+## Non-goals during the reset
+
+- pretending the legacy structure is already correct
+- building a new GUI before the engine stabilizes
+- hiding architectural uncertainty behind polished screenshots
+- introducing fake complexity without product value
+
+## Immediate implementation direction
+
+The first rebuild milestone should focus on:
+
+1. file discovery
+2. metadata inspection
+3. date-resolution baseline
+4. dry-run organization planning
+5. rename-template planning
+6. reporting baseline
+
+Only after that foundation is solid should the project expand into duplicate review, guided workflows, and later a modern GUI.
