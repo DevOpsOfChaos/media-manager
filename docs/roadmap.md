@@ -1,78 +1,94 @@
 # Roadmap
 
-## Phase 1 — stable organizer foundation
+## Reset principle
 
-- [x] Preserve working metadata-based sorting logic
-- [x] Add dry-run and safer execution flow
-- [x] Add automated tests for core logic
-- [x] Separate core logic from UI-specific code
-- [x] Switch the desktop baseline to PySide6
-- [x] Support multiple source folders and one target folder
-- [x] Improve the organizer GUI layout and feedback loop
-- [x] Add a basic app shell with a home page and an organizer page
+The repository is being reset around a stable media core.
 
-## Phase 2 — better organizer workflow
+That means the roadmap order is now:
 
-- [x] Auto-fill and persist organizer defaults where useful
-- [x] Saved import sets for reusable source-folder groups
-- [x] Template-based renaming baseline
-- [ ] Flexible sorting rules
-- [ ] Exclusion rules and filters
-- [ ] Better conflict handling and reporting
+1. core
+2. CLI
+3. state
+4. duplicates
+5. workflows
+6. GUI later
 
-## Phase 3 — duplicate handling
+## Phase 1 — repository reset and cleanup
 
-- [x] Exact duplicate detection via hashing / byte identity
-- [x] Guided duplicate review baseline
-- [ ] Keep-source / keep-target / keep-both actions
-- [ ] Duplicate decision queue for larger batches
-- [ ] Similarity pipeline for likely duplicates
-- [ ] Associated file detection and handling
+- [x] keep the existing repository name
+- [x] keep repository history
+- [x] document that the repository is being reset
+- [x] rewrite the public project direction around the core-first plan
+- [x] add explicit legacy guidance
+- [ ] freeze or relocate legacy-oriented files as the reset continues
 
-## Phase 4 — comparison workflows
+## Phase 2 — scan and inspect baseline
 
-- [ ] Image comparison view
-- [ ] Video comparison view
-- [ ] Metadata side-by-side view
-- [ ] Fast keep / reject actions from the comparison screen
-- [ ] Separation between exact duplicates and likely duplicates
+- [ ] implement a clean scanner module
+- [ ] support multiple source folders
+- [ ] add an inspect command for metadata and date debugging
+- [ ] report all relevant date candidates for a file
+- [ ] make ExifTool integration observable and debuggable
 
-## Phase 5 — guided product UX
+## Phase 3 — date resolution baseline
 
-- [x] Guided home page baseline
-- [x] Workflow progress stepper baseline
-- [x] Initial QML / Qt Quick shell for home + workflow
-- [ ] Large questionnaire-first landing page refinement
-- [ ] Full-page workflow steps instead of utility-panel layout
-- [ ] Persistent bottom information bar with rotating tips
-- [ ] Animated confirmations and transitions
-- [ ] Stronger bilingual UX pass
+- [ ] create a dedicated date resolver module
+- [ ] support prioritized metadata tags
+- [ ] support filename-based date extraction as a fallback
+- [ ] support filesystem fallback as a last resort
+- [ ] record source, confidence, and reasoning for the chosen date
+- [ ] improve handling of video / QuickTime date edge cases
 
-## Phase 6 — sorting and rename system expansion
+## Phase 4 — organize baseline
 
-- [ ] Rich folder-structure builder
-- [ ] Rich rename block builder
-- [ ] More preset templates
-- [ ] Preview examples for sorting and renaming
-- [ ] Optional trip/session sorting entry point
+- [ ] build dry-run planning first
+- [ ] support move, copy, and link-aware workflows where appropriate
+- [ ] support configurable target folder structures
+- [ ] improve collision handling
+- [ ] add explicit skip reasons for already compliant files
 
-## Phase 7 — persistence and resumability
+## Phase 5 — rename baseline
 
-- [ ] Hidden workflow database inside target structures
-- [ ] Crash-safe workflow recovery
-- [ ] Resume and re-open prior optimized targets
-- [ ] Decision persistence across sessions
+- [ ] build composable naming templates
+- [ ] preview rename plans before apply
+- [ ] support text blocks and date-format blocks
+- [ ] detect and handle rename collisions safely
+- [ ] avoid renaming already compliant files
 
-## Phase 8 — productization
+## Phase 6 — state and idempotence
 
-- [ ] QML / Qt Quick migration for the primary UI
-- [ ] Modern desktop UI refinement
-- [ ] Windows packaging
-- [ ] Installer
-- [ ] Signed releases
-- [ ] Release notes and versioned changelog
+- [ ] add a lightweight state store
+- [ ] track file fingerprints and prior actions
+- [ ] support rerun-safe behavior
+- [ ] support clear skip explanations
+- [ ] prepare the basis for undo and journaling
 
-## Reference documents
+## Phase 7 — duplicates
 
-- `docs/product_vision.md`
-- `docs/workflow_ux_target.md`
+- [ ] exact duplicate detection
+- [ ] review-safe duplicate grouping
+- [ ] quarantine-oriented actions instead of unsafe deletion
+- [ ] similar-image duplicate detection after the exact pipeline is stable
+
+## Phase 8 — workflows
+
+- [ ] cleanup workflow for messy multi-source collections
+- [ ] trip workflow using date ranges and collection output
+- [ ] shared workflow state and reporting
+- [ ] guided step-by-step execution built on the same core actions
+
+## Phase 9 — GUI later
+
+- [ ] design a modern interface on top of the stable core
+- [ ] keep the GUI thin and workflow-oriented
+- [ ] avoid reintroducing business logic into presentation code
+- [ ] package a stable Windows release later
+
+## Scope guardrails
+
+The following are intentionally not first-priority during the reset:
+
+- polishing desktop visuals before the core stabilizes
+- growing multiple UI stacks in parallel
+- pretending the product is further along than it is
+- deleting media without a reviewable safety path
