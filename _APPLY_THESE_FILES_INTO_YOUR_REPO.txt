@@ -1,11 +1,16 @@
-Apply steps for cumulative update 009
+Apply this update into the root of your media-manager repository.
 
-1. Extract this ZIP into the root of your local media-manager repository.
-2. Replace existing files when prompted.
-3. Run:
-   python -m pytest tests/test_core_trip_workflow.py tests/test_cli_trip_v1.py
+Included in ZIP 010:
+- duplicate session/state cleanup v1
+- richer duplicate session metadata
+- explicit session restore status/reason reporting
+- CLI support for --show-session
+- JSON report session block
+- tests and docs for the session/state behavior
+
+Suggested steps:
+1. Extract this ZIP into your repo root and replace existing files.
+2. Run:
+   python -m pytest tests/test_duplicate_session_store.py tests/test_cli_duplicates.py
    python -m pytest
-4. Commit:
-   git add .
-   git commit -m "add trip workflow v1 with dry-run and apply support"
-   git push origin main
+3. Commit and push if green.

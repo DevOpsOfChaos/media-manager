@@ -4,16 +4,17 @@ import argparse
 import json
 from pathlib import Path
 
-from .duplicate_session_store import restore_duplicate_decisions, save_duplicate_session_snapshot
+from .duplicate_session_store import (
+    DuplicateSessionRestoreResult,
+    restore_duplicate_session,
+    save_duplicate_session_snapshot,
+)
 from .duplicate_workflow import (
     build_duplicate_decisions,
     build_duplicate_workflow_bundle,
     execute_duplicate_workflow_bundle,
 )
 from .duplicates import DuplicateScanConfig, scan_exact_duplicates
-from .execution_audit import determine_duplicate_cli_exit_code, write_duplicate_execution_audit_log
-
-ROW_STATUS_CHOICES = ["planned", "blocked", "executable", "deferred"]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -30,6 +31,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--show-groups",
         action="store_true",
         help="Print all confirmed exact duplicate groups.",
+    )
+    parser.add_argument(
+        "--show-session",
+        action="store_true",
+        help="Print duplicate session restore details when a session is loaded.",
     )
     parser.add_argument(
         "--policy",
@@ -63,29 +69,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print cleanup-plan, dry-run, and execution-preview counters.",
     )
     parser.add_argument(
-        "--show-dry-run-rows",
-        action="store_true",
-        help="Print individual dry-run rows instead of only counters.",
-    )
-    parser.add_argument(
-        "--show-execution-rows",
-        action="store_true",
-        help="Print individual execution-preview rows instead of only counters.",
-    )
-    parser.add_argument(
-        "--row-status",
-        choices=ROW_STATUS_CHOICES,
-        help="Optional row status filter for --show-dry-run-rows or --show-execution-rows.",
-    )
-    parser.add_argument(
         "--json-report",
         type=Path,
         help="Write a JSON report with scan, decision, dry-run, and execution-preview data.",
-    )
-    parser.add_argument(
-        "--audit-log",
-        type=Path,
-        help="Write a structured execution audit log for this duplicate workflow run.",
     )
     parser.add_argument(
         "--apply",
@@ -130,22 +116,65 @@ def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) ->
         parser.error("--apply requires --yes for explicit confirmation.")
 
 
-def _build_decisions(result, args: argparse.Namespace) -> dict[str, str]:
+def _session_info_from_restore_result(
+    requested_path: Path | None,
+    restore_result: DuplicateSessionRestoreResult | None,
+) -> dict[str, object]:
+    if requested_path is None:
+        return {
+            "requested": False,
+            "requested_path": None,
+            "status": "not_requested",
+            "reason": "no duplicate session snapshot was requested",
+            "loaded_decisions": 0,
+            "snapshot": None,
+            "saved_path": None,
+            "saved_decisions": 0,
+        }
+
+    snapshot = restore_result.snapshot if restore_result is not None else None
+    return {
+        "requested": True,
+        "requested_path": str(requested_path),
+        "status": restore_result.status if restore_result is not None else "error",
+        "reason": restore_result.reason if restore_result is not None else "session restore result was unavailable",
+        "loaded_decisions": len(restore_result.decisions) if restore_result is not None else 0,
+        "snapshot": None
+        if snapshot is None
+        else {
+            "schema_version": snapshot.schema_version,
+            "created_at_utc": snapshot.created_at_utc,
+            "exact_group_count": snapshot.exact_group_count,
+            "decision_count": snapshot.decision_count,
+        },
+        "saved_path": None,
+        "saved_decisions": 0,
+    }
+
+
+def _build_decisions(result, args: argparse.Namespace) -> tuple[dict[str, str], dict[str, object]]:
     decisions: dict[str, str] = {}
+    restore_result = None
+    session_info: dict[str, object]
 
     if args.load_session is not None:
-        decisions.update(restore_duplicate_decisions(args.load_session, result.exact_groups))
+        restore_result = restore_duplicate_session(args.load_session, result.exact_groups)
+        decisions.update(restore_result.decisions)
+        session_info = _session_info_from_restore_result(args.load_session, restore_result)
+    else:
+        session_info = _session_info_from_restore_result(None, None)
 
     if args.policy:
         auto_decisions = build_duplicate_decisions(result.exact_groups, args.policy)
         for group_id, keep_path in auto_decisions.items():
             decisions.setdefault(group_id, keep_path)
 
-    return decisions
+    return decisions, session_info
 
 
-def _write_json_report(path: Path, result, bundle, execution_result) -> None:
+def _write_json_report(path: Path, result, bundle, execution_result, session_info: dict[str, object]) -> None:
     payload = {
+        "session": session_info,
         "scan": {
             "scanned_files": result.scanned_files,
             "size_candidate_files": result.size_candidate_files,
@@ -261,35 +290,26 @@ def _print_workflow_summary(bundle) -> None:
     )
 
 
-def _row_matches_status(row_status: str, wanted_status: str | None) -> bool:
-    return wanted_status is None or row_status == wanted_status
-
-
-def _shorten_path(path: Path | None) -> str:
-    return "-" if path is None else str(path)
-
-
-def _print_dry_run_rows(bundle, wanted_status: str | None) -> None:
-    rows = [*bundle.dry_run.planned_actions, *bundle.dry_run.blocked_actions]
-    filtered = [row for row in rows if _row_matches_status(row.status, wanted_status)]
-    print(f"Dry-run rows: {len(filtered)}")
-    for index, row in enumerate(filtered, start=1):
+def _print_session_info(session_info: dict[str, object]) -> None:
+    print("Session:")
+    print(f"  Requested: {session_info['requested']}")
+    print(f"  Status: {session_info['status']}")
+    print(f"  Reason: {session_info['reason']}")
+    if session_info.get("requested_path"):
+        print(f"  Requested path: {session_info['requested_path']}")
+    if session_info.get("snapshot"):
+        snapshot = session_info["snapshot"]
         print(
-            f"[{index}] status={row.status} | action={row.action_type} | reason={row.reason} | "
-            f"source={_shorten_path(row.source_path)} | survivor={_shorten_path(row.survivor_path)} | "
-            f"target={_shorten_path(row.target_path)}"
+            "  Snapshot: "
+            f"schema={snapshot['schema_version']} | "
+            f"created={snapshot['created_at_utc'] or '-'} | "
+            f"groups={snapshot['exact_group_count']} | "
+            f"decisions={snapshot['decision_count']}"
         )
-
-
-def _print_execution_rows(bundle, wanted_status: str | None) -> None:
-    filtered = [row for row in bundle.execution_preview.rows if _row_matches_status(row.status, wanted_status)]
-    print(f"Execution rows: {len(filtered)}")
-    for index, row in enumerate(filtered, start=1):
-        print(
-            f"[{index}] status={row.status} | row={row.row_type} | reason={row.reason} | "
-            f"source={_shorten_path(row.source_path)} | survivor={_shorten_path(row.survivor_path)} | "
-            f"target={_shorten_path(row.target_path)}"
-        )
+    print(f"  Loaded decisions: {session_info['loaded_decisions']}")
+    if session_info.get("saved_path"):
+        print(f"  Saved path: {session_info['saved_path']}")
+        print(f"  Saved decisions: {session_info['saved_decisions']}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -307,7 +327,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.show_groups and result.exact_groups:
         _print_duplicate_groups(result)
 
-    decisions = _build_decisions(result, args)
+    decisions, session_info = _build_decisions(result, args)
     bundle = build_duplicate_workflow_bundle(
         result.exact_groups,
         decisions,
@@ -316,18 +336,17 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     if args.save_session is not None:
-        save_duplicate_session_snapshot(args.save_session, result.exact_groups, bundle.decisions)
+        snapshot = save_duplicate_session_snapshot(args.save_session, result.exact_groups, bundle.decisions)
+        session_info["saved_path"] = str(args.save_session)
+        session_info["saved_decisions"] = snapshot.decision_count
         print(f"Saved duplicate session: {args.save_session}")
 
-    if args.show_plan or args.policy or args.load_session or args.apply or args.audit_log:
+    if args.show_session or args.load_session:
+        _print_session_info(session_info)
+
+    if args.show_plan or args.policy or args.load_session or args.apply:
         _print_workflow_summary(bundle)
         print(f"Decisions: {len(bundle.decisions)}")
-
-    if args.show_dry_run_rows:
-        _print_dry_run_rows(bundle, args.row_status)
-
-    if args.show_execution_rows:
-        _print_execution_rows(bundle, args.row_status)
 
     execution_result = None
     if args.apply:
@@ -342,21 +361,12 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if args.json_report is not None:
-        _write_json_report(args.json_report, result, bundle, execution_result)
+        _write_json_report(args.json_report, result, bundle, execution_result, session_info)
         print(f"Wrote JSON report: {args.json_report}")
 
-    if args.audit_log is not None:
-        write_duplicate_execution_audit_log(
-            args.audit_log,
-            result,
-            bundle,
-            execution_result,
-            apply_requested=args.apply,
-        )
-        print(f"Wrote audit log: {args.audit_log}")
-
-    return determine_duplicate_cli_exit_code(
-        result,
-        execution_result,
-        apply_requested=args.apply,
-    )
+    if execution_result is not None:
+        if execution_result.error_rows > 0:
+            return 2
+        if args.apply and (execution_result.blocked_rows > 0 or execution_result.deferred_rows > 0):
+            return 3
+    return 0 if result.errors == 0 else 1
