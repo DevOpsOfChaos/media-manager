@@ -5,8 +5,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .constants import MEDIA_EXTENSIONS
 from .dates import resolve_media_datetime
+from .media_formats import is_supported_media_path
 
 ProgressCallback = Callable[[str], None]
 
@@ -39,7 +39,7 @@ class SortResult:
 
 
 def is_media_file(path: Path) -> bool:
-    return path.is_file() and path.suffix.lower() in MEDIA_EXTENSIONS
+    return path.is_file() and is_supported_media_path(path)
 
 
 def build_target_dir(base_target: Path, media_dt, template: str) -> Path:

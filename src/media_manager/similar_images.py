@@ -5,6 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .media_formats import list_supported_similar_image_extensions
 from .sorter import iter_media_files
 
 try:  # pragma: no cover - optional dependency guard
@@ -13,7 +14,7 @@ except Exception:  # pragma: no cover - runtime fallback
     Image = None
 
 ProgressCallback = Callable[[str], None]
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".webp"}
+IMAGE_EXTENSIONS = list_supported_similar_image_extensions()
 
 
 @dataclass(slots=True, frozen=True)
@@ -60,11 +61,6 @@ def _ensure_pillow() -> None:
         raise RuntimeError("Pillow is required for similar image scanning. Install the project dependencies again.")
 
 
-def _image_files_from_sources(source_dirs: list[Path]) -> list[Path]:
-    media_files = iter_media_files(source_dirs)
-    return [path for path in media_files if path.suffix.lower() in IMAGE_EXTENSIONS]
-
-
 def compute_average_hash(path: Path, hash_size: int = 8) -> int:
     _ensure_pillow()
     if hash_size <= 0:
@@ -72,7 +68,8 @@ def compute_average_hash(path: Path, hash_size: int = 8) -> int:
 
     with Image.open(path) as handle:
         image = handle.convert("L").resize((hash_size, hash_size), Image.Resampling.LANCZOS)
-    pixels = list(image.get_flattened_data())
+    flattened = getattr(image, "get_flattened_data", None)
+    pixels = list(flattened() if callable(flattened) else image.getdata())
     average = sum(pixels) / len(pixels)
 
     value = 0
@@ -103,7 +100,10 @@ def scan_similar_images(
 
     image_files = [path for path in media_files if path.suffix.lower() in IMAGE_EXTENSIONS]
     result.image_files = len(image_files)
-    _emit_progress(progress_callback, f"Found {result.image_files} image file(s) among {result.scanned_files} media file(s).")
+    _emit_progress(
+        progress_callback,
+        f"Found {result.image_files} similarity-capable image file(s) among {result.scanned_files} media file(s).",
+    )
 
     if result.image_files == 0:
         return result

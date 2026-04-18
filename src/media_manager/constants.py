@@ -1,35 +1,8 @@
 from __future__ import annotations
 
-MEDIA_EXTENSIONS = {
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".heic",
-    ".heif",
-    ".gif",
-    ".bmp",
-    ".tif",
-    ".tiff",
-    ".webp",
-    ".dng",
-    ".raw",
-    ".arw",
-    ".cr2",
-    ".cr3",
-    ".nef",
-    ".orf",
-    ".rw2",
-    ".mp4",
-    ".mov",
-    ".avi",
-    ".mkv",
-    ".mts",
-    ".m2ts",
-    ".wmv",
-    ".flv",
-    ".webm",
-    ".3gp",
-}
+from .media_formats import list_supported_media_extensions
+
+MEDIA_EXTENSIONS = list_supported_media_extensions()
 
 DATE_TAG_PRIORITY = [
     "DateTimeOriginal",

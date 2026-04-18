@@ -56,3 +56,19 @@ def test_scan_exact_duplicates_confirms_identical_bytes_even_with_different_suff
     assert len(result.exact_groups) == 1
     assert result.exact_groups[0].same_name is False
     assert result.exact_groups[0].same_suffix is False
+
+
+def test_scan_exact_duplicates_supports_heic_bytes_even_without_image_decoder(tmp_path: Path) -> None:
+    source_a = tmp_path / "source_a"
+    source_b = tmp_path / "source_b"
+    source_a.mkdir()
+    source_b.mkdir()
+
+    (source_a / "phone.heic").write_bytes(b"same-heic-bytes")
+    (source_b / "copy.heic").write_bytes(b"same-heic-bytes")
+
+    result = scan_exact_duplicates(DuplicateScanConfig(source_dirs=[source_a, source_b]))
+
+    assert result.scanned_files == 2
+    assert len(result.exact_groups) == 1
+    assert sorted(path.name for path in result.exact_groups[0].files) == ["copy.heic", "phone.heic"]
