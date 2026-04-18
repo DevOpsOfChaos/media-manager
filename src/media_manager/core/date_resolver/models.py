@@ -23,3 +23,7 @@ class DateResolution:
     timezone_status: str
     reason: str
     candidates_checked: int
+    parseable_candidate_count: int = 0
+    unparseable_candidate_count: int = 0
+    metadata_conflict: bool = False
+    decision_policy: str = ""

@@ -90,6 +90,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Save the current exact-duplicate keep decisions as a session snapshot.",
     )
     parser.add_argument(
+        "--show-decisions",
+        action="store_true",
+        help="Print one line per exact-duplicate keep decision and where it came from.",
+    )
+    parser.add_argument(
+        "--show-unresolved",
+        action="store_true",
+        help="Print unresolved exact duplicate groups and their candidate paths.",
+    )
+    parser.add_argument(
         "--show-plan",
         action="store_true",
         help="Print cleanup-plan, dry-run, and execution-preview counters.",
@@ -264,6 +274,49 @@ def _execution_preview_reason_summary(preview) -> dict[str, dict[str, int]]:
     return {key: dict(value) for key, value in summary.items()}
 
 
+
+def _decision_origin_map(decisions: dict[str, str], session_restore) -> dict[str, str]:
+    session_group_ids = set() if session_restore is None else set(getattr(session_restore, "decisions", {}).keys())
+    return {group_id: ("session" if group_id in session_group_ids else "policy") for group_id in decisions}
+
+
+def _build_decision_rows(exact_groups, decisions: dict[str, str], session_restore) -> list[dict[str, object]]:
+    origin_map = _decision_origin_map(decisions, session_restore)
+    rows: list[dict[str, object]] = []
+    for group in exact_groups:
+        group_id = build_exact_group_id(group)
+        keep_path = decisions.get(group_id)
+        rows.append(
+            {
+                "group_id": group_id,
+                "file_size": group.file_size,
+                "candidate_count": len(group.files),
+                "keep_path": keep_path,
+                "status": "decided" if keep_path else "unresolved",
+                "origin": None if keep_path is None else origin_map.get(group_id, "policy"),
+                "candidate_paths": [str(path) for path in group.files],
+            }
+        )
+    return rows
+
+
+def _print_decision_rows(rows: list[dict[str, object]]) -> None:
+    for row in rows:
+        if row["status"] == "decided":
+            print(
+                f" - [decided] {row['group_id']} | keep={row['keep_path']} | "
+                f"origin={row['origin']} | candidates={row['candidate_count']}"
+            )
+        else:
+            print(f" - [unresolved] {row['group_id']} | candidates={row['candidate_count']}")
+
+
+def _print_unresolved_groups(bundle) -> None:
+    for item in getattr(bundle.cleanup_plan, "unresolved", []):
+        print(f"\n[Unresolved Group] {item.group_id} | size={item.file_size} | candidates={len(item.candidate_paths)}")
+        for path in item.candidate_paths:
+            print(f" - {path}")
+
 def _write_json_report(path: Path, result, bundle, execution_result, *, similar_result=None, similar_review=None, session_restore=None) -> None:
     payload = {
         "scan": {
@@ -324,6 +377,7 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
         },
         "session_restore": _session_restore_payload(session_restore),
         "decision_summary": _build_decision_summary(result.exact_groups, bundle.decisions, session_restore),
+        "decision_rows": _build_decision_rows(result.exact_groups, bundle.decisions, session_restore),
         "decisions": bundle.decisions,
         "cleanup_plan": {
             "total_groups": bundle.cleanup_plan.total_groups,
@@ -500,7 +554,7 @@ def main(argv: list[str] | None = None) -> int:
         save_duplicate_session_snapshot(args.save_session, result.exact_groups, bundle.decisions)
         print(f"Saved duplicate session: {args.save_session}")
 
-    if args.show_plan or args.policy or args.load_session or args.apply:
+    if args.show_plan or args.policy or args.load_session or args.apply or args.show_decisions or args.show_unresolved:
         _print_workflow_summary(bundle)
         print(
             "Decision summary: "
@@ -510,6 +564,13 @@ def main(argv: list[str] | None = None) -> int:
             f"from-policy={decision_summary['from_policy_count']}"
         )
         print(f"Decisions: {len(bundle.decisions)}")
+
+    if args.show_decisions:
+        print("\nDecision rows:")
+        _print_decision_rows(_build_decision_rows(result.exact_groups, bundle.decisions, session_restore))
+
+    if args.show_unresolved and getattr(bundle.cleanup_plan, "unresolved", []):
+        _print_unresolved_groups(bundle)
 
     execution_result = None
     if args.apply:

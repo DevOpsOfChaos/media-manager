@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -52,6 +53,34 @@ def find_filename_datetime(file_path: Path) -> FilenameDateMatch | None:
     return None
 
 
+def _candidate_counts(inspection: FileInspection) -> tuple[list[tuple[object, datetime]], int]:
+    parseable_candidates: list[tuple[object, datetime]] = []
+    unparseable_candidates = 0
+    for candidate in inspection.date_candidates:
+        parsed = parse_datetime_value(candidate.value)
+        if parsed is None:
+            unparseable_candidates += 1
+            continue
+        parseable_candidates.append((candidate, parsed))
+    return parseable_candidates, unparseable_candidates
+
+
+def _build_metadata_reason(selected_source_tag: str, parseable_candidates: list[tuple[object, datetime]]) -> tuple[str, bool]:
+    ignored_count = max(0, len(parseable_candidates) - 1)
+    distinct_value_count = len({parsed for _, parsed in parseable_candidates})
+    metadata_conflict = distinct_value_count > 1
+    reason = f"Selected the highest-priority parseable metadata candidate from {selected_source_tag}."
+    if ignored_count:
+        label = "candidate" if ignored_count == 1 else "candidates"
+        reason += f" ignored {ignored_count} lower-priority {label}."
+    if len(parseable_candidates) > 1:
+        if metadata_conflict:
+            reason += f" parseable metadata candidates disagreed across {distinct_value_count} distinct values."
+        else:
+            reason += " remaining parseable metadata candidates agreed with the selected value."
+    return reason, metadata_conflict
+
+
 def resolve_capture_datetime(
     file_path: Path,
     *,
@@ -59,18 +88,11 @@ def resolve_capture_datetime(
     exiftool_path: Path | None = None,
 ) -> DateResolution:
     inspection = inspection or inspect_media_file(file_path, exiftool_path=exiftool_path)
-    parseable_candidates = []
-    for candidate in inspection.date_candidates:
-        parsed = parse_datetime_value(candidate.value)
-        if parsed is not None:
-            parseable_candidates.append((candidate, parsed))
+    parseable_candidates, unparseable_candidates = _candidate_counts(inspection)
+
     if parseable_candidates:
         selected_candidate, parsed = parseable_candidates[0]
-        ignored_count = max(0, len(parseable_candidates) - 1)
-        reason = f"Selected the highest-priority parseable metadata candidate from {selected_candidate.source_tag}."
-        if ignored_count:
-            label = "candidate" if ignored_count == 1 else "candidates"
-            reason += f" ignored {ignored_count} lower-priority {label}."
+        reason, metadata_conflict = _build_metadata_reason(selected_candidate.source_tag, parseable_candidates)
         return DateResolution(
             path=file_path,
             resolved_datetime=parsed,
@@ -81,7 +103,12 @@ def resolve_capture_datetime(
             timezone_status=describe_timezone_status(parsed),
             reason=reason,
             candidates_checked=len(inspection.date_candidates),
+            parseable_candidate_count=len(parseable_candidates),
+            unparseable_candidate_count=unparseable_candidates,
+            metadata_conflict=metadata_conflict,
+            decision_policy="highest_priority_parseable_metadata",
         )
+
     filename_match = find_filename_datetime(file_path)
     if filename_match is not None:
         reason = f"Fell back to a recognized filename pattern: {filename_match.matched_text}."
@@ -99,7 +126,12 @@ def resolve_capture_datetime(
             timezone_status=describe_timezone_status(filename_match.parsed_datetime),
             reason=reason,
             candidates_checked=len(inspection.date_candidates),
+            parseable_candidate_count=0,
+            unparseable_candidate_count=unparseable_candidates,
+            metadata_conflict=False,
+            decision_policy="filename_fallback",
         )
+
     modified_at = datetime.fromtimestamp(file_path.stat().st_mtime)
     reason = "No parseable metadata or filename datetime was found, so the file modification time was used."
     if inspection.date_candidates:
@@ -116,4 +148,8 @@ def resolve_capture_datetime(
         timezone_status=describe_timezone_status(modified_at),
         reason=reason,
         candidates_checked=len(inspection.date_candidates),
+        parseable_candidate_count=0,
+        unparseable_candidate_count=unparseable_candidates,
+        metadata_conflict=False,
+        decision_policy="mtime_fallback",
     )
