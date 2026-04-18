@@ -3,12 +3,16 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from .core.workflows import (
     build_gui_shell_model,
+    build_profile_bound_workflow_form_model,
+    build_preset_bound_workflow_form_model,
     build_shell_command_preview_for_problem,
     build_shell_command_preview_for_workflow,
     build_workflow_form_model,
+    build_workflow_launcher_model,
     list_workflow_form_models,
 )
 
@@ -29,6 +33,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print all workflow form models as JSON without launching the desktop window.",
     )
     parser.add_argument(
+        "--dump-launchers",
+        action="store_true",
+        help="Print preset/profile launcher cards as JSON without launching the desktop window.",
+    )
+    parser.add_argument(
+        "--profiles-dir",
+        type=Path,
+        help="Optional directory containing workflow profile JSON files.",
+    )
+    parser.add_argument(
         "--preview-workflow",
         help="Print the example command preview for a workflow without launching the desktop window.",
     )
@@ -39,6 +53,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--preview-form",
         help="Print one workflow form model as JSON without launching the desktop window.",
+    )
+    parser.add_argument(
+        "--preview-preset-form",
+        help="Print one preset-bound workflow form model as JSON without launching the desktop window.",
+    )
+    parser.add_argument(
+        "--preview-profile-form",
+        type=Path,
+        help="Print one profile-bound workflow form model as JSON without launching the desktop window.",
+    )
+    parser.add_argument(
+        "--preview-profile-command",
+        type=Path,
+        help="Print the command preview for a workflow profile without launching the desktop window.",
     )
     return parser
 
@@ -212,6 +240,16 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
+    if args.dump_launchers:
+        print(
+            json.dumps(
+                build_workflow_launcher_model(args.profiles_dir).to_dict(),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+
     if args.preview_workflow:
         try:
             print(build_shell_command_preview_for_workflow(args.preview_workflow))
@@ -231,6 +269,28 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(build_workflow_form_model(args.preview_form).to_dict(), indent=2, ensure_ascii=False))
         except ValueError as exc:
             parser.error(str(exc))
+        return 0
+
+    if args.preview_preset_form:
+        try:
+            print(json.dumps(build_preset_bound_workflow_form_model(args.preview_preset_form).to_dict(), indent=2, ensure_ascii=False))
+        except ValueError as exc:
+            parser.error(str(exc))
+        return 0
+
+    if args.preview_profile_form:
+        try:
+            print(json.dumps(build_profile_bound_workflow_form_model(args.preview_profile_form).to_dict(), indent=2, ensure_ascii=False))
+        except Exception as exc:
+            parser.error(str(exc))
+        return 0
+
+    if args.preview_profile_command:
+        try:
+            bound = build_profile_bound_workflow_form_model(args.preview_profile_command)
+        except Exception as exc:
+            parser.error(str(exc))
+        print(bound.command_preview or "")
         return 0
 
     return _launch_gui_shell()
