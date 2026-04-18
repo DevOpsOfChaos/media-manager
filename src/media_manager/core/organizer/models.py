@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -68,6 +69,22 @@ class OrganizeDryRun:
     def media_file_count(self) -> int:
         return self.scan_summary.media_file_count
 
+    @property
+    def status_summary(self) -> dict[str, int]:
+        return dict(Counter(item.status for item in self.entries))
+
+    @property
+    def reason_summary(self) -> dict[str, int]:
+        return dict(Counter(item.reason for item in self.entries))
+
+    @property
+    def resolution_source_summary(self) -> dict[str, int]:
+        return dict(Counter(item.resolution.source_kind for item in self.entries if item.resolution is not None))
+
+    @property
+    def confidence_summary(self) -> dict[str, int]:
+        return dict(Counter(item.resolution.confidence for item in self.entries if item.resolution is not None))
+
 
 @dataclass(slots=True)
 class OrganizeExecutionEntry:
@@ -116,3 +133,11 @@ class OrganizeExecutionResult:
     @property
     def error_count(self) -> int:
         return sum(1 for item in self.entries if item.outcome == "error")
+
+    @property
+    def outcome_summary(self) -> dict[str, int]:
+        return dict(Counter(item.outcome for item in self.entries))
+
+    @property
+    def reason_summary(self) -> dict[str, int]:
+        return dict(Counter(item.reason for item in self.entries))

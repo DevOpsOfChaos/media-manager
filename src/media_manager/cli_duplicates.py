@@ -280,9 +280,12 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
             "scanned_files": similar_result.scanned_files,
             "image_files": similar_result.image_files,
             "hashed_files": similar_result.hashed_files,
+            "candidate_pairs_checked": similar_result.candidate_pairs_checked,
+            "exact_hash_pairs": similar_result.exact_hash_pairs,
             "similar_pairs": similar_result.similar_pairs,
             "group_count": len(similar_result.similar_groups),
             "errors": similar_result.errors,
+            "decode_errors": similar_result.decode_errors,
             "groups": [
                 {
                     "anchor_path": str(group.anchor_path),
@@ -291,6 +294,8 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
                             "path": str(member.path),
                             "hash_hex": member.hash_hex,
                             "distance": member.distance,
+                            "width": member.width,
+                            "height": member.height,
                         }
                         for member in group.members
                     ],

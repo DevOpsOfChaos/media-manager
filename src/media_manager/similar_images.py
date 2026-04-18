@@ -29,6 +29,8 @@ class SimilarImageMember:
     path: Path
     hash_hex: str
     distance: int
+    width: int | None = None
+    height: int | None = None
 
 
 @dataclass(slots=True)
@@ -42,9 +44,12 @@ class SimilarImageScanResult:
     scanned_files: int = 0
     image_files: int = 0
     hashed_files: int = 0
+    candidate_pairs_checked: int = 0
+    exact_hash_pairs: int = 0
     similar_pairs: int = 0
     similar_groups: list[SimilarImageGroup] = field(default_factory=list)
     errors: int = 0
+    decode_errors: int = 0
 
 
 def _emit_progress(progress_callback: ProgressCallback | None, message: str) -> None:
@@ -61,12 +66,13 @@ def _ensure_pillow() -> None:
         raise RuntimeError("Pillow is required for similar image scanning. Install the project dependencies again.")
 
 
-def compute_average_hash(path: Path, hash_size: int = 8) -> int:
+def compute_average_hash_details(path: Path, hash_size: int = 8) -> tuple[int, tuple[int, int]]:
     _ensure_pillow()
     if hash_size <= 0:
         raise ValueError("hash_size must be greater than zero")
 
     with Image.open(path) as handle:
+        source_width, source_height = handle.size
         image = handle.convert("L").resize((hash_size, hash_size), Image.Resampling.LANCZOS)
     flattened = getattr(image, "get_flattened_data", None)
     pixels = list(flattened() if callable(flattened) else image.getdata())
@@ -75,7 +81,11 @@ def compute_average_hash(path: Path, hash_size: int = 8) -> int:
     value = 0
     for pixel in pixels:
         value = (value << 1) | int(pixel >= average)
-    return value
+    return value, (source_width, source_height)
+
+
+def compute_average_hash(path: Path, hash_size: int = 8) -> int:
+    return compute_average_hash_details(path, hash_size=hash_size)[0]
 
 
 def hash_to_hex(hash_value: int, hash_size: int) -> str:
@@ -94,6 +104,9 @@ def scan_similar_images(
     if config.max_distance < 0:
         raise ValueError("max_distance must be zero or greater")
 
+    if config.hash_size <= 0:
+        raise ValueError("hash_size must be greater than zero")
+
     result = SimilarImageScanResult()
     media_files = iter_media_files(config.source_dirs)
     result.scanned_files = len(media_files)
@@ -109,12 +122,16 @@ def scan_similar_images(
         return result
 
     hashes: dict[Path, int] = {}
+    dimensions: dict[Path, tuple[int, int]] = {}
     for path in image_files:
         try:
-            hashes[path] = compute_average_hash(path, hash_size=config.hash_size)
+            hash_value, image_size = compute_average_hash_details(path, hash_size=config.hash_size)
+            hashes[path] = hash_value
+            dimensions[path] = image_size
             result.hashed_files += 1
         except Exception:
             result.errors += 1
+            result.decode_errors += 1
 
     if len(hashes) < 2:
         return result
@@ -124,7 +141,10 @@ def scan_similar_images(
 
     for index, first_path in enumerate(ordered_paths):
         for second_path in ordered_paths[index + 1 :]:
+            result.candidate_pairs_checked += 1
             distance = hamming_distance(hashes[first_path], hashes[second_path])
+            if distance == 0:
+                result.exact_hash_pairs += 1
             if distance <= config.max_distance:
                 adjacency[first_path].add(second_path)
                 adjacency[second_path].add(first_path)
@@ -158,6 +178,8 @@ def scan_similar_images(
                         path=item,
                         hash_hex=hash_to_hex(hashes[item], config.hash_size),
                         distance=hamming_distance(anchor_hash, hashes[item]),
+                        width=dimensions[item][0],
+                        height=dimensions[item][1],
                     )
                     for item in component
                 ],
