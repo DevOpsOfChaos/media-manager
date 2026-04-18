@@ -43,3 +43,18 @@ def write_execution_journal(
     )
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     return path
+
+
+def load_execution_journal(file_path: str | Path) -> dict[str, object]:
+    path = Path(file_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Execution journal must contain a JSON object.")
+    if str(payload.get("journal_type", "")) != "execution_journal":
+        raise ValueError("Unsupported execution journal type.")
+    if int(payload.get("schema_version", 0)) != 1:
+        raise ValueError("Unsupported execution journal schema version.")
+    entries = payload.get("entries", [])
+    if not isinstance(entries, list):
+        raise ValueError("Execution journal entries must be a JSON list.")
+    return payload

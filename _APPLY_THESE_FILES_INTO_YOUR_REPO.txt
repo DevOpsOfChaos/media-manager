@@ -2,8 +2,8 @@ Apply these files into your repo root and replace existing files where paths mat
 
 Then run:
 
-  python -m pytest tests/test_core_execution_journal.py tests/test_cli_organize_v1.py tests/test_cli_rename_v1.py tests/test_cli_trip_v1.py
+  python -m pytest tests/test_core_execution_journal.py tests/test_core_undo.py tests/test_cli_undo_v1.py
   python -m pytest
   git add .
-  git commit -m "add execution journal basis v1 and fix similar image deprecation warning"
+  git commit -m "add undo command v1 and loadable execution journals"
   git push origin main

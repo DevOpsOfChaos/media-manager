@@ -1,13 +1,16 @@
-
 from __future__ import annotations
 
 import argparse
 import sys
 
-from . import cli_cleanup, cli_duplicates, cli_gui, cli_inspect, cli_organize, cli_rename, cli_scan, cli_trip
+from . import cli_duplicates, cli_gui, cli_inspect, cli_organize, cli_rename, cli_scan, cli_trip, cli_undo
+
+try:  # optional when older cumulative states are still present
+    from . import cli_cleanup
+except Exception:  # pragma: no cover - compatibility fallback
+    cli_cleanup = None
 
 COMMAND_HANDLERS = {
-    "cleanup": cli_cleanup.main,
     "duplicates": cli_duplicates.main,
     "gui": cli_gui.main,
     "inspect": cli_inspect.main,
@@ -15,7 +18,10 @@ COMMAND_HANDLERS = {
     "rename": cli_rename.main,
     "scan": cli_scan.main,
     "trip": cli_trip.main,
+    "undo": cli_undo.main,
 }
+if cli_cleanup is not None:
+    COMMAND_HANDLERS["cleanup"] = cli_cleanup.main
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -47,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "\nNo command provided.\n"
             "The old default GUI launch behavior has been removed during the repository reset.\n"
-            "Run an explicit CLI command such as 'scan', 'inspect', 'organize', 'rename', 'trip', 'cleanup', or 'duplicates'.\n"
+            "Run an explicit CLI command such as 'scan', 'inspect', 'organize', 'rename', 'trip', 'duplicates', or 'undo'.\n"
             "Use 'media-manager gui' only if you intentionally want the legacy GUI."
         )
         return 0
