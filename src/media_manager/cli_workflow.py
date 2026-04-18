@@ -23,6 +23,7 @@ from .core.workflows import (
     load_workflow_profile,
     render_workflow_preset_command,
     render_workflow_profile_command,
+    save_workflow_profile,
 )
 
 
@@ -90,21 +91,42 @@ def build_parser() -> argparse.ArgumentParser:
 
     render_preset_parser = subparsers.add_parser("render-preset", help="Render a command preview from a built-in preset.")
     render_preset_parser.add_argument("name", help="Preset name.")
-    render_preset_parser.add_argument("--source", dest="sources", action="append", help="Source path. Repeat for multiple sources.")
-    render_preset_parser.add_argument("--target", help="Target path.")
-    render_preset_parser.add_argument("--label", help="Trip label when the preset needs one.")
-    render_preset_parser.add_argument("--start", help="Trip start date in YYYY-MM-DD.")
-    render_preset_parser.add_argument("--end", help="Trip end date in YYYY-MM-DD.")
+    _add_preset_override_arguments(render_preset_parser)
     render_preset_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
     profile_show_parser = subparsers.add_parser("profile-show", help="Load a workflow profile JSON file and render its command preview.")
     profile_show_parser.add_argument("path", type=Path, help="Path to the workflow profile JSON file.")
     profile_show_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
+    profile_save_parser = subparsers.add_parser("profile-save", help="Create or update a workflow profile JSON file from a preset.")
+    profile_save_parser.add_argument("path", type=Path, help="Path where the workflow profile JSON file should be written.")
+    profile_save_parser.add_argument("--preset", required=True, help="Preset name.")
+    profile_save_parser.add_argument("--profile-name", help="Optional human-readable profile name.")
+    profile_save_parser.add_argument("--overwrite", action="store_true", help="Allow overwriting an existing profile JSON file.")
+    _add_preset_override_arguments(profile_save_parser)
+    profile_save_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
     run_parser = subparsers.add_parser("run", help="Run a workflow through the shell.")
     run_parser.add_argument("workflow", help="Workflow name to run.")
     run_parser.add_argument("args", nargs=argparse.REMAINDER, help="Arguments forwarded to the delegated workflow.")
     return parser
+
+
+def _add_preset_override_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--source", dest="sources", action="append", help="Source path. Repeat for multiple sources.")
+    parser.add_argument("--target", help="Target path.")
+    parser.add_argument("--label", help="Trip label when the preset needs one.")
+    parser.add_argument("--start", help="Trip start date in YYYY-MM-DD.")
+    parser.add_argument("--end", help="Trip end date in YYYY-MM-DD.")
+    parser.add_argument("--pattern", help="Organizer pattern override.")
+    parser.add_argument("--template", help="Rename template override.")
+    parser.add_argument("--mode", choices=["copy", "move", "delete", "link"], help="Workflow mode override when relevant.")
+    parser.add_argument("--policy", choices=["first", "newest", "oldest"], help="Duplicate/similar keep policy override.")
+    parser.add_argument("--duplicate-policy", choices=["first", "newest", "oldest"], help="Cleanup duplicate policy override.")
+    parser.add_argument("--duplicate-mode", choices=["copy", "move", "delete"], help="Cleanup duplicate mode override.")
+    parser.add_argument("--organize-pattern", help="Cleanup organize pattern override.")
+    parser.add_argument("--rename-template", help="Cleanup rename template override.")
+    parser.add_argument("--show-plan", action="store_true", help="Enable duplicate plan output when the preset supports it.")
 
 
 def _workflow_payload(item) -> dict[str, str]:
@@ -366,6 +388,24 @@ def _collect_preset_overrides(args: argparse.Namespace) -> dict[str, object]:
         overrides["start"] = args.start
     if getattr(args, "end", None):
         overrides["end"] = args.end
+    if getattr(args, "pattern", None):
+        overrides["pattern"] = args.pattern
+    if getattr(args, "template", None):
+        overrides["template"] = args.template
+    if getattr(args, "mode", None):
+        overrides["mode"] = args.mode
+    if getattr(args, "policy", None):
+        overrides["policy"] = args.policy
+    if getattr(args, "duplicate_policy", None):
+        overrides["duplicate_policy"] = args.duplicate_policy
+    if getattr(args, "duplicate_mode", None):
+        overrides["duplicate_mode"] = args.duplicate_mode
+    if getattr(args, "organize_pattern", None):
+        overrides["organize_pattern"] = args.organize_pattern
+    if getattr(args, "rename_template", None):
+        overrides["rename_template"] = args.rename_template
+    if getattr(args, "show_plan", False):
+        overrides["show_plan"] = True
     return overrides
 
 
@@ -408,6 +448,38 @@ def _print_profile_show(path: Path, as_json: bool) -> int:
     return 0
 
 
+def _print_profile_save(args: argparse.Namespace) -> int:
+    try:
+        profile = save_workflow_profile(
+            args.path,
+            profile_name=args.profile_name or args.path.stem,
+            preset_name=args.preset,
+            values=_collect_preset_overrides(args),
+            overwrite=args.overwrite,
+        )
+        command = render_workflow_profile_command(profile)
+    except Exception as exc:
+        print(str(exc))
+        return 1
+
+    payload = {
+        "path": str(args.path),
+        "profile_name": profile.profile_name,
+        "preset": profile.preset_name,
+        "values": dict(profile.values),
+        "command": command,
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+
+    print(f"Saved workflow profile: {args.path}")
+    print(f"  Profile: {profile.profile_name}")
+    print(f"  Preset: {profile.preset_name}")
+    print(f"  Command: {command}")
+    return 0
+
+
 def _run_delegated_workflow(name: str, forwarded_args: list[str]) -> int:
     normalized = name.strip().lower()
     handler = DELEGATE_HANDLERS.get(normalized)
@@ -433,6 +505,7 @@ def main(argv: list[str] | None = None) -> int:
             "  media-manager workflow presets\n"
             "  media-manager workflow preset-show cleanup-family-library\n"
             "  media-manager workflow render-preset cleanup-family-library --source <A> --source <B> --target <TARGET>\n"
+            "  media-manager workflow profile-save profiles/family-cleanup.json --preset cleanup-family-library --source <A> --source <B> --target <TARGET>\n"
             "  media-manager workflow profile-show <PROFILE.json>\n"
             "  media-manager workflow history --path <RUNS_DIR>\n"
             "  media-manager workflow last --path <RUNS_DIR> --command organize\n"
@@ -462,6 +535,8 @@ def main(argv: list[str] | None = None) -> int:
         return _print_render_preset(args)
     if args.workflow_command == "profile-show":
         return _print_profile_show(args.path, args.json)
+    if args.workflow_command == "profile-save":
+        return _print_profile_save(args)
     if args.workflow_command == "run":
         return _run_delegated_workflow(args.workflow, list(args.args))
 

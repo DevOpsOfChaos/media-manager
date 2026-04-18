@@ -7,6 +7,9 @@ from pathlib import Path
 from .catalog import get_workflow_definition
 
 
+PROFILE_SCHEMA_VERSION = 1
+
+
 @dataclass(slots=True, frozen=True)
 class WorkflowPreset:
     name: str
@@ -119,14 +122,12 @@ def list_workflow_presets() -> list[WorkflowPreset]:
     return list(WORKFLOW_PRESETS)
 
 
-
 def get_workflow_preset(name: str) -> WorkflowPreset | None:
     normalized = name.strip().lower()
     for item in WORKFLOW_PRESETS:
         if item.name == normalized:
             return item
     return None
-
 
 
 def _normalize_profile_values(values: dict[str, object]) -> dict[str, object]:
@@ -141,13 +142,22 @@ def _normalize_profile_values(values: dict[str, object]) -> dict[str, object]:
     return normalized
 
 
+def _is_missing_required_value(value: object) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value.strip() == ""
+    if isinstance(value, list):
+        return len(value) == 0
+    return False
+
 
 def load_workflow_profile(path: str | Path) -> WorkflowProfile:
     file_path = Path(path)
     payload = json.loads(file_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError("Workflow profile must be a JSON object.")
-    if int(payload.get("schema_version", 0)) != 1:
+    if int(payload.get("schema_version", 0)) != PROFILE_SCHEMA_VERSION:
         raise ValueError("Workflow profile schema_version must be 1.")
 
     profile_name = str(payload.get("profile_name", "")).strip() or file_path.stem
@@ -166,10 +176,8 @@ def load_workflow_profile(path: str | Path) -> WorkflowProfile:
     )
 
 
-
 def _quote_if_needed(value: str) -> str:
     return f'"{value}"' if any(ch.isspace() for ch in value) else value
-
 
 
 def _extend_source_args(parts: list[str], values: dict[str, object]) -> None:
@@ -185,7 +193,6 @@ def _extend_source_args(parts: list[str], values: dict[str, object]) -> None:
         parts.extend(["--source", _quote_if_needed(item)])
 
 
-
 def _build_command_parts_for_preset(preset: WorkflowPreset, values: dict[str, object]) -> list[str]:
     workflow = preset.workflow
     parts = ["media-manager", "workflow", "run", workflow]
@@ -193,7 +200,7 @@ def _build_command_parts_for_preset(preset: WorkflowPreset, values: dict[str, ob
 
     def add_arg(flag: str, key: str) -> None:
         value = values.get(key)
-        if value in {None, ""}:
+        if _is_missing_required_value(value):
             return
         parts.extend([flag, _quote_if_needed(str(value))])
 
@@ -224,7 +231,6 @@ def _build_command_parts_for_preset(preset: WorkflowPreset, values: dict[str, ob
     return parts
 
 
-
 def render_workflow_preset_command(
     preset_name: str,
     *,
@@ -242,7 +248,11 @@ def render_workflow_preset_command(
     if overrides:
         values.update(_normalize_profile_values(overrides))
 
-    missing = [key for key in preset.required_values if key not in values or values[key] in {None, "", []}]
+    missing = [
+        key
+        for key in preset.required_values
+        if key not in values or _is_missing_required_value(values[key])
+    ]
     if missing:
         missing_text = ", ".join(missing)
         raise ValueError(f"Workflow preset '{preset.name}' is missing required values: {missing_text}")
@@ -250,6 +260,51 @@ def render_workflow_preset_command(
     return " ".join(_build_command_parts_for_preset(preset, values))
 
 
-
 def render_workflow_profile_command(profile: WorkflowProfile) -> str:
     return render_workflow_preset_command(profile.preset_name, overrides=profile.values)
+
+
+def build_workflow_profile_payload(
+    *,
+    profile_name: str,
+    preset_name: str,
+    values: dict[str, object],
+) -> dict[str, object]:
+    normalized_values = _normalize_profile_values(values)
+    return {
+        "schema_version": PROFILE_SCHEMA_VERSION,
+        "profile_name": profile_name.strip() or "workflow-profile",
+        "preset": preset_name,
+        "values": normalized_values,
+    }
+
+
+def save_workflow_profile(
+    path: str | Path,
+    *,
+    profile_name: str,
+    preset_name: str,
+    values: dict[str, object],
+    overwrite: bool = False,
+) -> WorkflowProfile:
+    payload = build_workflow_profile_payload(
+        profile_name=profile_name,
+        preset_name=preset_name,
+        values=values,
+    )
+
+    profile = WorkflowProfile(
+        profile_name=str(payload["profile_name"]),
+        preset_name=str(payload["preset"]),
+        values=dict(payload["values"]),
+    )
+
+    render_workflow_profile_command(profile)
+
+    file_path = Path(path)
+    if file_path.exists() and not overwrite:
+        raise FileExistsError(f"Workflow profile already exists: {file_path}")
+
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    return profile

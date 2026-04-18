@@ -27,11 +27,13 @@ from .gui_shell import (
 from .presets import (
     WorkflowPreset,
     WorkflowProfile,
+    build_workflow_profile_payload,
     get_workflow_preset,
     list_workflow_presets,
     load_workflow_profile,
     render_workflow_preset_command,
     render_workflow_profile_command,
+    save_workflow_profile,
 )
 from .trip import (
     TripDryRun,
@@ -60,11 +62,13 @@ __all__ = [
     "build_shell_command_preview_for_problem",
     "WorkflowPreset",
     "WorkflowProfile",
+    "build_workflow_profile_payload",
     "list_workflow_presets",
     "get_workflow_preset",
     "load_workflow_profile",
     "render_workflow_preset_command",
     "render_workflow_profile_command",
+    "save_workflow_profile",
     "WorkflowCommandSuggestion",
     "WorkflowWizardResult",
     "build_workflow_wizard_result",

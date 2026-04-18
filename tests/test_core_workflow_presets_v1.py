@@ -9,13 +9,13 @@ from media_manager.core.workflows import (
     load_workflow_profile,
     render_workflow_preset_command,
     render_workflow_profile_command,
+    save_workflow_profile,
 )
 
 
 def test_list_workflow_presets_contains_cleanup_family_library() -> None:
     presets = list_workflow_presets()
     assert any(item.name == "cleanup-family-library" for item in presets)
-
 
 
 def test_render_workflow_preset_command_builds_cleanup_command() -> None:
@@ -34,7 +34,6 @@ def test_render_workflow_preset_command_builds_cleanup_command() -> None:
     assert "--duplicate-policy first" in command
 
 
-
 def test_render_workflow_preset_command_raises_for_missing_required_values() -> None:
     try:
         render_workflow_preset_command("trip-hardlink-collection", overrides={"source": ["C:/Phone"]})
@@ -42,7 +41,6 @@ def test_render_workflow_preset_command_raises_for_missing_required_values() -> 
         assert "missing required values" in str(exc)
     else:  # pragma: no cover
         raise AssertionError("Expected missing required values error.")
-
 
 
 def test_load_workflow_profile_and_render_command(tmp_path: Path) -> None:
@@ -73,3 +71,24 @@ def test_load_workflow_profile_and_render_command(tmp_path: Path) -> None:
     assert command.startswith("media-manager workflow run trip")
     assert "--label Italy_2025" in command
     assert "--link" in command
+
+
+def test_save_workflow_profile_roundtrip(tmp_path: Path) -> None:
+    profile_path = tmp_path / "family-cleanup.json"
+
+    saved = save_workflow_profile(
+        profile_path,
+        profile_name="Family cleanup",
+        preset_name="cleanup-family-library",
+        values={
+            "source": ["C:/Photos", "D:/Phone"],
+            "target": "E:/Library",
+        },
+    )
+    loaded = load_workflow_profile(profile_path)
+    command = render_workflow_profile_command(loaded)
+
+    assert saved.profile_name == "Family cleanup"
+    assert loaded.profile_name == "Family cleanup"
+    assert loaded.preset_name == "cleanup-family-library"
+    assert command.startswith("media-manager workflow run cleanup")
