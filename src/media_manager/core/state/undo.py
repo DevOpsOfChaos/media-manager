@@ -33,7 +33,7 @@ class UndoExecutionResult:
 
     @property
     def ready_to_apply_count(self) -> int:
-        return self.planned_count
+        return sum(1 for item in self.entries if item.status == "planned")
 
     @property
     def status_summary(self) -> dict[str, int]:

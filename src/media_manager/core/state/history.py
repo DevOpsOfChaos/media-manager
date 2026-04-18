@@ -120,15 +120,20 @@ def find_latest_history_entry(
 
 def build_history_summary(entries: list[WorkflowHistoryEntry]) -> dict[str, object]:
     record_type_summary: dict[str, int] = {}
-    command_name_summary: dict[str, int] = {}
+    command_summary: dict[str, int] = {}
+    exit_code_summary: dict[str, int] = {}
     successful_count = 0
     failed_count = 0
     reversible_entry_count = 0
     entries_with_reversible_count = 0
+    apply_requested_count = 0
+    preview_only_count = 0
 
     for entry in entries:
         record_type_summary[entry.record_type] = record_type_summary.get(entry.record_type, 0) + 1
-        command_name_summary[entry.command_name] = command_name_summary.get(entry.command_name, 0) + 1
+        command_summary[entry.command_name] = command_summary.get(entry.command_name, 0) + 1
+        exit_key = str(entry.exit_code)
+        exit_code_summary[exit_key] = exit_code_summary.get(exit_key, 0) + 1
         if entry.successful:
             successful_count += 1
         else:
@@ -136,13 +141,28 @@ def build_history_summary(entries: list[WorkflowHistoryEntry]) -> dict[str, obje
         reversible_entry_count += entry.reversible_entry_count
         if entry.has_reversible_entries:
             entries_with_reversible_count += 1
+        if entry.apply_requested:
+            apply_requested_count += 1
+        else:
+            preview_only_count += 1
 
-    return {
+    latest_created_at_utc = entries[0].created_at_utc if entries else ""
+
+    summary = {
+        "entry_count": len(entries),
         "total_entries": len(entries),
         "successful_count": successful_count,
         "failed_count": failed_count,
         "reversible_entry_count": reversible_entry_count,
         "entries_with_reversible_count": entries_with_reversible_count,
+        "command_summary": dict(sorted(command_summary.items())),
+        "command_name_summary": dict(sorted(command_summary.items())),
         "record_type_summary": dict(sorted(record_type_summary.items())),
-        "command_name_summary": dict(sorted(command_name_summary.items())),
+        "apply_summary": {
+            "apply_requested": apply_requested_count,
+            "preview_only": preview_only_count,
+        },
+        "exit_code_summary": dict(sorted(exit_code_summary.items())),
+        "latest_created_at_utc": latest_created_at_utc,
     }
+    return summary
