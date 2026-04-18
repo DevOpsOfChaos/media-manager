@@ -1,6 +1,9 @@
-Replace the files in your repo with the files from this ZIP, then run:
-python -m pytest tests/test_cli_workflow_v1.py
-python -m pytest
-git add .
-git commit -m "fix workflow shell catalog syntax error"
-git push origin main
+Extract this ZIP into the repository root and replace existing files when prompted.
+
+Included in this package:
+- src/media_manager/core/workflows/wizard.py
+- src/media_manager/core/workflows/__init__.py
+- src/media_manager/cli_workflow.py
+- src/media_manager/cli.py
+- tests/test_cli_workflow_wizard_v1.py
+- docs/workflow-wizard-v1.md

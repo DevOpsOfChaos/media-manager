@@ -26,6 +26,7 @@ from .trip import (
     execute_trip_plan,
     parse_trip_date,
 )
+from .wizard import WorkflowCommandSuggestion, WorkflowWizardResult, build_workflow_wizard_result
 
 __all__ = [
     "WorkflowDefinition",
@@ -34,6 +35,9 @@ __all__ = [
     "get_workflow_definition",
     "list_workflow_problems",
     "get_workflow_problem",
+    "WorkflowCommandSuggestion",
+    "WorkflowWizardResult",
+    "build_workflow_wizard_result",
     "CleanupExecutionReport",
     "CleanupWorkflowOptions",
     "CleanupWorkflowReport",
