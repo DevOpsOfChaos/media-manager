@@ -11,7 +11,7 @@ try:  # optional while older cumulative states are still present
 except Exception:  # pragma: no cover - compatibility fallback
     cli_cleanup = None
 
-from .core.state import find_latest_history_entry, scan_history_directory
+from .core.state import build_history_summary, find_latest_history_entry, scan_history_directory
 from .core.workflows import (
     build_workflow_profile_argv,
     build_workflow_wizard_result,
@@ -196,6 +196,8 @@ def _history_payload(item) -> dict[str, object]:
         "created_at_utc": item.created_at_utc,
         "entry_count": item.entry_count,
         "reversible_entry_count": item.reversible_entry_count,
+        "successful": item.successful,
+        "has_reversible_entries": item.has_reversible_entries,
     }
 
 
@@ -315,14 +317,28 @@ def _print_wizard_result(args: argparse.Namespace) -> int:
 
 def _print_history(path: Path, as_json: bool) -> int:
     entries = scan_history_directory(path)
+    summary = build_history_summary(entries)
     if as_json:
-        print(json.dumps({"entries": [_history_payload(item) for item in entries]}, indent=2, ensure_ascii=False))
+        print(json.dumps({"summary": summary, "entries": [_history_payload(item) for item in entries]}, indent=2, ensure_ascii=False))
         return 0
 
     print(f"Workflow history in {path}")
+    print(f"  Total entries: {summary['entry_count']}")
+    print(f"  Successful: {summary['successful_count']}")
+    print(f"  Failed: {summary['failed_count']}")
+    print(f"  Reversible entries: {summary['reversible_entry_count']}")
+    if summary["latest_created_at_utc"]:
+        print(f"  Latest: {summary['latest_created_at_utc']}")
     if not entries:
         print("  No recognized run logs or execution journals found.")
         return 0
+
+    if summary["command_summary"]:
+        command_text = ", ".join(f"{key}={value}" for key, value in summary["command_summary"].items())
+        print(f"  Commands: {command_text}")
+    if summary["record_type_summary"]:
+        record_text = ", ".join(f"{key}={value}" for key, value in summary["record_type_summary"].items())
+        print(f"  Record types: {record_text}")
 
     for item in entries:
         print(
@@ -355,9 +371,13 @@ def _print_last_history(path: Path, command_name: str | None, as_json: bool) -> 
     print(f"  Exit code: {entry.exit_code}")
     print(f"  Entry count: {entry.entry_count}")
     print(f"  Reversible entries: {entry.reversible_entry_count}")
+    print(f"  Successful: {entry.successful}")
+    print(f"  Has reversible entries: {entry.has_reversible_entries}")
     print(f"  Created: {entry.created_at_utc}")
     print(f"  Path: {entry.path}")
     return 0
+
+# rest unchanged
 
 
 def _print_presets(as_json: bool) -> int:

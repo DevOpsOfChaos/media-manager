@@ -17,6 +17,13 @@ class WorkflowHistoryEntry:
     entry_count: int
     reversible_entry_count: int
 
+    @property
+    def successful(self) -> bool:
+        return self.exit_code == 0
+
+    @property
+    def has_reversible_entries(self) -> bool:
+        return self.reversible_entry_count > 0
 
 
 def _parse_created_at_sort_key(value: str) -> tuple[int, str]:
@@ -29,14 +36,12 @@ def _parse_created_at_sort_key(value: str) -> tuple[int, str]:
         return (0, text)
 
 
-
 def _load_json_file(path: Path) -> dict[str, object] | None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return None
     return payload if isinstance(payload, dict) else None
-
 
 
 def summarize_history_file(path: str | Path) -> WorkflowHistoryEntry | None:
@@ -76,7 +81,6 @@ def summarize_history_file(path: str | Path) -> WorkflowHistoryEntry | None:
     return None
 
 
-
 def scan_history_directory(root_path: str | Path) -> list[WorkflowHistoryEntry]:
     root = Path(root_path)
     if not root.exists() or not root.is_dir():
@@ -98,7 +102,6 @@ def scan_history_directory(root_path: str | Path) -> list[WorkflowHistoryEntry]:
     return entries
 
 
-
 def find_latest_history_entry(
     root_path: str | Path,
     *,
@@ -113,3 +116,37 @@ def find_latest_history_entry(
         if entry.command_name.strip().lower() == normalized:
             return entry
     return None
+
+
+def build_history_summary(entries: list[WorkflowHistoryEntry]) -> dict[str, object]:
+    record_type_summary: dict[str, int] = {}
+    command_summary: dict[str, int] = {}
+    apply_summary = {"apply_requested": 0, "preview_only": 0}
+    exit_code_summary: dict[str, int] = {}
+    successful_count = 0
+    reversible_entry_count = 0
+
+    for entry in entries:
+        record_type_summary[entry.record_type] = record_type_summary.get(entry.record_type, 0) + 1
+        command_summary[entry.command_name] = command_summary.get(entry.command_name, 0) + 1
+        if entry.apply_requested:
+            apply_summary["apply_requested"] += 1
+        else:
+            apply_summary["preview_only"] += 1
+        exit_code_key = str(entry.exit_code)
+        exit_code_summary[exit_code_key] = exit_code_summary.get(exit_code_key, 0) + 1
+        if entry.successful:
+            successful_count += 1
+        reversible_entry_count += entry.reversible_entry_count
+
+    return {
+        "entry_count": len(entries),
+        "successful_count": successful_count,
+        "failed_count": len(entries) - successful_count,
+        "reversible_entry_count": reversible_entry_count,
+        "record_type_summary": dict(sorted(record_type_summary.items())),
+        "command_summary": dict(sorted(command_summary.items())),
+        "apply_summary": apply_summary,
+        "exit_code_summary": dict(sorted(exit_code_summary.items(), key=lambda item: item[0])),
+        "latest_created_at_utc": entries[0].created_at_utc if entries else None,
+    }

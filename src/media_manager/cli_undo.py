@@ -29,9 +29,13 @@ def _build_payload(result) -> dict[str, object]:
         "entry_count": result.entry_count,
         "reversible_entry_count": result.reversible_entry_count,
         "planned_count": result.planned_count,
+        "ready_to_apply_count": result.ready_to_apply_count,
         "undone_count": result.undone_count,
         "skipped_count": result.skipped_count,
         "error_count": result.error_count,
+        "status_summary": result.status_summary,
+        "undo_action_summary": result.undo_action_summary,
+        "reason_summary": result.reason_summary,
         "entries": [
             {
                 "undo_action": item.undo_action,
@@ -43,6 +47,14 @@ def _build_payload(result) -> dict[str, object]:
             for item in result.entries
         ],
     }
+
+
+def _print_summary_block(title: str, summary: dict[str, int]) -> None:
+    if not summary:
+        return
+    print(title)
+    for key, value in summary.items():
+        print(f"  {key}: {value}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -63,9 +75,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Original command: {result.journal_command_name}")
     print(f"  Reversible entries: {result.reversible_entry_count}")
     print(f"  Planned: {result.planned_count}")
+    print(f"  Ready to apply: {result.ready_to_apply_count}")
     print(f"  Undone: {result.undone_count}")
     print(f"  Skipped: {result.skipped_count}")
     print(f"  Errors: {result.error_count}")
+    _print_summary_block("\nUndo status summary", result.status_summary)
+    _print_summary_block("\nUndo action summary", result.undo_action_summary)
+    _print_summary_block("\nUndo reason summary", result.reason_summary)
 
     if args.show_files and result.entries:
         print("\nUndo entries:")
