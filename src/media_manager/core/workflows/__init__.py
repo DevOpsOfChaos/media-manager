@@ -16,6 +16,14 @@ from .cleanup import (
     build_cleanup_workflow_report,
     execute_cleanup_workflow,
 )
+from .gui_shell import (
+    GuiShellModel,
+    GuiShellProblemCard,
+    GuiShellWorkflowCard,
+    build_gui_shell_model,
+    build_shell_command_preview_for_problem,
+    build_shell_command_preview_for_workflow,
+)
 from .trip import (
     TripDryRun,
     TripExecutionEntry,
@@ -35,6 +43,12 @@ __all__ = [
     "get_workflow_definition",
     "list_workflow_problems",
     "get_workflow_problem",
+    "GuiShellWorkflowCard",
+    "GuiShellProblemCard",
+    "GuiShellModel",
+    "build_gui_shell_model",
+    "build_shell_command_preview_for_workflow",
+    "build_shell_command_preview_for_problem",
     "WorkflowCommandSuggestion",
     "WorkflowWizardResult",
     "build_workflow_wizard_result",

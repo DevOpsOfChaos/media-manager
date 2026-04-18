@@ -1,9 +1,10 @@
-Copy the files from this package into your repository root and replace existing files when prompted.
+Apply these files into your repository root and overwrite existing files where paths match.
 
-Included in this package:
-- src/media_manager/core/state/history.py
-- src/media_manager/core/state/__init__.py
-- src/media_manager/cli_workflow.py
-- tests/test_core_workflow_history_v2.py
-- tests/test_cli_workflow_history_v2.py
-- docs/workflow-history-state-v2.md
+Then run:
+
+python -m pytest tests/test_cli_shell_v1.py
+python -m pytest
+
+git add .
+git commit -m "add gui shell scaffold v1 for workflow discovery"
+git push origin main

@@ -15,6 +15,11 @@ try:  # optional while the workflow shell is being introduced incrementally
 except Exception:  # pragma: no cover - compatibility fallback
     cli_workflow = None
 
+try:  # optional while the GUI shell scaffold is being introduced incrementally
+    from . import cli_shell
+except Exception:  # pragma: no cover - compatibility fallback
+    cli_shell = None
+
 COMMAND_HANDLERS = {
     "duplicates": cli_duplicates.main,
     "gui": cli_gui.main,
@@ -29,6 +34,8 @@ if cli_cleanup is not None:
     COMMAND_HANDLERS["cleanup"] = cli_cleanup.main
 if cli_workflow is not None:
     COMMAND_HANDLERS["workflow"] = cli_workflow.main
+if cli_shell is not None:
+    COMMAND_HANDLERS["shell"] = cli_shell.main
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -60,7 +67,8 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "\nNo command provided.\n"
             "The old default GUI launch behavior has been removed during the repository reset.\n"
-            "Run an explicit CLI command such as 'scan', 'inspect', 'organize', 'rename', 'trip', 'duplicates', 'undo', or 'workflow'.\n"
+            "Run an explicit CLI command such as 'scan', 'inspect', 'organize', 'rename', 'trip', "
+            "'duplicates', 'undo', 'workflow', or 'shell'.\n"
             "Use 'media-manager gui' only if you intentionally want the legacy GUI."
         )
         return 0
