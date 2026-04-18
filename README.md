@@ -4,9 +4,11 @@
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 [![License: MIT](https://img.shields.io/github/license/DevOpsOfChaos/media-manager)](LICENSE)
 
-Open-source desktop foundation for organizing photos and videos by metadata and file dates.
+Open-source media organization software for photos and videos.
 
-> **Project status:** pre-alpha. The current focus is a reliable core, not feature breadth or polished UI.
+> **Project status:** repository reset in progress.
+>
+> This repository is being re-founded around a stable core, a clear CLI, safe planning flows, and a later GUI. Some older desktop-oriented code still exists in the repository and should currently be treated as **legacy reference**, not as the product direction.
 
 ## Project language
 
@@ -20,81 +22,82 @@ Additional localizations may be added later. German is a likely secondary langua
 
 ## Why this repository exists
 
-The project started from a script that already handled media sorting well.  
-The real deficit was everything around it: project structure, safer execution, clearer setup, testability, and a path toward a real desktop application.
+The project started from a script that already handled media sorting reasonably well.
 
-This repository fixes that foundation first.
+The long-term goal is much larger:
 
-## Current capabilities
+- organize photos and videos from one or more source folders
+- resolve capture dates more reliably
+- rename files using user-controlled templates
+- detect exact duplicates safely
+- later detect likely duplicates for review
+- support guided workflows such as cleanup and trip collections
 
-- Sort photos and videos by metadata date
-- Fall back to filesystem timestamps when metadata is missing
-- Dry-run preview before applying changes
-- Copy or move files
-- Detect filename collisions
-- Organize from multiple source folders into one target folder
-- Save, load, and delete reusable import sets for organizer source/target combinations
-- Rename media files in place from one or more source folders
-- Preview rename plans before applying them
-- Resolve ExifTool through:
-  - `PATH`
-  - `EXIFTOOL_PATH`
-  - an explicit CLI / GUI path
-  - common Windows install paths
-- Auto-fill and persist organizer defaults such as ExifTool path and target folder
-- PySide6 app shell with Home, Organize, and Rename workspaces
-- More compact organizer UI with reduced text noise
-- Live organizer and rename progress feedback during runs
-- Readable result tables with content-based column sizing
-- CLI entry point
-- Automated tests for core date, sorting, rename, and settings logic
+The repository is now being reset so these capabilities grow from a reliable foundation instead of from UI-first experiments.
 
-## Planned capabilities
+## Current direction
 
-- Duplicate detection
-- Keep-source / keep-target / keep-both decisions for exact duplicates
-- Visual comparison for images and videos
-- Flexible sorting rules and filters
-- SQLite-backed media index
-- Faster processing for large libraries
-- Modern desktop UI refinement
-- Optional localization with language switching
-- Windows packaging / installer
-- Releases
+The project is being rebuilt in this order:
 
-## Product direction
+1. **Core foundation**
+2. **CLI workflows**
+3. **State and idempotent processing**
+4. **Duplicate handling**
+5. **Guided workflows**
+6. **Modern GUI later**
 
-The current product shape is easiest to think about as four user-facing areas:
+That order is deliberate.
 
-1. **Organize**
-2. **Rename**
-3. **Duplicates**
-4. **Compare**
+A polished interface does not matter if capture-date resolution, planning, skip behavior, duplicate handling, and safety rules are still weak.
 
-Only the first two areas are actively implemented right now. The others are planned and should be built on top of the same core instead of becoming separate one-off tools.
+## Core principles
 
-## Architecture
+- **Safety first** — preview before destructive actions
+- **Idempotent behavior** — already compliant files should be skipped
+- **Traceable decisions** — the program should explain why it used a date, skipped a file, or planned a target path
+- **Core/UI separation** — the media engine must stay independent from the interface
+- **Windows first** — Windows is the primary target for the early stable milestones
+- **English first** — localization can be layered in later
 
-```text
-media-manager/
-├── docs/
-├── src/
-│   └── media_manager/
-│       ├── cli.py
-│       ├── dates.py
-│       ├── exiftool.py
-│       ├── gui.py
-│       ├── renamer.py
-│       ├── settings.py
-│       └── sorter.py
-├── tests/
-├── pyproject.toml
-└── README.md
-```
+## Planned feature groups
 
-The important rule is simple: **core logic stays separate from UI code**.
+### Organize
 
-That is what makes it possible to improve the desktop UI later, add localization later, and eventually support duplicate and compare workflows without rewriting the core behavior.
+- process one or more source folders
+- resolve the best available capture date
+- build target folder structures safely
+- move, copy, or link depending on workflow and user choice
+
+### Rename
+
+- preview rename plans
+- support composable naming templates
+- avoid collisions safely
+
+### Duplicates
+
+- exact duplicate detection first
+- later similarity-based review for likely duplicates
+- quarantine / review flow instead of unsafe bulk deletion
+
+### Workflows
+
+- cleanup workflow for unsorted mixed sources
+- trip workflow for time-range-based collections
+- guided step-by-step execution built on the same core
+
+## Legacy notice
+
+This repository contains older implementation directions that are no longer the architectural target.
+
+Examples include earlier GUI-heavy and desktop-first iterations. They may still contain useful code or ideas, but they should be treated as reference material while the new core-first structure is established.
+
+See:
+
+- `docs/transition/legacy-reset.md`
+- `legacy/README.md`
+- `docs/architecture.md`
+- `docs/roadmap.md`
 
 ## Requirements
 
@@ -102,68 +105,16 @@ That is what makes it possible to improve the desktop UI later, add localization
 - Python 3.11+
 - ExifTool
 
-## Quick start
+## Development state
 
-```powershell
-git clone https://github.com/DevOpsOfChaos/media-manager.git
-cd media-manager
-python -m venv .venv
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -e ".[dev]"
-pytest
-```
+The repository should currently be understood as:
 
-## Run the application
+- an active reset
+- not a finished product
+- not yet feature-complete
+- intentionally moving away from premature UI expansion
 
-GUI:
-
-```powershell
-python -m media_manager
-```
-
-CLI preview:
-
-```powershell
-python -m media_manager organize --source "C:\Path\To\UnsortedA" --source "C:\Path\To\UnsortedB" --target "C:\Path\To\Sorted"
-```
-
-CLI apply with copy:
-
-```powershell
-python -m media_manager organize --source "C:\Path\To\UnsortedA" --source "C:\Path\To\UnsortedB" --target "C:\Path\To\Sorted" --apply --copy
-```
-
-CLI apply with move:
-
-```powershell
-python -m media_manager organize --source "C:\Path\To\UnsortedA" --source "C:\Path\To\UnsortedB" --target "C:\Path\To\Sorted" --apply --move
-```
-
-## ExifTool
-
-ExifTool must actually exist on the machine. Pointing to a non-existent path is not configuration, it is fiction.
-
-The project can detect ExifTool automatically in common situations.  
-If needed, set it explicitly:
-
-```powershell
-$env:EXIFTOOL_PATH = "C:\Program Files\exiftool\exiftool.exe"
-```
-
-Known legacy Windows paths from the original script:
-
-- `C:\Program Files\exiftool\exiftool.exe`
-- `C:\Program Files\exiftool\exiftool(-k).exe`
-
-## PySide6 note
-
-The current desktop GUI is based on PySide6. If `python -m media_manager` reports that `PySide6` is unavailable, reinstall project dependencies:
-
-```powershell
-pip install -e ".[dev]"
-```
+That honesty matters more than pretending the repository is already a polished media manager.
 
 ## Development
 
@@ -180,15 +131,9 @@ See also:
 - [Contributing guide](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Support](SUPPORT.md)
-- [v0.3 baseline protocol](docs/protocol/2026-03-25-v0.3-pyside6-multisource.md)
-- [v0.3.1 organizer GUI polish protocol](docs/protocol/2026-03-25-v0.3.1-organizer-gui-polish.md)
-- [v0.3.2 app shell and readability protocol](docs/protocol/2026-03-25-v0.3.2-app-shell-and-readability.md)
-- [v0.3.3 processing feedback and table sizing protocol](docs/protocol/2026-03-25-v0.3.3-processing-feedback-and-table-sizing.md)
-- [v0.3.4 import sets protocol](docs/protocol/2026-03-25-v0.3.4-import-sets.md)
-- [v0.3.5 rename baseline protocol](docs/protocol/2026-03-25-v0.3.5-rename-baseline.md)
 
 ## Honest scope statement
 
-This is not yet a finished public media manager. It is an early but structured foundation.
+This is not yet a finished public media manager.
 
-That distinction matters. Repositories rot when maintainers pretend an early base is already a product.
+It is a project being reset onto a stronger architectural foundation so the later open-source product can actually become trustworthy.

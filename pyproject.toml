@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "media-manager"
-version = "0.5.7"
-description = "Desktop-ready foundation for organizing photos and videos by metadata"
+version = "0.6.0"
+description = "Core-first media manager foundation for organizing photos and videos"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
   { name = "Manuel" }
 ]
 license = { text = "MIT" }
-keywords = ["media", "photos", "videos", "organizer", "exiftool", "desktop"]
+keywords = ["media", "photos", "videos", "organizer", "exiftool", "cli"]
 classifiers = [
   "Development Status :: 2 - Pre-Alpha",
   "Intended Audience :: End Users/Desktop",
@@ -25,7 +25,6 @@ classifiers = [
   "Topic :: Utilities",
 ]
 dependencies = [
-  "PySide6>=6.7",
   "send2trash>=1.8",
 ]
 
@@ -36,8 +35,11 @@ Issues = "https://github.com/DevOpsOfChaos/media-manager/issues"
 Changelog = "https://github.com/DevOpsOfChaos/media-manager/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
+gui = [
+  "PySide6>=6.7",
+]
 dev = [
-  "pytest>=8.0"
+  "pytest>=8.0",
 ]
 
 [project.scripts]

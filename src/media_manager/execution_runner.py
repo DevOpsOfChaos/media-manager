@@ -31,7 +31,6 @@ class DuplicateExecutionRunResult:
     entries: list[ExecutionRunEntry] = field(default_factory=list)
 
 
-
 def run_duplicate_execution_preview(
     preview: DuplicateExecutionPreview,
     *,
@@ -136,7 +135,7 @@ def run_duplicate_execution_preview(
                     source_path=row.source_path,
                     survivor_path=row.survivor_path,
                     target_path=row.target_path,
-                    outcome="preview-trash",
+                    outcome="preview-delete",
                     reason=row.reason,
                 )
             )
@@ -167,7 +166,7 @@ def run_duplicate_execution_preview(
                 source_path=row.source_path,
                 survivor_path=row.survivor_path,
                 target_path=row.target_path,
-                outcome="trashed",
+                outcome="deleted",
                 reason=row.reason,
             )
         )

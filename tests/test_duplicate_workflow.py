@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 
@@ -13,7 +14,6 @@ from media_manager.duplicate_workflow import (
 from media_manager.duplicates import DuplicateScanConfig, ExactDuplicateGroup, scan_exact_duplicates
 
 
-
 def _group(paths: list[Path], file_size: int = 1234, digest: str = "digest") -> ExactDuplicateGroup:
     return ExactDuplicateGroup(
         files=paths,
@@ -23,7 +23,6 @@ def _group(paths: list[Path], file_size: int = 1234, digest: str = "digest") -> 
         same_name=False,
         same_suffix=True,
     )
-
 
 
 def test_choose_keep_path_supports_first_newest_and_oldest(tmp_path: Path) -> None:
@@ -39,16 +38,15 @@ def test_choose_keep_path_supports_first_newest_and_oldest(tmp_path: Path) -> No
     first_ts = now - 30
     second_ts = now - 20
     third_ts = now - 10
-    first.touch(times=(first_ts, first_ts))
-    second.touch(times=(second_ts, second_ts))
-    third.touch(times=(third_ts, third_ts))
+    os.utime(first, (first_ts, first_ts))
+    os.utime(second, (second_ts, second_ts))
+    os.utime(third, (third_ts, third_ts))
 
     group = _group([first, second, third], digest="policy")
 
     assert choose_keep_path(group, "first") == first
     assert choose_keep_path(group, "newest") == third
     assert choose_keep_path(group, "oldest") == first
-
 
 
 def test_build_duplicate_decisions_creates_group_id_mapping(tmp_path: Path) -> None:
@@ -62,7 +60,6 @@ def test_build_duplicate_decisions_creates_group_id_mapping(tmp_path: Path) -> N
 
     assert list(decisions.values()) == [str(first)]
     assert len(decisions) == 1
-
 
 
 def test_build_duplicate_workflow_bundle_composes_plan_dry_run_and_execution(tmp_path: Path) -> None:
@@ -83,7 +80,6 @@ def test_build_duplicate_workflow_bundle_composes_plan_dry_run_and_execution(tmp
     assert bundle.execution_preview.executable_count == 1
 
 
-
 def test_build_duplicate_workflow_from_scan_builds_unresolved_bundle_without_policy(tmp_path: Path) -> None:
     source_a = tmp_path / "source_a"
     source_b = tmp_path / "source_b"
@@ -100,7 +96,6 @@ def test_build_duplicate_workflow_from_scan_builds_unresolved_bundle_without_pol
     assert bundle.dry_run.ready is False
     assert bundle.execution_preview.ready is False
     assert bundle.execution_preview.blocked_count == 2
-
 
 
 def test_execute_duplicate_workflow_bundle_runs_execution_preview(tmp_path: Path) -> None:
