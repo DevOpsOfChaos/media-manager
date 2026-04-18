@@ -8,18 +8,25 @@ from .core.workflows import (
     build_gui_shell_model,
     build_shell_command_preview_for_problem,
     build_shell_command_preview_for_workflow,
+    build_workflow_form_model,
+    list_workflow_form_models,
 )
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager shell",
-        description="Launch the new GUI shell scaffold or inspect its workflow model in headless mode.",
+        description="Launch the new GUI shell scaffold or inspect workflow models in headless mode.",
     )
     parser.add_argument(
         "--dump-model",
         action="store_true",
         help="Print the GUI shell model as JSON without launching the desktop window.",
+    )
+    parser.add_argument(
+        "--dump-forms",
+        action="store_true",
+        help="Print all workflow form models as JSON without launching the desktop window.",
     )
     parser.add_argument(
         "--preview-workflow",
@@ -28,6 +35,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--preview-problem",
         help="Print the recommended command preview for a workflow problem without launching the desktop window.",
+    )
+    parser.add_argument(
+        "--preview-form",
+        help="Print one workflow form model as JSON without launching the desktop window.",
     )
     return parser
 
@@ -71,7 +82,7 @@ def _launch_gui_shell() -> int:
             title.setStyleSheet("font-size: 22px; font-weight: 600;")
             subtitle = QLabel(
                 "A lightweight new shell over the rebuilt CLI workflows. "
-                "Review workflows, problems, and example commands from one place."
+                "Review workflows, problems, forms, and example commands from one place."
             )
             subtitle.setWordWrap(True)
 
@@ -135,11 +146,21 @@ def _launch_gui_shell() -> int:
                 return
             _, name = payload
             workflow = next(item for item in model.workflows if item.name == name)
+            form_model = build_workflow_form_model(name)
             self.problem_list.blockSignals(True)
             self.problem_list.clearSelection()
             self.problem_list.blockSignals(False)
             self.title_label.setText(workflow.title)
-            self.summary_box.setPlainText(f"{workflow.summary}\n\nBest for: {workflow.best_for}")
+            field_lines = [
+                f"- {item.label} ({item.kind})"
+                + (" [required]" if item.required else "")
+                + (" [multiple]" if item.multiple else "")
+                for item in form_model.fields
+            ]
+            self.summary_box.setPlainText(
+                f"{workflow.summary}\n\nBest for: {workflow.best_for}\n\nForm fields:\n"
+                + "\n".join(field_lines)
+            )
             self.command_box.setPlainText(workflow.example_command)
 
         def _on_problem_changed(self, current: QListWidgetItem | None, previous: QListWidgetItem | None) -> None:
@@ -181,6 +202,16 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(build_gui_shell_model().to_dict(), indent=2, ensure_ascii=False))
         return 0
 
+    if args.dump_forms:
+        print(
+            json.dumps(
+                {"forms": [item.to_dict() for item in list_workflow_form_models()]},
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+
     if args.preview_workflow:
         try:
             print(build_shell_command_preview_for_workflow(args.preview_workflow))
@@ -191,6 +222,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.preview_problem:
         try:
             print(build_shell_command_preview_for_problem(args.preview_problem))
+        except ValueError as exc:
+            parser.error(str(exc))
+        return 0
+
+    if args.preview_form:
+        try:
+            print(json.dumps(build_workflow_form_model(args.preview_form).to_dict(), indent=2, ensure_ascii=False))
         except ValueError as exc:
             parser.error(str(exc))
         return 0

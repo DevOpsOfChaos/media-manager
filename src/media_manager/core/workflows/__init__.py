@@ -16,6 +16,12 @@ from .cleanup import (
     build_cleanup_workflow_report,
     execute_cleanup_workflow,
 )
+from .forms import (
+    WorkflowFormField,
+    WorkflowFormModel,
+    build_workflow_form_model,
+    list_workflow_form_models,
+)
 from .gui_shell import (
     GuiShellModel,
     GuiShellProblemCard,
@@ -30,7 +36,6 @@ from .presets import (
     WorkflowProfileValidation,
     build_workflow_profile_argv,
     build_workflow_profile_payload,
-    build_workflow_preset_argv,
     get_workflow_preset,
     list_workflow_presets,
     load_workflow_profile,
@@ -58,6 +63,10 @@ __all__ = [
     "get_workflow_definition",
     "list_workflow_problems",
     "get_workflow_problem",
+    "WorkflowFormField",
+    "WorkflowFormModel",
+    "build_workflow_form_model",
+    "list_workflow_form_models",
     "GuiShellWorkflowCard",
     "GuiShellProblemCard",
     "GuiShellModel",
@@ -67,9 +76,8 @@ __all__ = [
     "WorkflowPreset",
     "WorkflowProfile",
     "WorkflowProfileValidation",
-    "build_workflow_profile_payload",
-    "build_workflow_preset_argv",
     "build_workflow_profile_argv",
+    "build_workflow_profile_payload",
     "list_workflow_presets",
     "get_workflow_preset",
     "load_workflow_profile",
