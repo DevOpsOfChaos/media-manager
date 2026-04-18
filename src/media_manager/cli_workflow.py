@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import argparse
@@ -77,6 +78,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     history_parser = subparsers.add_parser("history", help="List workflow run logs and execution journals from a directory.")
     history_parser.add_argument("--path", type=Path, required=True, help="Directory to scan for run logs and journals.")
+    history_parser.add_argument("--command", help="Optional command name filter, for example organize or rename.")
     history_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
     last_parser = subparsers.add_parser("last", help="Show the newest matching workflow history entry.")
@@ -315,21 +317,47 @@ def _print_wizard_result(args: argparse.Namespace) -> int:
     return 0
 
 
-def _print_history(path: Path, as_json: bool) -> int:
+def _filter_history_entries(entries, command_name: str | None):
+    if command_name is None:
+        return list(entries)
+    normalized = command_name.strip().lower()
+    return [
+        entry
+        for entry in entries
+        if entry.command_name.strip().lower() == normalized
+    ]
+
+
+def _print_history(path: Path, command_name: str | None, as_json: bool) -> int:
     entries = scan_history_directory(path)
-    summary = build_history_summary(entries)
+    filtered_entries = _filter_history_entries(entries, command_name)
+    summary = build_history_summary(filtered_entries)
+    payload = {
+        "command_filter": command_name,
+        "summary": summary,
+        "entries": [_history_payload(item) for item in filtered_entries],
+    }
     if as_json:
-        print(json.dumps({"summary": summary, "entries": [_history_payload(item) for item in entries]}, indent=2, ensure_ascii=False))
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
         return 0
 
     print(f"Workflow history in {path}")
+    if command_name:
+        print(f"  Command filter: {command_name}")
     print(f"  Total entries: {summary['entry_count']}")
     print(f"  Successful: {summary['successful_count']}")
     print(f"  Failed: {summary['failed_count']}")
     print(f"  Reversible entries: {summary['reversible_entry_count']}")
+    print(f"  Entries with reversible actions: {summary['entries_with_reversible_count']}")
     if summary["latest_created_at_utc"]:
         print(f"  Latest: {summary['latest_created_at_utc']}")
-    if not entries:
+    if summary["apply_summary"]:
+        apply_text = ", ".join(f"{key}={value}" for key, value in summary["apply_summary"].items())
+        print(f"  Apply modes: {apply_text}")
+    if summary["exit_code_summary"]:
+        exit_text = ", ".join(f"{key}={value}" for key, value in summary["exit_code_summary"].items())
+        print(f"  Exit codes: {exit_text}")
+    if not filtered_entries:
         print("  No recognized run logs or execution journals found.")
         return 0
 
@@ -340,7 +368,7 @@ def _print_history(path: Path, as_json: bool) -> int:
         record_text = ", ".join(f"{key}={value}" for key, value in summary["record_type_summary"].items())
         print(f"  Record types: {record_text}")
 
-    for item in entries:
+    for item in filtered_entries:
         print(
             f"  - [{item.record_type}] {item.command_name} | apply={item.apply_requested} | "
             f"exit={item.exit_code} | entries={item.entry_count} | created={item.created_at_utc}"
@@ -376,6 +404,7 @@ def _print_last_history(path: Path, command_name: str | None, as_json: bool) -> 
     print(f"  Created: {entry.created_at_utc}")
     print(f"  Path: {entry.path}")
     return 0
+
 
 # rest unchanged
 
@@ -602,6 +631,7 @@ def main(argv: list[str] | None = None) -> int:
             "  media-manager workflow profile-validate <PROFILE.json>\n"
             "  media-manager workflow profile-run <PROFILE.json> --show-command\n"
             "  media-manager workflow history --path <RUNS_DIR>\n"
+            "  media-manager workflow history --path <RUNS_DIR> --command organize\n"
             "  media-manager workflow last --path <RUNS_DIR> --command organize\n"
             "  media-manager workflow run cleanup --source <A> --source <B> --target <TARGET>\n"
         )
@@ -618,7 +648,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.workflow_command == "wizard":
         return _print_wizard_result(args)
     if args.workflow_command == "history":
-        return _print_history(args.path, args.json)
+        return _print_history(args.path, args.command, args.json)
     if args.workflow_command == "last":
         return _print_last_history(args.path, args.command, args.json)
     if args.workflow_command == "presets":
