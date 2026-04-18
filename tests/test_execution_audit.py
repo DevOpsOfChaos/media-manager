@@ -81,4 +81,4 @@ def test_write_duplicate_execution_audit_log_roundtrip(tmp_path: Path) -> None:
     payload = json.loads(audit_path.read_text(encoding="utf-8"))
     assert payload["apply_requested"] is False
     assert payload["execution_run"]["processed_rows"] == 1
-    assert payload["execution_run"]["entries"][0]["outcome"] == "preview-trash"
+    assert payload["execution_run"]["entries"][0]["outcome"] == "preview-delete"
