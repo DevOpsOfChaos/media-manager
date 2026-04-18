@@ -1,10 +1,6 @@
-Apply these files into your repository root and replace existing files when asked.
-
-Recommended verification:
-1. python -m pytest tests/test_cli_workflow_v1.py
-2. python -m pytest
-
-Then commit:
+Replace the files in your repo with the files from this ZIP, then run:
+python -m pytest tests/test_cli_workflow_v1.py
+python -m pytest
 git add .
-git commit -m "add workflow shell v1 for guided cli entry points"
+git commit -m "fix workflow shell catalog syntax error"
 git push origin main

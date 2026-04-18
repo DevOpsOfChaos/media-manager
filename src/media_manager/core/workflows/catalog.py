@@ -82,7 +82,7 @@ WORKFLOW_DEFINITIONS: tuple[WorkflowDefinition, ...] = (
         ),
         best_for="Standardizing file names after or before organization.",
         example_command=(
-            "media-manager workflow run rename --source <SOURCE> --template "{date:%Y-%m-%d_%H-%M-%S}_{stem}""
+            'media-manager workflow run rename --source <SOURCE> --template "{date:%Y-%m-%d_%H-%M-%S}_{stem}"'
         ),
         delegated_command="rename",
     ),
