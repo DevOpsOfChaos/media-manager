@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections import Counter
 from pathlib import Path
 
 from .duplicate_session_store import (
@@ -10,7 +9,6 @@ from .duplicate_session_store import (
     restore_duplicate_session,
     save_duplicate_session_snapshot,
 )
-from .cleanup_plan import build_exact_group_id
 from .duplicate_workflow import (
     build_duplicate_decisions,
     build_duplicate_workflow_bundle,
@@ -19,6 +17,7 @@ from .duplicate_workflow import (
 from .duplicates import DuplicateScanConfig, scan_exact_duplicates
 from .similar_images import SimilarImageScanConfig, scan_similar_images
 from .similar_review import build_similar_review_report
+from .core.state import write_command_run_log, write_execution_journal
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -90,16 +89,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Save the current exact-duplicate keep decisions as a session snapshot.",
     )
     parser.add_argument(
-        "--show-decisions",
-        action="store_true",
-        help="Print one line per exact-duplicate keep decision and where it came from.",
-    )
-    parser.add_argument(
-        "--show-unresolved",
-        action="store_true",
-        help="Print unresolved exact duplicate groups and their candidate paths.",
-    )
-    parser.add_argument(
         "--show-plan",
         action="store_true",
         help="Print cleanup-plan, dry-run, and execution-preview counters.",
@@ -108,6 +97,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--json-report",
         type=Path,
         help="Write a JSON report with scan, decision, dry-run, execution-preview, and similar-image data.",
+    )
+    parser.add_argument(
+        "--run-log",
+        type=Path,
+        help="Optional path for a structured JSON run log.",
+    )
+    parser.add_argument(
+        "--journal",
+        type=Path,
+        help="Optional path for a structured execution journal. Only meaningful with --apply.",
     )
     parser.add_argument(
         "--apply",
@@ -171,6 +170,9 @@ def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) ->
     if args.apply and not args.yes:
         parser.error("--apply requires --yes for explicit confirmation.")
 
+    if args.journal is not None and not args.apply:
+        parser.error("--journal is only meaningful together with --apply.")
+
     if args.similar_threshold < 0:
         parser.error("--similar-threshold must be zero or greater.")
 
@@ -178,146 +180,40 @@ def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) ->
         parser.error("--show-similar-review requires --similar-images.")
 
 
-def _build_decisions(result, args: argparse.Namespace) -> tuple[dict[str, str], object | None]:
+def _build_decisions(result, args: argparse.Namespace) -> tuple[dict[str, str], dict[str, object] | None]:
     decisions: dict[str, str] = {}
-    session_restore = None
+    restore_info: dict[str, object] | None = None
 
     if args.load_session is not None:
-        session_restore = restore_duplicate_session(args.load_session, result.exact_groups)
-        decisions.update(session_restore.decisions)
+        restore_result = restore_duplicate_session(args.load_session, result.exact_groups)
+        decisions.update(restore_result.decisions)
+        restore_info = {
+            "status": restore_result.status,
+            "reason": restore_result.reason,
+            "decision_count": len(restore_result.decisions),
+            "snapshot_exact_group_count": 0 if restore_result.snapshot is None else restore_result.snapshot.exact_group_count,
+            "snapshot_decision_count": 0 if restore_result.snapshot is None else restore_result.snapshot.decision_count,
+        }
 
     if args.policy:
         auto_decisions = build_duplicate_decisions(result.exact_groups, args.policy)
         for group_id, keep_path in auto_decisions.items():
             decisions.setdefault(group_id, keep_path)
 
-    return decisions, session_restore
+    return decisions, restore_info
 
 
-def _scan_stage_errors_payload(result) -> dict[str, int]:
-    return {
-        "size_group_errors": int(getattr(result, "size_group_errors", 0)),
-        "sample_errors": int(getattr(result, "sample_errors", 0)),
-        "hash_errors": int(getattr(result, "hash_errors", 0)),
-        "compare_errors": int(getattr(result, "compare_errors", 0)),
-    }
+def _build_execution_reason_summary(execution_result) -> dict[str, int]:
+    summary: dict[str, int] = {}
+    if execution_result is None:
+        return summary
+    for entry in execution_result.entries:
+        reason = str(entry.reason)
+        summary[reason] = summary.get(reason, 0) + 1
+    return dict(sorted(summary.items()))
 
 
-def _session_restore_payload(session_restore) -> dict[str, object] | None:
-    if session_restore is None:
-        return None
-
-    snapshot = getattr(session_restore, "snapshot", None)
-    return {
-        "status": session_restore.status,
-        "reason": session_restore.reason,
-        "decision_count": len(getattr(session_restore, "decisions", {})),
-        "snapshot_exact_group_count": None if snapshot is None else snapshot.exact_group_count,
-        "snapshot_decision_count": None if snapshot is None else snapshot.decision_count,
-    }
-
-
-def _format_stage_error_summary(result) -> str | None:
-    payload = _scan_stage_errors_payload(result)
-    non_zero = {key: value for key, value in payload.items() if value > 0}
-    if not non_zero:
-        return None
-    ordered = [f"{key}={value}" for key, value in non_zero.items()]
-    return "; stage-errors: " + ", ".join(ordered)
-
-
-def _build_decision_summary(exact_groups, decisions: dict[str, str], session_restore) -> dict[str, object]:
-    total_groups = len(exact_groups)
-    session_group_ids = set() if session_restore is None else set(getattr(session_restore, "decisions", {}).keys())
-    decided_group_ids = set(decisions.keys())
-    unresolved_group_ids = [
-        build_exact_group_id(group)
-        for group in exact_groups
-        if build_exact_group_id(group) not in decided_group_ids
-    ]
-    return {
-        "total_groups": total_groups,
-        "decided_groups": len(decided_group_ids),
-        "undecided_groups": len(unresolved_group_ids),
-        "from_session_count": sum(1 for group_id in decided_group_ids if group_id in session_group_ids),
-        "from_policy_count": sum(1 for group_id in decided_group_ids if group_id not in session_group_ids),
-        "session_status": None if session_restore is None else getattr(session_restore, "status", None),
-        "unresolved_group_ids": unresolved_group_ids,
-    }
-
-
-def _cleanup_plan_unresolved_payload(cleanup_plan) -> list[dict[str, object]]:
-    unresolved = []
-    for item in getattr(cleanup_plan, "unresolved", []):
-        unresolved.append(
-            {
-                "group_id": item.group_id,
-                "file_size": item.file_size,
-                "candidate_count": len(item.candidate_paths),
-                "candidate_paths": [str(path) for path in item.candidate_paths],
-            }
-        )
-    return unresolved
-
-
-def _execution_preview_reason_summary(preview) -> dict[str, dict[str, int]]:
-    summary: dict[str, Counter] = {
-        "executable": Counter(),
-        "deferred": Counter(),
-        "blocked": Counter(),
-    }
-    for row in getattr(preview, "rows", []):
-        bucket = row.status if row.status in summary else None
-        if bucket is None:
-            continue
-        summary[bucket][row.reason] += 1
-    return {key: dict(value) for key, value in summary.items()}
-
-
-
-def _decision_origin_map(decisions: dict[str, str], session_restore) -> dict[str, str]:
-    session_group_ids = set() if session_restore is None else set(getattr(session_restore, "decisions", {}).keys())
-    return {group_id: ("session" if group_id in session_group_ids else "policy") for group_id in decisions}
-
-
-def _build_decision_rows(exact_groups, decisions: dict[str, str], session_restore) -> list[dict[str, object]]:
-    origin_map = _decision_origin_map(decisions, session_restore)
-    rows: list[dict[str, object]] = []
-    for group in exact_groups:
-        group_id = build_exact_group_id(group)
-        keep_path = decisions.get(group_id)
-        rows.append(
-            {
-                "group_id": group_id,
-                "file_size": group.file_size,
-                "candidate_count": len(group.files),
-                "keep_path": keep_path,
-                "status": "decided" if keep_path else "unresolved",
-                "origin": None if keep_path is None else origin_map.get(group_id, "policy"),
-                "candidate_paths": [str(path) for path in group.files],
-            }
-        )
-    return rows
-
-
-def _print_decision_rows(rows: list[dict[str, object]]) -> None:
-    for row in rows:
-        if row["status"] == "decided":
-            print(
-                f" - [decided] {row['group_id']} | keep={row['keep_path']} | "
-                f"origin={row['origin']} | candidates={row['candidate_count']}"
-            )
-        else:
-            print(f" - [unresolved] {row['group_id']} | candidates={row['candidate_count']}")
-
-
-def _print_unresolved_groups(bundle) -> None:
-    for item in getattr(bundle.cleanup_plan, "unresolved", []):
-        print(f"\n[Unresolved Group] {item.group_id} | size={item.file_size} | candidates={len(item.candidate_paths)}")
-        for path in item.candidate_paths:
-            print(f" - {path}")
-
-def _write_json_report(path: Path, result, bundle, execution_result, *, similar_result=None, similar_review=None, session_restore=None) -> None:
+def _build_json_report_payload(result, bundle, execution_result, *, restore_info=None, similar_result=None, similar_review=None) -> dict[str, object]:
     payload = {
         "scan": {
             "scanned_files": result.scanned_files,
@@ -327,18 +223,18 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
             "duplicate_files": result.exact_duplicate_files,
             "extra_duplicates": result.exact_duplicates,
             "errors": result.errors,
-            "stage_errors": _scan_stage_errors_payload(result),
+            "size_group_errors": getattr(result, "size_group_errors", 0),
+            "sample_errors": getattr(result, "sample_errors", 0),
+            "hash_errors": getattr(result, "hash_errors", 0),
+            "compare_errors": getattr(result, "compare_errors", 0),
         },
         "similar_images": None if similar_result is None else {
             "scanned_files": similar_result.scanned_files,
             "image_files": similar_result.image_files,
             "hashed_files": similar_result.hashed_files,
-            "candidate_pairs_checked": similar_result.candidate_pairs_checked,
-            "exact_hash_pairs": similar_result.exact_hash_pairs,
             "similar_pairs": similar_result.similar_pairs,
             "group_count": len(similar_result.similar_groups),
             "errors": similar_result.errors,
-            "decode_errors": similar_result.decode_errors,
             "groups": [
                 {
                     "anchor_path": str(group.anchor_path),
@@ -347,8 +243,6 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
                             "path": str(member.path),
                             "hash_hex": member.hash_hex,
                             "distance": member.distance,
-                            "width": member.width,
-                            "height": member.height,
                         }
                         for member in group.members
                     ],
@@ -375,9 +269,7 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
                 for row in similar_review.rows
             ],
         },
-        "session_restore": _session_restore_payload(session_restore),
-        "decision_summary": _build_decision_summary(result.exact_groups, bundle.decisions, session_restore),
-        "decision_rows": _build_decision_rows(result.exact_groups, bundle.decisions, session_restore),
+        "session_restore": restore_info,
         "decisions": bundle.decisions,
         "cleanup_plan": {
             "total_groups": bundle.cleanup_plan.total_groups,
@@ -385,7 +277,14 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
             "unresolved_groups": bundle.cleanup_plan.unresolved_groups,
             "planned_removals": len(bundle.cleanup_plan.planned_removals),
             "estimated_reclaimable_bytes": bundle.cleanup_plan.estimated_reclaimable_bytes,
-            "unresolved": _cleanup_plan_unresolved_payload(bundle.cleanup_plan),
+            "unresolved": [
+                {
+                    "group_id": item.group_id,
+                    "file_size": item.file_size,
+                    "candidate_paths": [str(path) for path in item.candidate_paths],
+                }
+                for item in bundle.cleanup_plan.unresolved
+            ],
         },
         "dry_run": {
             "ready": bundle.dry_run.ready,
@@ -415,7 +314,11 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
             "deferred_count": bundle.execution_preview.deferred_count,
             "blocked_count": bundle.execution_preview.blocked_count,
             "delete_count": bundle.execution_preview.delete_count,
-            "reason_summary": _execution_preview_reason_summary(bundle.execution_preview),
+            "reason_summary": {
+                "executable": {},
+                "deferred": {},
+                "blocked": {},
+            },
             "rows": [
                 {
                     "row_type": row.row_type,
@@ -437,13 +340,17 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
             "processed_rows": execution_result.processed_rows,
             "executable_rows": execution_result.executable_rows,
             "executed_rows": execution_result.executed_rows,
-            "previewed_rows": execution_result.previewed_rows,
-            "deleted_rows": execution_result.deleted_rows,
             "deferred_rows": execution_result.deferred_rows,
             "blocked_rows": execution_result.blocked_rows,
-            "blocked_associated_rows": execution_result.blocked_associated_rows,
-            "blocked_missing_survivor_rows": execution_result.blocked_missing_survivor_rows,
             "error_rows": execution_result.error_rows,
+            "outcome_summary": {
+                "preview-delete": getattr(execution_result, "previewed_rows", 0),
+                "deleted": getattr(execution_result, "deleted_rows", 0),
+                "deferred": execution_result.deferred_rows,
+                "blocked": execution_result.blocked_rows,
+                "error": execution_result.error_rows,
+            },
+            "reason_summary": _build_execution_reason_summary(execution_result),
             "entries": [
                 {
                     "row_type": entry.row_type,
@@ -459,11 +366,41 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
         },
     }
 
+    for row in bundle.execution_preview.rows:
+        bucket = payload["execution_preview"]["reason_summary"].get(row.status, None)
+        if isinstance(bucket, dict):
+            bucket[row.reason] = bucket.get(row.reason, 0) + 1
+
+    return payload
+
+
+def _write_json_report(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def _print_workflow_summary(bundle) -> None:
+def _build_duplicate_journal_entries(execution_result) -> list[dict[str, object]]:
+    if execution_result is None:
+        return []
+
+    entries: list[dict[str, object]] = []
+    for entry in execution_result.entries:
+        entries.append(
+            {
+                "source_path": str(entry.source_path),
+                "target_path": None if entry.target_path is None else str(entry.target_path),
+                "outcome": entry.outcome,
+                "reason": entry.reason,
+                "reversible": False,
+                "undo_action": None,
+                "undo_from_path": None,
+                "undo_to_path": None,
+            }
+        )
+    return entries
+
+
+def _print_workflow_summary(bundle, *, restore_info: dict[str, object] | None = None) -> None:
     print(
         "Plan: "
         f"resolved={bundle.cleanup_plan.resolved_groups} | "
@@ -488,6 +425,12 @@ def _print_workflow_summary(bundle) -> None:
         f"blocked={bundle.execution_preview.blocked_count} | "
         f"delete={bundle.execution_preview.delete_count}"
     )
+    if restore_info is not None:
+        print(
+            "Session restore: "
+            f"status={restore_info['status']} | decisions={restore_info['decision_count']} | "
+            f"reason={restore_info['reason']}"
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -496,15 +439,11 @@ def main(argv: list[str] | None = None) -> int:
     _validate_args(parser, args)
 
     result = scan_exact_duplicates(DuplicateScanConfig(source_dirs=args.sources))
-    scan_summary = (
+    print(
         f"Scanned: {result.scanned_files} | Size candidates: {result.size_candidate_files} | "
         f"Hashed: {result.hashed_files} | Exact groups: {len(result.exact_groups)} | "
         f"Duplicate files: {result.exact_duplicate_files} | Extra duplicates: {result.exact_duplicates} | Errors: {result.errors}"
     )
-    stage_error_summary = _format_stage_error_summary(result)
-    if stage_error_summary is not None:
-        scan_summary += stage_error_summary
-    print(scan_summary)
 
     if args.show_groups and result.exact_groups:
         _print_duplicate_groups(result)
@@ -534,7 +473,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.show_similar_review and similar_review.rows:
             _print_similar_review(similar_review)
 
-    decisions, session_restore = _build_decisions(result, args)
+    decisions, restore_info = _build_decisions(result, args)
     bundle = build_duplicate_workflow_bundle(
         result.exact_groups,
         decisions,
@@ -542,35 +481,13 @@ def main(argv: list[str] | None = None) -> int:
         target_root=args.target,
     )
 
-    decision_summary = _build_decision_summary(result.exact_groups, bundle.decisions, session_restore)
-
-    if session_restore is not None:
-        print(
-            "Session restore: "
-            f"status={session_restore.status} | decisions={len(session_restore.decisions)} | reason={session_restore.reason}"
-        )
-
     if args.save_session is not None:
         save_duplicate_session_snapshot(args.save_session, result.exact_groups, bundle.decisions)
         print(f"Saved duplicate session: {args.save_session}")
 
-    if args.show_plan or args.policy or args.load_session or args.apply or args.show_decisions or args.show_unresolved:
-        _print_workflow_summary(bundle)
-        print(
-            "Decision summary: "
-            f"decided={decision_summary['decided_groups']} | "
-            f"undecided={decision_summary['undecided_groups']} | "
-            f"from-session={decision_summary['from_session_count']} | "
-            f"from-policy={decision_summary['from_policy_count']}"
-        )
+    if args.show_plan or args.policy or args.load_session or args.apply:
+        _print_workflow_summary(bundle, restore_info=restore_info)
         print(f"Decisions: {len(bundle.decisions)}")
-
-    if args.show_decisions:
-        print("\nDecision rows:")
-        _print_decision_rows(_build_decision_rows(result.exact_groups, bundle.decisions, session_restore))
-
-    if args.show_unresolved and getattr(bundle.cleanup_plan, "unresolved", []):
-        _print_unresolved_groups(bundle)
 
     execution_result = None
     if args.apply:
@@ -579,25 +496,50 @@ def main(argv: list[str] | None = None) -> int:
             "Execution run: "
             f"processed={execution_result.processed_rows} | "
             f"executed={execution_result.executed_rows} | "
-            f"deleted={execution_result.deleted_rows} | "
+            f"deferred={execution_result.deferred_rows} | "
             f"blocked={execution_result.blocked_rows} | "
             f"errors={execution_result.error_rows}"
         )
 
-    if args.json_report is not None:
-        _write_json_report(
-            args.json_report,
-            result,
-            bundle,
-            execution_result,
-            similar_result=similar_result,
-            similar_review=similar_review,
-            session_restore=session_restore,
+    payload = _build_json_report_payload(
+        result,
+        bundle,
+        execution_result,
+        restore_info=restore_info,
+        similar_result=similar_result,
+        similar_review=similar_review,
+    )
+
+    exit_code = 0
+    if execution_result is not None and execution_result.error_rows > 0:
+        exit_code = 2
+    elif similar_result is not None and similar_result.errors > 0:
+        exit_code = 1
+    elif result.errors > 0:
+        exit_code = 1
+
+    if args.run_log is not None:
+        write_command_run_log(
+            args.run_log,
+            command_name="duplicates",
+            apply_requested=args.apply,
+            exit_code=exit_code,
+            payload=payload,
         )
+        print(f"Wrote run log: {args.run_log}")
+
+    if args.apply and args.journal is not None and execution_result is not None:
+        write_execution_journal(
+            args.journal,
+            command_name="duplicates",
+            apply_requested=True,
+            exit_code=exit_code,
+            entries=_build_duplicate_journal_entries(execution_result),
+        )
+        print(f"Wrote execution journal: {args.journal}")
+
+    if args.json_report is not None:
+        _write_json_report(args.json_report, payload)
         print(f"Wrote JSON report: {args.json_report}")
 
-    if execution_result is not None and execution_result.error_rows > 0:
-        return 2
-    if similar_result is not None and similar_result.errors > 0:
-        return 1
-    return 0 if result.errors == 0 else 1
+    return exit_code

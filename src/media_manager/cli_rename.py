@@ -76,6 +76,43 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _count_by_label(values: list[str]) -> dict[str, int]:
+    summary: dict[str, int] = {}
+    for value in values:
+        summary[value] = summary.get(value, 0) + 1
+    return dict(sorted(summary.items()))
+
+
+def _dry_run_summaries(dry_run) -> dict[str, dict[str, int]]:
+    statuses: list[str] = []
+    reasons: list[str] = []
+    source_kinds: list[str] = []
+    confidences: list[str] = []
+    for item in dry_run.entries:
+        statuses.append(str(item.status))
+        reasons.append(str(item.reason))
+        if item.resolution is not None:
+            source_kinds.append(str(item.resolution.source_kind))
+            confidences.append(str(item.resolution.confidence))
+    return {
+        "status_summary": _count_by_label(statuses),
+        "reason_summary": _count_by_label(reasons),
+        "resolution_source_summary": _count_by_label(source_kinds),
+        "confidence_summary": _count_by_label(confidences),
+    }
+
+
+def _execution_summaries(execution_result) -> dict[str, dict[str, int]]:
+    statuses = [str(entry.status) for entry in execution_result.entries]
+    actions = [str(entry.action) for entry in execution_result.entries]
+    reasons = [str(entry.reason) for entry in execution_result.entries]
+    return {
+        "status_summary": _count_by_label(statuses),
+        "action_summary": _count_by_label(actions),
+        "reason_summary": _count_by_label(reasons),
+    }
+
+
 def _build_json_payload(dry_run, execution_result) -> dict[str, object]:
     payload = {
         "template": dry_run.options.template,
@@ -86,10 +123,7 @@ def _build_json_payload(dry_run, execution_result) -> dict[str, object]:
         "skipped_count": dry_run.skipped_count,
         "conflict_count": dry_run.conflict_count,
         "error_count": dry_run.error_count,
-        "status_summary": dry_run.status_summary,
-        "reason_summary": dry_run.reason_summary,
-        "resolution_source_summary": dry_run.resolution_source_summary,
-        "confidence_summary": dry_run.confidence_summary,
+        **_dry_run_summaries(dry_run),
         "entries": [
             {
                 "source_path": str(item.source_path),
@@ -114,9 +148,7 @@ def _build_json_payload(dry_run, execution_result) -> dict[str, object]:
             "skipped_count": execution_result.skipped_count,
             "conflict_count": execution_result.conflict_count,
             "error_count": execution_result.error_count,
-            "status_summary": execution_result.status_summary,
-            "action_summary": execution_result.action_summary,
-            "reason_summary": execution_result.reason_summary,
+            **_execution_summaries(execution_result),
             "entries": [
                 {
                     "source_path": str(entry.source_path),
@@ -160,12 +192,12 @@ def _build_journal_entries(execution_result) -> list[dict[str, object]]:
     return entries
 
 
-def _print_counter_block(label: str, counter: dict[str, int]) -> None:
-    if not counter:
-        print(f"{label}: none")
+def _print_summary_block(title: str, summary: dict[str, int]) -> None:
+    if not summary:
         return
-    rendered = " | ".join(f"{key}={value}" for key, value in sorted(counter.items()))
-    print(f"{label}: {rendered}")
+    print(title)
+    for key, value in summary.items():
+        print(f"  {key}: {value}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -223,16 +255,17 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Skipped: {dry_run.skipped_count}")
     print(f"  Conflicts: {dry_run.conflict_count}")
     print(f"  Errors: {dry_run.error_count}")
-    _print_counter_block("  Status summary", dry_run.status_summary)
-    _print_counter_block("  Reason summary", dry_run.reason_summary)
-    _print_counter_block("  Resolution sources", dry_run.resolution_source_summary)
-    _print_counter_block("  Confidence summary", dry_run.confidence_summary)
+    _print_summary_block("\nStatus summary", payload["status_summary"])
+    _print_summary_block("\nReason summary", payload["reason_summary"])
+    _print_summary_block("\nResolution sources", payload["resolution_source_summary"])
+    _print_summary_block("\nConfidence summary", payload["confidence_summary"])
 
     if args.apply:
         print(f"  Renamed: {execution_result.renamed_count}")
-        _print_counter_block("  Execution statuses", execution_result.status_summary)
-        _print_counter_block("  Execution actions", execution_result.action_summary)
-        _print_counter_block("  Execution reasons", execution_result.reason_summary)
+        execution = payload["execution"]
+        _print_summary_block("\nExecution statuses", execution["status_summary"])
+        _print_summary_block("\nExecution actions", execution["action_summary"])
+        _print_summary_block("\nExecution reasons", execution["reason_summary"])
 
     if args.show_files and execution_result.entries:
         print("\nRename entries:")

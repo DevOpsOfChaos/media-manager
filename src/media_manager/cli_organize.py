@@ -82,6 +82,41 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _count_by_label(values: list[str]) -> dict[str, int]:
+    summary: dict[str, int] = {}
+    for value in values:
+        summary[value] = summary.get(value, 0) + 1
+    return dict(sorted(summary.items()))
+
+
+def _plan_summaries(plan) -> dict[str, dict[str, int]]:
+    statuses: list[str] = []
+    reasons: list[str] = []
+    source_kinds: list[str] = []
+    confidences: list[str] = []
+    for item in plan.entries:
+        statuses.append(str(item.status))
+        reasons.append(str(item.reason))
+        if item.resolution is not None:
+            source_kinds.append(str(item.resolution.source_kind))
+            confidences.append(str(item.resolution.confidence))
+    return {
+        "status_summary": _count_by_label(statuses),
+        "reason_summary": _count_by_label(reasons),
+        "resolution_source_summary": _count_by_label(source_kinds),
+        "confidence_summary": _count_by_label(confidences),
+    }
+
+
+def _execution_summaries(execution_result) -> dict[str, dict[str, int]]:
+    outcomes = [str(item.outcome) for item in execution_result.entries]
+    reasons = [str(item.reason) for item in execution_result.entries]
+    return {
+        "outcome_summary": _count_by_label(outcomes),
+        "reason_summary": _count_by_label(reasons),
+    }
+
+
 def _build_payload(plan, execution_result) -> dict[str, object]:
     payload = {
         "sources": [str(path) for path in plan.options.source_dirs],
@@ -94,10 +129,7 @@ def _build_payload(plan, execution_result) -> dict[str, object]:
         "skipped_count": plan.skipped_count,
         "conflict_count": plan.conflict_count,
         "error_count": plan.error_count,
-        "status_summary": plan.status_summary,
-        "reason_summary": plan.reason_summary,
-        "resolution_source_summary": plan.resolution_source_summary,
-        "confidence_summary": plan.confidence_summary,
+        **_plan_summaries(plan),
         "entries": [
             {
                 "source_root": str(item.source_root),
@@ -125,8 +157,7 @@ def _build_payload(plan, execution_result) -> dict[str, object]:
             "skipped_count": execution_result.skipped_count,
             "conflict_count": execution_result.conflict_count,
             "error_count": execution_result.error_count,
-            "outcome_summary": execution_result.outcome_summary,
-            "reason_summary": execution_result.reason_summary,
+            **_execution_summaries(execution_result),
             "entries": [
                 {
                     "source_path": str(item.source_path),
@@ -173,12 +204,12 @@ def _build_journal_entries(execution_result) -> list[dict[str, object]]:
     return entries
 
 
-def _print_counter_block(label: str, counter: dict[str, int]) -> None:
-    if not counter:
-        print(f"{label}: none")
+def _print_summary_block(title: str, summary: dict[str, int]) -> None:
+    if not summary:
         return
-    rendered = " | ".join(f"{key}={value}" for key, value in sorted(counter.items()))
-    print(f"{label}: {rendered}")
+    print(title)
+    for key, value in summary.items():
+        print(f"  {key}: {value}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -235,10 +266,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Skipped: {plan.skipped_count}")
     print(f"  Conflicts: {plan.conflict_count}")
     print(f"  Errors: {plan.error_count}")
-    _print_counter_block("  Status summary", plan.status_summary)
-    _print_counter_block("  Reason summary", plan.reason_summary)
-    _print_counter_block("  Resolution sources", plan.resolution_source_summary)
-    _print_counter_block("  Confidence summary", plan.confidence_summary)
+    _print_summary_block("\nStatus summary", payload["status_summary"])
+    _print_summary_block("\nReason summary", payload["reason_summary"])
+    _print_summary_block("\nResolution sources", payload["resolution_source_summary"])
+    _print_summary_block("\nConfidence summary", payload["confidence_summary"])
 
     if execution_result is not None:
         print("\nExecution")
@@ -248,8 +279,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Skipped: {execution_result.skipped_count}")
         print(f"  Conflicts: {execution_result.conflict_count}")
         print(f"  Errors: {execution_result.error_count}")
-        _print_counter_block("  Outcome summary", execution_result.outcome_summary)
-        _print_counter_block("  Execution reasons", execution_result.reason_summary)
+        execution = payload["execution"]
+        _print_summary_block("\nExecution outcomes", execution["outcome_summary"])
+        _print_summary_block("\nExecution reasons", execution["reason_summary"])
 
     if plan.scan_summary.missing_sources:
         print("\nMissing sources:")

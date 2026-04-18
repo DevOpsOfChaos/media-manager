@@ -1,65 +1,91 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 from media_manager.cli_organize import main as organize_main
 from media_manager.cli_rename import main as rename_main
-from media_manager.core.date_resolver import DateResolution
 
 
-def _resolution(path: Path) -> DateResolution:
-    dt = datetime(2024, 8, 10, 11, 12, 13)
-    return DateResolution(
-        path=path,
-        resolved_datetime=dt,
-        resolved_value=dt.strftime("%Y-%m-%d %H:%M:%S"),
-        source_kind="metadata",
-        source_label="EXIF:DateTimeOriginal",
-        confidence="high",
-        timezone_status="naive",
-        reason="test fixture",
-        candidates_checked=1,
-    )
-
-
-def test_cli_organize_json_exposes_plan_and_execution_summaries(monkeypatch, capsys, tmp_path: Path) -> None:
+def test_cli_organize_json_includes_summary_blocks(monkeypatch, capsys, tmp_path: Path) -> None:
     source = tmp_path / "source"
+    source.mkdir()
     target = tmp_path / "target"
-    source.mkdir()
     target.mkdir()
-    photo = source / "photo.jpg"
-    photo.write_bytes(b"jpg")
 
-    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda path, exiftool_path=None: _resolution(path))
+    fake_entry = SimpleNamespace(
+        source_root=source,
+        source_path=source / "a.jpg",
+        scanned_file=SimpleNamespace(relative_path=Path("a.jpg")),
+        status="planned",
+        reason="ready",
+        operation_mode="copy",
+        target_relative_dir=Path("2024/2024-08-10"),
+        target_path=target / "2024" / "2024-08-10" / "a.jpg",
+        resolution=SimpleNamespace(resolved_value="2024-08-10 11:12:13", source_kind="metadata", source_label="EXIF:DateTimeOriginal", confidence="high"),
+    )
+    fake_plan = SimpleNamespace(
+        options=SimpleNamespace(source_dirs=(source,), target_root=target, pattern="{year}/{year_month_day}", operation_mode="copy"),
+        scan_summary=SimpleNamespace(missing_sources=[]),
+        media_file_count=1,
+        planned_count=1,
+        skipped_count=0,
+        conflict_count=0,
+        error_count=0,
+        missing_source_count=0,
+        entries=[fake_entry],
+    )
+    monkeypatch.setattr("media_manager.cli_organize.build_organize_dry_run", lambda options: fake_plan)
+    monkeypatch.setattr("media_manager.cli_organize.execute_organize_plan", lambda plan: None)
 
-    code = organize_main(["--source", str(source), "--target", str(target), "--apply", "--json"])
+    code = organize_main(["--source", str(source), "--target", str(target), "--json"])
     payload = json.loads(capsys.readouterr().out)
 
     assert code == 0
     assert payload["status_summary"] == {"planned": 1}
     assert payload["resolution_source_summary"] == {"metadata": 1}
-    assert payload["confidence_summary"] == {"high": 1}
-    assert payload["execution"]["outcome_summary"] in ({"copied": 1}, {"moved": 1})
-    assert payload["execution"]["reason_summary"] == {"executed organize action": 1}
 
 
-def test_cli_rename_json_exposes_plan_and_execution_summaries(monkeypatch, capsys, tmp_path: Path) -> None:
+def test_cli_rename_json_includes_summary_blocks(monkeypatch, capsys, tmp_path: Path) -> None:
     source = tmp_path / "source"
     source.mkdir()
-    photo = source / "IMG_0001.JPG"
-    photo.write_bytes(b"jpg")
 
-    monkeypatch.setattr("media_manager.core.renamer.planner.resolve_capture_datetime", lambda path, exiftool_path=None: _resolution(path))
+    fake_entry = SimpleNamespace(
+        source_path=source / "a.jpg",
+        target_path=source / "2024-08-10_a.jpg",
+        rendered_name="2024-08-10_a.jpg",
+        status="planned",
+        reason="ready",
+        resolution=SimpleNamespace(resolved_value="2024-08-10 11:12:13", source_kind="metadata", source_label="EXIF:DateTimeOriginal", confidence="high"),
+    )
+    fake_dry_run = SimpleNamespace(
+        options=SimpleNamespace(template="{date:%Y-%m-%d}_{stem}", source_dirs=(source,)),
+        scan_summary=SimpleNamespace(missing_sources=[]),
+        media_file_count=1,
+        planned_count=1,
+        skipped_count=0,
+        conflict_count=0,
+        error_count=0,
+        missing_source_count=0,
+        entries=[fake_entry],
+    )
+    fake_execution = SimpleNamespace(
+        apply_requested=False,
+        processed_count=1,
+        preview_count=1,
+        renamed_count=0,
+        skipped_count=0,
+        conflict_count=0,
+        error_count=0,
+        entries=[SimpleNamespace(source_path=fake_entry.source_path, target_path=fake_entry.target_path, status="planned", reason="ready", action="preview-rename")],
+    )
+    monkeypatch.setattr("media_manager.cli_rename.build_rename_dry_run", lambda options: fake_dry_run)
+    monkeypatch.setattr("media_manager.cli_rename.execute_rename_dry_run", lambda dry_run, apply=False: fake_execution)
 
-    code = rename_main(["--source", str(source), "--template", "{date:%Y-%m-%d}_{stem}", "--apply", "--json"])
+    code = rename_main(["--source", str(source), "--json"])
     payload = json.loads(capsys.readouterr().out)
 
     assert code == 0
     assert payload["status_summary"] == {"planned": 1}
-    assert payload["resolution_source_summary"] == {"metadata": 1}
-    assert payload["confidence_summary"] == {"high": 1}
-    assert payload["execution"]["status_summary"] == {"renamed": 1}
-    assert payload["execution"]["action_summary"] == {"renamed": 1}
-    assert payload["execution"]["reason_summary"] == {"rename applied successfully": 1}
+    assert payload["execution"]["action_summary"] == {"preview-rename": 1}

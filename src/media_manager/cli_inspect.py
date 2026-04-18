@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections import Counter
 from pathlib import Path
 
 from .constants import MEDIA_EXTENSIONS
@@ -16,12 +15,36 @@ def build_parser() -> argparse.ArgumentParser:
         prog="media-manager inspect",
         description="Inspect capture-date candidates for media files or folders.",
     )
-    parser.add_argument("paths", nargs="+", help="One or more media files or source folders.")
-    parser.add_argument("--exiftool", help="Optional explicit path to exiftool.")
-    parser.add_argument("--non-recursive", action="store_true", help="Only scan the top level of directory inputs.")
-    parser.add_argument("--include-hidden", action="store_true", help="Include hidden files and folders when scanning directories.")
-    parser.add_argument("--limit", type=int, default=20, help="Maximum number of inspected files when directory inputs are used.")
-    parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+    parser.add_argument(
+        "paths",
+        nargs="+",
+        help="One or more media files or source folders.",
+    )
+    parser.add_argument(
+        "--exiftool",
+        help="Optional explicit path to exiftool.",
+    )
+    parser.add_argument(
+        "--non-recursive",
+        action="store_true",
+        help="Only scan the top level of directory inputs.",
+    )
+    parser.add_argument(
+        "--include-hidden",
+        action="store_true",
+        help="Include hidden files and folders when scanning directories.",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        help="Maximum number of inspected files when directory inputs are used.",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print machine-readable JSON output.",
+    )
     return parser
 
 
@@ -39,7 +62,11 @@ def _collect_targets(paths: list[str], *, recursive: bool, include_hidden: bool,
 
     if directories:
         summary = scan_media_sources(
-            ScanOptions(source_dirs=tuple(directories), recursive=recursive, include_hidden=include_hidden)
+            ScanOptions(
+                source_dirs=tuple(directories),
+                recursive=recursive,
+                include_hidden=include_hidden,
+            )
         )
         files.extend(item.path for item in summary.files)
 
@@ -55,24 +82,98 @@ def _collect_targets(paths: list[str], *, recursive: bool, include_hidden: bool,
     return unique_files[: max(0, limit)], directories
 
 
-def _candidate_parse_counts(inspection) -> tuple[int, int]:
-    parseable = 0
-    unparseable = 0
+def _count_by_label(values: list[str]) -> dict[str, int]:
+    summary: dict[str, int] = {}
+    for value in values:
+        summary[value] = summary.get(value, 0) + 1
+    return dict(sorted(summary.items()))
+
+
+def _record_candidate_stats(inspection) -> tuple[list[dict[str, object]], int, int]:
+    rows: list[dict[str, object]] = []
+    parseable_count = 0
+    unparseable_count = 0
     for candidate in inspection.date_candidates:
-        if parse_datetime_value(candidate.value) is None:
-            unparseable += 1
+        parseable = parse_datetime_value(candidate.value) is not None
+        if parseable:
+            parseable_count += 1
         else:
-            parseable += 1
-    return parseable, unparseable
+            unparseable_count += 1
+        rows.append(
+            {
+                "source_tag": candidate.source_tag,
+                "value": candidate.value,
+                "priority_index": candidate.priority_index,
+                "parseable": parseable,
+            }
+        )
+    return rows, parseable_count, unparseable_count
 
 
-def _build_payload(records) -> list[dict[str, object]]:
-    payload: list[dict[str, object]] = []
+def _build_summary(records) -> dict[str, object]:
+    source_kinds: list[str] = []
+    confidences: list[str] = []
+    timezone_statuses: list[str] = []
+    metadata_error_kinds: list[str] = []
+    decision_policies: list[str] = []
+    metadata_available_count = 0
+    exiftool_available_count = 0
+    warning_count = 0
+    metadata_conflict_count = 0
+    parseable_candidate_count = 0
+    unparseable_candidate_count = 0
+
     for record in records:
         inspection = record["inspection"]
         resolution = record["resolution"]
-        parseable_candidates, unparseable_candidates = _candidate_parse_counts(inspection)
-        payload.append(
+        source_kinds.append(str(resolution.source_kind))
+        confidences.append(str(resolution.confidence))
+        timezone_statuses.append(str(resolution.timezone_status))
+        policy = getattr(resolution, "decision_policy", None)
+        if policy:
+            decision_policies.append(str(policy))
+        if getattr(resolution, "metadata_conflict", False):
+            metadata_conflict_count += 1
+        if inspection.metadata_available:
+            metadata_available_count += 1
+        if inspection.exiftool_available:
+            exiftool_available_count += 1
+        error_kind = getattr(inspection, "metadata_error_kind", None)
+        if error_kind:
+            metadata_error_kinds.append(str(error_kind))
+        if inspection.error:
+            warning_count += 1
+        parseable_candidate_count += record["parseable_candidate_count"]
+        unparseable_candidate_count += record["unparseable_candidate_count"]
+
+    summary: dict[str, object] = {
+        "total_files": len(records),
+        "metadata_available_count": metadata_available_count,
+        "exiftool_available_count": exiftool_available_count,
+        "warning_count": warning_count,
+        "source_kind_summary": _count_by_label(source_kinds),
+        "confidence_summary": _count_by_label(confidences),
+        "timezone_status_summary": _count_by_label(timezone_statuses),
+        "metadata_error_kind_summary": _count_by_label(metadata_error_kinds),
+        "decision_policy_summary": _count_by_label(decision_policies),
+        "metadata_conflict_count": metadata_conflict_count,
+        "parseable_candidate_count": parseable_candidate_count,
+        "unparseable_candidate_count": unparseable_candidate_count,
+        # backward-compatible keys
+        "metadata": _count_by_label([item for item in source_kinds if item == "metadata"]).get("metadata", 0),
+        "filename": _count_by_label([item for item in source_kinds if item == "filename"]).get("filename", 0),
+        "file_system": _count_by_label([item for item in source_kinds if item == "file_system"]).get("file_system", 0),
+        "warnings": warning_count,
+    }
+    return summary
+
+
+def _build_payload(records) -> dict[str, object]:
+    items = []
+    for record in records:
+        inspection = record["inspection"]
+        resolution = record["resolution"]
+        items.append(
             {
                 "path": str(inspection.path),
                 "selected_value": inspection.selected_value,
@@ -80,20 +181,12 @@ def _build_payload(records) -> list[dict[str, object]]:
                 "file_modified_value": inspection.file_modified_value,
                 "metadata_available": inspection.metadata_available,
                 "exiftool_available": inspection.exiftool_available,
-                "metadata_tag_count": inspection.metadata_tag_count,
-                "metadata_error_kind": inspection.metadata_error_kind,
+                "metadata_tag_count": getattr(inspection, "metadata_tag_count", 0),
+                "metadata_error_kind": getattr(inspection, "metadata_error_kind", None),
                 "error": inspection.error,
-                "parseable_candidate_count": parseable_candidates,
-                "unparseable_candidate_count": unparseable_candidates,
-                "date_candidates": [
-                    {
-                        "source_tag": candidate.source_tag,
-                        "value": candidate.value,
-                        "priority_index": candidate.priority_index,
-                        "parseable": parse_datetime_value(candidate.value) is not None,
-                    }
-                    for candidate in inspection.date_candidates
-                ],
+                "parseable_candidate_count": record["parseable_candidate_count"],
+                "unparseable_candidate_count": record["unparseable_candidate_count"],
+                "date_candidates": record["candidate_rows"],
                 "resolution": {
                     "resolved_value": resolution.resolved_value,
                     "source_kind": resolution.source_kind,
@@ -102,79 +195,25 @@ def _build_payload(records) -> list[dict[str, object]]:
                     "timezone_status": resolution.timezone_status,
                     "reason": resolution.reason,
                     "candidates_checked": resolution.candidates_checked,
-                    "parseable_candidate_count": resolution.parseable_candidate_count,
-                    "unparseable_candidate_count": resolution.unparseable_candidate_count,
-                    "metadata_conflict": resolution.metadata_conflict,
-                    "decision_policy": resolution.decision_policy,
+                    "decision_policy": getattr(resolution, "decision_policy", None),
+                    "metadata_conflict": getattr(resolution, "metadata_conflict", False),
+                    "parseable_candidate_count": getattr(resolution, "parseable_candidate_count", record["parseable_candidate_count"]),
+                    "unparseable_candidate_count": getattr(resolution, "unparseable_candidate_count", record["unparseable_candidate_count"]),
                 },
             }
         )
-    return payload
-
-
-def _build_summary(records) -> dict[str, object]:
-    source_kind_summary: Counter[str] = Counter()
-    confidence_summary: Counter[str] = Counter()
-    timezone_status_summary: Counter[str] = Counter()
-    metadata_error_kind_summary: Counter[str] = Counter()
-    decision_policy_summary: Counter[str] = Counter()
-
-    metadata_available_count = 0
-    exiftool_available_count = 0
-    warning_count = 0
-    parseable_candidate_count = 0
-    unparseable_candidate_count = 0
-    metadata_conflict_count = 0
-
-    for record in records:
-        inspection = record["inspection"]
-        resolution = record["resolution"]
-        source_kind_summary[resolution.source_kind] += 1
-        confidence_summary[resolution.confidence] += 1
-        timezone_status_summary[resolution.timezone_status] += 1
-        if resolution.decision_policy:
-            decision_policy_summary[resolution.decision_policy] += 1
-        if inspection.metadata_available:
-            metadata_available_count += 1
-        if inspection.exiftool_available:
-            exiftool_available_count += 1
-        if inspection.error or inspection.metadata_error_kind:
-            warning_count += 1
-        if inspection.metadata_error_kind:
-            metadata_error_kind_summary[inspection.metadata_error_kind] += 1
-        if resolution.metadata_conflict:
-            metadata_conflict_count += 1
-        parseable, unparseable = _candidate_parse_counts(inspection)
-        parseable_candidate_count += parseable
-        unparseable_candidate_count += unparseable
-
-    source_kind_dict = dict(source_kind_summary)
     return {
-        "total_files": len(records),
-        "metadata_available_count": metadata_available_count,
-        "exiftool_available_count": exiftool_available_count,
-        "warning_count": warning_count,
-        "metadata": source_kind_dict.get("metadata", 0),
-        "filename": source_kind_dict.get("filename", 0),
-        "file_system": source_kind_dict.get("file_system", 0),
-        "warnings": warning_count,
-        "source_kind_summary": source_kind_dict,
-        "confidence_summary": dict(confidence_summary),
-        "timezone_status_summary": dict(timezone_status_summary),
-        "decision_policy_summary": dict(decision_policy_summary),
-        "metadata_error_kind_summary": dict(metadata_error_kind_summary),
-        "parseable_candidate_count": parseable_candidate_count,
-        "unparseable_candidate_count": unparseable_candidate_count,
-        "metadata_conflict_count": metadata_conflict_count,
+        "summary": _build_summary(records),
+        "files": items,
     }
 
 
-def _print_counter_block(label: str, counter: dict[str, int]) -> None:
-    if not counter:
-        print(f"{label}: none")
+def _print_summary_block(title: str, summary: dict[str, int]) -> None:
+    if not summary:
         return
-    rendered = " | ".join(f"{key}={value}" for key, value in sorted(counter.items()))
-    print(f"{label}: {rendered}")
+    print(title)
+    for key, value in summary.items():
+        print(f"  {key}: {value}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -193,60 +232,68 @@ def main(argv: list[str] | None = None) -> int:
     for path in targets:
         inspection = inspect_media_file(path, exiftool_path=exiftool_path)
         resolution = resolve_capture_datetime(path, inspection=inspection, exiftool_path=exiftool_path)
-        records.append({"inspection": inspection, "resolution": resolution})
+        candidate_rows, parseable_count, unparseable_count = _record_candidate_stats(inspection)
+        records.append(
+            {
+                "inspection": inspection,
+                "resolution": resolution,
+                "candidate_rows": candidate_rows,
+                "parseable_candidate_count": parseable_count,
+                "unparseable_candidate_count": unparseable_count,
+            }
+        )
+
+    payload = _build_payload(records)
 
     if args.json:
-        print(json.dumps({"summary": _build_summary(records), "files": _build_payload(records)}, indent=2, ensure_ascii=False))
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
         return 0 if records else 1
 
     if not records:
         print("No media files found to inspect.")
         return 1
 
-    summary = _build_summary(records)
-
     if directories:
         print(f"Scanned {len(directories)} director{'y' if len(directories) == 1 else 'ies'} and selected {len(records)} file(s) for inspection.")
         print()
 
-    print(f"Inspect summary: total={summary['total_files']} | metadata-available={summary['metadata_available_count']} | exiftool-available={summary['exiftool_available_count']} | warnings={summary['warning_count']}")
-    _print_counter_block("  Resolution sources", summary["source_kind_summary"])
-    _print_counter_block("  Confidence summary", summary["confidence_summary"])
-    _print_counter_block("  Timezone summary", summary["timezone_status_summary"])
-    _print_counter_block("  Decision policies", summary["decision_policy_summary"])
-    _print_counter_block("  Metadata issues", summary["metadata_error_kind_summary"])
-    print(f"  Candidate parseability: parseable={summary['parseable_candidate_count']} | unparseable={summary['unparseable_candidate_count']} | metadata-conflicts={summary['metadata_conflict_count']}")
+    summary = payload["summary"]
+    print("Inspect summary")
+    print(f"  Total files: {summary['total_files']}")
+    print(f"  Metadata available: {summary['metadata_available_count']}")
+    print(f"  ExifTool available: {summary['exiftool_available_count']}")
+    print(f"  Warnings: {summary['warning_count']}")
+    print(f"  Metadata conflicts: {summary['metadata_conflict_count']}")
+    print(f"  Parseable candidates: {summary['parseable_candidate_count']}")
+    print(f"  Unparseable candidates: {summary['unparseable_candidate_count']}")
+    _print_summary_block("\nSource kinds", summary["source_kind_summary"])
+    _print_summary_block("\nConfidence summary", summary["confidence_summary"])
+    _print_summary_block("\nTimezone summary", summary["timezone_status_summary"])
+    _print_summary_block("\nDecision policies", summary["decision_policy_summary"])
+    _print_summary_block("\nMetadata error kinds", summary["metadata_error_kind_summary"])
     print()
 
     for record in records:
         item = record["inspection"]
         resolution = record["resolution"]
-        parseable_candidates, unparseable_candidates = _candidate_parse_counts(item)
         print(item.path)
-        print(f"  Resolved:           {resolution.resolved_value}")
-        print(f"  Source:             {resolution.source_kind}:{resolution.source_label}")
-        print(f"  Confidence:         {resolution.confidence}")
-        print(f"  Timezone:           {resolution.timezone_status}")
-        print(f"  Decision policy:    {resolution.decision_policy or '-'}")
-        print(f"  Metadata conflict:  {resolution.metadata_conflict}")
-        print(f"  Fallback:           {item.file_modified_value}")
-        print(f"  Metadata tags:      {item.metadata_tag_count}")
-        print(f"  Metadata available: {item.metadata_available}")
-        print(f"  ExifTool available: {item.exiftool_available}")
-        print(f"  Candidate parsing:  parseable={parseable_candidates} | unparseable={unparseable_candidates}")
-        print(f"  Reason:             {resolution.reason}")
-        if item.metadata_error_kind:
-            print(f"  Metadata issue:     {item.metadata_error_kind}")
+        print(f"  Resolved:   {resolution.resolved_value}")
+        print(f"  Source:     {resolution.source_kind}:{resolution.source_label}")
+        print(f"  Confidence: {resolution.confidence}")
+        print(f"  Timezone:   {resolution.timezone_status}")
+        print(f"  Fallback:   {item.file_modified_value}")
+        print(f"  Reason:     {resolution.reason}")
+        print(f"  Policy:     {getattr(resolution, 'decision_policy', '-')}")
+        print(f"  Conflict:   {getattr(resolution, 'metadata_conflict', False)}")
         if item.error:
-            print(f"  Error:              {item.error}")
-        if item.date_candidates:
+            print(f"  Error:      {item.error}")
+        if record["candidate_rows"]:
             print("  Candidates:")
-            for candidate in item.date_candidates:
-                parseable = parse_datetime_value(candidate.value) is not None
-                parse_state = "parseable" if parseable else "unparseable"
-                print(f"    - [{candidate.priority_index}] {candidate.source_tag}: {candidate.value} ({parse_state})")
+            for candidate in record["candidate_rows"]:
+                parseable_marker = "parseable" if candidate["parseable"] else "unparseable"
+                print(f"    - [{candidate['priority_index']}] {candidate['source_tag']}: {candidate['value']} ({parseable_marker})")
         else:
-            print("  Candidates:         none")
+            print("  Candidates: none")
         print()
 
     return 0
