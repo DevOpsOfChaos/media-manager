@@ -1,0 +1,113 @@
+diff --git a/src/media_manager/cli_duplicates.py b/src/media_manager/cli_duplicates.py
+index ae96eb4..1111111 100644
+--- a/src/media_manager/cli_duplicates.py
++++ b/src/media_manager/cli_duplicates.py
+@@ -264,6 +264,15 @@ def _build_execution_reason_summary(execution_result) -> dict[str, int]:
+
+
+ def _build_json_report_payload(result, bundle, execution_result, *, session_restore=None, similar_result=None, similar_review=None) -> dict[str, object]:
++    cleanup_plan = getattr(bundle, "cleanup_plan", None)
++    dry_run = getattr(bundle, "dry_run", None)
++    execution_preview = getattr(bundle, "execution_preview", None)
++
++    planned_removals = list(getattr(cleanup_plan, "planned_removals", []) or [])
++    unresolved_items = list(getattr(cleanup_plan, "unresolved", []) or [])
++    planned_actions = list(getattr(dry_run, "planned_actions", []) or [])
++    blocked_actions = list(getattr(dry_run, "blocked_actions", []) or [])
++    execution_preview_rows = list(getattr(execution_preview, "rows", []) or [])
++
+     payload = {
+         "scan": {
+             "scanned_files": result.scanned_files,
+@@ -321,14 +330,14 @@ def _build_json_report_payload(result, bundle, execution_result, *, session_rest
+         "decision_rows": _build_decision_rows(result.exact_groups, bundle.decisions, session_restore),
+         "decisions": bundle.decisions,
+         "cleanup_plan": {
+-            "total_groups": bundle.cleanup_plan.total_groups,
+-            "resolved_groups": bundle.cleanup_plan.resolved_groups,
+-            "unresolved_groups": bundle.cleanup_plan.unresolved_groups,
+-            "planned_removals": len(bundle.cleanup_plan.planned_removals),
+-            "estimated_reclaimable_bytes": bundle.cleanup_plan.estimated_reclaimable_bytes,
++            "total_groups": getattr(cleanup_plan, "total_groups", len(result.exact_groups)),
++            "resolved_groups": getattr(cleanup_plan, "resolved_groups", len(bundle.decisions)),
++            "unresolved_groups": getattr(cleanup_plan, "unresolved_groups", max(0, len(result.exact_groups) - len(bundle.decisions))),
++            "planned_removals": len(planned_removals),
++            "estimated_reclaimable_bytes": getattr(cleanup_plan, "estimated_reclaimable_bytes", 0),
+             "unresolved": [
+                 {
+-                    "group_id": item.group_id,
++                    "group_id": str(item.group_id),
+                     "file_size": item.file_size,
+                     "candidate_count": len(item.candidate_paths),
+                     "candidate_paths": [str(path) for path in item.candidate_paths],
+@@ -338,16 +347,16 @@ def _build_json_report_payload(result, bundle, execution_result, *, session_rest
+         },
+         "dry_run": {
+-            "ready": bundle.dry_run.ready,
+-            "planned_count": bundle.dry_run.planned_count,
+-            "blocked_count": bundle.dry_run.blocked_count,
+-            "delete_count": bundle.dry_run.delete_count,
+-            "exclude_from_copy_count": bundle.dry_run.exclude_from_copy_count,
+-            "exclude_from_move_count": bundle.dry_run.exclude_from_move_count,
++            "ready": getattr(dry_run, "ready", False),
++            "planned_count": getattr(dry_run, "planned_count", len(planned_actions)),
++            "blocked_count": getattr(dry_run, "blocked_count", len(blocked_actions)),
++            "delete_count": getattr(dry_run, "delete_count", 0),
++            "exclude_from_copy_count": getattr(dry_run, "exclude_from_copy_count", 0),
++            "exclude_from_move_count": getattr(dry_run, "exclude_from_move_count", 0),
+             "rows": [
+                 {
+                     "action_type": row.action_type,
+                     "group_id": row.group_id,
+-                    "operation_mode": row.operation_mode,
++                    "operation_mode": getattr(row, "operation_mode", None),
+                     "source_path": str(row.source_path),
+                     "survivor_path": str(row.survivor_path) if row.survivor_path else None,
+                     "target_path": str(row.target_path) if row.target_path else None,
+@@ -355,17 +364,17 @@ def _build_json_report_payload(result, bundle, execution_result, *, session_rest
+                     "reason": row.reason,
+                     "status": row.status,
+                 }
+-                for row in [*bundle.dry_run.planned_actions, *bundle.dry_run.blocked_actions]
++                for row in [*planned_actions, *blocked_actions]
+             ],
+         },
+         "execution_preview": {
+-            "ready": bundle.execution_preview.ready,
+-            "executable_count": bundle.execution_preview.executable_count,
+-            "deferred_count": bundle.execution_preview.deferred_count,
+-            "blocked_count": bundle.execution_preview.blocked_count,
+-            "delete_count": bundle.execution_preview.delete_count,
+-            "reason_summary": _execution_preview_reason_summary(bundle.execution_preview),
++            "ready": getattr(execution_preview, "ready", False),
++            "executable_count": getattr(execution_preview, "executable_count", 0),
++            "deferred_count": getattr(execution_preview, "deferred_count", 0),
++            "blocked_count": getattr(execution_preview, "blocked_count", 0),
++            "delete_count": getattr(execution_preview, "delete_count", 0),
++            "reason_summary": _execution_preview_reason_summary(execution_preview),
+             "rows": [
+                 {
+                     "row_type": row.row_type,
+@@ -377,7 +386,7 @@ def _build_json_report_payload(result, bundle, execution_result, *, session_rest
+                     "file_size": row.file_size,
+                     "reason": row.reason,
+                 }
+-                for row in bundle.execution_preview.rows
++                for row in execution_preview_rows
+             ],
+         },
+         "execution_run": None
+diff --git a/src/media_manager/cli_inspect.py b/src/media_manager/cli_inspect.py
+index 58bdaca..2222222 100644
+--- a/src/media_manager/cli_inspect.py
++++ b/src/media_manager/cli_inspect.py
+@@ -225,6 +225,9 @@ def main(argv: list[str] | None = None) -> int:
+     print(f"  Warnings: {summary['warning_count']}")
+     print(f"  Metadata conflicts: {summary['metadata_conflict_count']}")
+     print(f"  Parseable candidates: {summary['parseable_candidate_count']}")
++    if summary["decision_policy_summary"]:
++        compact_policy_summary = ", ".join(f"{key}={value}" for key, value in summary["decision_policy_summary"].items())
++        print(f"Decision policies: {compact_policy_summary}")
+     print(f"  Unparseable candidates: {summary['unparseable_candidate_count']}")
+     _print_summary_block("\nSource kinds", summary["source_kind_summary"])
+     _print_summary_block("\nConfidence summary", summary["confidence_summary"])
