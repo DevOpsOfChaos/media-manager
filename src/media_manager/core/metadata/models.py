@@ -20,4 +20,6 @@ class FileInspection:
     file_modified_value: str = ""
     metadata_available: bool = False
     exiftool_available: bool = False
+    metadata_tag_count: int = 0
+    metadata_error_kind: str | None = None
     error: str | None = None

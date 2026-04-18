@@ -93,6 +93,8 @@ def _build_payload(records) -> list[dict[str, object]]:
             "file_modified_value": record["inspection"].file_modified_value,
             "metadata_available": record["inspection"].metadata_available,
             "exiftool_available": record["inspection"].exiftool_available,
+            "metadata_tag_count": record["inspection"].metadata_tag_count,
+            "metadata_error_kind": record["inspection"].metadata_error_kind,
             "error": record["inspection"].error,
             "date_candidates": [
                 {
@@ -116,6 +118,17 @@ def _build_payload(records) -> list[dict[str, object]]:
     ]
 
 
+def _build_summary(records) -> dict[str, int]:
+    summary = {"metadata": 0, "filename": 0, "file_system": 0, "warnings": 0}
+    for record in records:
+        inspection = record["inspection"]
+        resolution = record["resolution"]
+        summary[resolution.source_kind] = summary.get(resolution.source_kind, 0) + 1
+        if inspection.error or inspection.metadata_error_kind:
+            summary["warnings"] += 1
+    return summary
+
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
@@ -136,29 +149,45 @@ def main(argv: list[str] | None = None) -> int:
         records.append({"inspection": inspection, "resolution": resolution})
 
     if args.json:
-        print(json.dumps(_build_payload(records), indent=2, ensure_ascii=False))
+        print(json.dumps({"summary": _build_summary(records), "files": _build_payload(records)}, indent=2, ensure_ascii=False))
         return 0 if records else 1
 
     if not records:
         print("No media files found to inspect.")
         return 1
 
+    summary = _build_summary(records)
+
     if directories:
         print(f"Scanned {len(directories)} director{'y' if len(directories) == 1 else 'ies'} and selected {len(records)} file(s) for inspection.")
         print()
+
+    print(
+        "Inspect summary: "
+        f"metadata={summary.get('metadata', 0)} | "
+        f"filename={summary.get('filename', 0)} | "
+        f"file_system={summary.get('file_system', 0)} | "
+        f"warnings={summary.get('warnings', 0)}"
+    )
+    print()
 
     for record in records:
         item = record["inspection"]
         resolution = record["resolution"]
         print(item.path)
-        print(f"  Resolved:   {resolution.resolved_value}")
-        print(f"  Source:     {resolution.source_kind}:{resolution.source_label}")
-        print(f"  Confidence: {resolution.confidence}")
-        print(f"  Timezone:   {resolution.timezone_status}")
-        print(f"  Fallback:   {item.file_modified_value}")
-        print(f"  Reason:     {resolution.reason}")
+        print(f"  Resolved:           {resolution.resolved_value}")
+        print(f"  Source:             {resolution.source_kind}:{resolution.source_label}")
+        print(f"  Confidence:         {resolution.confidence}")
+        print(f"  Timezone:           {resolution.timezone_status}")
+        print(f"  Fallback:           {item.file_modified_value}")
+        print(f"  Metadata tags:      {item.metadata_tag_count}")
+        print(f"  Metadata available: {item.metadata_available}")
+        print(f"  ExifTool available: {item.exiftool_available}")
+        print(f"  Reason:             {resolution.reason}")
+        if item.metadata_error_kind:
+            print(f"  Metadata issue:     {item.metadata_error_kind}")
         if item.error:
-            print(f"  Error:      {item.error}")
+            print(f"  Error:              {item.error}")
         if item.date_candidates:
             print("  Candidates:")
             for candidate in item.date_candidates:
