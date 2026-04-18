@@ -57,7 +57,7 @@ def test_build_exact_cleanup_plan_creates_removal_candidates_for_resolved_groups
     assert plan.extra_duplicates == 2
     assert plan.estimated_reclaimable_bytes == 4096
     assert len(plan.planned_removals) == 2
-    assert {str(item.remove_path) for item in plan.planned_removals} == {
+    assert {item.remove_path.as_posix() for item in plan.planned_removals} == {
         "/library/a/photo1.jpg",
         "/library/c/photo1.jpg",
     }
