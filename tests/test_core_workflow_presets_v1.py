@@ -4,12 +4,14 @@ import json
 from pathlib import Path
 
 from media_manager.core.workflows import (
+    build_workflow_profile_argv,
     get_workflow_preset,
     list_workflow_presets,
     load_workflow_profile,
     render_workflow_preset_command,
     render_workflow_profile_command,
     save_workflow_profile,
+    validate_workflow_profile,
 )
 
 
@@ -92,3 +94,55 @@ def test_save_workflow_profile_roundtrip(tmp_path: Path) -> None:
     assert loaded.profile_name == "Family cleanup"
     assert loaded.preset_name == "cleanup-family-library"
     assert command.startswith("media-manager workflow run cleanup")
+
+
+def test_build_workflow_profile_argv_returns_trip_command_parts(tmp_path: Path) -> None:
+    profile_path = tmp_path / "italy-trip.json"
+    profile_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Italy 2025",
+                "preset": "trip-hardlink-collection",
+                "values": {
+                    "source": ["C:/Phone", "D:/Camera"],
+                    "target": "E:/Trips",
+                    "label": "Italy_2025",
+                    "start": "2025-08-01",
+                    "end": "2025-08-14",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    profile = load_workflow_profile(profile_path)
+    argv = build_workflow_profile_argv(profile)
+
+    assert argv[:4] == ["media-manager", "workflow", "run", "trip"]
+    assert "--source" in argv
+    assert "--label" in argv
+    assert "--link" in argv
+
+
+def test_validate_workflow_profile_reports_missing_values(tmp_path: Path) -> None:
+    profile_path = tmp_path / "broken-trip.json"
+    profile_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Broken trip",
+                "preset": "trip-hardlink-collection",
+                "values": {
+                    "source": ["C:/Phone"],
+                    "target": "E:/Trips",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    profile = load_workflow_profile(profile_path)
+    validation = validate_workflow_profile(profile)
+
+    assert validation.valid is False
+    assert set(validation.missing_values) == {"label", "start", "end"}
+    assert validation.command_preview is None

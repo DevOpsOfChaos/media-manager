@@ -13,6 +13,7 @@ except Exception:  # pragma: no cover - compatibility fallback
 
 from .core.state import find_latest_history_entry, scan_history_directory
 from .core.workflows import (
+    build_workflow_profile_argv,
     build_workflow_wizard_result,
     get_workflow_definition,
     get_workflow_preset,
@@ -24,6 +25,7 @@ from .core.workflows import (
     render_workflow_preset_command,
     render_workflow_profile_command,
     save_workflow_profile,
+    validate_workflow_profile,
 )
 
 
@@ -98,6 +100,10 @@ def build_parser() -> argparse.ArgumentParser:
     profile_show_parser.add_argument("path", type=Path, help="Path to the workflow profile JSON file.")
     profile_show_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
+    profile_validate_parser = subparsers.add_parser("profile-validate", help="Validate a workflow profile JSON file.")
+    profile_validate_parser.add_argument("path", type=Path, help="Path to the workflow profile JSON file.")
+    profile_validate_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
     profile_save_parser = subparsers.add_parser("profile-save", help="Create or update a workflow profile JSON file from a preset.")
     profile_save_parser.add_argument("path", type=Path, help="Path where the workflow profile JSON file should be written.")
     profile_save_parser.add_argument("--preset", required=True, help="Preset name.")
@@ -105,6 +111,10 @@ def build_parser() -> argparse.ArgumentParser:
     profile_save_parser.add_argument("--overwrite", action="store_true", help="Allow overwriting an existing profile JSON file.")
     _add_preset_override_arguments(profile_save_parser)
     profile_save_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+    profile_run_parser = subparsers.add_parser("profile-run", help="Run a delegated workflow command from a saved profile.")
+    profile_run_parser.add_argument("path", type=Path, help="Path to the workflow profile JSON file.")
+    profile_run_parser.add_argument("--show-command", action="store_true", help="Print the rendered workflow command before delegation.")
 
     run_parser = subparsers.add_parser("run", help="Run a workflow through the shell.")
     run_parser.add_argument("workflow", help="Workflow name to run.")
@@ -186,6 +196,18 @@ def _history_payload(item) -> dict[str, object]:
         "created_at_utc": item.created_at_utc,
         "entry_count": item.entry_count,
         "reversible_entry_count": item.reversible_entry_count,
+    }
+
+
+def _profile_validation_payload(validation) -> dict[str, object]:
+    return {
+        "profile_name": validation.profile_name,
+        "preset": validation.preset_name,
+        "workflow": validation.workflow_name,
+        "valid": validation.valid,
+        "missing_values": list(validation.missing_values),
+        "command": validation.command_preview,
+        "problems": list(validation.problems),
     }
 
 
@@ -448,6 +470,33 @@ def _print_profile_show(path: Path, as_json: bool) -> int:
     return 0
 
 
+def _print_profile_validate(path: Path, as_json: bool) -> int:
+    try:
+        profile = load_workflow_profile(path)
+        validation = validate_workflow_profile(profile)
+    except Exception as exc:
+        print(str(exc))
+        return 1
+
+    payload = _profile_validation_payload(validation)
+    if as_json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+    else:
+        print(validation.profile_name)
+        print(f"  Preset: {validation.preset_name}")
+        print(f"  Workflow: {validation.workflow_name}")
+        print(f"  Valid: {validation.valid}")
+        if validation.command_preview:
+            print(f"  Command: {validation.command_preview}")
+        if validation.missing_values:
+            print(f"  Missing values: {', '.join(validation.missing_values)}")
+        if validation.problems:
+            print("  Problems:")
+            for problem in validation.problems:
+                print(f"    - {problem}")
+    return 0 if validation.valid else 1
+
+
 def _print_profile_save(args: argparse.Namespace) -> int:
     try:
         profile = save_workflow_profile(
@@ -480,6 +529,29 @@ def _print_profile_save(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_workflow_profile(path: Path, show_command: bool) -> int:
+    try:
+        profile = load_workflow_profile(path)
+        validation = validate_workflow_profile(profile)
+    except Exception as exc:
+        print(str(exc))
+        return 1
+
+    if not validation.valid or not validation.command_argv or validation.workflow_name is None:
+        if validation.problems:
+            for problem in validation.problems:
+                print(problem)
+        else:
+            print("Workflow profile is not valid.")
+        return 1
+
+    if show_command and validation.command_preview:
+        print(validation.command_preview)
+
+    forwarded_args = list(validation.command_argv[4:])
+    return _run_delegated_workflow(validation.workflow_name, forwarded_args)
+
+
 def _run_delegated_workflow(name: str, forwarded_args: list[str]) -> int:
     normalized = name.strip().lower()
     handler = DELEGATE_HANDLERS.get(normalized)
@@ -507,6 +579,8 @@ def main(argv: list[str] | None = None) -> int:
             "  media-manager workflow render-preset cleanup-family-library --source <A> --source <B> --target <TARGET>\n"
             "  media-manager workflow profile-save profiles/family-cleanup.json --preset cleanup-family-library --source <A> --source <B> --target <TARGET>\n"
             "  media-manager workflow profile-show <PROFILE.json>\n"
+            "  media-manager workflow profile-validate <PROFILE.json>\n"
+            "  media-manager workflow profile-run <PROFILE.json> --show-command\n"
             "  media-manager workflow history --path <RUNS_DIR>\n"
             "  media-manager workflow last --path <RUNS_DIR> --command organize\n"
             "  media-manager workflow run cleanup --source <A> --source <B> --target <TARGET>\n"
@@ -535,8 +609,12 @@ def main(argv: list[str] | None = None) -> int:
         return _print_render_preset(args)
     if args.workflow_command == "profile-show":
         return _print_profile_show(args.path, args.json)
+    if args.workflow_command == "profile-validate":
+        return _print_profile_validate(args.path, args.json)
     if args.workflow_command == "profile-save":
         return _print_profile_save(args)
+    if args.workflow_command == "profile-run":
+        return _run_workflow_profile(args.path, args.show_command)
     if args.workflow_command == "run":
         return _run_delegated_workflow(args.workflow, list(args.args))
 

@@ -1,9 +1,8 @@
-Apply ZIP 024 into your repo root and replace existing files.
+Copy these files into your repo root and replace existing files when prompted.
 
-Included in this package:
-- preset/profile fix for list-valued required fields
-- profile-save / overwrite workflow command
-
-Recommended checks:
+Recommended check:
 1. python -m pytest tests/test_core_workflow_presets_v1.py tests/test_cli_workflow_presets_v1.py
 2. python -m pytest
+3. git add .
+4. git commit -m "add workflow profile run and validation v1"
+5. git push origin main

@@ -31,6 +31,18 @@ class WorkflowProfile:
     values: dict[str, object]
 
 
+@dataclass(slots=True, frozen=True)
+class WorkflowProfileValidation:
+    profile_name: str
+    preset_name: str
+    workflow_name: str | None
+    valid: bool
+    missing_values: tuple[str, ...]
+    command_argv: tuple[str, ...]
+    command_preview: str | None
+    problems: tuple[str, ...]
+
+
 WORKFLOW_PRESETS: tuple[WorkflowPreset, ...] = (
     WorkflowPreset(
         name="cleanup-family-library",
@@ -180,6 +192,10 @@ def _quote_if_needed(value: str) -> str:
     return f'"{value}"' if any(ch.isspace() for ch in value) else value
 
 
+def _render_command_parts(parts: list[str]) -> str:
+    return " ".join(_quote_if_needed(part) for part in parts)
+
+
 def _extend_source_args(parts: list[str], values: dict[str, object]) -> None:
     sources = values.get("source")
     if isinstance(sources, list):
@@ -190,7 +206,14 @@ def _extend_source_args(parts: list[str], values: dict[str, object]) -> None:
         source_values = [str(sources)]
 
     for item in source_values:
-        parts.extend(["--source", _quote_if_needed(item)])
+        parts.extend(["--source", item])
+
+
+def _resolve_preset_values(preset: WorkflowPreset, overrides: dict[str, object] | None) -> dict[str, object]:
+    values = dict(preset.default_values)
+    if overrides:
+        values.update(_normalize_profile_values(overrides))
+    return values
 
 
 def _build_command_parts_for_preset(preset: WorkflowPreset, values: dict[str, object]) -> list[str]:
@@ -202,7 +225,7 @@ def _build_command_parts_for_preset(preset: WorkflowPreset, values: dict[str, ob
         value = values.get(key)
         if _is_missing_required_value(value):
             return
-        parts.extend([flag, _quote_if_needed(str(value))])
+        parts.extend([flag, str(value)])
 
     if workflow == "cleanup":
         add_arg("--target", "target")
@@ -231,11 +254,11 @@ def _build_command_parts_for_preset(preset: WorkflowPreset, values: dict[str, ob
     return parts
 
 
-def render_workflow_preset_command(
+def build_workflow_preset_argv(
     preset_name: str,
     *,
     overrides: dict[str, object] | None = None,
-) -> str:
+) -> list[str]:
     preset = get_workflow_preset(preset_name)
     if preset is None:
         raise ValueError(f"Unknown workflow preset: {preset_name}")
@@ -244,10 +267,7 @@ def render_workflow_preset_command(
     if workflow is None:
         raise ValueError(f"Preset points to unknown workflow: {preset.workflow}")
 
-    values = dict(preset.default_values)
-    if overrides:
-        values.update(_normalize_profile_values(overrides))
-
+    values = _resolve_preset_values(preset, overrides)
     missing = [
         key
         for key in preset.required_values
@@ -257,11 +277,70 @@ def render_workflow_preset_command(
         missing_text = ", ".join(missing)
         raise ValueError(f"Workflow preset '{preset.name}' is missing required values: {missing_text}")
 
-    return " ".join(_build_command_parts_for_preset(preset, values))
+    return _build_command_parts_for_preset(preset, values)
+
+
+def render_workflow_preset_command(
+    preset_name: str,
+    *,
+    overrides: dict[str, object] | None = None,
+) -> str:
+    return _render_command_parts(build_workflow_preset_argv(preset_name, overrides=overrides))
+
+
+def build_workflow_profile_argv(profile: WorkflowProfile) -> list[str]:
+    return build_workflow_preset_argv(profile.preset_name, overrides=profile.values)
 
 
 def render_workflow_profile_command(profile: WorkflowProfile) -> str:
-    return render_workflow_preset_command(profile.preset_name, overrides=profile.values)
+    return _render_command_parts(build_workflow_profile_argv(profile))
+
+
+def validate_workflow_profile(profile: WorkflowProfile) -> WorkflowProfileValidation:
+    preset = get_workflow_preset(profile.preset_name)
+    if preset is None:
+        return WorkflowProfileValidation(
+            profile_name=profile.profile_name,
+            preset_name=profile.preset_name,
+            workflow_name=None,
+            valid=False,
+            missing_values=(),
+            command_argv=(),
+            command_preview=None,
+            problems=(f"Unknown workflow preset: {profile.preset_name}",),
+        )
+
+    values = _resolve_preset_values(preset, profile.values)
+    missing = tuple(
+        key
+        for key in preset.required_values
+        if key not in values or _is_missing_required_value(values[key])
+    )
+    problems: list[str] = []
+    if missing:
+        problems.append(f"Missing required values: {', '.join(missing)}")
+
+    workflow = get_workflow_definition(preset.workflow)
+    if workflow is None:
+        problems.append(f"Preset points to unknown workflow: {preset.workflow}")
+
+    command_argv: tuple[str, ...] = ()
+    command_preview: str | None = None
+    if not problems:
+        parts = _build_command_parts_for_preset(preset, values)
+        command_argv = tuple(parts)
+        command_preview = _render_command_parts(parts)
+
+    return WorkflowProfileValidation(
+        profile_name=profile.profile_name,
+        preset_name=profile.preset_name,
+        workflow_name=preset.workflow,
+        valid=len(problems) == 0,
+        missing_values=missing,
+        command_argv=command_argv,
+        command_preview=command_preview,
+        problems=tuple(problems),
+    )
 
 
 def build_workflow_profile_payload(
@@ -299,7 +378,9 @@ def save_workflow_profile(
         values=dict(payload["values"]),
     )
 
-    render_workflow_profile_command(profile)
+    validation = validate_workflow_profile(profile)
+    if not validation.valid:
+        raise ValueError("; ".join(validation.problems))
 
     file_path = Path(path)
     if file_path.exists() and not overwrite:
