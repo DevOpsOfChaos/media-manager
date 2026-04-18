@@ -4,7 +4,11 @@ import argparse
 import json
 from pathlib import Path
 
-from .duplicate_session_store import restore_duplicate_decisions, save_duplicate_session_snapshot
+from .duplicate_session_store import (
+    restore_duplicate_decisions,
+    restore_duplicate_session,
+    save_duplicate_session_snapshot,
+)
 from .duplicate_workflow import (
     build_duplicate_decisions,
     build_duplicate_workflow_bundle,
@@ -162,21 +166,55 @@ def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) ->
         parser.error("--show-similar-review requires --similar-images.")
 
 
-def _build_decisions(result, args: argparse.Namespace) -> dict[str, str]:
+def _build_decisions(result, args: argparse.Namespace) -> tuple[dict[str, str], object | None]:
     decisions: dict[str, str] = {}
+    session_restore = None
 
     if args.load_session is not None:
-        decisions.update(restore_duplicate_decisions(args.load_session, result.exact_groups))
+        session_restore = restore_duplicate_session(args.load_session, result.exact_groups)
+        decisions.update(session_restore.decisions)
 
     if args.policy:
         auto_decisions = build_duplicate_decisions(result.exact_groups, args.policy)
         for group_id, keep_path in auto_decisions.items():
             decisions.setdefault(group_id, keep_path)
 
-    return decisions
+    return decisions, session_restore
 
 
-def _write_json_report(path: Path, result, bundle, execution_result, *, similar_result=None, similar_review=None) -> None:
+def _scan_stage_errors_payload(result) -> dict[str, int]:
+    return {
+        "size_group_errors": int(getattr(result, "size_group_errors", 0)),
+        "sample_errors": int(getattr(result, "sample_errors", 0)),
+        "hash_errors": int(getattr(result, "hash_errors", 0)),
+        "compare_errors": int(getattr(result, "compare_errors", 0)),
+    }
+
+
+def _session_restore_payload(session_restore) -> dict[str, object] | None:
+    if session_restore is None:
+        return None
+
+    snapshot = getattr(session_restore, "snapshot", None)
+    return {
+        "status": session_restore.status,
+        "reason": session_restore.reason,
+        "decision_count": len(getattr(session_restore, "decisions", {})),
+        "snapshot_exact_group_count": None if snapshot is None else snapshot.exact_group_count,
+        "snapshot_decision_count": None if snapshot is None else snapshot.decision_count,
+    }
+
+
+def _format_stage_error_summary(result) -> str | None:
+    payload = _scan_stage_errors_payload(result)
+    non_zero = {key: value for key, value in payload.items() if value > 0}
+    if not non_zero:
+        return None
+    ordered = [f"{key}={value}" for key, value in non_zero.items()]
+    return "; stage-errors: " + ", ".join(ordered)
+
+
+def _write_json_report(path: Path, result, bundle, execution_result, *, similar_result=None, similar_review=None, session_restore=None) -> None:
     payload = {
         "scan": {
             "scanned_files": result.scanned_files,
@@ -186,6 +224,7 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
             "duplicate_files": result.exact_duplicate_files,
             "extra_duplicates": result.exact_duplicates,
             "errors": result.errors,
+            "stage_errors": _scan_stage_errors_payload(result),
         },
         "similar_images": None if similar_result is None else {
             "scanned_files": similar_result.scanned_files,
@@ -228,6 +267,7 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
                 for row in similar_review.rows
             ],
         },
+        "session_restore": _session_restore_payload(session_restore),
         "decisions": bundle.decisions,
         "cleanup_plan": {
             "total_groups": bundle.cleanup_plan.total_groups,
@@ -344,11 +384,15 @@ def main(argv: list[str] | None = None) -> int:
     _validate_args(parser, args)
 
     result = scan_exact_duplicates(DuplicateScanConfig(source_dirs=args.sources))
-    print(
+    scan_summary = (
         f"Scanned: {result.scanned_files} | Size candidates: {result.size_candidate_files} | "
         f"Hashed: {result.hashed_files} | Exact groups: {len(result.exact_groups)} | "
         f"Duplicate files: {result.exact_duplicate_files} | Extra duplicates: {result.exact_duplicates} | Errors: {result.errors}"
     )
+    stage_error_summary = _format_stage_error_summary(result)
+    if stage_error_summary is not None:
+        scan_summary += stage_error_summary
+    print(scan_summary)
 
     if args.show_groups and result.exact_groups:
         _print_duplicate_groups(result)
@@ -378,13 +422,19 @@ def main(argv: list[str] | None = None) -> int:
         if args.show_similar_review and similar_review.rows:
             _print_similar_review(similar_review)
 
-    decisions = _build_decisions(result, args)
+    decisions, session_restore = _build_decisions(result, args)
     bundle = build_duplicate_workflow_bundle(
         result.exact_groups,
         decisions,
         args.mode,
         target_root=args.target,
     )
+
+    if session_restore is not None:
+        print(
+            "Session restore: "
+            f"status={session_restore.status} | decisions={len(session_restore.decisions)} | reason={session_restore.reason}"
+        )
 
     if args.save_session is not None:
         save_duplicate_session_snapshot(args.save_session, result.exact_groups, bundle.decisions)
@@ -414,6 +464,7 @@ def main(argv: list[str] | None = None) -> int:
             execution_result,
             similar_result=similar_result,
             similar_review=similar_review,
+            session_restore=session_restore,
         )
         print(f"Wrote JSON report: {args.json_report}")
 

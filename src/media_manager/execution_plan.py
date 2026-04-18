@@ -42,12 +42,6 @@ class DuplicateExecutionPreview:
 
 
 def build_duplicate_execution_preview(dry_run: ExactCleanupDryRun) -> DuplicateExecutionPreview:
-    """
-    Convert the exact-duplicate dry run into an execution-oriented preview model.
-
-    This remains intentionally limited to the exact-duplicate path.
-    It does not execute anything and it does not yet model sorting / rename file-system work.
-    """
     preview = DuplicateExecutionPreview(ready=dry_run.ready)
 
     for action in dry_run.planned_actions:

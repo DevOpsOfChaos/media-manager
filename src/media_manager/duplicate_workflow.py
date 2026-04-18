@@ -21,7 +21,6 @@ class DuplicateWorkflowBundle:
     execution_preview: DuplicateExecutionPreview
 
 
-
 def choose_keep_path(group: ExactDuplicateGroup, policy: KeepPolicy) -> Path:
     if not group.files:
         raise ValueError("Exact duplicate group must contain at least one file")
@@ -45,14 +44,12 @@ def choose_keep_path(group: ExactDuplicateGroup, policy: KeepPolicy) -> Path:
     raise ValueError(f"Unsupported keep policy: {policy}")
 
 
-
 def build_duplicate_decisions(exact_groups: list[ExactDuplicateGroup], policy: KeepPolicy) -> dict[str, str]:
     decisions: dict[str, str] = {}
     for group in exact_groups:
         keep_path = choose_keep_path(group, policy)
         decisions[build_exact_group_id(group)] = str(keep_path)
     return decisions
-
 
 
 def build_duplicate_workflow_bundle(
@@ -72,7 +69,6 @@ def build_duplicate_workflow_bundle(
     )
 
 
-
 def build_duplicate_workflow_from_scan(
     scan_result: DuplicateScanResult,
     operation_mode: str,
@@ -89,7 +85,6 @@ def build_duplicate_workflow_from_scan(
         operation_mode,
         target_root=target_root,
     )
-
 
 
 def execute_duplicate_workflow_bundle(

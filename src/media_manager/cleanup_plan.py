@@ -169,13 +169,6 @@ def build_exact_cleanup_dry_run(
     operation_mode: str,
     target_root: str | Path | None = None,
 ) -> ExactCleanupDryRun:
-    """
-    Convert current exact-duplicate decisions into an explicit dry-run model.
-
-    This does not execute anything.
-    It only turns the current exact-duplicate review state into rows that can later
-    drive UI tables, filters, and eventually real execution planning.
-    """
     plan = build_exact_cleanup_plan(exact_groups, decisions, operation_mode)
     target_root_path = Path(target_root) if target_root else None
     dry_run = ExactCleanupDryRun(ready=plan.ready_for_dry_run)
