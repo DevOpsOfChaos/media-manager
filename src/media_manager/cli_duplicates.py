@@ -4,8 +4,9 @@ import argparse
 import json
 from pathlib import Path
 
+from .cleanup_plan import build_exact_group_id
+from .core.state import write_command_run_log, write_execution_journal
 from .duplicate_session_store import (
-    restore_duplicate_decisions,
     restore_duplicate_session,
     save_duplicate_session_snapshot,
 )
@@ -17,8 +18,6 @@ from .duplicate_workflow import (
 from .duplicates import DuplicateScanConfig, scan_exact_duplicates
 from .similar_images import SimilarImageScanConfig, scan_similar_images
 from .similar_review import build_similar_review_report
-from .core.state import write_command_run_log, write_execution_journal
-from .cleanup_plan import build_exact_group_id
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -271,7 +270,7 @@ def _print_decision_rows(rows: list[dict[str, object]]) -> None:
 
 
 def _print_unresolved_groups(bundle) -> None:
-    for item in getattr(bundle.cleanup_plan, "unresolved", []):
+    for item in getattr(getattr(bundle, "cleanup_plan", None), "unresolved", []):
         print(f"\n[Unresolved Group] {item.group_id} | size={item.file_size} | candidates={len(item.candidate_paths)}")
         for path in item.candidate_paths:
             print(f" - {path}")
@@ -298,6 +297,21 @@ def _build_execution_reason_summary(execution_result) -> dict[str, int]:
 
 
 def _build_json_report_payload(result, bundle, execution_result, *, session_restore=None, similar_result=None, similar_review=None) -> dict[str, object]:
+    cleanup_plan = getattr(bundle, "cleanup_plan", None)
+    dry_run = getattr(bundle, "dry_run", None)
+    execution_preview = getattr(bundle, "execution_preview", None)
+
+    cleanup_total_groups = getattr(cleanup_plan, "total_groups", len(getattr(result, "exact_groups", [])))
+    cleanup_resolved_groups = getattr(cleanup_plan, "resolved_groups", 0)
+    cleanup_unresolved_groups = getattr(cleanup_plan, "unresolved_groups", 0)
+    cleanup_planned_removals = getattr(cleanup_plan, "planned_removals", [])
+    cleanup_estimated_reclaimable_bytes = getattr(cleanup_plan, "estimated_reclaimable_bytes", 0)
+    cleanup_unresolved = getattr(cleanup_plan, "unresolved", [])
+
+    planned_actions = list(getattr(dry_run, "planned_actions", []))
+    blocked_actions = list(getattr(dry_run, "blocked_actions", []))
+    preview_rows = list(getattr(execution_preview, "rows", []))
+
     payload = {
         "scan": {
             "scanned_files": result.scanned_files,
@@ -311,6 +325,12 @@ def _build_json_report_payload(result, bundle, execution_result, *, session_rest
             "sample_errors": getattr(result, "sample_errors", 0),
             "hash_errors": getattr(result, "hash_errors", 0),
             "compare_errors": getattr(result, "compare_errors", 0),
+            "stage_errors": {
+                "size_group_errors": getattr(result, "size_group_errors", 0),
+                "sample_errors": getattr(result, "sample_errors", 0),
+                "hash_errors": getattr(result, "hash_errors", 0),
+                "compare_errors": getattr(result, "compare_errors", 0),
+            },
         },
         "similar_images": None if similar_result is None else {
             "scanned_files": similar_result.scanned_files,
@@ -358,11 +378,11 @@ def _build_json_report_payload(result, bundle, execution_result, *, session_rest
         "decision_rows": _build_decision_rows(result.exact_groups, bundle.decisions, session_restore),
         "decisions": bundle.decisions,
         "cleanup_plan": {
-            "total_groups": getattr(bundle.cleanup_plan, "total_groups", len(result.exact_groups)),
-            "resolved_groups": getattr(bundle.cleanup_plan, "resolved_groups", 0),
-            "unresolved_groups": getattr(bundle.cleanup_plan, "unresolved_groups", 0),
-            "planned_removals": len(getattr(bundle.cleanup_plan, "planned_removals", [])),
-            "estimated_reclaimable_bytes": getattr(bundle.cleanup_plan, "estimated_reclaimable_bytes", 0),
+            "total_groups": cleanup_total_groups,
+            "resolved_groups": cleanup_resolved_groups,
+            "unresolved_groups": cleanup_unresolved_groups,
+            "planned_removals": len(cleanup_planned_removals),
+            "estimated_reclaimable_bytes": cleanup_estimated_reclaimable_bytes,
             "unresolved": [
                 {
                     "group_id": item.group_id,
@@ -370,16 +390,16 @@ def _build_json_report_payload(result, bundle, execution_result, *, session_rest
                     "candidate_count": len(item.candidate_paths),
                     "candidate_paths": [str(path) for path in item.candidate_paths],
                 }
-                for item in getattr(bundle.cleanup_plan, "unresolved", [])
+                for item in cleanup_unresolved
             ],
         },
         "dry_run": {
-            "ready": getattr(bundle.dry_run, "ready", False),
-            "planned_count": getattr(bundle.dry_run, "planned_count", 0),
-            "blocked_count": getattr(bundle.dry_run, "blocked_count", 0),
-            "delete_count": getattr(bundle.dry_run, "delete_count", 0),
-            "exclude_from_copy_count": getattr(bundle.dry_run, "exclude_from_copy_count", 0),
-            "exclude_from_move_count": getattr(bundle.dry_run, "exclude_from_move_count", 0),
+            "ready": getattr(dry_run, "ready", False),
+            "planned_count": getattr(dry_run, "planned_count", len(planned_actions)),
+            "blocked_count": getattr(dry_run, "blocked_count", len(blocked_actions)),
+            "delete_count": getattr(dry_run, "delete_count", 0),
+            "exclude_from_copy_count": getattr(dry_run, "exclude_from_copy_count", 0),
+            "exclude_from_move_count": getattr(dry_run, "exclude_from_move_count", 0),
             "rows": [
                 {
                     "action_type": row.action_type,
@@ -392,16 +412,16 @@ def _build_json_report_payload(result, bundle, execution_result, *, session_rest
                     "reason": row.reason,
                     "status": row.status,
                 }
-                for row in [*getattr(bundle.dry_run, "planned_actions", []), *getattr(bundle.dry_run, "blocked_actions", [])]
+                for row in [*planned_actions, *blocked_actions]
             ],
         },
         "execution_preview": {
-            "ready": getattr(bundle.execution_preview, "ready", False),
-            "executable_count": getattr(bundle.execution_preview, "executable_count", 0),
-            "deferred_count": getattr(bundle.execution_preview, "deferred_count", 0),
-            "blocked_count": getattr(bundle.execution_preview, "blocked_count", 0),
-            "delete_count": getattr(bundle.execution_preview, "delete_count", 0),
-            "reason_summary": _execution_preview_reason_summary(bundle.execution_preview),
+            "ready": getattr(execution_preview, "ready", False),
+            "executable_count": getattr(execution_preview, "executable_count", 0),
+            "deferred_count": getattr(execution_preview, "deferred_count", 0),
+            "blocked_count": getattr(execution_preview, "blocked_count", 0),
+            "delete_count": getattr(execution_preview, "delete_count", 0),
+            "reason_summary": _execution_preview_reason_summary(execution_preview),
             "rows": [
                 {
                     "row_type": row.row_type,
@@ -414,7 +434,7 @@ def _build_json_report_payload(result, bundle, execution_result, *, session_rest
                     "file_size": row.file_size,
                     "reason": row.reason,
                 }
-                for row in getattr(bundle.execution_preview, "rows", [])
+                for row in preview_rows
             ],
         },
         "execution_run": None
@@ -423,8 +443,12 @@ def _build_json_report_payload(result, bundle, execution_result, *, session_rest
             "processed_rows": execution_result.processed_rows,
             "executable_rows": execution_result.executable_rows,
             "executed_rows": execution_result.executed_rows,
+            "previewed_rows": getattr(execution_result, "previewed_rows", 0),
+            "deleted_rows": getattr(execution_result, "deleted_rows", 0),
             "deferred_rows": execution_result.deferred_rows,
             "blocked_rows": execution_result.blocked_rows,
+            "blocked_associated_rows": getattr(execution_result, "blocked_associated_rows", 0),
+            "blocked_missing_survivor_rows": getattr(execution_result, "blocked_missing_survivor_rows", 0),
             "error_rows": execution_result.error_rows,
             "outcome_summary": {
                 "preview-delete": getattr(execution_result, "previewed_rows", 0),
