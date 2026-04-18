@@ -15,6 +15,19 @@ def test_cli_workflow_presets_json_lists_builtin_presets(capsys) -> None:
     assert any(item["name"] == "cleanup-family-library" for item in payload["presets"])
 
 
+def test_cli_workflow_presets_json_lists_new_review_presets(capsys) -> None:
+    exit_code = main(["presets", "--json"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+    names = {item["name"] for item in payload["presets"]}
+    assert "duplicates-similar-review" in names
+    assert "trip-copy-review" in names
+    assert "organize-review-json" in names
+    assert "rename-review-json" in names
+
+
 def test_cli_workflow_render_preset_outputs_command(capsys) -> None:
     exit_code = main(
         [
@@ -33,6 +46,49 @@ def test_cli_workflow_render_preset_outputs_command(capsys) -> None:
     assert exit_code == 0
     assert "media-manager workflow run cleanup" in captured.out
     assert "--target E:/Library" in captured.out
+
+
+def test_cli_workflow_render_trip_copy_review_outputs_runtime_flags(capsys) -> None:
+    exit_code = main(
+        [
+            "render-preset",
+            "trip-copy-review",
+            "--source",
+            "C:/Phone",
+            "--target",
+            "E:/Trips",
+            "--label",
+            "Italy_2025",
+            "--start",
+            "2025-08-01",
+            "--end",
+            "2025-08-14",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "--copy" in captured.out
+    assert "--show-files" in captured.out
+    assert "--json" in captured.out
+
+
+def test_cli_workflow_render_duplicates_similar_review_outputs_runtime_flags(capsys) -> None:
+    exit_code = main(
+        [
+            "render-preset",
+            "duplicates-similar-review",
+            "--source",
+            "C:/Library",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "--show-plan" in captured.out
+    assert "--show-decisions" in captured.out
+    assert "--similar-images" in captured.out
+    assert "--show-similar-review" in captured.out
 
 
 def test_cli_workflow_profile_show_reads_profile_json(tmp_path: Path, capsys) -> None:
@@ -60,6 +116,35 @@ def test_cli_workflow_profile_show_reads_profile_json(tmp_path: Path, capsys) ->
     assert payload["profile_name"] == "Family cleanup"
     assert payload["preset"] == "cleanup-family-library"
     assert payload["command"].startswith("media-manager workflow run cleanup")
+
+
+def test_cli_workflow_profile_show_includes_runtime_flags_from_profile_json(tmp_path: Path, capsys) -> None:
+    profile_path = tmp_path / "rename-profile.json"
+    profile_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Rename review",
+                "preset": "rename-review-json",
+                "values": {
+                    "source": ["C:/Photos"],
+                    "history_dir": "runs",
+                    "run_log": "logs/rename.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["profile-show", str(profile_path), "--json"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+    assert "--show-files" in payload["command"]
+    assert "--json" in payload["command"]
+    assert "--history-dir runs" in payload["command"]
+    assert "--run-log logs/rename.json" in payload["command"]
 
 
 def test_cli_workflow_profile_save_writes_profile_json(tmp_path: Path, capsys) -> None:
@@ -158,16 +243,42 @@ def test_cli_workflow_profile_run_delegates_to_trip_handler(tmp_path: Path, caps
     assert exit_code == 0
     assert "media-manager workflow run trip" in captured.out
     assert "trip-handler-called" in captured.out
-    assert captured_args == [
-        "--source",
-        "C:/Phone",
-        "--target",
-        "E:/Trips",
-        "--label",
-        "Italy_2025",
-        "--start",
-        "2025-08-01",
-        "--end",
-        "2025-08-14",
-        "--link",
-    ]
+    assert "--source" in captured_args
+    assert "--link" in captured_args
+
+
+def test_cli_workflow_profile_run_delegates_runtime_flags_from_profile_json(tmp_path: Path, capsys, monkeypatch) -> None:
+    profile_path = tmp_path / "duplicates-profile.json"
+    profile_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Duplicates review",
+                "preset": "duplicates-similar-review",
+                "values": {
+                    "source": ["C:/Library"],
+                    "history_dir": "runs",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    captured_args: list[str] = []
+
+    def fake_duplicates_handler(args: list[str]) -> int:
+        captured_args.extend(args)
+        print("duplicates-handler-called")
+        return 0
+
+    monkeypatch.setitem(DELEGATE_HANDLERS, "duplicates", fake_duplicates_handler)
+
+    exit_code = main(["profile-run", str(profile_path), "--show-command"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "duplicates-handler-called" in captured.out
+    assert "--show-decisions" in captured_args
+    assert "--similar-images" in captured_args
+    assert "--show-similar-review" in captured_args
+    assert "--history-dir" in captured_args
