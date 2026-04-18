@@ -86,6 +86,10 @@ def _build_json_payload(dry_run, execution_result) -> dict[str, object]:
         "skipped_count": dry_run.skipped_count,
         "conflict_count": dry_run.conflict_count,
         "error_count": dry_run.error_count,
+        "status_summary": dry_run.status_summary,
+        "reason_summary": dry_run.reason_summary,
+        "resolution_source_summary": dry_run.resolution_source_summary,
+        "confidence_summary": dry_run.confidence_summary,
         "entries": [
             {
                 "source_path": str(item.source_path),
@@ -110,6 +114,9 @@ def _build_json_payload(dry_run, execution_result) -> dict[str, object]:
             "skipped_count": execution_result.skipped_count,
             "conflict_count": execution_result.conflict_count,
             "error_count": execution_result.error_count,
+            "status_summary": execution_result.status_summary,
+            "action_summary": execution_result.action_summary,
+            "reason_summary": execution_result.reason_summary,
             "entries": [
                 {
                     "source_path": str(entry.source_path),
@@ -151,6 +158,14 @@ def _build_journal_entries(execution_result) -> list[dict[str, object]]:
             }
         )
     return entries
+
+
+def _print_counter_block(label: str, counter: dict[str, int]) -> None:
+    if not counter:
+        print(f"{label}: none")
+        return
+    rendered = " | ".join(f"{key}={value}" for key, value in sorted(counter.items()))
+    print(f"{label}: {rendered}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -208,9 +223,16 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Skipped: {dry_run.skipped_count}")
     print(f"  Conflicts: {dry_run.conflict_count}")
     print(f"  Errors: {dry_run.error_count}")
+    _print_counter_block("  Status summary", dry_run.status_summary)
+    _print_counter_block("  Reason summary", dry_run.reason_summary)
+    _print_counter_block("  Resolution sources", dry_run.resolution_source_summary)
+    _print_counter_block("  Confidence summary", dry_run.confidence_summary)
 
     if args.apply:
         print(f"  Renamed: {execution_result.renamed_count}")
+        _print_counter_block("  Execution statuses", execution_result.status_summary)
+        _print_counter_block("  Execution actions", execution_result.action_summary)
+        _print_counter_block("  Execution reasons", execution_result.reason_summary)
 
     if args.show_files and execution_result.entries:
         print("\nRename entries:")
