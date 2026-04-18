@@ -26,6 +26,8 @@ def test_build_parser_supports_workflow_arguments() -> None:
             "--show-similar-groups",
             "--similar-threshold",
             "5",
+            "--history-dir",
+            "history",
         ]
     )
 
@@ -37,6 +39,7 @@ def test_build_parser_supports_workflow_arguments() -> None:
     assert args.similar_images is True
     assert args.show_similar_groups is True
     assert args.similar_threshold == 5
+    assert args.history_dir == Path("history")
 
 
 def test_main_prints_scan_summary_without_groups(tmp_path: Path, capsys) -> None:
@@ -154,6 +157,83 @@ def test_main_apply_delete_executes_removal(tmp_path: Path, capsys) -> None:
     assert "Execution run:" in out
     assert keep.exists()
     assert not remove.exists()
+
+
+def test_main_writes_history_run_log_for_preview(tmp_path: Path, capsys) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "one.jpg").write_bytes(b"duplicate-bytes")
+    (source / "two.jpg").write_bytes(b"duplicate-bytes")
+    history_dir = tmp_path / "history"
+
+    exit_code = main(
+        [
+            "--source",
+            str(source),
+            "--history-dir",
+            str(history_dir),
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Wrote history run log:" in out
+
+    run_logs = sorted(history_dir.glob("*-duplicates-preview-run-log.json"))
+    journals = sorted(history_dir.glob("*-duplicates-preview-execution-journal.json"))
+
+    assert len(run_logs) == 1
+    assert journals == []
+
+    payload = json.loads(run_logs[0].read_text(encoding="utf-8"))
+    assert payload["command_name"] == "duplicates"
+    assert payload["apply_requested"] is False
+    assert payload["payload"]["scan"]["exact_groups"] == 1
+
+
+def test_main_writes_history_run_log_and_journal_for_apply(tmp_path: Path, capsys) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    keep = source / "one.jpg"
+    remove = source / "two.jpg"
+    keep.write_bytes(b"duplicate-bytes")
+    remove.write_bytes(b"duplicate-bytes")
+    history_dir = tmp_path / "history"
+
+    exit_code = main(
+        [
+            "--source",
+            str(source),
+            "--policy",
+            "first",
+            "--mode",
+            "delete",
+            "--apply",
+            "--yes",
+            "--history-dir",
+            str(history_dir),
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Wrote history run log:" in out
+    assert "Wrote history journal:" in out
+
+    run_logs = sorted(history_dir.glob("*-duplicates-apply-run-log.json"))
+    journals = sorted(history_dir.glob("*-duplicates-apply-execution-journal.json"))
+
+    assert len(run_logs) == 1
+    assert len(journals) == 1
+
+    run_log = json.loads(run_logs[0].read_text(encoding="utf-8"))
+    journal = json.loads(journals[0].read_text(encoding="utf-8"))
+
+    assert run_log["command_name"] == "duplicates"
+    assert run_log["apply_requested"] is True
+    assert journal["command_name"] == "duplicates"
+    assert journal["apply_requested"] is True
+    assert journal["entries"][0]["outcome"] in {"deleted", "preview-delete", "blocked", "deferred", "error"}
 
 
 def test_main_can_report_similar_image_summary(monkeypatch, tmp_path: Path, capsys) -> None:

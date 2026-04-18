@@ -5,7 +5,11 @@ import json
 from pathlib import Path
 
 from .cleanup_plan import build_exact_group_id
-from .core.state import write_command_run_log, write_execution_journal
+from .core.state import (
+    write_command_run_log,
+    write_execution_journal,
+    write_history_artifacts,
+)
 from .duplicate_session_store import (
     restore_duplicate_session,
     save_duplicate_session_snapshot,
@@ -117,6 +121,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--journal",
         type=Path,
         help="Optional path for a structured execution journal. Only meaningful with --apply.",
+    )
+    parser.add_argument(
+        "--history-dir",
+        type=Path,
+        help="Optional directory where an auto-named run log and, for apply mode, execution journal are written.",
     )
     parser.add_argument(
         "--apply",
@@ -635,6 +644,9 @@ def main(argv: list[str] | None = None) -> int:
     elif result.errors > 0:
         exit_code = 1
 
+    explicit_journal_entries = _build_duplicate_journal_entries(execution_result) if execution_result is not None else None
+    history_artifacts = None
+
     if args.run_log is not None:
         write_command_run_log(
             args.run_log,
@@ -651,12 +663,27 @@ def main(argv: list[str] | None = None) -> int:
             command_name="duplicates",
             apply_requested=True,
             exit_code=exit_code,
-            entries=_build_duplicate_journal_entries(execution_result),
+            entries=explicit_journal_entries or [],
         )
         print(f"Wrote execution journal: {args.journal}")
+
+    if args.history_dir is not None:
+        history_artifacts = write_history_artifacts(
+            args.history_dir,
+            command_name="duplicates",
+            apply_requested=args.apply,
+            exit_code=exit_code,
+            payload=payload,
+            journal_entries=explicit_journal_entries if args.apply else None,
+        )
 
     if args.json_report is not None:
         _write_json_report(args.json_report, payload)
         print(f"Wrote JSON report: {args.json_report}")
+
+    if history_artifacts is not None:
+        print(f"Wrote history run log: {history_artifacts['run_log_path']}")
+        if "execution_journal_path" in history_artifacts:
+            print(f"Wrote history journal: {history_artifacts['execution_journal_path']}")
 
     return exit_code
