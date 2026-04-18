@@ -5,7 +5,7 @@ from pathlib import Path
 
 from send2trash import send2trash
 
-from .execution_plan import DuplicateExecutionPreview, ExecutionPreviewRow
+from .execution_plan import DuplicateExecutionPreview
 from .execution_safety import find_associated_sibling_paths
 
 
@@ -29,6 +29,22 @@ class DuplicateExecutionRunResult:
     blocked_rows: int = 0
     error_rows: int = 0
     entries: list[ExecutionRunEntry] = field(default_factory=list)
+
+    @property
+    def previewed_rows(self) -> int:
+        return sum(1 for entry in self.entries if entry.outcome == "preview-delete")
+
+    @property
+    def deleted_rows(self) -> int:
+        return sum(1 for entry in self.entries if entry.outcome == "deleted")
+
+    @property
+    def blocked_associated_rows(self) -> int:
+        return sum(1 for entry in self.entries if entry.reason == "associated_files_present")
+
+    @property
+    def blocked_missing_survivor_rows(self) -> int:
+        return sum(1 for entry in self.entries if entry.reason == "survivor_missing")
 
 
 def run_duplicate_execution_preview(
@@ -107,6 +123,21 @@ def run_duplicate_execution_preview(
                     target_path=row.target_path,
                     outcome="error",
                     reason="source_missing",
+                )
+            )
+            continue
+
+        if row.survivor_path is None or not row.survivor_path.exists():
+            result.blocked_rows += 1
+            result.entries.append(
+                ExecutionRunEntry(
+                    row_type="blocked_missing_survivor",
+                    status="blocked",
+                    source_path=row.source_path,
+                    survivor_path=row.survivor_path,
+                    target_path=row.target_path,
+                    outcome="blocked",
+                    reason="survivor_missing",
                 )
             )
             continue
