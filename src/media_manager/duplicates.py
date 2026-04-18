@@ -39,6 +39,11 @@ class DuplicateScanResult:
     exact_duplicate_files: int = 0
     exact_duplicates: int = 0
     errors: int = 0
+    size_group_errors: int = 0
+    sample_errors: int = 0
+    hash_errors: int = 0
+    compare_errors: int = 0
+
 
 
 def _emit_progress(progress_callback: ProgressCallback | None, message: str) -> None:
@@ -46,8 +51,10 @@ def _emit_progress(progress_callback: ProgressCallback | None, message: str) -> 
         progress_callback(message)
 
 
+
 def _normalized_sort_key(path: Path) -> str:
     return str(path).lower()
+
 
 
 def _sample_offsets(file_size: int, sample_size: int) -> list[int]:
@@ -65,6 +72,7 @@ def _sample_offsets(file_size: int, sample_size: int) -> list[int]:
     return unique_offsets
 
 
+
 def compute_sample_fingerprint(path: Path, sample_size: int = 64 * 1024) -> str:
     file_size = path.stat().st_size
     digest = hashlib.blake2b(digest_size=20)
@@ -79,6 +87,7 @@ def compute_sample_fingerprint(path: Path, sample_size: int = 64 * 1024) -> str:
     return digest.hexdigest()
 
 
+
 def compute_full_hash(path: Path, chunk_size: int = 1024 * 1024) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -88,6 +97,7 @@ def compute_full_hash(path: Path, chunk_size: int = 1024 * 1024) -> str:
                 break
             digest.update(chunk)
     return digest.hexdigest()
+
 
 
 def files_are_identical(first_path: Path, second_path: Path, chunk_size: int = 1024 * 1024) -> bool:
@@ -104,11 +114,40 @@ def files_are_identical(first_path: Path, second_path: Path, chunk_size: int = 1
                 return True
 
 
-def _group_by_size(paths: list[Path]) -> dict[int, list[Path]]:
+
+def _safe_file_size(path: Path) -> int | None:
+    try:
+        return path.stat().st_size
+    except OSError:
+        return None
+
+
+
+def _record_stage_error(result: DuplicateScanResult, stage: str) -> None:
+    result.errors += 1
+    if stage == "size":
+        result.size_group_errors += 1
+    elif stage == "sample":
+        result.sample_errors += 1
+    elif stage == "hash":
+        result.hash_errors += 1
+    elif stage == "compare":
+        result.compare_errors += 1
+    else:  # pragma: no cover - safeguard against typos in future changes
+        raise ValueError(f"Unknown duplicate scan stage: {stage}")
+
+
+
+def _group_by_size(paths: list[Path], result: DuplicateScanResult) -> dict[int, list[Path]]:
     grouped: dict[int, list[Path]] = defaultdict(list)
     for path in paths:
-        grouped[path.stat().st_size].append(path)
+        file_size = _safe_file_size(path)
+        if file_size is None:
+            _record_stage_error(result, "size")
+            continue
+        grouped[file_size].append(path)
     return grouped
+
 
 
 def _build_exact_group(paths: list[Path], file_size: int, sample_digest: str, full_digest: str) -> ExactDuplicateGroup:
@@ -123,6 +162,7 @@ def _build_exact_group(paths: list[Path], file_size: int, sample_digest: str, fu
         same_name=all(path.name == first_name for path in ordered_paths),
         same_suffix=all(path.suffix.lower() == first_suffix for path in ordered_paths),
     )
+
 
 
 def scan_exact_duplicates(
@@ -140,13 +180,7 @@ def scan_exact_duplicates(
         _emit_progress(progress_callback, "No media files found.")
         return result
 
-    try:
-        size_groups = _group_by_size(media_files)
-    except OSError:
-        result.errors += 1
-        _emit_progress(progress_callback, "A file could not be read during size grouping.")
-        return result
-
+    size_groups = _group_by_size(media_files, result)
     candidate_size_groups = {
         size: sorted(paths, key=_normalized_sort_key)
         for size, paths in size_groups.items()
@@ -154,10 +188,13 @@ def scan_exact_duplicates(
     }
     result.size_candidate_groups = len(candidate_size_groups)
     result.size_candidate_files = sum(len(paths) for paths in candidate_size_groups.values())
-    _emit_progress(
-        progress_callback,
-        f"Stage 1/4 — size grouping kept {result.size_candidate_files} candidate file(s) in {result.size_candidate_groups} group(s).",
+    stage_one_message = (
+        f"Stage 1/4 — size grouping kept {result.size_candidate_files} candidate file(s) "
+        f"in {result.size_candidate_groups} group(s)."
     )
+    if result.size_group_errors > 0:
+        stage_one_message += f" Skipped {result.size_group_errors} unreadable file(s) during size grouping."
+    _emit_progress(progress_callback, stage_one_message)
 
     if result.size_candidate_files == 0:
         _emit_progress(progress_callback, "No exact duplicates found.")
@@ -169,7 +206,7 @@ def scan_exact_duplicates(
             try:
                 sample_digest = compute_sample_fingerprint(path, sample_size=config.sample_size)
             except OSError:
-                result.errors += 1
+                _record_stage_error(result, "sample")
                 continue
             result.sampled_files += 1
             sampled_groups[(file_size, sample_digest)].append(path)
@@ -179,10 +216,10 @@ def scan_exact_duplicates(
         for key, paths in sampled_groups.items()
         if len(paths) > 1
     }
-    _emit_progress(
-        progress_callback,
-        f"Stage 2/4 — sample fingerprinting kept {sum(len(paths) for paths in sample_candidates.values())} file(s).",
-    )
+    stage_two_message = f"Stage 2/4 — sample fingerprinting kept {sum(len(paths) for paths in sample_candidates.values())} file(s)."
+    if result.sample_errors > 0:
+        stage_two_message += f" Sample errors: {result.sample_errors}."
+    _emit_progress(progress_callback, stage_two_message)
 
     if not sample_candidates:
         _emit_progress(progress_callback, "No exact duplicates found.")
@@ -194,7 +231,7 @@ def scan_exact_duplicates(
             try:
                 full_digest = compute_full_hash(path, chunk_size=config.hash_chunk_size)
             except OSError:
-                result.errors += 1
+                _record_stage_error(result, "hash")
                 continue
             result.hashed_files += 1
             hashed_groups[(file_size, sample_digest, full_digest)].append(path)
@@ -204,10 +241,10 @@ def scan_exact_duplicates(
         for key, paths in hashed_groups.items()
         if len(paths) > 1
     }
-    _emit_progress(
-        progress_callback,
-        f"Stage 3/4 — full hashing kept {sum(len(paths) for paths in full_hash_candidates.values())} file(s).",
-    )
+    stage_three_message = f"Stage 3/4 — full hashing kept {sum(len(paths) for paths in full_hash_candidates.values())} file(s)."
+    if result.hash_errors > 0:
+        stage_three_message += f" Hash errors: {result.hash_errors}."
+    _emit_progress(progress_callback, stage_three_message)
 
     if not full_hash_candidates:
         _emit_progress(progress_callback, "No exact duplicates found.")
@@ -225,7 +262,7 @@ def scan_exact_duplicates(
                         placed = True
                         break
                 except OSError:
-                    result.errors += 1
+                    _record_stage_error(result, "compare")
                     placed = True
                     break
             if not placed:
@@ -239,10 +276,10 @@ def scan_exact_duplicates(
     result.exact_groups = exact_groups
     result.exact_duplicate_files = sum(len(group.files) for group in exact_groups)
     result.exact_duplicates = sum(len(group.files) - 1 for group in exact_groups)
-    _emit_progress(
-        progress_callback,
-        f"Stage 4/4 — byte comparison confirmed {len(result.exact_groups)} exact group(s).",
-    )
+    stage_four_message = f"Stage 4/4 — byte comparison confirmed {len(result.exact_groups)} exact group(s)."
+    if result.compare_errors > 0:
+        stage_four_message += f" Compare errors: {result.compare_errors}."
+    _emit_progress(progress_callback, stage_four_message)
 
     if result.exact_groups:
         _emit_progress(
