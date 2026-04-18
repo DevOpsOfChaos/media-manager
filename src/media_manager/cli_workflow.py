@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import argparse
@@ -14,6 +13,7 @@ except Exception:  # pragma: no cover - compatibility fallback
 
 from .core.state import build_history_summary, find_latest_history_entry, scan_history_directory
 from .core.workflows import (
+    build_workflow_launcher_model,
     build_workflow_profile_argv,
     build_workflow_wizard_result,
     get_workflow_definition,
@@ -118,6 +118,14 @@ def build_parser() -> argparse.ArgumentParser:
     profile_run_parser.add_argument("path", type=Path, help="Path to the workflow profile JSON file.")
     profile_run_parser.add_argument("--show-command", action="store_true", help="Print the rendered workflow command before delegation.")
 
+    profile_list_parser = subparsers.add_parser("profile-list", help="List and summarize saved workflow profiles from a directory.")
+    _add_profile_directory_arguments(profile_list_parser)
+    profile_list_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+    profile_audit_parser = subparsers.add_parser("profile-audit", help="Validate all saved workflow profiles in a directory.")
+    _add_profile_directory_arguments(profile_audit_parser)
+    profile_audit_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
     run_parser = subparsers.add_parser("run", help="Run a workflow through the shell.")
     run_parser.add_argument("workflow", help="Workflow name to run.")
     run_parser.add_argument("args", nargs=argparse.REMAINDER, help="Arguments forwarded to the delegated workflow.")
@@ -139,6 +147,14 @@ def _add_preset_override_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--organize-pattern", help="Cleanup organize pattern override.")
     parser.add_argument("--rename-template", help="Cleanup rename template override.")
     parser.add_argument("--show-plan", action="store_true", help="Enable duplicate plan output when the preset supports it.")
+
+
+def _add_profile_directory_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--profiles-dir", type=Path, required=True, help="Directory containing workflow profile JSON files.")
+    parser.add_argument("--workflow", help="Optional workflow filter, for example cleanup or trip.")
+    parser.add_argument("--preset", help="Optional preset filter, for example cleanup-family-library.")
+    parser.add_argument("--only-valid", action="store_true", help="Only include valid profiles.")
+    parser.add_argument("--only-invalid", action="store_true", help="Only include invalid profiles.")
 
 
 def _workflow_payload(item) -> dict[str, str]:
@@ -213,6 +229,76 @@ def _profile_validation_payload(validation) -> dict[str, object]:
         "command": validation.command_preview,
         "problems": list(validation.problems),
     }
+
+
+def _launcher_payload(item) -> dict[str, object]:
+    return {
+        "launcher_type": item.launcher_type,
+        "name": item.name,
+        "title": item.title,
+        "workflow_name": item.workflow_name,
+        "preset_name": item.preset_name,
+        "profile_name": item.profile_name,
+        "profile_path": item.profile_path,
+        "valid": item.valid,
+        "missing_required_fields": list(getattr(item, "missing_required_fields", ())),
+        "problems": list(getattr(item, "problems", ())),
+        "command_preview": item.command_preview,
+    }
+
+
+def _summarize_profile_launchers(launchers: list[object]) -> dict[str, object]:
+    workflow_summary: dict[str, int] = {}
+    preset_summary: dict[str, int] = {}
+
+    for item in launchers:
+        workflow_name = str(getattr(item, "workflow_name", "unknown") or "unknown")
+        workflow_summary[workflow_name] = workflow_summary.get(workflow_name, 0) + 1
+
+        preset_name = getattr(item, "preset_name", None)
+        if preset_name:
+            preset_summary[str(preset_name)] = preset_summary.get(str(preset_name), 0) + 1
+
+    valid_count = sum(1 for item in launchers if bool(getattr(item, "valid", False)))
+    invalid_count = len(launchers) - valid_count
+
+    return {
+        "profile_count": len(launchers),
+        "valid_count": valid_count,
+        "invalid_count": invalid_count,
+        "workflow_summary": dict(sorted(workflow_summary.items())),
+        "preset_summary": dict(sorted(preset_summary.items())),
+    }
+
+
+def _filter_profile_launchers(
+    launchers: list[object],
+    *,
+    workflow_name: str | None,
+    preset_name: str | None,
+    only_valid: bool,
+    only_invalid: bool,
+) -> list[object]:
+    filtered = [item for item in launchers if getattr(item, "launcher_type", "") == "profile"]
+
+    if workflow_name:
+        normalized = workflow_name.strip().lower()
+        filtered = [item for item in filtered if str(getattr(item, "workflow_name", "")).strip().lower() == normalized]
+
+    if preset_name:
+        normalized = preset_name.strip().lower()
+        filtered = [
+            item
+            for item in filtered
+            if str(getattr(item, "preset_name", "") or "").strip().lower() == normalized
+        ]
+
+    if only_valid and not only_invalid:
+        filtered = [item for item in filtered if bool(getattr(item, "valid", False))]
+    elif only_invalid and not only_valid:
+        filtered = [item for item in filtered if not bool(getattr(item, "valid", False))]
+
+    return filtered
 
 
 def _print_workflow_list(as_json: bool) -> int:
@@ -406,9 +492,6 @@ def _print_last_history(path: Path, command_name: str | None, as_json: bool) -> 
     return 0
 
 
-# rest unchanged
-
-
 def _print_presets(as_json: bool) -> int:
     presets = list_workflow_presets()
     if as_json:
@@ -578,6 +661,102 @@ def _print_profile_save(args: argparse.Namespace) -> int:
     return 0
 
 
+def _build_profile_directory_payload(args: argparse.Namespace) -> dict[str, object]:
+    launcher_model = build_workflow_launcher_model(args.profiles_dir)
+    filtered = _filter_profile_launchers(
+        list(getattr(launcher_model, "launchers", [])),
+        workflow_name=args.workflow,
+        preset_name=args.preset,
+        only_valid=args.only_valid,
+        only_invalid=args.only_invalid,
+    )
+    return {
+        "profiles_dir": str(args.profiles_dir),
+        "workflow_filter": args.workflow,
+        "preset_filter": args.preset,
+        "summary": _summarize_profile_launchers(filtered),
+        "profiles": [_launcher_payload(item) for item in filtered],
+    }
+
+
+def _print_profile_list(args: argparse.Namespace) -> int:
+    payload = _build_profile_directory_payload(args)
+    if args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+
+    summary = payload["summary"]
+    print(f"Workflow profiles in {args.profiles_dir}")
+    if args.workflow:
+        print(f"  Workflow filter: {args.workflow}")
+    if args.preset:
+        print(f"  Preset filter: {args.preset}")
+    print(f"  Total profiles: {summary['profile_count']}")
+    print(f"  Valid: {summary['valid_count']}")
+    print(f"  Invalid: {summary['invalid_count']}")
+
+    if summary["workflow_summary"]:
+        workflow_text = ", ".join(f"{key}={value}" for key, value in summary["workflow_summary"].items())
+        print(f"  Workflows: {workflow_text}")
+    if summary["preset_summary"]:
+        preset_text = ", ".join(f"{key}={value}" for key, value in summary["preset_summary"].items())
+        print(f"  Presets: {preset_text}")
+
+    if not payload["profiles"]:
+        print("  No matching workflow profiles found.")
+        return 0
+
+    for item in payload["profiles"]:
+        status = "valid" if item["valid"] else "invalid"
+        title = item["profile_name"] or item["title"] or item["name"]
+        print(
+            f"  - [{status}] {title} | workflow={item['workflow_name']} | preset={item['preset_name']}"
+        )
+        if item["profile_path"]:
+            print(f"    {item['profile_path']}")
+        if item["command_preview"]:
+            print(f"    Command: {item['command_preview']}")
+        if item["problems"]:
+            print("    Problems:")
+            for problem in item["problems"]:
+                print(f"      - {problem}")
+    return 0
+
+
+def _print_profile_audit(args: argparse.Namespace) -> int:
+    payload = _build_profile_directory_payload(args)
+    summary = payload["summary"]
+    exit_code = 1 if summary["invalid_count"] > 0 else 0
+
+    if args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return exit_code
+
+    print(f"Workflow profile audit in {args.profiles_dir}")
+    if args.workflow:
+        print(f"  Workflow filter: {args.workflow}")
+    if args.preset:
+        print(f"  Preset filter: {args.preset}")
+    print(f"  Total profiles: {summary['profile_count']}")
+    print(f"  Valid: {summary['valid_count']}")
+    print(f"  Invalid: {summary['invalid_count']}")
+
+    invalid_profiles = [item for item in payload["profiles"] if not item["valid"]]
+    if not invalid_profiles:
+        print("  All matching profiles are valid.")
+        return 0
+
+    print("  Invalid profiles:")
+    for item in invalid_profiles:
+        title = item["profile_name"] or item["title"] or item["name"]
+        print(f"    - {title} | workflow={item['workflow_name']} | preset={item['preset_name']}")
+        if item["profile_path"]:
+            print(f"      {item['profile_path']}")
+        for problem in item["problems"]:
+            print(f"      - {problem}")
+    return exit_code
+
+
 def _run_workflow_profile(path: Path, show_command: bool) -> int:
     try:
         profile = load_workflow_profile(path)
@@ -629,6 +808,8 @@ def main(argv: list[str] | None = None) -> int:
             "  media-manager workflow profile-save profiles/family-cleanup.json --preset cleanup-family-library --source <A> --source <B> --target <TARGET>\n"
             "  media-manager workflow profile-show <PROFILE.json>\n"
             "  media-manager workflow profile-validate <PROFILE.json>\n"
+            "  media-manager workflow profile-list --profiles-dir <PROFILES_DIR>\n"
+            "  media-manager workflow profile-audit --profiles-dir <PROFILES_DIR>\n"
             "  media-manager workflow profile-run <PROFILE.json> --show-command\n"
             "  media-manager workflow history --path <RUNS_DIR>\n"
             "  media-manager workflow history --path <RUNS_DIR> --command organize\n"
@@ -663,6 +844,10 @@ def main(argv: list[str] | None = None) -> int:
         return _print_profile_validate(args.path, args.json)
     if args.workflow_command == "profile-save":
         return _print_profile_save(args)
+    if args.workflow_command == "profile-list":
+        return _print_profile_list(args)
+    if args.workflow_command == "profile-audit":
+        return _print_profile_audit(args)
     if args.workflow_command == "profile-run":
         return _run_workflow_profile(args.path, args.show_command)
     if args.workflow_command == "run":
