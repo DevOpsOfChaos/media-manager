@@ -15,7 +15,7 @@ This staged namespace allows the new architecture to start growing immediately w
 The rebuilt core should grow here first:
 
 - scanner
-n- metadata
+- metadata
 - date_resolver
 - organizer
 - state
