@@ -1,14 +1,7 @@
-Apply ZIP 011 over your current green main working tree.
+Apply these files into the repository root and replace existing files when prompted.
 
-Changed / new files in this update:
-- src/media_manager/core/workflows/cleanup.py
-- src/media_manager/core/workflows/__init__.py
-- src/media_manager/cli_cleanup.py
-- src/media_manager/cli.py
-- tests/test_core_cleanup_workflow.py
-- tests/test_cli_cleanup_v1.py
-- docs/cleanup-workflow-v1.md
+After unpacking this ZIP, refresh dependencies because Pillow was added:
 
-Suggested verification:
-- python -m pytest tests/test_core_cleanup_workflow.py tests/test_cli_cleanup_v1.py
-- python -m pytest
+python -m pip install -e ".[dev]"
+python -m pytest tests/test_similar_images.py tests/test_cli_duplicates.py
+python -m pytest

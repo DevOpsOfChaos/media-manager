@@ -4,17 +4,14 @@ import argparse
 import json
 from pathlib import Path
 
-from .duplicate_session_store import (
-    DuplicateSessionRestoreResult,
-    restore_duplicate_session,
-    save_duplicate_session_snapshot,
-)
+from .duplicate_session_store import restore_duplicate_decisions, save_duplicate_session_snapshot
 from .duplicate_workflow import (
     build_duplicate_decisions,
     build_duplicate_workflow_bundle,
     execute_duplicate_workflow_bundle,
 )
 from .duplicates import DuplicateScanConfig, scan_exact_duplicates
+from .similar_images import SimilarImageScanConfig, scan_similar_images
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -33,9 +30,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print all confirmed exact duplicate groups.",
     )
     parser.add_argument(
-        "--show-session",
+        "--similar-images",
         action="store_true",
-        help="Print duplicate session restore details when a session is loaded.",
+        help="Also scan images for likely visual duplicates using perceptual hashing.",
+    )
+    parser.add_argument(
+        "--show-similar-groups",
+        action="store_true",
+        help="Print grouped similar-image candidates when --similar-images is enabled.",
+    )
+    parser.add_argument(
+        "--similar-threshold",
+        type=int,
+        default=6,
+        help="Maximum Hamming distance for likely similar images (default: 6).",
     )
     parser.add_argument(
         "--policy",
@@ -71,7 +79,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--json-report",
         type=Path,
-        help="Write a JSON report with scan, decision, dry-run, and execution-preview data.",
+        help="Write a JSON report with scan, decision, dry-run, execution-preview, and similar-image data.",
     )
     parser.add_argument(
         "--apply",
@@ -98,6 +106,14 @@ def _print_duplicate_groups(result) -> None:
             print(f" - {path}")
 
 
+def _print_similar_groups(result) -> None:
+    for index, group in enumerate(result.similar_groups, start=1):
+        print(f"\n[Similar Group {index}] files={len(group.members)} | anchor={group.anchor_path}")
+        for member in group.members:
+            marker = "anchor" if member.path == group.anchor_path else f"distance={member.distance}"
+            print(f" - {member.path} ({marker})")
+
+
 def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     invalid_sources = [path for path in args.sources if not path.is_dir()]
     if invalid_sources:
@@ -115,66 +131,26 @@ def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) ->
     if args.apply and not args.yes:
         parser.error("--apply requires --yes for explicit confirmation.")
 
-
-def _session_info_from_restore_result(
-    requested_path: Path | None,
-    restore_result: DuplicateSessionRestoreResult | None,
-) -> dict[str, object]:
-    if requested_path is None:
-        return {
-            "requested": False,
-            "requested_path": None,
-            "status": "not_requested",
-            "reason": "no duplicate session snapshot was requested",
-            "loaded_decisions": 0,
-            "snapshot": None,
-            "saved_path": None,
-            "saved_decisions": 0,
-        }
-
-    snapshot = restore_result.snapshot if restore_result is not None else None
-    return {
-        "requested": True,
-        "requested_path": str(requested_path),
-        "status": restore_result.status if restore_result is not None else "error",
-        "reason": restore_result.reason if restore_result is not None else "session restore result was unavailable",
-        "loaded_decisions": len(restore_result.decisions) if restore_result is not None else 0,
-        "snapshot": None
-        if snapshot is None
-        else {
-            "schema_version": snapshot.schema_version,
-            "created_at_utc": snapshot.created_at_utc,
-            "exact_group_count": snapshot.exact_group_count,
-            "decision_count": snapshot.decision_count,
-        },
-        "saved_path": None,
-        "saved_decisions": 0,
-    }
+    if args.similar_threshold < 0:
+        parser.error("--similar-threshold must be zero or greater.")
 
 
-def _build_decisions(result, args: argparse.Namespace) -> tuple[dict[str, str], dict[str, object]]:
+def _build_decisions(result, args: argparse.Namespace) -> dict[str, str]:
     decisions: dict[str, str] = {}
-    restore_result = None
-    session_info: dict[str, object]
 
     if args.load_session is not None:
-        restore_result = restore_duplicate_session(args.load_session, result.exact_groups)
-        decisions.update(restore_result.decisions)
-        session_info = _session_info_from_restore_result(args.load_session, restore_result)
-    else:
-        session_info = _session_info_from_restore_result(None, None)
+        decisions.update(restore_duplicate_decisions(args.load_session, result.exact_groups))
 
     if args.policy:
         auto_decisions = build_duplicate_decisions(result.exact_groups, args.policy)
         for group_id, keep_path in auto_decisions.items():
             decisions.setdefault(group_id, keep_path)
 
-    return decisions, session_info
+    return decisions
 
 
-def _write_json_report(path: Path, result, bundle, execution_result, session_info: dict[str, object]) -> None:
+def _write_json_report(path: Path, result, bundle, execution_result, similar_result=None) -> None:
     payload = {
-        "session": session_info,
         "scan": {
             "scanned_files": result.scanned_files,
             "size_candidate_files": result.size_candidate_files,
@@ -183,6 +159,28 @@ def _write_json_report(path: Path, result, bundle, execution_result, session_inf
             "duplicate_files": result.exact_duplicate_files,
             "extra_duplicates": result.exact_duplicates,
             "errors": result.errors,
+        },
+        "similar_images": None if similar_result is None else {
+            "scanned_files": similar_result.scanned_files,
+            "image_files": similar_result.image_files,
+            "hashed_files": similar_result.hashed_files,
+            "similar_pairs": similar_result.similar_pairs,
+            "group_count": len(similar_result.similar_groups),
+            "errors": similar_result.errors,
+            "groups": [
+                {
+                    "anchor_path": str(group.anchor_path),
+                    "members": [
+                        {
+                            "path": str(member.path),
+                            "hash_hex": member.hash_hex,
+                            "distance": member.distance,
+                        }
+                        for member in group.members
+                    ],
+                }
+                for group in similar_result.similar_groups
+            ],
         },
         "decisions": bundle.decisions,
         "cleanup_plan": {
@@ -290,28 +288,6 @@ def _print_workflow_summary(bundle) -> None:
     )
 
 
-def _print_session_info(session_info: dict[str, object]) -> None:
-    print("Session:")
-    print(f"  Requested: {session_info['requested']}")
-    print(f"  Status: {session_info['status']}")
-    print(f"  Reason: {session_info['reason']}")
-    if session_info.get("requested_path"):
-        print(f"  Requested path: {session_info['requested_path']}")
-    if session_info.get("snapshot"):
-        snapshot = session_info["snapshot"]
-        print(
-            "  Snapshot: "
-            f"schema={snapshot['schema_version']} | "
-            f"created={snapshot['created_at_utc'] or '-'} | "
-            f"groups={snapshot['exact_group_count']} | "
-            f"decisions={snapshot['decision_count']}"
-        )
-    print(f"  Loaded decisions: {session_info['loaded_decisions']}")
-    if session_info.get("saved_path"):
-        print(f"  Saved path: {session_info['saved_path']}")
-        print(f"  Saved decisions: {session_info['saved_decisions']}")
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -327,7 +303,23 @@ def main(argv: list[str] | None = None) -> int:
     if args.show_groups and result.exact_groups:
         _print_duplicate_groups(result)
 
-    decisions, session_info = _build_decisions(result, args)
+    similar_result = None
+    if args.similar_images or args.show_similar_groups:
+        similar_result = scan_similar_images(
+            SimilarImageScanConfig(
+                source_dirs=args.sources,
+                max_distance=args.similar_threshold,
+            )
+        )
+        print(
+            f"Similar images: scanned={similar_result.scanned_files} | images={similar_result.image_files} | "
+            f"hashed={similar_result.hashed_files} | groups={len(similar_result.similar_groups)} | "
+            f"pairs={similar_result.similar_pairs} | errors={similar_result.errors}"
+        )
+        if args.show_similar_groups and similar_result.similar_groups:
+            _print_similar_groups(similar_result)
+
+    decisions = _build_decisions(result, args)
     bundle = build_duplicate_workflow_bundle(
         result.exact_groups,
         decisions,
@@ -336,13 +328,8 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     if args.save_session is not None:
-        snapshot = save_duplicate_session_snapshot(args.save_session, result.exact_groups, bundle.decisions)
-        session_info["saved_path"] = str(args.save_session)
-        session_info["saved_decisions"] = snapshot.decision_count
+        save_duplicate_session_snapshot(args.save_session, result.exact_groups, bundle.decisions)
         print(f"Saved duplicate session: {args.save_session}")
-
-    if args.show_session or args.load_session:
-        _print_session_info(session_info)
 
     if args.show_plan or args.policy or args.load_session or args.apply:
         _print_workflow_summary(bundle)
@@ -361,12 +348,11 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if args.json_report is not None:
-        _write_json_report(args.json_report, result, bundle, execution_result, session_info)
+        _write_json_report(args.json_report, result, bundle, execution_result, similar_result=similar_result)
         print(f"Wrote JSON report: {args.json_report}")
 
-    if execution_result is not None:
-        if execution_result.error_rows > 0:
-            return 2
-        if args.apply and (execution_result.blocked_rows > 0 or execution_result.deferred_rows > 0):
-            return 3
+    if execution_result is not None and execution_result.error_rows > 0:
+        return 2
+    if similar_result is not None and similar_result.errors > 0:
+        return 1
     return 0 if result.errors == 0 else 1
