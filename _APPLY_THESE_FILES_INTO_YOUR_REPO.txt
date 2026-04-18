@@ -1,17 +1,11 @@
-ZIP 008 contents
+Apply steps for cumulative update 009
 
-Copy these files into your repository root and replace existing files where paths match.
-
-Updated / new files:
-- src/media_manager/core/state/__init__.py
-- src/media_manager/core/state/run_log.py
-- src/media_manager/cli_organize.py
-- src/media_manager/cli_rename.py
-- tests/test_core_run_log.py
-- tests/test_cli_organize_v1.py
-- tests/test_cli_rename_v1.py
-- docs/run-log-journaling-v1.md
-
-Suggested commands after copying:
-- python -m pytest tests/test_core_run_log.py tests/test_cli_organize_v1.py tests/test_cli_rename_v1.py
-- python -m pytest
+1. Extract this ZIP into the root of your local media-manager repository.
+2. Replace existing files when prompted.
+3. Run:
+   python -m pytest tests/test_core_trip_workflow.py tests/test_cli_trip_v1.py
+   python -m pytest
+4. Commit:
+   git add .
+   git commit -m "add trip workflow v1 with dry-run and apply support"
+   git push origin main

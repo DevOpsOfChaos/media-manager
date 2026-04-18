@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import cli_duplicates, cli_gui, cli_inspect, cli_organize, cli_rename, cli_scan
+from . import cli_duplicates, cli_gui, cli_inspect, cli_organize, cli_rename, cli_scan, cli_trip
 
 COMMAND_HANDLERS = {
     "duplicates": cli_duplicates.main,
@@ -12,6 +12,7 @@ COMMAND_HANDLERS = {
     "organize": cli_organize.main,
     "rename": cli_rename.main,
     "scan": cli_scan.main,
+    "trip": cli_trip.main,
 }
 
 
@@ -44,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "\nNo command provided.\n"
             "The old default GUI launch behavior has been removed during the repository reset.\n"
-            "Run an explicit CLI command such as 'scan', 'inspect', 'organize', 'rename', or 'duplicates'.\n"
+            "Run an explicit CLI command such as 'scan', 'inspect', 'organize', 'rename', 'trip', or 'duplicates'.\n"
             "Use 'media-manager gui' only if you intentionally want the legacy GUI."
         )
         return 0
