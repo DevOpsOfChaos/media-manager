@@ -11,6 +11,11 @@ from .models import DateCandidate, FileInspection
 TIME_OUTPUT_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
+def _read_exiftool_metadata(file_path: Path, exiftool_path: Path | None = None):
+    """Compatibility wrapper for legacy tests and monkeypatch hooks."""
+    return read_exiftool_metadata(file_path, exiftool_path=exiftool_path)
+
+
 def _normalize_metadata_keys(metadata: dict[str, object]) -> dict[str, str]:
     normalized: dict[str, str] = {}
     for key, value in metadata.items():
@@ -58,22 +63,6 @@ def extract_date_candidates(metadata: dict[str, object]) -> list[DateCandidate]:
     return candidates
 
 
-def _read_exiftool_metadata(file_path: Path, exiftool_path: Path | None = None):
-    """
-    Compatibility wrapper for metadata inspection tests and older call sites.
-
-    Older tests monkeypatch this helper with a 3-tuple return shape:
-        (metadata, exiftool_available, error)
-
-    The newer exiftool helper returns a 4-tuple:
-        (metadata, exiftool_available, metadata_error_kind, error)
-
-    Keeping this wrapper in the module preserves monkeypatch stability while the
-    rest of the code can transparently accept either shape.
-    """
-    return read_exiftool_metadata(file_path, exiftool_path=exiftool_path)
-
-
 def inspect_media_file(file_path: Path, exiftool_path: Path | None = None) -> FileInspection:
     stat = file_path.stat()
     file_modified_value = datetime.fromtimestamp(stat.st_mtime).strftime(TIME_OUTPUT_FORMAT)
@@ -82,8 +71,10 @@ def inspect_media_file(file_path: Path, exiftool_path: Path | None = None) -> Fi
     if len(metadata_result) == 3:
         metadata, exiftool_available, error = metadata_result
         metadata_error_kind = None
-    else:
+    elif len(metadata_result) == 4:
         metadata, exiftool_available, metadata_error_kind, error = metadata_result
+    else:
+        raise ValueError("_read_exiftool_metadata must return a 3-tuple or 4-tuple")
 
     candidates = extract_date_candidates(metadata or {}) if metadata is not None else []
     metadata_tag_count = len(metadata or {}) if metadata is not None else 0

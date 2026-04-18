@@ -12,11 +12,14 @@ KeepPolicy = Literal["first", "newest", "oldest"]
 @dataclass(slots=True, frozen=True)
 class SimilarReviewRow:
     group_index: int
+    group_size: int
     path: Path
     recommended_keep_path: Path
     status: str
     distance_to_keep: int
     hash_hex: str
+    match_kind: str
+    review_priority: str
     reason: str
 
 
@@ -41,6 +44,22 @@ class SimilarReviewReport:
     def review_candidate_count(self) -> int:
         return sum(1 for row in self.rows if row.status == "review-candidate")
 
+    @property
+    def high_priority_count(self) -> int:
+        return sum(1 for row in self.rows if row.review_priority == "high")
+
+    @property
+    def medium_priority_count(self) -> int:
+        return sum(1 for row in self.rows if row.review_priority == "medium")
+
+    @property
+    def low_priority_count(self) -> int:
+        return sum(1 for row in self.rows if row.review_priority == "low")
+
+    @property
+    def exact_hash_review_count(self) -> int:
+        return sum(1 for row in self.rows if row.status == "review-candidate" and row.match_kind == "exact-hash")
+
 
 def _hash_hex_to_int(hash_hex: str) -> int:
     return int(hash_hex, 16)
@@ -48,6 +67,34 @@ def _hash_hex_to_int(hash_hex: str) -> int:
 
 def _hamming_distance_from_hex(first_hash_hex: str, second_hash_hex: str) -> int:
     return (_hash_hex_to_int(first_hash_hex) ^ _hash_hex_to_int(second_hash_hex)).bit_count()
+
+
+def _classify_match_kind(distance: int) -> str:
+    if distance <= 0:
+        return "exact-hash"
+    if distance <= 2:
+        return "very-close"
+    if distance <= 5:
+        return "close"
+    return "broad"
+
+
+def _classify_review_priority(distance: int) -> str:
+    if distance <= 2:
+        return "high"
+    if distance <= 5:
+        return "medium"
+    return "low"
+
+
+def _build_review_reason(match_kind: str, review_priority: str) -> str:
+    if match_kind == "exact-hash":
+        return "Matches the keep candidate on perceptual hash and should be reviewed first."
+    if match_kind == "very-close":
+        return f"Very close visual match to the keep candidate; review priority is {review_priority}."
+    if match_kind == "close":
+        return f"Close visual match to the keep candidate; review priority is {review_priority}."
+    return f"Broader visual similarity to the keep candidate; review priority is {review_priority}."
 
 
 def choose_similar_keep_path(group: SimilarImageGroup, policy: KeepPolicy) -> Path:
@@ -92,32 +139,43 @@ def build_similar_review_report(
         if keep_member is None:
             continue
 
-        ordered_members = sorted(group.members, key=lambda member: str(member.path).lower())
-        for member in ordered_members:
+        candidate_rows: list[SimilarReviewRow] = []
+        for member in group.members:
             if member.path == keep_path:
-                report.rows.append(
-                    SimilarReviewRow(
-                        group_index=group_index,
-                        path=member.path,
-                        recommended_keep_path=keep_path,
-                        status="keep",
-                        distance_to_keep=0,
-                        hash_hex=member.hash_hex,
-                        reason=f"Recommended keep candidate using '{keep_policy}' policy.",
-                    )
-                )
                 continue
-
-            report.rows.append(
+            distance = _hamming_distance_from_hex(keep_member.hash_hex, member.hash_hex)
+            match_kind = _classify_match_kind(distance)
+            review_priority = _classify_review_priority(distance)
+            candidate_rows.append(
                 SimilarReviewRow(
                     group_index=group_index,
+                    group_size=len(group.members),
                     path=member.path,
                     recommended_keep_path=keep_path,
                     status="review-candidate",
-                    distance_to_keep=_hamming_distance_from_hex(keep_member.hash_hex, member.hash_hex),
+                    distance_to_keep=distance,
                     hash_hex=member.hash_hex,
-                    reason="Visually similar image candidate that should be reviewed before removal.",
+                    match_kind=match_kind,
+                    review_priority=review_priority,
+                    reason=_build_review_reason(match_kind, review_priority),
                 )
             )
+
+        candidate_rows.sort(key=lambda row: (row.distance_to_keep, str(row.path).lower()))
+        report.rows.append(
+            SimilarReviewRow(
+                group_index=group_index,
+                group_size=len(group.members),
+                path=keep_member.path,
+                recommended_keep_path=keep_path,
+                status="keep",
+                distance_to_keep=0,
+                hash_hex=keep_member.hash_hex,
+                match_kind="keep",
+                review_priority="keep",
+                reason=f"Recommended keep candidate using '{keep_policy}' policy.",
+            )
+        )
+        report.rows.extend(candidate_rows)
 
     return report

@@ -134,7 +134,8 @@ def _print_similar_review(report) -> None:
             print(f"\n[Similar Review Group {current_group}] keep-policy={report.keep_policy}")
         print(
             f" - [{row.status}] {row.path} | keep={row.recommended_keep_path} | "
-            f"distance-to-keep={row.distance_to_keep} | reason={row.reason}"
+            f"distance-to-keep={row.distance_to_keep} | match-kind={row.match_kind} | "
+            f"priority={row.review_priority} | reason={row.reason}"
         )
 
 
@@ -215,14 +216,21 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
             "row_count": similar_review.row_count,
             "keep_count": similar_review.keep_count,
             "review_candidate_count": similar_review.review_candidate_count,
+            "high_priority_count": similar_review.high_priority_count,
+            "medium_priority_count": similar_review.medium_priority_count,
+            "low_priority_count": similar_review.low_priority_count,
+            "exact_hash_review_count": similar_review.exact_hash_review_count,
             "rows": [
                 {
                     "group_index": row.group_index,
+                    "group_size": row.group_size,
                     "path": str(row.path),
                     "recommended_keep_path": str(row.recommended_keep_path),
                     "status": row.status,
                     "distance_to_keep": row.distance_to_keep,
                     "hash_hex": row.hash_hex,
+                    "match_kind": row.match_kind,
+                    "review_priority": row.review_priority,
                     "reason": row.reason,
                 }
                 for row in similar_review.rows
