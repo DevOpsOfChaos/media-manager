@@ -1,11 +1,3 @@
-"""Metadata module for the rebuilt core."""
+__all__ = ["__version__"]
 
-from .inspect import extract_date_candidates, inspect_media_file
-from .models import DateCandidate, FileInspection
-
-__all__ = [
-    "DateCandidate",
-    "FileInspection",
-    "extract_date_candidates",
-    "inspect_media_file",
-]
+__version__ = "0.6.0"
