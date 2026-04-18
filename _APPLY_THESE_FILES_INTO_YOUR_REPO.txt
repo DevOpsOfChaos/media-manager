@@ -1,9 +1,9 @@
-Extract this ZIP into the repository root and replace existing files when prompted.
+Copy the files from this package into your repository root and replace existing files when prompted.
 
 Included in this package:
-- src/media_manager/core/workflows/wizard.py
-- src/media_manager/core/workflows/__init__.py
+- src/media_manager/core/state/history.py
+- src/media_manager/core/state/__init__.py
 - src/media_manager/cli_workflow.py
-- src/media_manager/cli.py
-- tests/test_cli_workflow_wizard_v1.py
-- docs/workflow-wizard-v1.md
+- tests/test_core_workflow_history_v2.py
+- tests/test_cli_workflow_history_v2.py
+- docs/workflow-history-state-v2.md

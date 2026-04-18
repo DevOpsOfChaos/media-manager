@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 
 from . import cli_duplicates, cli_organize, cli_rename, cli_trip
 
@@ -10,6 +11,7 @@ try:  # optional while older cumulative states are still present
 except Exception:  # pragma: no cover - compatibility fallback
     cli_cleanup = None
 
+from .core.state import find_latest_history_entry, scan_history_directory
 from .core.workflows import (
     build_workflow_wizard_result,
     get_workflow_definition,
@@ -65,6 +67,15 @@ def build_parser() -> argparse.ArgumentParser:
     wizard_parser.add_argument("--wants-organization", action="store_true", help="Indicate that folder structure is a primary concern.")
     wizard_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
+    history_parser = subparsers.add_parser("history", help="List workflow run logs and execution journals from a directory.")
+    history_parser.add_argument("--path", type=Path, required=True, help="Directory to scan for run logs and journals.")
+    history_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+    last_parser = subparsers.add_parser("last", help="Show the newest matching workflow history entry.")
+    last_parser.add_argument("--path", type=Path, required=True, help="Directory to scan for run logs and journals.")
+    last_parser.add_argument("--command", help="Optional command name filter, for example organize or rename.")
+    last_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
     run_parser = subparsers.add_parser("run", help="Run a workflow through the shell.")
     run_parser.add_argument("workflow", help="Workflow name to run.")
     run_parser.add_argument("args", nargs=argparse.REMAINDER, help="Arguments forwarded to the delegated workflow.")
@@ -103,6 +114,19 @@ def _wizard_payload(result) -> dict[str, object]:
             {"title": item.title, "command": item.command}
             for item in result.command_suggestions
         ],
+    }
+
+
+def _history_payload(item) -> dict[str, object]:
+    return {
+        "path": str(item.path),
+        "record_type": item.record_type,
+        "command_name": item.command_name,
+        "apply_requested": item.apply_requested,
+        "exit_code": item.exit_code,
+        "created_at_utc": item.created_at_utc,
+        "entry_count": item.entry_count,
+        "reversible_entry_count": item.reversible_entry_count,
     }
 
 
@@ -208,6 +232,53 @@ def _print_wizard_result(args: argparse.Namespace) -> int:
     return 0
 
 
+def _print_history(path: Path, as_json: bool) -> int:
+    entries = scan_history_directory(path)
+    if as_json:
+        print(json.dumps({"entries": [_history_payload(item) for item in entries]}, indent=2, ensure_ascii=False))
+        return 0
+
+    print(f"Workflow history in {path}")
+    if not entries:
+        print("  No recognized run logs or execution journals found.")
+        return 0
+
+    for item in entries:
+        print(
+            f"  - [{item.record_type}] {item.command_name} | apply={item.apply_requested} | "
+            f"exit={item.exit_code} | entries={item.entry_count} | created={item.created_at_utc}"
+        )
+        print(f"    {item.path}")
+    return 0
+
+
+def _print_last_history(path: Path, command_name: str | None, as_json: bool) -> int:
+    entry = find_latest_history_entry(path, command_name=command_name)
+    if entry is None:
+        if as_json:
+            print(json.dumps({"entry": None}, indent=2, ensure_ascii=False))
+        else:
+            label = f" for command '{command_name}'" if command_name else ""
+            print(f"No recognized workflow history entry found{label}.")
+        return 1
+
+    payload = _history_payload(entry)
+    if as_json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+
+    print("Latest workflow history entry")
+    print(f"  Type: {entry.record_type}")
+    print(f"  Command: {entry.command_name}")
+    print(f"  Apply requested: {entry.apply_requested}")
+    print(f"  Exit code: {entry.exit_code}")
+    print(f"  Entry count: {entry.entry_count}")
+    print(f"  Reversible entries: {entry.reversible_entry_count}")
+    print(f"  Created: {entry.created_at_utc}")
+    print(f"  Path: {entry.path}")
+    return 0
+
+
 def _run_delegated_workflow(name: str, forwarded_args: list[str]) -> int:
     normalized = name.strip().lower()
     handler = DELEGATE_HANDLERS.get(normalized)
@@ -230,6 +301,8 @@ def main(argv: list[str] | None = None) -> int:
             "  media-manager workflow problems\n"
             "  media-manager workflow recommend messy-multi-source-library\n"
             "  media-manager workflow wizard --source-count 3 --has-duplicates --wants-organization\n"
+            "  media-manager workflow history --path <RUNS_DIR>\n"
+            "  media-manager workflow last --path <RUNS_DIR> --command organize\n"
             "  media-manager workflow run cleanup --source <A> --source <B> --target <TARGET>\n"
         )
         return 0
@@ -244,6 +317,10 @@ def main(argv: list[str] | None = None) -> int:
         return _print_recommendation(args.problem, args.json)
     if args.workflow_command == "wizard":
         return _print_wizard_result(args)
+    if args.workflow_command == "history":
+        return _print_history(args.path, args.json)
+    if args.workflow_command == "last":
+        return _print_last_history(args.path, args.command, args.json)
     if args.workflow_command == "run":
         return _run_delegated_workflow(args.workflow, list(args.args))
 
