@@ -32,6 +32,10 @@ class UndoExecutionResult:
     entries: list[UndoEntryResult] = field(default_factory=list)
 
     @property
+    def ready_to_apply_count(self) -> int:
+        return self.planned_count
+
+    @property
     def status_summary(self) -> dict[str, int]:
         summary: dict[str, int] = {}
         for item in self.entries:
@@ -42,8 +46,8 @@ class UndoExecutionResult:
     def undo_action_summary(self) -> dict[str, int]:
         summary: dict[str, int] = {}
         for item in self.entries:
-            label = item.undo_action if item.undo_action is not None else "none"
-            summary[label] = summary.get(label, 0) + 1
+            key = item.undo_action or "none"
+            summary[key] = summary.get(key, 0) + 1
         return dict(sorted(summary.items()))
 
     @property
@@ -52,10 +56,6 @@ class UndoExecutionResult:
         for item in self.entries:
             summary[item.reason] = summary.get(item.reason, 0) + 1
         return dict(sorted(summary.items()))
-
-    @property
-    def ready_to_apply_count(self) -> int:
-        return sum(1 for item in self.entries if item.status == "planned")
 
 
 def _path_or_none(value: object) -> Path | None:
@@ -153,7 +153,7 @@ def execute_undo_journal(file_path: str | Path, *, apply: bool) -> UndoExecution
 
             try:
                 undo_from_path.unlink()
-            except Exception as exc:  # pragma: no cover - runtime safeguard
+            except Exception as exc:  # pragma: no cover
                 result.error_count += 1
                 result.entries.append(
                     UndoEntryResult(
@@ -234,7 +234,7 @@ def execute_undo_journal(file_path: str | Path, *, apply: bool) -> UndoExecution
             try:
                 undo_to_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.move(str(undo_from_path), str(undo_to_path))
-            except Exception as exc:  # pragma: no cover - runtime safeguard
+            except Exception as exc:  # pragma: no cover
                 result.error_count += 1
                 result.entries.append(
                     UndoEntryResult(

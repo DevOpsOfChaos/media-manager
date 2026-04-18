@@ -1,7 +1,13 @@
 """State and journaling helpers for the rebuilt core."""
 
 from .execution_journal import build_execution_journal, load_execution_journal, write_execution_journal
-from .history import WorkflowHistoryEntry, find_latest_history_entry, scan_history_directory, summarize_history_file
+from .history import (
+    WorkflowHistoryEntry,
+    build_history_summary,
+    find_latest_history_entry,
+    scan_history_directory,
+    summarize_history_file,
+)
 from .run_log import build_command_run_log, write_command_run_log
 from .undo import UndoEntryResult, UndoExecutionResult, execute_undo_journal
 
@@ -12,6 +18,7 @@ __all__ = [
     "load_execution_journal",
     "write_execution_journal",
     "WorkflowHistoryEntry",
+    "build_history_summary",
     "summarize_history_file",
     "scan_history_directory",
     "find_latest_history_entry",
