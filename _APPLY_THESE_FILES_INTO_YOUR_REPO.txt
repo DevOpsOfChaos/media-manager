@@ -1,12 +1,8 @@
-Copy these files into your repo and replace existing files when prompted.
+Apply these files into your media-manager repo, preserving paths.
 
-Then run:
-
-python -m pytest tests/test_core_workflow_forms_v2.py tests/test_cli_shell_forms_v2.py
-python -m pytest
-
-after that:
-
-git add .
-git commit -m "add gui profile launcher and form binding v2"
-git push origin main
+Suggested check sequence:
+1. python -m pytest tests/test_core_workflow_forms_v2.py tests/test_cli_shell_forms_v2.py
+2. python -m pytest
+3. git add .
+4. git commit -m "add gui profile launcher and form binding v2"
+5. git push origin main

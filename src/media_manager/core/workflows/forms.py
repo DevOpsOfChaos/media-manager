@@ -80,7 +80,9 @@ class BoundWorkflowFormModel:
     summary: str
     preset_name: str | None
     profile_name: str | None
+    valid: bool
     missing_required_fields: tuple[str, ...] = ()
+    problems: tuple[str, ...] = ()
     command_preview: str | None = None
     fields: tuple[BoundWorkflowFormField, ...] = field(default_factory=tuple)
 
@@ -91,7 +93,9 @@ class BoundWorkflowFormModel:
             "summary": self.summary,
             "preset_name": self.preset_name,
             "profile_name": self.profile_name,
+            "valid": self.valid,
             "missing_required_fields": list(self.missing_required_fields),
+            "problems": list(self.problems),
             "command_preview": self.command_preview,
             "fields": [item.to_dict() for item in self.fields],
         }
@@ -192,6 +196,15 @@ def _is_missing_value(value: object) -> bool:
     return False
 
 
+def _build_problems(missing_required_fields: list[str], command_preview: str | None) -> tuple[str, ...]:
+    problems: list[str] = []
+    if missing_required_fields:
+        problems.append("Missing required fields: " + ", ".join(missing_required_fields))
+    if not missing_required_fields and command_preview is None:
+        problems.append("Command preview could not be rendered from the current binding.")
+    return tuple(problems)
+
+
 def _bind_form_model(
     base_model: WorkflowFormModel,
     *,
@@ -229,13 +242,16 @@ def _bind_form_model(
             )
         )
 
+    problems = _build_problems(missing_required_fields, command_preview)
     return BoundWorkflowFormModel(
         workflow_name=base_model.workflow_name,
         title=base_model.title,
         summary=base_model.summary,
         preset_name=preset_name,
         profile_name=profile_name,
+        valid=not problems,
         missing_required_fields=tuple(missing_required_fields),
+        problems=problems,
         command_preview=command_preview,
         fields=tuple(bound_fields),
     )

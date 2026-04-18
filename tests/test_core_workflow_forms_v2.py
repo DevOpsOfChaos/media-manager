@@ -10,17 +10,17 @@ from media_manager.core.workflows import (
 )
 
 
-def test_build_preset_bound_workflow_form_model_marks_missing_required_fields() -> None:
+def test_build_preset_bound_form_marks_missing_required_fields_for_cleanup() -> None:
     model = build_preset_bound_workflow_form_model("cleanup-family-library")
 
     assert model.workflow_name == "cleanup"
+    assert model.preset_name == "cleanup-family-library"
+    assert model.valid is False
     assert set(model.missing_required_fields) == {"source", "target"}
-    duplicate_policy = next(item for item in model.fields if item.name == "duplicate_policy")
-    assert duplicate_policy.value == "first"
-    assert duplicate_policy.value_source == "binding"
+    assert model.command_preview is None
 
 
-def test_build_profile_bound_workflow_form_model_uses_profile_values(tmp_path: Path) -> None:
+def test_build_profile_bound_form_is_valid_when_required_values_exist(tmp_path: Path) -> None:
     profile_path = tmp_path / "trip.json"
     profile_path.write_text(
         json.dumps(
@@ -44,22 +44,23 @@ def test_build_profile_bound_workflow_form_model_uses_profile_values(tmp_path: P
 
     assert model.workflow_name == "trip"
     assert model.profile_name == "Italy trip"
+    assert model.valid is True
+    assert model.missing_required_fields == ()
     assert model.command_preview is not None
     assert model.command_preview.startswith("media-manager workflow run trip")
-    label_field = next(item for item in model.fields if item.name == "label")
-    assert label_field.value == "Italy_2025"
 
 
-def test_build_workflow_launcher_model_lists_profiles(tmp_path: Path) -> None:
-    profile_path = tmp_path / "cleanup.json"
-    profile_path.write_text(
+def test_build_workflow_launcher_model_includes_presets_and_profiles(tmp_path: Path) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "family.json").write_text(
         json.dumps(
             {
                 "schema_version": 1,
-                "profile_name": "Cleanup profile",
+                "profile_name": "Family cleanup",
                 "preset": "cleanup-family-library",
                 "values": {
-                    "source": ["C:/Photos"],
+                    "source": ["C:/Photos", "D:/Phone"],
                     "target": "E:/Library",
                 },
             }
@@ -67,7 +68,7 @@ def test_build_workflow_launcher_model_lists_profiles(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    model = build_workflow_launcher_model(tmp_path)
+    model = build_workflow_launcher_model(profiles_dir)
 
-    assert any(item.name == "cleanup-family-library" for item in model.presets)
-    assert any(item.profile_name == "Cleanup profile" for item in model.profiles)
+    assert any(item.launcher_type == "preset" and item.name == "cleanup-family-library" for item in model.launchers)
+    assert any(item.launcher_type == "profile" and item.profile_name == "Family cleanup" and item.valid for item in model.launchers)

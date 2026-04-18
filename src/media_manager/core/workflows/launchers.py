@@ -1,116 +1,119 @@
 from __future__ import annotations
 
-import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from .forms import build_preset_bound_workflow_form_model, build_profile_bound_workflow_form_model
-from .presets import get_workflow_preset, list_workflow_presets
+from .presets import list_workflow_presets
 
 
 @dataclass(slots=True, frozen=True)
-class PresetLauncherCard:
+class WorkflowLauncher:
+    launcher_type: str
     name: str
     title: str
     workflow_name: str
-    ready_to_run: bool
-    missing_required_fields: tuple[str, ...]
+    preset_name: str | None
+    profile_name: str | None
+    profile_path: str | None
+    valid: bool
+    missing_required_fields: tuple[str, ...] = ()
+    problems: tuple[str, ...] = ()
+    command_preview: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
+            "launcher_type": self.launcher_type,
             "name": self.name,
             "title": self.title,
             "workflow_name": self.workflow_name,
-            "ready_to_run": self.ready_to_run,
-            "missing_required_fields": list(self.missing_required_fields),
-        }
-
-
-@dataclass(slots=True, frozen=True)
-class ProfileLauncherCard:
-    path: str
-    profile_name: str
-    preset_name: str
-    workflow_name: str | None
-    valid: bool
-    command_preview: str | None
-    problems: tuple[str, ...] = ()
-
-    def to_dict(self) -> dict[str, object]:
-        return {
-            "path": self.path,
-            "profile_name": self.profile_name,
             "preset_name": self.preset_name,
-            "workflow_name": self.workflow_name,
+            "profile_name": self.profile_name,
+            "profile_path": self.profile_path,
             "valid": self.valid,
-            "command_preview": self.command_preview,
+            "missing_required_fields": list(self.missing_required_fields),
             "problems": list(self.problems),
+            "command_preview": self.command_preview,
         }
 
 
 @dataclass(slots=True)
 class WorkflowLauncherModel:
-    presets: list[PresetLauncherCard] = field(default_factory=list)
-    profiles: list[ProfileLauncherCard] = field(default_factory=list)
+    launchers: list[WorkflowLauncher] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            "presets": [item.to_dict() for item in self.presets],
-            "profiles": [item.to_dict() for item in self.profiles],
-        }
+        return {"launchers": [item.to_dict() for item in self.launchers]}
 
 
-def build_workflow_launcher_model(profiles_dir: str | Path | None = None) -> WorkflowLauncherModel:
-    model = WorkflowLauncherModel()
-
+def build_preset_launchers() -> list[WorkflowLauncher]:
+    items: list[WorkflowLauncher] = []
     for preset in list_workflow_presets():
         bound = build_preset_bound_workflow_form_model(preset.name)
-        model.presets.append(
-            PresetLauncherCard(
+        items.append(
+            WorkflowLauncher(
+                launcher_type="preset",
                 name=preset.name,
                 title=preset.title,
                 workflow_name=bound.workflow_name,
-                ready_to_run=len(bound.missing_required_fields) == 0,
+                preset_name=preset.name,
+                profile_name=None,
+                profile_path=None,
+                valid=bound.valid,
                 missing_required_fields=bound.missing_required_fields,
+                problems=bound.problems,
+                command_preview=bound.command_preview,
             )
         )
+    return items
 
-    if profiles_dir is None:
-        return model
 
-    base_dir = Path(profiles_dir)
-    if not base_dir.exists() or not base_dir.is_dir():
-        return model
+def build_profile_launchers(profiles_dir: str | Path) -> list[WorkflowLauncher]:
+    base_path = Path(profiles_dir)
+    if not base_path.exists() or not base_path.is_dir():
+        return []
 
-    for path in sorted(base_dir.glob("*.json"), key=lambda item: str(item).lower()):
+    items: list[WorkflowLauncher] = []
+    for file_path in sorted(base_path.rglob("*.json"), key=lambda p: str(p).lower()):
         try:
-            bound = build_profile_bound_workflow_form_model(path)
-            problems: list[str] = []
-            if bound.missing_required_fields:
-                problems.append("missing required values: " + ", ".join(bound.missing_required_fields))
-            valid = not bound.missing_required_fields and bound.command_preview is not None
-            model.profiles.append(
-                ProfileLauncherCard(
-                    path=str(path),
-                    profile_name=bound.profile_name or path.stem,
-                    preset_name=bound.preset_name or "",
+            bound = build_profile_bound_workflow_form_model(file_path)
+            items.append(
+                WorkflowLauncher(
+                    launcher_type="profile",
+                    name=file_path.stem,
+                    title=bound.profile_name or file_path.stem,
                     workflow_name=bound.workflow_name,
-                    valid=valid,
+                    preset_name=bound.preset_name,
+                    profile_name=bound.profile_name,
+                    profile_path=str(file_path),
+                    valid=bound.valid,
+                    missing_required_fields=bound.missing_required_fields,
+                    problems=bound.problems,
                     command_preview=bound.command_preview,
-                    problems=tuple(problems),
                 )
             )
         except Exception as exc:
-            model.profiles.append(
-                ProfileLauncherCard(
-                    path=str(path),
-                    profile_name=path.stem,
-                    preset_name="",
-                    workflow_name=None,
+            items.append(
+                WorkflowLauncher(
+                    launcher_type="profile",
+                    name=file_path.stem,
+                    title=file_path.stem,
+                    workflow_name="unknown",
+                    preset_name=None,
+                    profile_name=None,
+                    profile_path=str(file_path),
                     valid=False,
-                    command_preview=None,
+                    missing_required_fields=(),
                     problems=(str(exc),),
+                    command_preview=None,
                 )
             )
+    return items
 
-    return model
+
+def build_workflow_launcher_model(profiles_dir: str | Path | None = None) -> WorkflowLauncherModel:
+    launchers = build_preset_launchers()
+    if profiles_dir is not None:
+        launchers.extend(build_profile_launchers(profiles_dir))
+
+    launchers.sort(key=lambda item: (item.launcher_type, item.title.lower(), item.name.lower()))
+    return WorkflowLauncherModel(launchers=launchers)

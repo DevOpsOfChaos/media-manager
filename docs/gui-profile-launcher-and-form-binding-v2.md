@@ -1,24 +1,44 @@
 # GUI profile launcher and form binding v2
 
-This update connects the shell more directly to presets and saved profiles.
+This block expands the new shell scaffold with two connected capabilities:
 
-New headless shell capabilities:
+- launcher models for built-in presets and saved profiles
+- bound workflow forms that carry current values, missing required fields, and command previews
 
+## New shell commands
+
+- `media-manager shell --dump-launchers`
 - `media-manager shell --dump-launchers --profiles-dir <DIR>`
 - `media-manager shell --preview-preset-form <PRESET>`
 - `media-manager shell --preview-profile-form <PROFILE.json>`
 - `media-manager shell --preview-profile-command <PROFILE.json>`
 
-The shell can now inspect:
+## What launcher data includes
 
-- built-in presets as launcher cards
-- saved workflow profiles discovered in a directory
-- form models that are prefilled from preset defaults
-- form models that are prefilled from saved profile values
+Each launcher item describes:
 
-This is still a scaffold layer, but it is much closer to a future modern GUI because the UI can now work from:
+- whether it comes from a preset or a saved profile
+- workflow name
+- preset/profile identity
+- validity
+- missing required fields
+- command preview when renderable
+- human-readable problems
+
+## What bound form data includes
+
+A bound form model now carries:
 
 - workflow metadata
-- form metadata
-- preset defaults
-- saved profile values
+- the bound preset/profile name
+- field values
+- field value source
+- missing required fields
+- validity
+- problems
+- optional command preview
+
+## Notes
+
+This is still a shell/backend-oriented step. It does not try to build a full data-entry GUI yet.
+Instead, it provides the structured models that a later GUI form layer can consume with less risk.
