@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections import Counter
 from pathlib import Path
 
 from .duplicate_session_store import (
@@ -9,6 +10,7 @@ from .duplicate_session_store import (
     restore_duplicate_session,
     save_duplicate_session_snapshot,
 )
+from .cleanup_plan import build_exact_group_id
 from .duplicate_workflow import (
     build_duplicate_decisions,
     build_duplicate_workflow_bundle,
@@ -214,6 +216,54 @@ def _format_stage_error_summary(result) -> str | None:
     return "; stage-errors: " + ", ".join(ordered)
 
 
+def _build_decision_summary(exact_groups, decisions: dict[str, str], session_restore) -> dict[str, object]:
+    total_groups = len(exact_groups)
+    session_group_ids = set() if session_restore is None else set(getattr(session_restore, "decisions", {}).keys())
+    decided_group_ids = set(decisions.keys())
+    unresolved_group_ids = [
+        build_exact_group_id(group)
+        for group in exact_groups
+        if build_exact_group_id(group) not in decided_group_ids
+    ]
+    return {
+        "total_groups": total_groups,
+        "decided_groups": len(decided_group_ids),
+        "undecided_groups": len(unresolved_group_ids),
+        "from_session_count": sum(1 for group_id in decided_group_ids if group_id in session_group_ids),
+        "from_policy_count": sum(1 for group_id in decided_group_ids if group_id not in session_group_ids),
+        "session_status": None if session_restore is None else getattr(session_restore, "status", None),
+        "unresolved_group_ids": unresolved_group_ids,
+    }
+
+
+def _cleanup_plan_unresolved_payload(cleanup_plan) -> list[dict[str, object]]:
+    unresolved = []
+    for item in getattr(cleanup_plan, "unresolved", []):
+        unresolved.append(
+            {
+                "group_id": item.group_id,
+                "file_size": item.file_size,
+                "candidate_count": len(item.candidate_paths),
+                "candidate_paths": [str(path) for path in item.candidate_paths],
+            }
+        )
+    return unresolved
+
+
+def _execution_preview_reason_summary(preview) -> dict[str, dict[str, int]]:
+    summary: dict[str, Counter] = {
+        "executable": Counter(),
+        "deferred": Counter(),
+        "blocked": Counter(),
+    }
+    for row in getattr(preview, "rows", []):
+        bucket = row.status if row.status in summary else None
+        if bucket is None:
+            continue
+        summary[bucket][row.reason] += 1
+    return {key: dict(value) for key, value in summary.items()}
+
+
 def _write_json_report(path: Path, result, bundle, execution_result, *, similar_result=None, similar_review=None, session_restore=None) -> None:
     payload = {
         "scan": {
@@ -268,6 +318,7 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
             ],
         },
         "session_restore": _session_restore_payload(session_restore),
+        "decision_summary": _build_decision_summary(result.exact_groups, bundle.decisions, session_restore),
         "decisions": bundle.decisions,
         "cleanup_plan": {
             "total_groups": bundle.cleanup_plan.total_groups,
@@ -275,6 +326,7 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
             "unresolved_groups": bundle.cleanup_plan.unresolved_groups,
             "planned_removals": len(bundle.cleanup_plan.planned_removals),
             "estimated_reclaimable_bytes": bundle.cleanup_plan.estimated_reclaimable_bytes,
+            "unresolved": _cleanup_plan_unresolved_payload(bundle.cleanup_plan),
         },
         "dry_run": {
             "ready": bundle.dry_run.ready,
@@ -304,6 +356,7 @@ def _write_json_report(path: Path, result, bundle, execution_result, *, similar_
             "deferred_count": bundle.execution_preview.deferred_count,
             "blocked_count": bundle.execution_preview.blocked_count,
             "delete_count": bundle.execution_preview.delete_count,
+            "reason_summary": _execution_preview_reason_summary(bundle.execution_preview),
             "rows": [
                 {
                     "row_type": row.row_type,
@@ -430,6 +483,8 @@ def main(argv: list[str] | None = None) -> int:
         target_root=args.target,
     )
 
+    decision_summary = _build_decision_summary(result.exact_groups, bundle.decisions, session_restore)
+
     if session_restore is not None:
         print(
             "Session restore: "
@@ -442,6 +497,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.show_plan or args.policy or args.load_session or args.apply:
         _print_workflow_summary(bundle)
+        print(
+            "Decision summary: "
+            f"decided={decision_summary['decided_groups']} | "
+            f"undecided={decision_summary['undecided_groups']} | "
+            f"from-session={decision_summary['from_session_count']} | "
+            f"from-policy={decision_summary['from_policy_count']}"
+        )
         print(f"Decisions: {len(bundle.decisions)}")
 
     execution_result = None
