@@ -1,7 +1,11 @@
-Apply these files into the repository root and replace existing files when prompted.
 
-After unpacking this ZIP, refresh dependencies because Pillow was added:
+Apply these files into the repository root and replace existing files where paths match.
 
-python -m pip install -e ".[dev]"
-python -m pytest tests/test_similar_images.py tests/test_cli_duplicates.py
-python -m pytest
+Included in this package:
+- src/media_manager/core/workflows/cleanup.py
+- src/media_manager/core/workflows/__init__.py
+- src/media_manager/cli_cleanup.py
+- src/media_manager/cli.py
+- tests/test_core_cleanup_workflow.py
+- tests/test_cli_cleanup_v1.py
+- docs/cleanup-workflow-v1.md

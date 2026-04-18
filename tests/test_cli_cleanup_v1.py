@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import json
@@ -22,13 +23,14 @@ def _resolution(path: Path) -> DateResolution:
     )
 
 
-def test_cli_cleanup_json_output_contains_sections(monkeypatch, tmp_path: Path, capsys) -> None:
-    source = tmp_path / "source"
-    target = tmp_path / "target"
-    source.mkdir()
-    target.mkdir()
-    (source / "IMG_20240810_111213.JPG").write_bytes(b"duplicate-bytes")
-    (source / "IMG_20240810_111214.JPG").write_bytes(b"other")
+def test_cli_cleanup_json_output_contains_section_summaries(monkeypatch, capsys, tmp_path: Path) -> None:
+    source_a = tmp_path / "a"
+    source_b = tmp_path / "b"
+    source_a.mkdir()
+    source_b.mkdir()
+
+    (source_a / "one.jpg").write_bytes(b"duplicate-bytes")
+    (source_b / "two.jpg").write_bytes(b"duplicate-bytes")
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
@@ -39,23 +41,33 @@ def test_cli_cleanup_json_output_contains_sections(monkeypatch, tmp_path: Path, 
         lambda file_path, exiftool_path=None: _resolution(file_path),
     )
 
-    exit_code = main(["--source", str(source), "--target", str(target), "--json"])
+    code = main(
+        [
+            "--source",
+            str(source_a),
+            "--source",
+            str(source_b),
+            "--target",
+            str(tmp_path / "target"),
+            "--duplicate-policy",
+            "first",
+            "--json",
+        ]
+    )
     captured = capsys.readouterr()
 
-    assert exit_code == 0
+    assert code == 0
     payload = json.loads(captured.out)
-    assert payload["scan"]["media_file_count"] == 2
-    assert "duplicates" in payload
-    assert "organize" in payload
-    assert "rename" in payload
+    assert payload["duplicates"]["exact_groups"] == 1
+    assert payload["duplicates"]["decisions"] == 1
+    assert payload["organize"]["planned_count"] == 2
+    assert payload["rename"]["planned_count"] == 2
 
 
 def test_cli_cleanup_writes_run_log(monkeypatch, tmp_path: Path) -> None:
     source = tmp_path / "source"
-    target = tmp_path / "target"
     source.mkdir()
-    target.mkdir()
-    (source / "IMG_20240810_111213.JPG").write_bytes(b"one")
+    (source / "one.jpg").write_bytes(b"solo")
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
@@ -66,10 +78,20 @@ def test_cli_cleanup_writes_run_log(monkeypatch, tmp_path: Path) -> None:
         lambda file_path, exiftool_path=None: _resolution(file_path),
     )
 
-    run_log = tmp_path / "logs" / "cleanup-run.json"
-    exit_code = main(["--source", str(source), "--target", str(target), "--run-log", str(run_log), "--json"])
+    log_path = tmp_path / "logs" / "cleanup-run.json"
+    code = main(
+        [
+            "--source",
+            str(source),
+            "--target",
+            str(tmp_path / "target"),
+            "--run-log",
+            str(log_path),
+        ]
+    )
 
-    assert exit_code == 0
-    payload = json.loads(run_log.read_text(encoding="utf-8"))
+    assert code == 0
+    assert log_path.exists()
+    payload = json.loads(log_path.read_text(encoding="utf-8"))
     assert payload["command_name"] == "cleanup"
-    assert payload["exit_code"] == 0
+    assert payload["apply_requested"] is False

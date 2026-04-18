@@ -1,10 +1,11 @@
+
 """Workflow helpers for the rebuilt media-manager core."""
 
 from .cleanup import (
     DEFAULT_CLEANUP_RENAME_TEMPLATE,
+    CleanupDryRun,
     CleanupWorkflowOptions,
-    CleanupWorkflowReport,
-    build_cleanup_workflow_report,
+    build_cleanup_dry_run,
 )
 from .trip import (
     TripDryRun,
@@ -18,10 +19,10 @@ from .trip import (
 )
 
 __all__ = [
-    "DEFAULT_CLEANUP_RENAME_TEMPLATE",
     "CleanupWorkflowOptions",
-    "CleanupWorkflowReport",
-    "build_cleanup_workflow_report",
+    "CleanupDryRun",
+    "DEFAULT_CLEANUP_RENAME_TEMPLATE",
+    "build_cleanup_dry_run",
     "TripWorkflowOptions",
     "TripPlanEntry",
     "TripDryRun",

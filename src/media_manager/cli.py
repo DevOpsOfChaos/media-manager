@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import argparse
@@ -46,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "\nNo command provided.\n"
             "The old default GUI launch behavior has been removed during the repository reset.\n"
-            "Run an explicit CLI command such as 'scan', 'inspect', 'cleanup', 'organize', 'rename', 'trip', or 'duplicates'.\n"
+            "Run an explicit CLI command such as 'scan', 'inspect', 'organize', 'rename', 'trip', 'cleanup', or 'duplicates'.\n"
             "Use 'media-manager gui' only if you intentionally want the legacy GUI."
         )
         return 0

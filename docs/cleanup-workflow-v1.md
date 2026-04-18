@@ -1,66 +1,52 @@
-# Cleanup Workflow v1
 
-## Goal
+# Cleanup workflow v1
 
-Provide a guided dry-run workflow for the common real-world cleanup case:
+`media-manager cleanup` is a guided dry-run workflow for a common real-world problem:
 
-- several messy source folders
-- likely exact duplicates
-- a planned organize target
-- a planned rename strategy
+- multiple unsorted source folders
+- possible exact duplicates
+- a future organize target
+- a future rename template
 
-The cleanup workflow does **not** execute everything automatically.
-It combines the existing core planners into one reviewable report.
+## Current scope
 
-## Command
+This workflow is intentionally **dry-run only** in v1.
+
+It combines these subsystems into one report:
+
+1. exact duplicate scan
+2. optional duplicate keep decisions
+3. organize dry-run plan
+4. rename dry-run plan
+
+## Example
 
 ```powershell
-media-manager cleanup --source <DIR_A> --source <DIR_B> --target <TARGET>
+media-manager cleanup `
+  --source C:\Phone `
+  --source D:\OldBackups `
+  --target E:\Library `
+  --duplicate-policy first `
+  --organize-pattern "{year}/{year_month_day}" `
+  --rename-template "{date:%Y-%m-%d_%H-%M-%S}_{stem}" `
+  --json
 ```
 
-## Included sections
+## Why this is useful
 
-The workflow currently combines:
+This command does not mutate files yet, but it gives a single entry point for:
 
-1. scan summary
-2. exact duplicate scan and optional keep-policy decisions
-3. organize dry-run summary
-4. rename dry-run summary
+- understanding how many duplicates exist
+- seeing whether duplicate decisions can already be resolved
+- previewing destination organization
+- previewing rename decisions
 
-## Duplicate options
+## Run log support
 
-- `--duplicate-policy first|newest|oldest`
-- `--duplicate-mode copy|move|delete`
+You can also write a JSON run log:
 
-If a duplicate policy is supplied, the workflow also builds the duplicate cleanup plan section.
+```powershell
+media-manager cleanup ... --run-log logs\cleanup.json
+```
 
-## Organize options
-
-- `--organize-pattern`
-
-This pattern is passed through to the existing organize dry-run planner.
-
-## Rename options
-
-- `--rename-template`
-
-This template is passed through to the existing rename dry-run planner.
-
-## Output modes
-
-- normal human-readable summary
-- `--show-files` for per-entry details
-- `--json` for machine-readable output
-- `--run-log <PATH>` for a persistent command log
-
-## Why this exists
-
-This is the first workflow that connects multiple rebuilt subsystems into one practical user-facing problem flow.
-
-It is intentionally conservative:
-
-- no global apply button
-- no hidden destructive behavior
-- no fake automation pretending to solve unresolved duplicate decisions
-
-It is a guided report layer built on top of the real core modules.
+That log can later become the basis for richer workflow history and journaling.
