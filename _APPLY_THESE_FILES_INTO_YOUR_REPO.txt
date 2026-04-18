@@ -1,8 +1,12 @@
-Apply these files into your repository root, replacing existing files where paths overlap.
+Apply these files into the repository root and overwrite existing files where paths match.
 
-Suggested commands after extracting:
-python -m pytest tests/test_core_renamer.py tests/test_cli_rename_v1.py
-python -m pytest
-git add .
-git commit -m "add rename apply v1 with first rename idempotence rules"
-git push origin main
+Included in this update:
+- src/media_manager/execution_audit.py
+- src/media_manager/cli_duplicates.py
+- tests/test_cli_duplicates.py
+- docs/duplicate-review-audit-v1.md
+
+After copying:
+1. run `python -m pytest tests/test_cli_duplicates.py tests/test_execution_audit.py`
+2. run `python -m pytest`
+3. commit and push on `main`
