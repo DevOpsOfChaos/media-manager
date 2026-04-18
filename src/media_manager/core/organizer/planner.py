@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from media_manager.core.date_resolver import resolve_capture_datetime
+from media_manager.core.file_identity import files_have_identical_content
 from media_manager.core.scanner import ScanOptions, scan_media_sources
 
 from .models import OrganizeDryRun, OrganizePlanEntry, OrganizePlannerOptions
@@ -12,13 +13,6 @@ from .patterns import render_organize_directory
 
 def _normalized_path_key(path: Path) -> str:
     return os.path.normcase(str(path))
-
-
-def _paths_match_by_size(source_path: Path, target_path: Path) -> bool:
-    try:
-        return source_path.stat().st_size == target_path.stat().st_size
-    except OSError:
-        return False
 
 
 def build_organize_dry_run(options: OrganizePlannerOptions) -> OrganizeDryRun:
@@ -34,15 +28,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions) -> OrganizeDryRun:
 
     for scanned_file in scan_summary.files:
         try:
-            resolution = resolve_capture_datetime(
-                scanned_file.path,
-                exiftool_path=options.exiftool_path,
-            )
-            target_relative_dir = render_organize_directory(
-                options.pattern,
-                resolution,
-                source_root=scanned_file.source_root,
-            )
+            resolution = resolve_capture_datetime(scanned_file.path, exiftool_path=options.exiftool_path)
+            target_relative_dir = render_organize_directory(options.pattern, resolution, source_root=scanned_file.source_root)
             target_path = options.target_root / target_relative_dir / scanned_file.path.name
         except Exception as exc:
             dry_run.entries.append(
@@ -78,9 +65,9 @@ def build_organize_dry_run(options: OrganizePlannerOptions) -> OrganizeDryRun:
         if target_path.exists():
             status = "conflict"
             reason = "target path already exists"
-            if _paths_match_by_size(scanned_file.path, target_path):
+            if files_have_identical_content(scanned_file.path, target_path):
                 status = "skipped"
-                reason = "target already exists with matching file size"
+                reason = "target already exists with identical file content"
             dry_run.entries.append(
                 OrganizePlanEntry(
                     scanned_file=scanned_file,

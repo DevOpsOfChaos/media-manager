@@ -25,7 +25,6 @@ def _normalize_metadata_keys(metadata: dict[str, object]) -> dict[str, str]:
     return normalized
 
 
-
 def extract_date_candidates(metadata: dict[str, object]) -> list[DateCandidate]:
     normalized = _normalize_metadata_keys(metadata)
     candidates: list[DateCandidate] = []
@@ -40,11 +39,7 @@ def extract_date_candidates(metadata: dict[str, object]) -> list[DateCandidate]:
                 candidates.append(DateCandidate(source_tag=tag, value=direct_value, priority_index=priority_index))
 
         grouped_matches = sorted(
-            (
-                (key, value)
-                for key, value in normalized.items()
-                if key.endswith(f":{tag}")
-            ),
+            (item for item in normalized.items() if item[0].endswith(f":{tag}")),
             key=lambda item: item[0].lower(),
         )
         for key, value in grouped_matches:
@@ -55,7 +50,6 @@ def extract_date_candidates(metadata: dict[str, object]) -> list[DateCandidate]:
             candidates.append(DateCandidate(source_tag=key, value=value, priority_index=priority_index))
 
     return candidates
-
 
 
 def _read_exiftool_metadata(file_path: Path, exiftool_path: Path | None = None) -> tuple[dict[str, object] | None, bool, str | None]:
@@ -83,7 +77,6 @@ def _read_exiftool_metadata(file_path: Path, exiftool_path: Path | None = None) 
     if not payload or not isinstance(payload, list) or not isinstance(payload[0], dict):
         return {}, True, None
     return payload[0], True, None
-
 
 
 def inspect_media_file(file_path: Path, exiftool_path: Path | None = None) -> FileInspection:

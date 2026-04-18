@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import os
 import shutil
 
+from media_manager.core.file_identity import files_have_identical_content
+
 from .models import OrganizeDryRun, OrganizeExecutionEntry, OrganizeExecutionResult
+
+
+def _normalized_path_key(path) -> str:
+    return os.path.normcase(str(path))
 
 
 def execute_organize_plan(plan: OrganizeDryRun) -> OrganizeExecutionResult:
@@ -12,19 +19,30 @@ def execute_organize_plan(plan: OrganizeDryRun) -> OrganizeExecutionResult:
         if entry.status == "skipped":
             result.entries.append(OrganizeExecutionEntry(plan_entry=entry, outcome="skipped", reason=entry.reason))
             continue
-
         if entry.status == "conflict":
             result.entries.append(OrganizeExecutionEntry(plan_entry=entry, outcome="conflict", reason=entry.reason))
             continue
-
         if entry.status == "error":
             result.entries.append(OrganizeExecutionEntry(plan_entry=entry, outcome="error", reason=entry.reason))
             continue
-
         if entry.target_path is None:
             result.entries.append(OrganizeExecutionEntry(plan_entry=entry, outcome="error", reason="missing target path"))
             continue
-
+        if _normalized_path_key(entry.source_path) == _normalized_path_key(entry.target_path):
+            result.entries.append(
+                OrganizeExecutionEntry(plan_entry=entry, outcome="skipped", reason="source already matches the planned target path at apply time")
+            )
+            continue
+        if entry.target_path.exists():
+            if files_have_identical_content(entry.source_path, entry.target_path):
+                result.entries.append(
+                    OrganizeExecutionEntry(plan_entry=entry, outcome="skipped", reason="target already exists with identical file content at apply time")
+                )
+            else:
+                result.entries.append(
+                    OrganizeExecutionEntry(plan_entry=entry, outcome="conflict", reason="target path already exists at apply time")
+                )
+            continue
         try:
             entry.target_path.parent.mkdir(parents=True, exist_ok=True)
             if entry.operation_mode == "move":

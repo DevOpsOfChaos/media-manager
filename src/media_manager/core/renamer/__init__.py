@@ -1,4 +1,3 @@
-
 """Rename planner and executor for the rebuilt core."""
 
 from .executor import execute_rename_dry_run

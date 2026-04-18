@@ -1,8 +1,8 @@
 Apply these files into your media-manager repo, preserving paths.
 
 Suggested check sequence:
-1. python -m pytest tests/test_core_date_resolver.py
+1. python -m pytest tests/test_core_organizer.py tests/test_core_renamer_hardening_v1.py tests/test_core_date_resolver.py tests/test_media_formats_v1.py tests/test_duplicates.py tests/test_similar_images.py
 2. python -m pytest
 3. git add .
-4. git commit -m "harden date resolution v1"
+4. git commit -m "harden organize and rename idempotence v1"
 5. git push origin main
