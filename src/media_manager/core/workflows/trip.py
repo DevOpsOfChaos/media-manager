@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
@@ -84,7 +85,12 @@ class TripDryRun:
 
     @property
     def selected_count(self) -> int:
-        return sum(1 for item in self.entries if item.status in {"planned", "skipped", "conflict"} and item.reason != "resolved capture date is outside the requested trip range")
+        return sum(
+            1
+            for item in self.entries
+            if item.status in {"planned", "skipped", "conflict"}
+            and item.reason != "resolved capture date is outside the requested trip range"
+        )
 
     @property
     def missing_source_count(self) -> int:
@@ -93,6 +99,38 @@ class TripDryRun:
     @property
     def media_file_count(self) -> int:
         return self.scan_summary.media_file_count
+
+    @property
+    def status_summary(self) -> dict[str, int]:
+        return dict(sorted(Counter(item.status for item in self.entries).items()))
+
+    @property
+    def reason_summary(self) -> dict[str, int]:
+        return dict(sorted(Counter(item.reason for item in self.entries).items()))
+
+    @property
+    def resolution_source_summary(self) -> dict[str, int]:
+        return dict(
+            sorted(
+                Counter(
+                    item.resolution.source_kind
+                    for item in self.entries
+                    if item.resolution is not None
+                ).items()
+            )
+        )
+
+    @property
+    def confidence_summary(self) -> dict[str, int]:
+        return dict(
+            sorted(
+                Counter(
+                    item.resolution.confidence
+                    for item in self.entries
+                    if item.resolution is not None
+                ).items()
+            )
+        )
 
 
 @dataclass(slots=True)
@@ -117,6 +155,14 @@ class TripExecutionResult:
     @property
     def executed_count(self) -> int:
         return self.linked_count + self.copied_count
+
+    @property
+    def outcome_summary(self) -> dict[str, int]:
+        return dict(sorted(Counter(item.outcome for item in self.entries).items()))
+
+    @property
+    def reason_summary(self) -> dict[str, int]:
+        return dict(sorted(Counter(item.reason for item in self.entries).items()))
 
 
 def _normalized_key(path: Path) -> str:
@@ -333,7 +379,7 @@ def execute_trip_plan(dry_run: TripDryRun, *, apply: bool) -> TripExecutionResul
                     reason="trip workflow action executed successfully",
                 )
             )
-        except Exception as exc:  # pragma: no cover - runtime safeguard
+        except Exception as exc:  # pragma: no cover
             result.error_count += 1
             result.entries.append(
                 TripExecutionEntry(

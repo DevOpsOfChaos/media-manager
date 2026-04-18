@@ -4,7 +4,14 @@ from datetime import date, datetime
 from pathlib import Path
 
 from media_manager.core.date_resolver import DateResolution
-from media_manager.core.workflows import TripWorkflowOptions, build_trip_dry_run, execute_trip_plan, parse_trip_date
+from media_manager.core.workflows.trip import (
+    TripExecutionEntry,
+    TripExecutionResult,
+    TripWorkflowOptions,
+    build_trip_dry_run,
+    execute_trip_plan,
+    parse_trip_date,
+)
 
 
 def _resolution(path: Path, dt: datetime) -> DateResolution:
@@ -54,8 +61,10 @@ def test_build_trip_dry_run_selects_files_inside_range(monkeypatch, tmp_path: Pa
     assert dry_run.selected_count == 1
     assert dry_run.planned_count == 1
     assert dry_run.skipped_count == 1
-    assert any(item.source_path == inside and item.status == "planned" for item in dry_run.entries)
-    assert any(item.source_path == outside and item.status == "skipped" for item in dry_run.entries)
+    assert dry_run.status_summary["planned"] == 1
+    assert dry_run.status_summary["skipped"] == 1
+    assert dry_run.resolution_source_summary["metadata"] == 2
+    assert dry_run.confidence_summary["high"] == 2
 
 
 def test_build_trip_dry_run_skips_existing_matching_target(monkeypatch, tmp_path: Path) -> None:
@@ -85,7 +94,7 @@ def test_build_trip_dry_run_skips_existing_matching_target(monkeypatch, tmp_path
 
     assert dry_run.planned_count == 0
     assert dry_run.skipped_count == 1
-    assert dry_run.entries[0].reason == "target already exists with matching file size"
+    assert dry_run.reason_summary["target already exists with matching file size"] == 1
 
 
 def test_execute_trip_plan_creates_hardlinks(monkeypatch, tmp_path: Path) -> None:
@@ -114,6 +123,8 @@ def test_execute_trip_plan_creates_hardlinks(monkeypatch, tmp_path: Path) -> Non
 
     assert result.executed_count == 1
     assert result.linked_count == 1
+    assert result.outcome_summary["linked"] == 1
+    assert result.reason_summary["trip workflow action executed successfully"] == 1
     target_path = result.entries[0].target_path
     assert target_path is not None and target_path.exists()
     assert file_path.exists()
@@ -150,3 +161,21 @@ def test_execute_trip_plan_can_copy(monkeypatch, tmp_path: Path) -> None:
     assert target_path is not None and target_path.exists()
     assert file_path.exists()
     assert not file_path.samefile(target_path)
+
+
+def test_trip_execution_result_summary_properties_group_entries() -> None:
+    result = TripExecutionResult(
+        apply_requested=True,
+        entries=[
+            TripExecutionEntry(source_path=Path("a.jpg"), target_path=Path("x.jpg"), outcome="linked", reason="done"),
+            TripExecutionEntry(source_path=Path("b.jpg"), target_path=Path("y.jpg"), outcome="linked", reason="done"),
+            TripExecutionEntry(source_path=Path("c.jpg"), target_path=None, outcome="skipped", reason="outside range"),
+        ],
+        processed_count=3,
+        linked_count=2,
+        skipped_count=1,
+    )
+
+    assert result.executed_count == 2
+    assert result.outcome_summary == {"linked": 2, "skipped": 1}
+    assert result.reason_summary == {"done": 2, "outside range": 1}

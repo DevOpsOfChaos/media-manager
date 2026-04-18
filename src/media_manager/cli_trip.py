@@ -68,6 +68,10 @@ def _build_payload(dry_run, execution_result) -> dict[str, object]:
         "skipped_count": dry_run.skipped_count,
         "conflict_count": dry_run.conflict_count,
         "error_count": dry_run.error_count,
+        "status_summary": dry_run.status_summary,
+        "reason_summary": dry_run.reason_summary,
+        "resolution_source_summary": dry_run.resolution_source_summary,
+        "confidence_summary": dry_run.confidence_summary,
         "entries": [
             {
                 "source_root": str(item.source_root),
@@ -95,6 +99,8 @@ def _build_payload(dry_run, execution_result) -> dict[str, object]:
             "skipped_count": execution_result.skipped_count,
             "conflict_count": execution_result.conflict_count,
             "error_count": execution_result.error_count,
+            "outcome_summary": execution_result.outcome_summary,
+            "reason_summary": execution_result.reason_summary,
             "entries": [
                 {
                     "source_path": str(item.source_path),
@@ -136,6 +142,14 @@ def _build_journal_entries(execution_result) -> list[dict[str, object]]:
     return entries
 
 
+def _print_summary_block(title: str, summary: dict[str, int]) -> None:
+    if not summary:
+        return
+    print(title)
+    for key, value in summary.items():
+        print(f"  {key}: {value}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -166,16 +180,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     execution_result = execute_trip_plan(dry_run, apply=args.apply) if args.apply else None
 
-    exit_code = 0
     has_errors = dry_run.error_count > 0 or dry_run.missing_source_count > 0
     if execution_result is not None:
         has_errors = has_errors or execution_result.error_count > 0
-    if has_errors:
-        exit_code = 1
+    exit_code = 0 if not has_errors else 1
 
     payload = _build_payload(dry_run, execution_result)
-    explicit_journal_entries = _build_journal_entries(execution_result) if execution_result is not None else None
+
     history_artifacts = None
+    journal_entries = _build_journal_entries(execution_result) if execution_result is not None else None
 
     if args.run_log is not None:
         write_command_run_log(
@@ -192,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
             command_name="trip",
             apply_requested=True,
             exit_code=exit_code,
-            entries=explicit_journal_entries or [],
+            entries=journal_entries or [],
         )
 
     if args.history_dir is not None:
@@ -202,7 +215,7 @@ def main(argv: list[str] | None = None) -> int:
             apply_requested=args.apply,
             exit_code=exit_code,
             payload=payload,
-            journal_entries=explicit_journal_entries if args.apply else None,
+            journal_entries=journal_entries if args.apply else None,
         )
 
     if args.json:
@@ -219,6 +232,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Skipped: {dry_run.skipped_count}")
     print(f"  Conflicts: {dry_run.conflict_count}")
     print(f"  Errors: {dry_run.error_count}")
+    _print_summary_block("\nStatus summary", payload["status_summary"])
+    _print_summary_block("\nReason summary", payload["reason_summary"])
+    _print_summary_block("\nResolution sources", payload["resolution_source_summary"])
+    _print_summary_block("\nConfidence summary", payload["confidence_summary"])
 
     if execution_result is not None:
         print("\nExecution")
@@ -228,6 +245,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Skipped: {execution_result.skipped_count}")
         print(f"  Conflicts: {execution_result.conflict_count}")
         print(f"  Errors: {execution_result.error_count}")
+        execution = payload["execution"]
+        _print_summary_block("\nExecution outcomes", execution["outcome_summary"])
+        _print_summary_block("\nExecution reasons", execution["reason_summary"])
 
     if args.show_files:
         print("\nEntries:")

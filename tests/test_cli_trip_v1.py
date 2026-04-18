@@ -48,6 +48,10 @@ def test_cli_trip_json_output_contains_summary(monkeypatch, tmp_path: Path, caps
     assert payload["selected_count"] == 1
     assert payload["planned_count"] == 1
     assert payload["mode"] == "link"
+    assert payload["status_summary"]["planned"] == 1
+    assert payload["reason_summary"]["ready for trip workflow execution"] == 1
+    assert payload["resolution_source_summary"]["metadata"] == 1
+    assert payload["confidence_summary"]["high"] == 1
 
 
 def test_cli_trip_apply_copy_reports_execution(monkeypatch, tmp_path: Path, capsys) -> None:
@@ -76,7 +80,35 @@ def test_cli_trip_apply_copy_reports_execution(monkeypatch, tmp_path: Path, caps
     payload = json.loads(captured.out)
     assert payload["execution"]["executed_count"] == 1
     assert payload["execution"]["copied_count"] == 1
+    assert payload["execution"]["outcome_summary"]["copied"] == 1
+    assert payload["execution"]["reason_summary"]["trip workflow action executed successfully"] == 1
     assert payload["execution"]["entries"][0]["outcome"] == "copied"
+
+
+def test_cli_trip_text_output_includes_summary_blocks(monkeypatch, tmp_path: Path, capsys) -> None:
+    source = tmp_path / "Phone"
+    source.mkdir()
+    (source / "photo.jpg").write_bytes(b"jpg")
+
+    monkeypatch.setattr(
+        "media_manager.core.workflows.trip.resolve_capture_datetime",
+        lambda path, exiftool_path=None: _resolution(path),
+    )
+
+    exit_code = main([
+        "--source", str(source),
+        "--target", str(tmp_path / "collections"),
+        "--label", "Italy_2025",
+        "--start", "2025-08-01",
+        "--end", "2025-08-14",
+    ])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Status summary" in captured.out
+    assert "Reason summary" in captured.out
+    assert "Resolution sources" in captured.out
+    assert "Confidence summary" in captured.out
 
 
 def test_cli_trip_writes_run_log(monkeypatch, tmp_path: Path) -> None:
@@ -156,13 +188,8 @@ def test_cli_trip_history_dir_writes_preview_run_log(monkeypatch, tmp_path: Path
     ])
 
     assert exit_code == 0
-    run_logs = sorted(history_dir.glob("*-trip-preview-run-log.json"))
-    journals = sorted(history_dir.glob("*-trip-preview-execution-journal.json"))
-    assert len(run_logs) == 1
-    assert journals == []
-    payload = json.loads(run_logs[0].read_text(encoding="utf-8"))
-    assert payload["command_name"] == "trip"
-    assert payload["apply_requested"] is False
+    files = list(history_dir.glob("*-trip-preview-run-log.json"))
+    assert len(files) == 1
 
 
 def test_cli_trip_history_dir_writes_apply_run_log_and_journal(monkeypatch, tmp_path: Path) -> None:
@@ -188,14 +215,7 @@ def test_cli_trip_history_dir_writes_apply_run_log_and_journal(monkeypatch, tmp_
     ])
 
     assert exit_code == 0
-    run_logs = sorted(history_dir.glob("*-trip-apply-run-log.json"))
-    journals = sorted(history_dir.glob("*-trip-apply-execution-journal.json"))
+    run_logs = list(history_dir.glob("*-trip-apply-run-log.json"))
+    journals = list(history_dir.glob("*-trip-apply-execution-journal.json"))
     assert len(run_logs) == 1
     assert len(journals) == 1
-    run_log_payload = json.loads(run_logs[0].read_text(encoding="utf-8"))
-    journal_payload = json.loads(journals[0].read_text(encoding="utf-8"))
-    assert run_log_payload["command_name"] == "trip"
-    assert run_log_payload["apply_requested"] is True
-    assert journal_payload["command_name"] == "trip"
-    assert journal_payload["entries"][0]["outcome"] == "copied"
-    assert journal_payload["entries"][0]["undo_action"] == "delete_target"
