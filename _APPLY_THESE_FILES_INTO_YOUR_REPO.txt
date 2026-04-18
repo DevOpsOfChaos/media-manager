@@ -1,10 +1,9 @@
-Apply these files into your repository root and overwrite existing files where paths match.
+Unpack this ZIP into the repository root and overwrite existing files.
 
 Then run:
 
-python -m pytest tests/test_cli_shell_v1.py
+python -m pytest tests/test_core_workflow_presets_v1.py tests/test_cli_workflow_presets_v1.py
 python -m pytest
-
 git add .
-git commit -m "add gui shell scaffold v1 for workflow discovery"
+git commit -m "add workflow presets and profile previews v1"
 git push origin main

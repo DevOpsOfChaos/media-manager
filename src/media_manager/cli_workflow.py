@@ -15,9 +15,14 @@ from .core.state import find_latest_history_entry, scan_history_directory
 from .core.workflows import (
     build_workflow_wizard_result,
     get_workflow_definition,
+    get_workflow_preset,
     get_workflow_problem,
+    list_workflow_presets,
     list_workflow_problems,
     list_workflows,
+    load_workflow_profile,
+    render_workflow_preset_command,
+    render_workflow_profile_command,
 )
 
 
@@ -76,6 +81,26 @@ def build_parser() -> argparse.ArgumentParser:
     last_parser.add_argument("--command", help="Optional command name filter, for example organize or rename.")
     last_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
+    presets_parser = subparsers.add_parser("presets", help="List built-in workflow presets.")
+    presets_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+    preset_show_parser = subparsers.add_parser("preset-show", help="Show one built-in workflow preset.")
+    preset_show_parser.add_argument("name", help="Preset name.")
+    preset_show_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+    render_preset_parser = subparsers.add_parser("render-preset", help="Render a command preview from a built-in preset.")
+    render_preset_parser.add_argument("name", help="Preset name.")
+    render_preset_parser.add_argument("--source", dest="sources", action="append", help="Source path. Repeat for multiple sources.")
+    render_preset_parser.add_argument("--target", help="Target path.")
+    render_preset_parser.add_argument("--label", help="Trip label when the preset needs one.")
+    render_preset_parser.add_argument("--start", help="Trip start date in YYYY-MM-DD.")
+    render_preset_parser.add_argument("--end", help="Trip end date in YYYY-MM-DD.")
+    render_preset_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+    profile_show_parser = subparsers.add_parser("profile-show", help="Load a workflow profile JSON file and render its command preview.")
+    profile_show_parser.add_argument("path", type=Path, help="Path to the workflow profile JSON file.")
+    profile_show_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
     run_parser = subparsers.add_parser("run", help="Run a workflow through the shell.")
     run_parser.add_argument("workflow", help="Workflow name to run.")
     run_parser.add_argument("args", nargs=argparse.REMAINDER, help="Arguments forwarded to the delegated workflow.")
@@ -100,6 +125,18 @@ def _problem_payload(item) -> dict[str, str]:
         "summary": item.summary,
         "recommended_workflow": item.recommended_workflow,
         "next_step": item.next_step,
+    }
+
+
+def _preset_payload(item) -> dict[str, object]:
+    return {
+        "name": item.name,
+        "title": item.title,
+        "summary": item.summary,
+        "workflow": item.workflow,
+        "required_values": list(item.required_values),
+        "default_values": dict(item.default_values),
+        "notes": list(item.notes),
     }
 
 
@@ -279,6 +316,98 @@ def _print_last_history(path: Path, command_name: str | None, as_json: bool) -> 
     return 0
 
 
+def _print_presets(as_json: bool) -> int:
+    presets = list_workflow_presets()
+    if as_json:
+        print(json.dumps({"presets": [_preset_payload(item) for item in presets]}, indent=2, ensure_ascii=False))
+        return 0
+
+    print("Workflow presets")
+    for item in presets:
+        print(f"  - {item.name}: {item.title}")
+        print(f"    Workflow: {item.workflow}")
+        print(f"    {item.summary}")
+    return 0
+
+
+def _print_preset_show(name: str, as_json: bool) -> int:
+    preset = get_workflow_preset(name)
+    if preset is None:
+        print(f"Unknown workflow preset: {name}")
+        return 1
+    payload = _preset_payload(preset)
+    if as_json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+
+    print(preset.title)
+    print(f"  Name: {preset.name}")
+    print(f"  Workflow: {preset.workflow}")
+    print(f"  Summary: {preset.summary}")
+    print(f"  Required values: {', '.join(preset.required_values)}")
+    if preset.default_values:
+        print(f"  Default values: {json.dumps(preset.default_values, ensure_ascii=False)}")
+    if preset.notes:
+        print("  Notes:")
+        for note in preset.notes:
+            print(f"    - {note}")
+    return 0
+
+
+def _collect_preset_overrides(args: argparse.Namespace) -> dict[str, object]:
+    overrides: dict[str, object] = {}
+    if getattr(args, "sources", None):
+        overrides["source"] = list(args.sources)
+    if getattr(args, "target", None):
+        overrides["target"] = args.target
+    if getattr(args, "label", None):
+        overrides["label"] = args.label
+    if getattr(args, "start", None):
+        overrides["start"] = args.start
+    if getattr(args, "end", None):
+        overrides["end"] = args.end
+    return overrides
+
+
+def _print_render_preset(args: argparse.Namespace) -> int:
+    try:
+        command = render_workflow_preset_command(args.name, overrides=_collect_preset_overrides(args))
+    except ValueError as exc:
+        print(str(exc))
+        return 1
+
+    if args.json:
+        print(json.dumps({"preset": args.name, "command": command}, indent=2, ensure_ascii=False))
+        return 0
+
+    print(command)
+    return 0
+
+
+def _print_profile_show(path: Path, as_json: bool) -> int:
+    try:
+        profile = load_workflow_profile(path)
+        command = render_workflow_profile_command(profile)
+    except Exception as exc:
+        print(str(exc))
+        return 1
+
+    payload = {
+        "profile_name": profile.profile_name,
+        "preset": profile.preset_name,
+        "values": dict(profile.values),
+        "command": command,
+    }
+    if as_json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+
+    print(profile.profile_name)
+    print(f"  Preset: {profile.preset_name}")
+    print(f"  Command: {command}")
+    return 0
+
+
 def _run_delegated_workflow(name: str, forwarded_args: list[str]) -> int:
     normalized = name.strip().lower()
     handler = DELEGATE_HANDLERS.get(normalized)
@@ -301,6 +430,10 @@ def main(argv: list[str] | None = None) -> int:
             "  media-manager workflow problems\n"
             "  media-manager workflow recommend messy-multi-source-library\n"
             "  media-manager workflow wizard --source-count 3 --has-duplicates --wants-organization\n"
+            "  media-manager workflow presets\n"
+            "  media-manager workflow preset-show cleanup-family-library\n"
+            "  media-manager workflow render-preset cleanup-family-library --source <A> --source <B> --target <TARGET>\n"
+            "  media-manager workflow profile-show <PROFILE.json>\n"
             "  media-manager workflow history --path <RUNS_DIR>\n"
             "  media-manager workflow last --path <RUNS_DIR> --command organize\n"
             "  media-manager workflow run cleanup --source <A> --source <B> --target <TARGET>\n"
@@ -321,6 +454,14 @@ def main(argv: list[str] | None = None) -> int:
         return _print_history(args.path, args.json)
     if args.workflow_command == "last":
         return _print_last_history(args.path, args.command, args.json)
+    if args.workflow_command == "presets":
+        return _print_presets(args.json)
+    if args.workflow_command == "preset-show":
+        return _print_preset_show(args.name, args.json)
+    if args.workflow_command == "render-preset":
+        return _print_render_preset(args)
+    if args.workflow_command == "profile-show":
+        return _print_profile_show(args.path, args.json)
     if args.workflow_command == "run":
         return _run_delegated_workflow(args.workflow, list(args.args))
 
