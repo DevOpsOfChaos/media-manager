@@ -133,3 +133,69 @@ def test_cli_trip_apply_writes_execution_journal(monkeypatch, tmp_path: Path) ->
     assert payload["command_name"] == "trip"
     assert payload["entries"][0]["outcome"] == "copied"
     assert payload["entries"][0]["undo_action"] == "delete_target"
+
+
+def test_cli_trip_history_dir_writes_preview_run_log(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "Phone"
+    source.mkdir()
+    (source / "photo.jpg").write_bytes(b"jpg")
+    history_dir = tmp_path / "history"
+
+    monkeypatch.setattr(
+        "media_manager.core.workflows.trip.resolve_capture_datetime",
+        lambda path, exiftool_path=None: _resolution(path),
+    )
+
+    exit_code = main([
+        "--source", str(source),
+        "--target", str(tmp_path / "collections"),
+        "--label", "Italy_2025",
+        "--start", "2025-08-01",
+        "--end", "2025-08-14",
+        "--history-dir", str(history_dir),
+    ])
+
+    assert exit_code == 0
+    run_logs = sorted(history_dir.glob("*-trip-preview-run-log.json"))
+    journals = sorted(history_dir.glob("*-trip-preview-execution-journal.json"))
+    assert len(run_logs) == 1
+    assert journals == []
+    payload = json.loads(run_logs[0].read_text(encoding="utf-8"))
+    assert payload["command_name"] == "trip"
+    assert payload["apply_requested"] is False
+
+
+def test_cli_trip_history_dir_writes_apply_run_log_and_journal(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "Phone"
+    source.mkdir()
+    (source / "photo.jpg").write_bytes(b"jpg")
+    history_dir = tmp_path / "history"
+
+    monkeypatch.setattr(
+        "media_manager.core.workflows.trip.resolve_capture_datetime",
+        lambda path, exiftool_path=None: _resolution(path),
+    )
+
+    exit_code = main([
+        "--source", str(source),
+        "--target", str(tmp_path / "collections"),
+        "--label", "Italy_2025",
+        "--start", "2025-08-01",
+        "--end", "2025-08-14",
+        "--copy",
+        "--apply",
+        "--history-dir", str(history_dir),
+    ])
+
+    assert exit_code == 0
+    run_logs = sorted(history_dir.glob("*-trip-apply-run-log.json"))
+    journals = sorted(history_dir.glob("*-trip-apply-execution-journal.json"))
+    assert len(run_logs) == 1
+    assert len(journals) == 1
+    run_log_payload = json.loads(run_logs[0].read_text(encoding="utf-8"))
+    journal_payload = json.loads(journals[0].read_text(encoding="utf-8"))
+    assert run_log_payload["command_name"] == "trip"
+    assert run_log_payload["apply_requested"] is True
+    assert journal_payload["command_name"] == "trip"
+    assert journal_payload["entries"][0]["outcome"] == "copied"
+    assert journal_payload["entries"][0]["undo_action"] == "delete_target"
