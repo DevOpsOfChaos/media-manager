@@ -45,16 +45,13 @@ class DuplicateScanResult:
     compare_errors: int = 0
 
 
-
 def _emit_progress(progress_callback: ProgressCallback | None, message: str) -> None:
     if progress_callback is not None:
         progress_callback(message)
 
 
-
 def _normalized_sort_key(path: Path) -> str:
     return str(path).lower()
-
 
 
 def _sample_offsets(file_size: int, sample_size: int) -> list[int]:
@@ -72,7 +69,6 @@ def _sample_offsets(file_size: int, sample_size: int) -> list[int]:
     return unique_offsets
 
 
-
 def compute_sample_fingerprint(path: Path, sample_size: int = 64 * 1024) -> str:
     file_size = path.stat().st_size
     digest = hashlib.blake2b(digest_size=20)
@@ -87,7 +83,6 @@ def compute_sample_fingerprint(path: Path, sample_size: int = 64 * 1024) -> str:
     return digest.hexdigest()
 
 
-
 def compute_full_hash(path: Path, chunk_size: int = 1024 * 1024) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -97,7 +92,6 @@ def compute_full_hash(path: Path, chunk_size: int = 1024 * 1024) -> str:
                 break
             digest.update(chunk)
     return digest.hexdigest()
-
 
 
 def files_are_identical(first_path: Path, second_path: Path, chunk_size: int = 1024 * 1024) -> bool:
@@ -114,13 +108,11 @@ def files_are_identical(first_path: Path, second_path: Path, chunk_size: int = 1
                 return True
 
 
-
 def _safe_file_size(path: Path) -> int | None:
     try:
         return path.stat().st_size
     except OSError:
         return None
-
 
 
 def _record_stage_error(result: DuplicateScanResult, stage: str) -> None:
@@ -137,17 +129,27 @@ def _record_stage_error(result: DuplicateScanResult, stage: str) -> None:
         raise ValueError(f"Unknown duplicate scan stage: {stage}")
 
 
+def _group_by_size(
+    paths: list[Path],
+    result: DuplicateScanResult | None = None,
+) -> dict[int, list[Path]]:
+    """
+    Group files by size.
 
-def _group_by_size(paths: list[Path], result: DuplicateScanResult) -> dict[int, list[Path]]:
+    Backward-compatibility note:
+    Older tests and internal self-checks call this helper with only the path list.
+    The `result` parameter is therefore optional even though newer scan code passes
+    the active `DuplicateScanResult` to collect stage-specific error counters.
+    """
     grouped: dict[int, list[Path]] = defaultdict(list)
     for path in paths:
         file_size = _safe_file_size(path)
         if file_size is None:
-            _record_stage_error(result, "size")
+            if result is not None:
+                _record_stage_error(result, "size")
             continue
         grouped[file_size].append(path)
     return grouped
-
 
 
 def _build_exact_group(paths: list[Path], file_size: int, sample_digest: str, full_digest: str) -> ExactDuplicateGroup:
@@ -162,7 +164,6 @@ def _build_exact_group(paths: list[Path], file_size: int, sample_digest: str, fu
         same_name=all(path.name == first_name for path in ordered_paths),
         same_suffix=all(path.suffix.lower() == first_suffix for path in ordered_paths),
     )
-
 
 
 def scan_exact_duplicates(
