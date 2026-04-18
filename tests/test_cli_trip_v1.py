@@ -104,3 +104,32 @@ def test_cli_trip_writes_run_log(monkeypatch, tmp_path: Path) -> None:
     payload = json.loads(run_log.read_text(encoding="utf-8"))
     assert payload["command_name"] == "trip"
     assert payload["payload"]["selected_count"] == 1
+
+
+def test_cli_trip_apply_writes_execution_journal(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "Phone"
+    source.mkdir()
+    (source / "photo.jpg").write_bytes(b"jpg")
+    journal = tmp_path / "journals" / "trip-execution.json"
+
+    monkeypatch.setattr(
+        "media_manager.core.workflows.trip.resolve_capture_datetime",
+        lambda path, exiftool_path=None: _resolution(path),
+    )
+
+    exit_code = main([
+        "--source", str(source),
+        "--target", str(tmp_path / "collections"),
+        "--label", "Italy_2025",
+        "--start", "2025-08-01",
+        "--end", "2025-08-14",
+        "--copy",
+        "--apply",
+        "--journal", str(journal),
+    ])
+
+    assert exit_code == 0
+    payload = json.loads(journal.read_text(encoding="utf-8"))
+    assert payload["command_name"] == "trip"
+    assert payload["entries"][0]["outcome"] == "copied"
+    assert payload["entries"][0]["undo_action"] == "delete_target"

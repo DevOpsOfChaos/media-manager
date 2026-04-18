@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from .core.renamer import RenamePlannerOptions, build_rename_dry_run, execute_rename_dry_run
-from .core.state import write_command_run_log
+from .core.state import write_command_run_log, write_execution_journal
 
 DEFAULT_RENAME_TEMPLATE = "{date:%Y-%m-%d_%H-%M-%S}_{stem}"
 
@@ -56,6 +56,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--run-log",
         type=Path,
         help="Optional path for a structured JSON run log.",
+    )
+    parser.add_argument(
+        "--journal",
+        type=Path,
+        help="Optional path for a structured execution journal. Only meaningful with --apply.",
     )
     parser.add_argument(
         "--exiftool-path",
@@ -119,6 +124,35 @@ def _build_json_payload(dry_run, execution_result) -> dict[str, object]:
     return payload
 
 
+def _build_journal_entries(execution_result) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    for entry in execution_result.entries:
+        reversible = False
+        undo_action = None
+        undo_from_path = None
+        undo_to_path = None
+
+        if entry.action == "renamed":
+            reversible = True
+            undo_action = "rename_back"
+            undo_from_path = str(entry.target_path) if entry.target_path is not None else None
+            undo_to_path = str(entry.source_path)
+
+        entries.append(
+            {
+                "source_path": str(entry.source_path),
+                "target_path": None if entry.target_path is None else str(entry.target_path),
+                "outcome": entry.action,
+                "reason": entry.reason,
+                "reversible": reversible,
+                "undo_action": undo_action,
+                "undo_from_path": undo_from_path,
+                "undo_to_path": undo_to_path,
+            }
+        )
+    return entries
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -152,6 +186,15 @@ def main(argv: list[str] | None = None) -> int:
             payload=payload,
         )
 
+    if args.apply and args.journal is not None:
+        write_execution_journal(
+            args.journal,
+            command_name="rename",
+            apply_requested=True,
+            exit_code=exit_code,
+            entries=_build_journal_entries(execution_result),
+        )
+
     if args.json:
         print(json.dumps(payload, indent=2, ensure_ascii=False))
         return exit_code
@@ -179,5 +222,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.run_log is not None:
         print(f"\nWrote run log: {args.run_log}")
+    if args.apply and args.journal is not None:
+        print(f"Wrote execution journal: {args.journal}")
 
     return exit_code

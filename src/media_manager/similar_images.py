@@ -72,7 +72,7 @@ def compute_average_hash(path: Path, hash_size: int = 8) -> int:
 
     with Image.open(path) as handle:
         image = handle.convert("L").resize((hash_size, hash_size), Image.Resampling.LANCZOS)
-    pixels = list(image.getdata())
+        pixels = list(image.get_flattened_data())
     average = sum(pixels) / len(pixels)
 
     value = 0

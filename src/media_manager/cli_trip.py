@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from .core.state import write_command_run_log
+from .core.state import write_command_run_log, write_execution_journal
 from .core.workflows import TripWorkflowOptions, build_trip_dry_run, execute_trip_plan, parse_trip_date
 
 
@@ -34,6 +34,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--show-files", action="store_true", help="Print one line per plan or execution entry.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
     parser.add_argument("--run-log", type=Path, help="Optional JSON run-log output path.")
+    parser.add_argument(
+        "--journal",
+        type=Path,
+        help="Optional path for a structured execution journal. Only meaningful with --apply.",
+    )
     parser.add_argument(
         "--exiftool-path",
         type=Path,
@@ -98,6 +103,34 @@ def _build_payload(dry_run, execution_result) -> dict[str, object]:
     return payload
 
 
+def _build_journal_entries(execution_result) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    for item in execution_result.entries:
+        reversible = False
+        undo_action = None
+        undo_from_path = None
+        undo_to_path = None
+
+        if item.outcome in {"linked", "copied"}:
+            reversible = True
+            undo_action = "delete_target"
+            undo_from_path = str(item.target_path) if item.target_path is not None else None
+
+        entries.append(
+            {
+                "source_path": str(item.source_path),
+                "target_path": None if item.target_path is None else str(item.target_path),
+                "outcome": item.outcome,
+                "reason": item.reason,
+                "reversible": reversible,
+                "undo_action": undo_action,
+                "undo_from_path": undo_from_path,
+                "undo_to_path": undo_to_path,
+            }
+        )
+    return entries
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -146,6 +179,15 @@ def main(argv: list[str] | None = None) -> int:
             payload=payload,
         )
 
+    if args.apply and args.journal is not None and execution_result is not None:
+        write_execution_journal(
+            args.journal,
+            command_name="trip",
+            apply_requested=True,
+            exit_code=exit_code,
+            entries=_build_journal_entries(execution_result),
+        )
+
     if args.json:
         print(json.dumps(payload, indent=2, ensure_ascii=False))
         return exit_code
@@ -181,5 +223,10 @@ def main(argv: list[str] | None = None) -> int:
             for item in execution_result.entries:
                 target_text = str(item.target_path) if item.target_path is not None else "-"
                 print(f"  - [{item.outcome}] {item.source_path} -> {target_text} | reason={item.reason}")
+
+    if args.run_log is not None:
+        print(f"\nWrote run log: {args.run_log}")
+    if args.apply and args.journal is not None and execution_result is not None:
+        print(f"Wrote execution journal: {args.journal}")
 
     return exit_code

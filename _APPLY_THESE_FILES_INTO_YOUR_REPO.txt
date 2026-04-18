@@ -1,11 +1,9 @@
+Apply these files into your repo root and replace existing files where paths match.
 
-Apply these files into the repository root and replace existing files where paths match.
+Then run:
 
-Included in this package:
-- src/media_manager/core/workflows/cleanup.py
-- src/media_manager/core/workflows/__init__.py
-- src/media_manager/cli_cleanup.py
-- src/media_manager/cli.py
-- tests/test_core_cleanup_workflow.py
-- tests/test_cli_cleanup_v1.py
-- docs/cleanup-workflow-v1.md
+  python -m pytest tests/test_core_execution_journal.py tests/test_cli_organize_v1.py tests/test_cli_rename_v1.py tests/test_cli_trip_v1.py
+  python -m pytest
+  git add .
+  git commit -m "add execution journal basis v1 and fix similar image deprecation warning"
+  git push origin main
