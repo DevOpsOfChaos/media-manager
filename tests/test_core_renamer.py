@@ -1,10 +1,17 @@
+
 from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
 
 from media_manager.core.date_resolver import DateResolution
-from media_manager.core.renamer import RenamePlannerOptions, build_rename_dry_run, render_rename_filename, sanitize_filename
+from media_manager.core.renamer import (
+    RenamePlannerOptions,
+    build_rename_dry_run,
+    execute_rename_dry_run,
+    render_rename_filename,
+    sanitize_filename,
+)
 
 
 def _resolution(path: Path, dt: datetime | None = None) -> DateResolution:
@@ -121,3 +128,84 @@ def test_build_rename_dry_run_detects_duplicate_target_names(monkeypatch, tmp_pa
 
     assert dry_run.conflict_count == 2
     assert all(item.status == "conflict" for item in dry_run.entries)
+
+
+def test_execute_rename_dry_run_preview_marks_planned_entries(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    file_path = source / "IMG_0001.JPG"
+    file_path.write_bytes(b"jpg")
+
+    monkeypatch.setattr(
+        "media_manager.core.renamer.planner.resolve_capture_datetime",
+        lambda path, exiftool_path=None: _resolution(path),
+    )
+
+    dry_run = build_rename_dry_run(
+        RenamePlannerOptions(
+            source_dirs=(source,),
+            template="{date:%Y-%m-%d}_{stem}",
+        )
+    )
+    execution = execute_rename_dry_run(dry_run, apply=False)
+
+    assert execution.preview_count == 1
+    assert execution.renamed_count == 0
+    assert execution.entries[0].action == "preview-rename"
+    assert file_path.exists()
+
+
+def test_execute_rename_dry_run_apply_renames_file(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    file_path = source / "IMG_0001.JPG"
+    file_path.write_bytes(b"jpg")
+
+    monkeypatch.setattr(
+        "media_manager.core.renamer.planner.resolve_capture_datetime",
+        lambda path, exiftool_path=None: _resolution(path),
+    )
+
+    dry_run = build_rename_dry_run(
+        RenamePlannerOptions(
+            source_dirs=(source,),
+            template="{date:%Y-%m-%d}_{stem}",
+        )
+    )
+    execution = execute_rename_dry_run(dry_run, apply=True)
+
+    renamed_path = source / "2024-08-10_IMG_0001.JPG"
+    assert execution.renamed_count == 1
+    assert execution.entries[0].status == "renamed"
+    assert not file_path.exists()
+    assert renamed_path.exists()
+
+
+def test_second_rename_run_becomes_skipped_due_to_matching_name(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    file_path = source / "IMG_0001.JPG"
+    file_path.write_bytes(b"jpg")
+
+    monkeypatch.setattr(
+        "media_manager.core.renamer.planner.resolve_capture_datetime",
+        lambda path, exiftool_path=None: _resolution(path),
+    )
+
+    first_run = build_rename_dry_run(
+        RenamePlannerOptions(
+            source_dirs=(source,),
+            template="{date:%Y-%m-%d}_{stem}",
+        )
+    )
+    execute_rename_dry_run(first_run, apply=True)
+
+    second_run = build_rename_dry_run(
+        RenamePlannerOptions(
+            source_dirs=(source,),
+            template="{stem}",
+        )
+    )
+
+    assert second_run.skipped_count == 1
+    assert second_run.entries[0].status == "skipped"

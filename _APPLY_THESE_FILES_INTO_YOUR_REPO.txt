@@ -1,7 +1,8 @@
-Extract these files into the repository root and replace existing files when prompted.
-Then run:
-python -m pytest tests/test_core_organizer.py tests/test_cli_organize_v1.py
+Apply these files into your repository root, replacing existing files where paths overlap.
+
+Suggested commands after extracting:
+python -m pytest tests/test_core_renamer.py tests/test_cli_rename_v1.py
 python -m pytest
 git add .
-git commit -m "add organize apply v1 with first idempotence rules"
+git commit -m "add rename apply v1 with first rename idempotence rules"
 git push origin main

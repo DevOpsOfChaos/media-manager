@@ -1,10 +1,11 @@
+
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
 
-from .core.renamer import RenamePlannerOptions, build_rename_dry_run
+from .core.renamer import RenamePlannerOptions, build_rename_dry_run, execute_rename_dry_run
 
 DEFAULT_RENAME_TEMPLATE = "{date:%Y-%m-%d_%H-%M-%S}_{stem}"
 
@@ -12,7 +13,7 @@ DEFAULT_RENAME_TEMPLATE = "{date:%Y-%m-%d_%H-%M-%S}_{stem}"
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager rename",
-        description="Build a rename dry-run plan for one or more source folders.",
+        description="Build or execute a rename plan for one or more source folders.",
     )
     parser.add_argument(
         "--source",
@@ -44,7 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--show-files",
         action="store_true",
-        help="Print individual rename plan entries in addition to the summary.",
+        help="Print individual rename entries in addition to the summary.",
     )
     parser.add_argument(
         "--json",
@@ -60,13 +61,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Reserved for a later implementation. Rename v1 currently supports dry-run planning only.",
+        help="Apply planned rename operations instead of only printing the dry-run plan.",
     )
     return parser
 
 
-def _build_json_payload(dry_run) -> dict[str, object]:
-    return {
+def _build_json_payload(dry_run, execution_result) -> dict[str, object]:
+    payload = {
         "template": dry_run.options.template,
         "sources": [str(path) for path in dry_run.options.source_dirs],
         "missing_sources": [str(path) for path in dry_run.scan_summary.missing_sources],
@@ -90,6 +91,27 @@ def _build_json_payload(dry_run) -> dict[str, object]:
             for item in dry_run.entries
         ],
     }
+    if execution_result is not None:
+        payload["execution"] = {
+            "apply_requested": execution_result.apply_requested,
+            "processed_count": execution_result.processed_count,
+            "preview_count": execution_result.preview_count,
+            "renamed_count": execution_result.renamed_count,
+            "skipped_count": execution_result.skipped_count,
+            "conflict_count": execution_result.conflict_count,
+            "error_count": execution_result.error_count,
+            "entries": [
+                {
+                    "source_path": str(entry.source_path),
+                    "target_path": None if entry.target_path is None else str(entry.target_path),
+                    "status": entry.status,
+                    "reason": entry.reason,
+                    "action": entry.action,
+                }
+                for entry in execution_result.entries
+            ],
+        }
+    return payload
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -103,9 +125,6 @@ def main(argv: list[str] | None = None) -> int:
             + ", ".join(str(path) for path in invalid_sources)
         )
 
-    if args.apply:
-        parser.error("Rename apply mode is not implemented yet. Use the dry-run output for now.")
-
     dry_run = build_rename_dry_run(
         RenamePlannerOptions(
             source_dirs=tuple(args.sources),
@@ -115,12 +134,14 @@ def main(argv: list[str] | None = None) -> int:
             exiftool_path=args.exiftool_path,
         )
     )
+    execution_result = execute_rename_dry_run(dry_run, apply=args.apply)
 
     if args.json:
-        print(json.dumps(_build_json_payload(dry_run), indent=2, ensure_ascii=False))
-        return 0 if dry_run.error_count == 0 and dry_run.missing_source_count == 0 else 1
+        print(json.dumps(_build_json_payload(dry_run, execution_result), indent=2, ensure_ascii=False))
+        return 0 if execution_result.error_count == 0 and dry_run.missing_source_count == 0 else 1
 
-    print("Rename dry-run summary")
+    title = "Rename apply summary" if args.apply else "Rename dry-run summary"
+    print(title)
     print(f"  Sources: {len(dry_run.options.source_dirs)}")
     print(f"  Missing sources: {dry_run.missing_source_count}")
     print(f"  Media files: {dry_run.media_file_count}")
@@ -129,12 +150,15 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Conflicts: {dry_run.conflict_count}")
     print(f"  Errors: {dry_run.error_count}")
 
-    if args.show_files and dry_run.entries:
+    if args.apply:
+        print(f"  Renamed: {execution_result.renamed_count}")
+
+    if args.show_files and execution_result.entries:
         print("\nRename entries:")
-        for item in dry_run.entries:
-            target_display = "-" if item.target_path is None else str(item.target_path)
+        for entry in execution_result.entries:
+            target_display = "-" if entry.target_path is None else str(entry.target_path)
             print(
-                f"  - [{item.status}] {item.source_path} -> {target_display} | {item.reason}"
+                f"  - [{entry.status}] {entry.source_path} -> {target_display} | {entry.reason}"
             )
 
-    return 0 if dry_run.error_count == 0 and dry_run.missing_source_count == 0 else 1
+    return 0 if execution_result.error_count == 0 and dry_run.missing_source_count == 0 else 1

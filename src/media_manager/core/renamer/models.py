@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -64,3 +65,24 @@ class RenameDryRun:
     @property
     def media_file_count(self) -> int:
         return self.scan_summary.media_file_count
+
+
+@dataclass(slots=True)
+class RenameExecutionEntry:
+    source_path: Path
+    target_path: Path | None
+    status: str
+    reason: str
+    action: str
+
+
+@dataclass(slots=True)
+class RenameExecutionResult:
+    apply_requested: bool
+    entries: list[RenameExecutionEntry] = field(default_factory=list)
+    processed_count: int = 0
+    preview_count: int = 0
+    renamed_count: int = 0
+    skipped_count: int = 0
+    conflict_count: int = 0
+    error_count: int = 0
