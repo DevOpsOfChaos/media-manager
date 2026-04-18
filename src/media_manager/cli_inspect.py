@@ -4,9 +4,10 @@ import argparse
 import json
 from pathlib import Path
 
+from .constants import MEDIA_EXTENSIONS
+from .core.date_resolver import resolve_capture_datetime
 from .core.metadata import inspect_media_file
 from .core.scanner import ScanOptions, scan_media_sources
-from .constants import MEDIA_EXTENSIONS
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -47,6 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+
 def _collect_targets(paths: list[str], *, recursive: bool, include_hidden: bool, limit: int) -> tuple[list[Path], list[Path]]:
     files: list[Path] = []
     directories: list[Path] = []
@@ -81,33 +83,45 @@ def _collect_targets(paths: list[str], *, recursive: bool, include_hidden: bool,
     return unique_files[: max(0, limit)], directories
 
 
-def _build_payload(inspections) -> list[dict[str, object]]:
+
+def _build_payload(records) -> list[dict[str, object]]:
     return [
         {
-            "path": str(item.path),
-            "selected_value": item.selected_value,
-            "selected_source": item.selected_source,
-            "file_modified_value": item.file_modified_value,
-            "metadata_available": item.metadata_available,
-            "exiftool_available": item.exiftool_available,
-            "error": item.error,
+            "path": str(record["inspection"].path),
+            "selected_value": record["inspection"].selected_value,
+            "selected_source": record["inspection"].selected_source,
+            "file_modified_value": record["inspection"].file_modified_value,
+            "metadata_available": record["inspection"].metadata_available,
+            "exiftool_available": record["inspection"].exiftool_available,
+            "error": record["inspection"].error,
             "date_candidates": [
                 {
                     "source_tag": candidate.source_tag,
                     "value": candidate.value,
                     "priority_index": candidate.priority_index,
                 }
-                for candidate in item.date_candidates
+                for candidate in record["inspection"].date_candidates
             ],
+            "resolution": {
+                "resolved_value": record["resolution"].resolved_value,
+                "source_kind": record["resolution"].source_kind,
+                "source_label": record["resolution"].source_label,
+                "confidence": record["resolution"].confidence,
+                "timezone_status": record["resolution"].timezone_status,
+                "reason": record["resolution"].reason,
+                "candidates_checked": record["resolution"].candidates_checked,
+            },
         }
-        for item in inspections
+        for record in records
     ]
+
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    exiftool_path = Path(args.exiftool) if args.exiftool else None
     targets, directories = _collect_targets(
         args.paths,
         recursive=not args.non_recursive,
@@ -115,27 +129,36 @@ def main(argv: list[str] | None = None) -> int:
         limit=args.limit,
     )
 
-    inspections = [inspect_media_file(path, exiftool_path=Path(args.exiftool) if args.exiftool else None) for path in targets]
+    records = []
+    for path in targets:
+        inspection = inspect_media_file(path, exiftool_path=exiftool_path)
+        resolution = resolve_capture_datetime(path, inspection=inspection, exiftool_path=exiftool_path)
+        records.append({"inspection": inspection, "resolution": resolution})
 
     if args.json:
-        print(json.dumps(_build_payload(inspections), indent=2, ensure_ascii=False))
-        return 0 if inspections else 1
+        print(json.dumps(_build_payload(records), indent=2, ensure_ascii=False))
+        return 0 if records else 1
 
-    if not inspections:
+    if not records:
         print("No media files found to inspect.")
         return 1
 
     if directories:
-        print(f"Scanned {len(directories)} director{'y' if len(directories) == 1 else 'ies'} and selected {len(inspections)} file(s) for inspection.")
+        print(f"Scanned {len(directories)} director{'y' if len(directories) == 1 else 'ies'} and selected {len(records)} file(s) for inspection.")
         print()
 
-    for item in inspections:
+    for record in records:
+        item = record["inspection"]
+        resolution = record["resolution"]
         print(item.path)
-        print(f"  Selected: {item.selected_value}")
-        print(f"  Source:   {item.selected_source}")
-        print(f"  Fallback: {item.file_modified_value}")
+        print(f"  Resolved:   {resolution.resolved_value}")
+        print(f"  Source:     {resolution.source_kind}:{resolution.source_label}")
+        print(f"  Confidence: {resolution.confidence}")
+        print(f"  Timezone:   {resolution.timezone_status}")
+        print(f"  Fallback:   {item.file_modified_value}")
+        print(f"  Reason:     {resolution.reason}")
         if item.error:
-            print(f"  Error:    {item.error}")
+            print(f"  Error:      {item.error}")
         if item.date_candidates:
             print("  Candidates:")
             for candidate in item.date_candidates:

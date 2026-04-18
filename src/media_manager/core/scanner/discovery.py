@@ -29,22 +29,7 @@ def _normalize_source_dirs(source_dirs: tuple[Path, ...]) -> tuple[Path, ...]:
     return tuple(normalized)
 
 
-def _iter_candidate_files(source_root: Path, options: ScanOptions):
-    if options.recursive:
-        for current_root, dirnames, filenames in os.walk(source_root, followlinks=options.follow_symlinks):
-            current_root_path = Path(current_root)
-            if not options.include_hidden:
-                visible_dirnames: list[str] = []
-                for dirname in dirnames:
-                    candidate_dir = current_root_path / dirname
-                    if _is_hidden_path(candidate_dir, source_root):
-                        continue
-                    visible_dirnames.append(dirname)
-                dirnames[:] = visible_dirnames
-            for filename in sorted(filenames):
-                yield current_root_path / filename
-        return
-
+def _iter_top_level_files(source_root: Path):
     for entry in sorted(source_root.iterdir(), key=lambda item: item.name.lower()):
         if entry.is_dir():
             continue
@@ -61,7 +46,25 @@ def scan_media_sources(options: ScanOptions) -> ScanSummary:
             summary.missing_sources.append(source_root)
             continue
 
-        for candidate in _iter_candidate_files(source_root, options):
+        if options.recursive:
+            candidate_iterator = []
+            for current_root, dirnames, filenames in os.walk(source_root, followlinks=options.follow_symlinks):
+                current_root_path = Path(current_root)
+                if not options.include_hidden:
+                    visible_dirnames: list[str] = []
+                    for dirname in dirnames:
+                        candidate_dir = current_root_path / dirname
+                        if _is_hidden_path(candidate_dir, source_root):
+                            summary.skipped_hidden_paths += 1
+                            continue
+                        visible_dirnames.append(dirname)
+                    dirnames[:] = visible_dirnames
+                for filename in sorted(filenames):
+                    candidate_iterator.append(current_root_path / filename)
+        else:
+            candidate_iterator = list(_iter_top_level_files(source_root))
+
+        for candidate in candidate_iterator:
             if not options.include_hidden and _is_hidden_path(candidate, source_root):
                 summary.skipped_hidden_paths += 1
                 continue

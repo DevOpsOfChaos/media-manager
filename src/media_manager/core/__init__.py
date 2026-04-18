@@ -1,5 +1,11 @@
-"""Staged core namespace for the repository reset.
+"""Metadata module for the rebuilt core."""
 
-This package is the safe place to introduce the rebuilt core-first structure
-without forcing the remaining legacy flat modules to disappear all at once.
-"""
+from .inspect import extract_date_candidates, inspect_media_file
+from .models import DateCandidate, FileInspection
+
+__all__ = [
+    "DateCandidate",
+    "FileInspection",
+    "extract_date_candidates",
+    "inspect_media_file",
+]

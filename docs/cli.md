@@ -50,3 +50,8 @@ The next CLI expansion should add:
 - later richer reporting
 
 These commands should be built on the rebuilt core modules rather than bolted onto the older desktop-oriented structure.
+
+
+## Inspect direction
+
+`media-manager inspect` now shows both raw date candidates and the current date-resolution result, including source kind, label, confidence, and fallback reasoning.

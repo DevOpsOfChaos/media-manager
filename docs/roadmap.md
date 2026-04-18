@@ -32,11 +32,11 @@ That means the roadmap order is now:
 
 ## Phase 3 — date resolution baseline
 
-- [ ] create a dedicated date resolver module
+- [x] create a dedicated date resolver module
 - [ ] support prioritized metadata tags
-- [ ] support filename-based date extraction as a fallback
-- [ ] support filesystem fallback as a last resort
-- [ ] record source, confidence, and reasoning for the chosen date
+- [x] support filename-based date extraction as a fallback
+- [x] support filesystem fallback as a last resort
+- [x] record source, confidence, and reasoning for the chosen date
 - [ ] improve handling of video / QuickTime date edge cases
 
 ## Phase 4 — organize baseline
