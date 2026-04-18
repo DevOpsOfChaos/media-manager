@@ -1,13 +1,10 @@
-Apply this package on top of your current main branch.
+Apply these files into your repository root and replace existing files when asked.
 
-Contents:
-- src/media_manager/similar_review.py
+Recommended verification:
+1. python -m pytest tests/test_cli_workflow_v1.py
+2. python -m pytest
 
-Purpose:
-- Fix the similar-review keep selection bug for keep_policy='first'
-
-After extracting and replacing files, run:
-python -m pytest tests/test_core_similar_review.py tests/test_cli_duplicates_similar_review_v2.py
-python -m pytest
-
-Then commit and push.
+Then commit:
+git add .
+git commit -m "add workflow shell v1 for guided cli entry points"
+git push origin main

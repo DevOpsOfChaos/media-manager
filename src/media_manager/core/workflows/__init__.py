@@ -1,5 +1,13 @@
 """Workflow helpers for the rebuilt media-manager core."""
 
+from .catalog import (
+    WorkflowDefinition,
+    WorkflowProblem,
+    get_workflow_definition,
+    get_workflow_problem,
+    list_workflow_problems,
+    list_workflows,
+)
 from .cleanup import (
     CleanupExecutionReport,
     CleanupWorkflowOptions,
@@ -20,6 +28,12 @@ from .trip import (
 )
 
 __all__ = [
+    "WorkflowDefinition",
+    "WorkflowProblem",
+    "list_workflows",
+    "get_workflow_definition",
+    "list_workflow_problems",
+    "get_workflow_problem",
     "CleanupExecutionReport",
     "CleanupWorkflowOptions",
     "CleanupWorkflowReport",

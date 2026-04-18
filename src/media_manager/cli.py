@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import cli_duplicates, cli_gui, cli_inspect, cli_organize, cli_rename, cli_scan, cli_trip, cli_undo
+from . import cli_duplicates, cli_gui, cli_inspect, cli_organize, cli_rename, cli_scan, cli_trip, cli_undo, cli_workflow
 
 try:  # optional when older cumulative states are still present
     from . import cli_cleanup
@@ -19,6 +19,7 @@ COMMAND_HANDLERS = {
     "scan": cli_scan.main,
     "trip": cli_trip.main,
     "undo": cli_undo.main,
+    "workflow": cli_workflow.main,
 }
 if cli_cleanup is not None:
     COMMAND_HANDLERS["cleanup"] = cli_cleanup.main
@@ -53,8 +54,10 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "\nNo command provided.\n"
             "The old default GUI launch behavior has been removed during the repository reset.\n"
-            "Run an explicit CLI command such as 'scan', 'inspect', 'organize', 'rename', 'trip', 'duplicates', or 'undo'.\n"
-            "Use 'media-manager gui' only if you intentionally want the legacy GUI."
+            "Run an explicit CLI command such as 'scan', 'inspect', 'organize', 'rename', 'trip', "
+            "'duplicates', 'undo', or 'workflow'.\n"
+            "Use 'media-manager gui' only if you intentionally want the legacy GUI.\n"
+            "\nFor guided entry points, try: media-manager workflow list"
         )
         return 0
 
