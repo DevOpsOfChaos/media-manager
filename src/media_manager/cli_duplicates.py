@@ -18,6 +18,7 @@ from .duplicates import DuplicateScanConfig, scan_exact_duplicates
 from .similar_images import SimilarImageScanConfig, scan_similar_images
 from .similar_review import build_similar_review_report
 from .core.state import write_command_run_log, write_execution_journal
+from .cleanup_plan import build_exact_group_id
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -87,6 +88,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--save-session",
         type=Path,
         help="Save the current exact-duplicate keep decisions as a session snapshot.",
+    )
+    parser.add_argument(
+        "--show-decisions",
+        action="store_true",
+        help="Print one line per exact-duplicate keep decision and where it came from.",
+    )
+    parser.add_argument(
+        "--show-unresolved",
+        action="store_true",
+        help="Print unresolved exact duplicate groups and their candidate paths.",
     )
     parser.add_argument(
         "--show-plan",
@@ -180,27 +191,100 @@ def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) ->
         parser.error("--show-similar-review requires --similar-images.")
 
 
-def _build_decisions(result, args: argparse.Namespace) -> tuple[dict[str, str], dict[str, object] | None]:
+def _build_decisions(result, args: argparse.Namespace) -> tuple[dict[str, str], object | None]:
     decisions: dict[str, str] = {}
-    restore_info: dict[str, object] | None = None
+    session_restore = None
 
     if args.load_session is not None:
-        restore_result = restore_duplicate_session(args.load_session, result.exact_groups)
-        decisions.update(restore_result.decisions)
-        restore_info = {
-            "status": restore_result.status,
-            "reason": restore_result.reason,
-            "decision_count": len(restore_result.decisions),
-            "snapshot_exact_group_count": 0 if restore_result.snapshot is None else restore_result.snapshot.exact_group_count,
-            "snapshot_decision_count": 0 if restore_result.snapshot is None else restore_result.snapshot.decision_count,
-        }
+        session_restore = restore_duplicate_session(args.load_session, result.exact_groups)
+        decisions.update(session_restore.decisions)
 
     if args.policy:
         auto_decisions = build_duplicate_decisions(result.exact_groups, args.policy)
         for group_id, keep_path in auto_decisions.items():
             decisions.setdefault(group_id, keep_path)
 
-    return decisions, restore_info
+    return decisions, session_restore
+
+
+def _session_restore_payload(session_restore) -> dict[str, object] | None:
+    if session_restore is None:
+        return None
+
+    snapshot = getattr(session_restore, "snapshot", None)
+    return {
+        "status": session_restore.status,
+        "reason": session_restore.reason,
+        "decision_count": len(getattr(session_restore, "decisions", {})),
+        "snapshot_exact_group_count": None if snapshot is None else snapshot.exact_group_count,
+        "snapshot_decision_count": None if snapshot is None else snapshot.decision_count,
+    }
+
+
+def _decision_origin_map(decisions: dict[str, str], session_restore) -> dict[str, str]:
+    session_group_ids = set() if session_restore is None else set(getattr(session_restore, "decisions", {}).keys())
+    return {group_id: ("session" if group_id in session_group_ids else "policy") for group_id in decisions}
+
+
+def _build_decision_rows(exact_groups, decisions: dict[str, str], session_restore) -> list[dict[str, object]]:
+    origin_map = _decision_origin_map(decisions, session_restore)
+    rows: list[dict[str, object]] = []
+    for group in exact_groups:
+        group_id = build_exact_group_id(group)
+        keep_path = decisions.get(group_id)
+        rows.append(
+            {
+                "group_id": group_id,
+                "file_size": group.file_size,
+                "candidate_count": len(group.files),
+                "keep_path": keep_path,
+                "status": "decided" if keep_path else "unresolved",
+                "origin": None if keep_path is None else origin_map.get(group_id, "policy"),
+                "candidate_paths": [str(path) for path in group.files],
+            }
+        )
+    return rows
+
+
+def _build_decision_summary(exact_groups, decisions: dict[str, str], session_restore) -> dict[str, object]:
+    total_groups = len(exact_groups)
+    session_group_ids = set() if session_restore is None else set(getattr(session_restore, "decisions", {}).keys())
+    decided_group_ids = set(decisions.keys())
+    unresolved_group_ids = [build_exact_group_id(group) for group in exact_groups if build_exact_group_id(group) not in decided_group_ids]
+    return {
+        "total_groups": total_groups,
+        "decided_groups": len(decided_group_ids),
+        "undecided_groups": len(unresolved_group_ids),
+        "from_session_count": sum(1 for group_id in decided_group_ids if group_id in session_group_ids),
+        "from_policy_count": sum(1 for group_id in decided_group_ids if group_id not in session_group_ids),
+        "session_status": None if session_restore is None else getattr(session_restore, "status", None),
+        "unresolved_group_ids": unresolved_group_ids,
+    }
+
+
+def _print_decision_rows(rows: list[dict[str, object]]) -> None:
+    for row in rows:
+        if row["status"] == "decided":
+            print(f" - [decided] {row['group_id']} | keep={row['keep_path']} | origin={row['origin']} | candidates={row['candidate_count']}")
+        else:
+            print(f" - [unresolved] {row['group_id']} | candidates={row['candidate_count']}")
+
+
+def _print_unresolved_groups(bundle) -> None:
+    for item in getattr(bundle.cleanup_plan, "unresolved", []):
+        print(f"\n[Unresolved Group] {item.group_id} | size={item.file_size} | candidates={len(item.candidate_paths)}")
+        for path in item.candidate_paths:
+            print(f" - {path}")
+
+
+def _execution_preview_reason_summary(preview) -> dict[str, dict[str, int]]:
+    summary: dict[str, dict[str, int]] = {"executable": {}, "deferred": {}, "blocked": {}}
+    for row in getattr(preview, "rows", []):
+        bucket = summary.get(row.status)
+        if bucket is None:
+            continue
+        bucket[row.reason] = bucket.get(row.reason, 0) + 1
+    return summary
 
 
 def _build_execution_reason_summary(execution_result) -> dict[str, int]:
@@ -213,7 +297,7 @@ def _build_execution_reason_summary(execution_result) -> dict[str, int]:
     return dict(sorted(summary.items()))
 
 
-def _build_json_report_payload(result, bundle, execution_result, *, restore_info=None, similar_result=None, similar_review=None) -> dict[str, object]:
+def _build_json_report_payload(result, bundle, execution_result, *, session_restore=None, similar_result=None, similar_review=None) -> dict[str, object]:
     payload = {
         "scan": {
             "scanned_files": result.scanned_files,
@@ -269,7 +353,9 @@ def _build_json_report_payload(result, bundle, execution_result, *, restore_info
                 for row in similar_review.rows
             ],
         },
-        "session_restore": restore_info,
+        "session_restore": _session_restore_payload(session_restore),
+        "decision_summary": _build_decision_summary(result.exact_groups, bundle.decisions, session_restore),
+        "decision_rows": _build_decision_rows(result.exact_groups, bundle.decisions, session_restore),
         "decisions": bundle.decisions,
         "cleanup_plan": {
             "total_groups": bundle.cleanup_plan.total_groups,
@@ -281,6 +367,7 @@ def _build_json_report_payload(result, bundle, execution_result, *, restore_info
                 {
                     "group_id": item.group_id,
                     "file_size": item.file_size,
+                    "candidate_count": len(item.candidate_paths),
                     "candidate_paths": [str(path) for path in item.candidate_paths],
                 }
                 for item in bundle.cleanup_plan.unresolved
@@ -314,11 +401,7 @@ def _build_json_report_payload(result, bundle, execution_result, *, restore_info
             "deferred_count": bundle.execution_preview.deferred_count,
             "blocked_count": bundle.execution_preview.blocked_count,
             "delete_count": bundle.execution_preview.delete_count,
-            "reason_summary": {
-                "executable": {},
-                "deferred": {},
-                "blocked": {},
-            },
+            "reason_summary": _execution_preview_reason_summary(bundle.execution_preview),
             "rows": [
                 {
                     "row_type": row.row_type,
@@ -366,15 +449,14 @@ def _build_json_report_payload(result, bundle, execution_result, *, restore_info
         },
     }
 
-    for row in bundle.execution_preview.rows:
-        bucket = payload["execution_preview"]["reason_summary"].get(row.status, None)
-        if isinstance(bucket, dict):
-            bucket[row.reason] = bucket.get(row.reason, 0) + 1
-
     return payload
 
 
-def _write_json_report(path: Path, payload: dict[str, object]) -> None:
+def _write_json_report(path: Path, *args, **kwargs) -> None:
+    if len(args) == 1 and isinstance(args[0], dict) and not kwargs:
+        payload = args[0]
+    else:
+        payload = _build_json_report_payload(*args, **kwargs)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -400,7 +482,7 @@ def _build_duplicate_journal_entries(execution_result) -> list[dict[str, object]
     return entries
 
 
-def _print_workflow_summary(bundle, *, restore_info: dict[str, object] | None = None) -> None:
+def _print_workflow_summary(bundle, *, session_restore=None) -> None:
     print(
         "Plan: "
         f"resolved={bundle.cleanup_plan.resolved_groups} | "
@@ -425,12 +507,14 @@ def _print_workflow_summary(bundle, *, restore_info: dict[str, object] | None = 
         f"blocked={bundle.execution_preview.blocked_count} | "
         f"delete={bundle.execution_preview.delete_count}"
     )
-    if restore_info is not None:
-        print(
-            "Session restore: "
-            f"status={restore_info['status']} | decisions={restore_info['decision_count']} | "
-            f"reason={restore_info['reason']}"
-        )
+    if session_restore is not None:
+        payload = _session_restore_payload(session_restore)
+        if payload is not None:
+            print(
+                "Session restore: "
+                f"status={payload['status']} | decisions={payload['decision_count']} | "
+                f"reason={payload['reason']}"
+            )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -473,7 +557,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.show_similar_review and similar_review.rows:
             _print_similar_review(similar_review)
 
-    decisions, restore_info = _build_decisions(result, args)
+    decisions, session_restore = _build_decisions(result, args)
     bundle = build_duplicate_workflow_bundle(
         result.exact_groups,
         decisions,
@@ -486,8 +570,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Saved duplicate session: {args.save_session}")
 
     if args.show_plan or args.policy or args.load_session or args.apply:
-        _print_workflow_summary(bundle, restore_info=restore_info)
+        _print_workflow_summary(bundle, session_restore=session_restore)
+        decision_summary = _build_decision_summary(result.exact_groups, bundle.decisions, session_restore)
+        print(f"Decision summary: decided={decision_summary['decided_groups']} | undecided={decision_summary['undecided_groups']} | from-session={decision_summary['from_session_count']} | from-policy={decision_summary['from_policy_count']}")
         print(f"Decisions: {len(bundle.decisions)}")
+
+    if args.show_decisions:
+        print("Decision rows:")
+        _print_decision_rows(_build_decision_rows(result.exact_groups, bundle.decisions, session_restore))
+
+    if args.show_unresolved:
+        _print_unresolved_groups(bundle)
 
     execution_result = None
     if args.apply:
@@ -505,7 +598,7 @@ def main(argv: list[str] | None = None) -> int:
         result,
         bundle,
         execution_result,
-        restore_info=restore_info,
+        session_restore=session_restore,
         similar_result=similar_result,
         similar_review=similar_review,
     )
