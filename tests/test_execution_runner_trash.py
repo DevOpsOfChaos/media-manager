@@ -19,7 +19,7 @@ def _group(paths: list[Path], file_size: int = 1234, digest: str = "digest") -> 
     )
 
 
-def test_run_duplicate_execution_preview_uses_preview_trash_outcome(tmp_path: Path) -> None:
+def test_run_duplicate_execution_preview_uses_preview_delete_outcome(tmp_path: Path) -> None:
     keep = tmp_path / "keep.jpg"
     remove = tmp_path / "remove.jpg"
     keep.write_bytes(b"keep")
@@ -34,11 +34,11 @@ def test_run_duplicate_execution_preview_uses_preview_trash_outcome(tmp_path: Pa
 
     assert result.executed_rows == 1
     assert result.error_rows == 0
-    assert result.entries[0].outcome == "preview-trash"
+    assert result.entries[0].outcome == "preview-delete"
     assert remove.exists()
 
 
-def test_run_duplicate_execution_preview_sends_delete_to_trash(monkeypatch, tmp_path: Path) -> None:
+def test_run_duplicate_execution_preview_marks_delete_as_deleted_after_trash(monkeypatch, tmp_path: Path) -> None:
     keep = tmp_path / "keep.jpg"
     remove = tmp_path / "remove.jpg"
     keep.write_bytes(b"keep")
@@ -61,7 +61,7 @@ def test_run_duplicate_execution_preview_sends_delete_to_trash(monkeypatch, tmp_
 
     assert result.executed_rows == 1
     assert result.error_rows == 0
-    assert result.entries[0].outcome == "trashed"
+    assert result.entries[0].outcome == "deleted"
     assert trashed == [str(remove)]
     assert not remove.exists()
     assert keep.exists()
