@@ -1,11 +1,3 @@
-"""Metadata module for the rebuilt core."""
+"""Core package for the rebuilt media-manager architecture."""
 
-from .inspect import extract_date_candidates, inspect_media_file
-from .models import DateCandidate, FileInspection
-
-__all__ = [
-    "DateCandidate",
-    "FileInspection",
-    "extract_date_candidates",
-    "inspect_media_file",
-]
+__all__: list[str] = []
