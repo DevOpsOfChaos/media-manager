@@ -1,0 +1,10 @@
+Apply ZIP 003 on top of the current green main branch.
+
+Suggested steps:
+1. Extract the ZIP directly into the repository root.
+2. Replace existing files when asked.
+3. Run:
+   python -m pytest tests/test_core_organizer.py tests/test_cli_organize_v1.py
+4. If green, run:
+   python -m pytest
+5. Commit and push.
