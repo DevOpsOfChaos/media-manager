@@ -266,16 +266,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Metadata conflicts: {summary['metadata_conflict_count']}")
     print(f"  Parseable candidates: {summary['parseable_candidate_count']}")
     print(f"  Unparseable candidates: {summary['unparseable_candidate_count']}")
-
-    policy_summary = summary["decision_policy_summary"]
-    if policy_summary:
-        compact = ", ".join(f"{key}={value}" for key, value in policy_summary.items())
+    if summary["decision_policy_summary"]:
+        compact = ", ".join(f"{key}={value}" for key, value in summary["decision_policy_summary"].items())
         print(f"Decision policies: {compact}")
-
     _print_summary_block("\nSource kinds", summary["source_kind_summary"])
     _print_summary_block("\nConfidence summary", summary["confidence_summary"])
     _print_summary_block("\nTimezone summary", summary["timezone_status_summary"])
-    _print_summary_block("\nDecision policies", policy_summary)
+    _print_summary_block("\nDecision policies", summary["decision_policy_summary"])
     _print_summary_block("\nMetadata error kinds", summary["metadata_error_kind_summary"])
     print()
 
@@ -291,7 +288,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Reason:     {resolution.reason}")
         print(f"  Policy:     {getattr(resolution, 'decision_policy', '-')}")
         print(f"  Conflict:   {getattr(resolution, 'metadata_conflict', False)}")
-        print(f"  Metadata conflict:  {getattr(resolution, 'metadata_conflict', False)}")
+        print(f"Metadata conflict:  {getattr(resolution, 'metadata_conflict', False)}")
         if item.error:
             print(f"  Error:      {item.error}")
         if record["candidate_rows"]:
