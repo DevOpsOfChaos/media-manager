@@ -67,3 +67,52 @@ class OrganizeDryRun:
     @property
     def media_file_count(self) -> int:
         return self.scan_summary.media_file_count
+
+
+@dataclass(slots=True)
+class OrganizeExecutionEntry:
+    plan_entry: OrganizePlanEntry
+    outcome: str
+    reason: str
+
+    @property
+    def source_path(self) -> Path:
+        return self.plan_entry.source_path
+
+    @property
+    def target_path(self) -> Path | None:
+        return self.plan_entry.target_path
+
+
+@dataclass(slots=True)
+class OrganizeExecutionResult:
+    plan: OrganizeDryRun
+    entries: list[OrganizeExecutionEntry] = field(default_factory=list)
+
+    @property
+    def processed_count(self) -> int:
+        return len(self.entries)
+
+    @property
+    def copied_count(self) -> int:
+        return sum(1 for item in self.entries if item.outcome == "copied")
+
+    @property
+    def moved_count(self) -> int:
+        return sum(1 for item in self.entries if item.outcome == "moved")
+
+    @property
+    def executed_count(self) -> int:
+        return self.copied_count + self.moved_count
+
+    @property
+    def skipped_count(self) -> int:
+        return sum(1 for item in self.entries if item.outcome == "skipped")
+
+    @property
+    def conflict_count(self) -> int:
+        return sum(1 for item in self.entries if item.outcome == "conflict")
+
+    @property
+    def error_count(self) -> int:
+        return sum(1 for item in self.entries if item.outcome == "error")

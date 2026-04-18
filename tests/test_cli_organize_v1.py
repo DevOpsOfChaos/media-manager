@@ -8,6 +8,20 @@ from media_manager.cli_organize import main
 from media_manager.core.date_resolver import DateResolution
 
 
+def _resolution(file_path: Path) -> DateResolution:
+    return DateResolution(
+        path=file_path,
+        resolved_datetime=datetime(2024, 8, 10, 11, 12, 13),
+        resolved_value="2024-08-10 11:12:13",
+        source_kind="metadata",
+        source_label="EXIF:DateTimeOriginal",
+        confidence="high",
+        timezone_status="naive",
+        reason="test fixture",
+        candidates_checked=1,
+    )
+
+
 def test_cli_organize_json_output(monkeypatch, capsys, tmp_path: Path) -> None:
     source = tmp_path / "source"
     source.mkdir()
@@ -15,17 +29,7 @@ def test_cli_organize_json_output(monkeypatch, capsys, tmp_path: Path) -> None:
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: DateResolution(
-            path=file_path,
-            resolved_datetime=datetime(2024, 8, 10, 11, 12, 13),
-            resolved_value="2024-08-10 11:12:13",
-            source_kind="metadata",
-            source_label="EXIF:DateTimeOriginal",
-            confidence="high",
-            timezone_status="naive",
-            reason="test fixture",
-            candidates_checked=1,
-        ),
+        lambda file_path, exiftool_path=None: _resolution(file_path),
     )
 
     code = main(["--source", str(source), "--target", str(tmp_path / "target"), "--json"])
@@ -35,3 +39,23 @@ def test_cli_organize_json_output(monkeypatch, capsys, tmp_path: Path) -> None:
     payload = json.loads(captured.out)
     assert payload["planned_count"] == 1
     assert payload["entries"][0]["status"] == "planned"
+
+
+def test_cli_organize_apply_reports_execution_json(monkeypatch, capsys, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "photo.jpg").write_bytes(b"jpg")
+
+    monkeypatch.setattr(
+        "media_manager.core.organizer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+
+    code = main(["--source", str(source), "--target", str(tmp_path / "target"), "--json", "--apply"])
+    captured = capsys.readouterr()
+
+    assert code == 0
+    payload = json.loads(captured.out)
+    assert payload["execution"]["executed_count"] == 1
+    assert payload["execution"]["copied_count"] == 1
+    assert payload["execution"]["entries"][0]["outcome"] == "copied"

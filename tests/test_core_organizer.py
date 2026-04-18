@@ -8,6 +8,7 @@ from media_manager.core.organizer import (
     DEFAULT_ORGANIZE_PATTERN,
     OrganizePlannerOptions,
     build_organize_dry_run,
+    execute_organize_plan,
     render_organize_directory,
 )
 
@@ -80,7 +81,7 @@ def test_build_organize_dry_run_marks_existing_target_as_conflict(monkeypatch, t
     photo.write_bytes(b"jpg")
     existing_target = target / "2024" / "2024-08-10"
     existing_target.mkdir(parents=True)
-    (existing_target / "photo.jpg").write_bytes(b"existing")
+    (existing_target / "photo.jpg").write_bytes(b"existing-content")
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
@@ -99,6 +100,32 @@ def test_build_organize_dry_run_marks_existing_target_as_conflict(monkeypatch, t
     assert plan.conflict_count == 1
     assert plan.entries[0].status == "conflict"
     assert plan.entries[0].reason == "target path already exists"
+
+
+def test_build_organize_dry_run_skips_existing_matching_size_target(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+
+    photo = source / "photo.jpg"
+    photo.write_bytes(b"same-bytes")
+    existing_target = target / "2024" / "2024-08-10"
+    existing_target.mkdir(parents=True)
+    (existing_target / "photo.jpg").write_bytes(b"same-bytes")
+
+    monkeypatch.setattr(
+        "media_manager.core.organizer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)),
+    )
+
+    plan = build_organize_dry_run(
+        OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN)
+    )
+
+    assert plan.skipped_count == 1
+    assert plan.entries[0].status == "skipped"
+    assert plan.entries[0].reason == "target already exists with matching file size"
 
 
 def test_build_organize_dry_run_marks_same_target_path_collisions(monkeypatch, tmp_path: Path) -> None:
@@ -159,3 +186,53 @@ def test_build_organize_dry_run_skips_source_already_in_target_location(monkeypa
     assert plan.skipped_count == 1
     assert plan.entries[0].status == "skipped"
     assert plan.entries[0].reason == "source already matches the planned target path"
+
+
+def test_execute_organize_plan_copies_planned_entries(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+    photo = source / "photo.jpg"
+    photo.write_bytes(b"jpg")
+
+    monkeypatch.setattr(
+        "media_manager.core.organizer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)),
+    )
+
+    plan = build_organize_dry_run(
+        OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN, operation_mode="copy")
+    )
+    result = execute_organize_plan(plan)
+
+    assert result.executed_count == 1
+    assert result.copied_count == 1
+    assert result.error_count == 0
+    assert photo.exists()
+    assert (target / "2024" / "2024-08-10" / "photo.jpg").exists()
+
+
+def test_execute_organize_plan_moves_planned_entries(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+    photo = source / "photo.jpg"
+    photo.write_bytes(b"jpg")
+
+    monkeypatch.setattr(
+        "media_manager.core.organizer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)),
+    )
+
+    plan = build_organize_dry_run(
+        OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN, operation_mode="move")
+    )
+    result = execute_organize_plan(plan)
+
+    assert result.executed_count == 1
+    assert result.moved_count == 1
+    assert result.error_count == 0
+    assert not photo.exists()
+    assert (target / "2024" / "2024-08-10" / "photo.jpg").exists()

@@ -14,6 +14,13 @@ def _normalized_path_key(path: Path) -> str:
     return os.path.normcase(str(path))
 
 
+def _paths_match_by_size(source_path: Path, target_path: Path) -> bool:
+    try:
+        return source_path.stat().st_size == target_path.stat().st_size
+    except OSError:
+        return False
+
+
 def build_organize_dry_run(options: OrganizePlannerOptions) -> OrganizeDryRun:
     scan_summary = scan_media_sources(
         ScanOptions(
@@ -69,13 +76,18 @@ def build_organize_dry_run(options: OrganizePlannerOptions) -> OrganizeDryRun:
             continue
 
         if target_path.exists():
+            status = "conflict"
+            reason = "target path already exists"
+            if _paths_match_by_size(scanned_file.path, target_path):
+                status = "skipped"
+                reason = "target already exists with matching file size"
             dry_run.entries.append(
                 OrganizePlanEntry(
                     scanned_file=scanned_file,
                     resolution=resolution,
                     operation_mode=options.operation_mode,
-                    status="conflict",
-                    reason="target path already exists",
+                    status=status,
+                    reason=reason,
                     target_relative_dir=target_relative_dir,
                     target_path=target_path,
                 )
@@ -88,7 +100,7 @@ def build_organize_dry_run(options: OrganizePlannerOptions) -> OrganizeDryRun:
                 resolution=resolution,
                 operation_mode=options.operation_mode,
                 status="planned",
-                reason="ready for organize dry-run output",
+                reason="ready for organize execution",
                 target_relative_dir=target_relative_dir,
                 target_path=target_path,
             )

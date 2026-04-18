@@ -8,13 +8,14 @@ from .core.organizer import (
     DEFAULT_ORGANIZE_PATTERN,
     OrganizePlannerOptions,
     build_organize_dry_run,
+    execute_organize_plan,
 )
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager organize",
-        description="Build a dry-run organize plan from one or more source folders.",
+        description="Build or execute an organize plan from one or more source folders.",
     )
     parser.add_argument(
         "--source",
@@ -39,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Reserved for later. Organize v1 currently supports dry-run planning only.",
+        help="Execute the planned organize entries.",
     )
     parser.add_argument(
         "--non-recursive",
@@ -54,7 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--show-files",
         action="store_true",
-        help="Print one line per planned/scanned file.",
+        help="Print one line per plan or execution entry.",
     )
     parser.add_argument(
         "--json",
@@ -70,8 +71,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _build_payload(plan) -> dict[str, object]:
-    return {
+def _build_payload(plan, execution_result) -> dict[str, object]:
+    payload = {
         "sources": [str(path) for path in plan.options.source_dirs],
         "target_root": str(plan.options.target_root),
         "pattern": plan.options.pattern,
@@ -100,14 +101,31 @@ def _build_payload(plan) -> dict[str, object]:
             for item in plan.entries
         ],
     }
+    if execution_result is not None:
+        payload["execution"] = {
+            "processed_count": execution_result.processed_count,
+            "executed_count": execution_result.executed_count,
+            "copied_count": execution_result.copied_count,
+            "moved_count": execution_result.moved_count,
+            "skipped_count": execution_result.skipped_count,
+            "conflict_count": execution_result.conflict_count,
+            "error_count": execution_result.error_count,
+            "entries": [
+                {
+                    "source_path": str(item.source_path),
+                    "target_path": str(item.target_path) if item.target_path else None,
+                    "outcome": item.outcome,
+                    "reason": item.reason,
+                }
+                for item in execution_result.entries
+            ],
+        }
+    return payload
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-
-    if args.apply:
-        parser.error("Organize apply mode is not implemented yet. Run the command without --apply for dry-run planning.")
 
     operation_mode = "move" if args.move else "copy"
     plan = build_organize_dry_run(
@@ -121,12 +139,16 @@ def main(argv: list[str] | None = None) -> int:
             exiftool_path=args.exiftool_path,
         )
     )
+    execution_result = execute_organize_plan(plan) if args.apply else None
 
     if args.json:
-        print(json.dumps(_build_payload(plan), indent=2, ensure_ascii=False))
-        return 0 if plan.error_count == 0 and plan.missing_source_count == 0 else 1
+        print(json.dumps(_build_payload(plan, execution_result), indent=2, ensure_ascii=False))
+        has_errors = plan.error_count > 0 or plan.missing_source_count > 0
+        if execution_result is not None:
+            has_errors = has_errors or execution_result.error_count > 0
+        return 0 if not has_errors else 1
 
-    print("Organize dry run")
+    print("Organize plan")
     print(f"  Sources: {len(plan.options.source_dirs)}")
     print(f"  Missing sources: {plan.missing_source_count}")
     print(f"  Media files scanned: {plan.media_file_count}")
@@ -134,6 +156,15 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Skipped: {plan.skipped_count}")
     print(f"  Conflicts: {plan.conflict_count}")
     print(f"  Errors: {plan.error_count}")
+
+    if execution_result is not None:
+        print("\nExecution")
+        print(f"  Executed: {execution_result.executed_count}")
+        print(f"  Copied: {execution_result.copied_count}")
+        print(f"  Moved: {execution_result.moved_count}")
+        print(f"  Skipped: {execution_result.skipped_count}")
+        print(f"  Conflicts: {execution_result.conflict_count}")
+        print(f"  Errors: {execution_result.error_count}")
 
     if plan.scan_summary.missing_sources:
         print("\nMissing sources:")
@@ -149,5 +180,13 @@ def main(argv: list[str] | None = None) -> int:
                 f"  - [{item.status}] {item.source_path} -> {target_text} | "
                 f"date={resolved_text} | reason={item.reason}"
             )
+        if execution_result is not None:
+            print("\nExecution entries:")
+            for item in execution_result.entries:
+                target_text = str(item.target_path) if item.target_path else "-"
+                print(f"  - [{item.outcome}] {item.source_path} -> {target_text} | reason={item.reason}")
 
-    return 0 if plan.error_count == 0 and plan.missing_source_count == 0 else 1
+    has_errors = plan.error_count > 0 or plan.missing_source_count > 0
+    if execution_result is not None:
+        has_errors = has_errors or execution_result.error_count > 0
+    return 0 if not has_errors else 1
