@@ -123,3 +123,44 @@ def test_cli_organize_apply_writes_execution_journal(monkeypatch, tmp_path: Path
     assert payload["apply_requested"] is True
     assert payload["entries"][0]["outcome"] == "copied"
     assert payload["entries"][0]["undo_action"] == "delete_target"
+
+
+def test_cli_organize_history_dir_writes_auto_named_run_log_and_journal(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "photo.jpg").write_bytes(b"jpg")
+    history_dir = tmp_path / "history"
+
+    monkeypatch.setattr(
+        "media_manager.core.organizer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+
+    code = main(
+        [
+            "--source",
+            str(source),
+            "--target",
+            str(tmp_path / "target"),
+            "--apply",
+            "--history-dir",
+            str(history_dir),
+        ]
+    )
+
+    assert code == 0
+    files = sorted(history_dir.glob("*.json"))
+    assert len(files) == 2
+
+    run_log_path = next(path for path in files if path.name.endswith("-run-log.json"))
+    journal_path = next(path for path in files if path.name.endswith("-execution-journal.json"))
+
+    assert "-organize-apply-run-log.json" in run_log_path.name
+    assert "-organize-apply-execution-journal.json" in journal_path.name
+
+    run_log = json.loads(run_log_path.read_text(encoding="utf-8"))
+    journal = json.loads(journal_path.read_text(encoding="utf-8"))
+
+    assert run_log["command_name"] == "organize"
+    assert journal["command_name"] == "organize"
+    assert run_log["created_at_utc"] == journal["created_at_utc"]

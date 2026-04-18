@@ -59,12 +59,17 @@ def _build_payload_summary(payload: dict[str, object]) -> dict[str, object]:
     return summary
 
 
+def _default_created_at_utc() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 def build_command_run_log(
     *,
     command_name: str,
     apply_requested: bool,
     exit_code: int,
     payload: dict[str, object],
+    created_at_utc: str | None = None,
 ) -> dict[str, object]:
     return {
         "schema_version": 1,
@@ -72,7 +77,7 @@ def build_command_run_log(
         "command_name": command_name,
         "apply_requested": apply_requested,
         "exit_code": exit_code,
-        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "created_at_utc": created_at_utc or _default_created_at_utc(),
         "payload_summary": _build_payload_summary(payload),
         "payload": payload,
     }
@@ -85,6 +90,7 @@ def write_command_run_log(
     apply_requested: bool,
     exit_code: int,
     payload: dict[str, object],
+    created_at_utc: str | None = None,
 ) -> Path:
     path = Path(file_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -93,6 +99,7 @@ def write_command_run_log(
         apply_requested=apply_requested,
         exit_code=exit_code,
         payload=payload,
+        created_at_utc=created_at_utc,
     )
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     return path

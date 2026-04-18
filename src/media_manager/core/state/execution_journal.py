@@ -16,6 +16,9 @@ def _build_value_summary(entries: list[dict[str, object]], key: str) -> dict[str
     return dict(sorted(summary.items()))
 
 
+def _default_created_at_utc() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
 
 def build_execution_journal(
     *,
@@ -23,6 +26,7 @@ def build_execution_journal(
     apply_requested: bool,
     exit_code: int,
     entries: list[dict[str, object]],
+    created_at_utc: str | None = None,
 ) -> dict[str, object]:
     return {
         "schema_version": 1,
@@ -30,7 +34,7 @@ def build_execution_journal(
         "command_name": command_name,
         "apply_requested": apply_requested,
         "exit_code": exit_code,
-        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "created_at_utc": created_at_utc or _default_created_at_utc(),
         "entry_count": len(entries),
         "reversible_entry_count": sum(1 for item in entries if bool(item.get("reversible"))),
         "outcome_summary": _build_value_summary(entries, "outcome"),
@@ -46,6 +50,7 @@ def write_execution_journal(
     apply_requested: bool,
     exit_code: int,
     entries: list[dict[str, object]],
+    created_at_utc: str | None = None,
 ) -> Path:
     path = Path(file_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -54,6 +59,7 @@ def write_execution_journal(
         apply_requested=apply_requested,
         exit_code=exit_code,
         entries=entries,
+        created_at_utc=created_at_utc,
     )
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     return path

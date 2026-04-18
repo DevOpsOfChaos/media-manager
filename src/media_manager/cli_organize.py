@@ -10,7 +10,7 @@ from .core.organizer import (
     build_organize_dry_run,
     execute_organize_plan,
 )
-from .core.state import write_command_run_log, write_execution_journal
+from .core.state import write_command_run_log, write_execution_journal, write_history_artifacts
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -72,6 +72,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--journal",
         type=Path,
         help="Optional path for a structured execution journal. Only meaningful with --apply.",
+    )
+    parser.add_argument(
+        "--history-dir",
+        type=Path,
+        help="Optional directory where an auto-named run log and, for apply mode, execution journal are written.",
     )
     parser.add_argument(
         "--exiftool-path",
@@ -236,6 +241,9 @@ def main(argv: list[str] | None = None) -> int:
         has_errors = has_errors or execution_result.error_count > 0
     exit_code = 0 if not has_errors else 1
 
+    explicit_journal_entries = _build_journal_entries(execution_result) if execution_result is not None else None
+    history_artifacts = None
+
     if args.run_log is not None:
         write_command_run_log(
             args.run_log,
@@ -251,7 +259,17 @@ def main(argv: list[str] | None = None) -> int:
             command_name="organize",
             apply_requested=True,
             exit_code=exit_code,
-            entries=_build_journal_entries(execution_result),
+            entries=explicit_journal_entries or [],
+        )
+
+    if args.history_dir is not None:
+        history_artifacts = write_history_artifacts(
+            args.history_dir,
+            command_name="organize",
+            apply_requested=args.apply,
+            exit_code=exit_code,
+            payload=payload,
+            journal_entries=explicit_journal_entries if args.apply else None,
         )
 
     if args.json:
@@ -307,5 +325,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\nWrote run log: {args.run_log}")
     if args.apply and args.journal is not None and execution_result is not None:
         print(f"Wrote execution journal: {args.journal}")
+    if history_artifacts is not None:
+        print(f"Wrote history run log: {history_artifacts['run_log_path']}")
+        if "execution_journal_path" in history_artifacts:
+            print(f"Wrote history journal: {history_artifacts['execution_journal_path']}")
 
     return exit_code

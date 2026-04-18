@@ -103,3 +103,31 @@ def test_cli_rename_apply_writes_execution_journal(monkeypatch, tmp_path: Path) 
     assert payload["apply_requested"] is True
     assert payload["entries"][0]["outcome"] == "renamed"
     assert payload["entries"][0]["undo_action"] == "rename_back"
+
+
+def test_cli_rename_history_dir_writes_auto_named_run_log(monkeypatch, tmp_path: Path, capsys) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "IMG_0001.JPG").write_bytes(b"jpg")
+    history_dir = tmp_path / "history"
+
+    monkeypatch.setattr(
+        "media_manager.core.renamer.planner.resolve_capture_datetime",
+        lambda path, exiftool_path=None: _resolution(path),
+    )
+
+    exit_code = main(["--source", str(source), "--json", "--history-dir", str(history_dir)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+
+    files = sorted(history_dir.glob("*.json"))
+    assert len(files) == 1
+    run_log_path = files[0]
+
+    assert "-rename-preview-run-log.json" in run_log_path.name
+
+    run_log = json.loads(run_log_path.read_text(encoding="utf-8"))
+    assert run_log["command_name"] == "rename"
+    assert run_log["payload"]["planned_count"] == payload["planned_count"]
