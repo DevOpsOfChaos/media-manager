@@ -1,16 +1,14 @@
-Apply this update into the root of your media-manager repository.
+Apply ZIP 011 over your current green main working tree.
 
-Included in ZIP 010:
-- duplicate session/state cleanup v1
-- richer duplicate session metadata
-- explicit session restore status/reason reporting
-- CLI support for --show-session
-- JSON report session block
-- tests and docs for the session/state behavior
+Changed / new files in this update:
+- src/media_manager/core/workflows/cleanup.py
+- src/media_manager/core/workflows/__init__.py
+- src/media_manager/cli_cleanup.py
+- src/media_manager/cli.py
+- tests/test_core_cleanup_workflow.py
+- tests/test_cli_cleanup_v1.py
+- docs/cleanup-workflow-v1.md
 
-Suggested steps:
-1. Extract this ZIP into your repo root and replace existing files.
-2. Run:
-   python -m pytest tests/test_duplicate_session_store.py tests/test_cli_duplicates.py
-   python -m pytest
-3. Commit and push if green.
+Suggested verification:
+- python -m pytest tests/test_core_cleanup_workflow.py tests/test_cli_cleanup_v1.py
+- python -m pytest
