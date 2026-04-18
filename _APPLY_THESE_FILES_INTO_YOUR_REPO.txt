@@ -1,12 +1,17 @@
-Apply these files into the repository root and overwrite existing files where paths match.
+ZIP 008 contents
 
-Included in this update:
-- src/media_manager/execution_audit.py
-- src/media_manager/cli_duplicates.py
-- tests/test_cli_duplicates.py
-- docs/duplicate-review-audit-v1.md
+Copy these files into your repository root and replace existing files where paths match.
 
-After copying:
-1. run `python -m pytest tests/test_cli_duplicates.py tests/test_execution_audit.py`
-2. run `python -m pytest`
-3. commit and push on `main`
+Updated / new files:
+- src/media_manager/core/state/__init__.py
+- src/media_manager/core/state/run_log.py
+- src/media_manager/cli_organize.py
+- src/media_manager/cli_rename.py
+- tests/test_core_run_log.py
+- tests/test_cli_organize_v1.py
+- tests/test_cli_rename_v1.py
+- docs/run-log-journaling-v1.md
+
+Suggested commands after copying:
+- python -m pytest tests/test_core_run_log.py tests/test_cli_organize_v1.py tests/test_cli_rename_v1.py
+- python -m pytest

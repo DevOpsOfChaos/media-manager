@@ -59,3 +59,36 @@ def test_cli_organize_apply_reports_execution_json(monkeypatch, capsys, tmp_path
     assert payload["execution"]["executed_count"] == 1
     assert payload["execution"]["copied_count"] == 1
     assert payload["execution"]["entries"][0]["outcome"] == "copied"
+
+
+def test_cli_organize_writes_run_log(monkeypatch, capsys, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "photo.jpg").write_bytes(b"jpg")
+    log_path = tmp_path / "logs" / "organize-run.json"
+
+    monkeypatch.setattr(
+        "media_manager.core.organizer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+
+    code = main(
+        [
+            "--source",
+            str(source),
+            "--target",
+            str(tmp_path / "target"),
+            "--json",
+            "--run-log",
+            str(log_path),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert code == 0
+    payload = json.loads(captured.out)
+    run_log = json.loads(log_path.read_text(encoding="utf-8"))
+    assert run_log["command_name"] == "organize"
+    assert run_log["apply_requested"] is False
+    assert run_log["exit_code"] == 0
+    assert run_log["payload"]["planned_count"] == payload["planned_count"]

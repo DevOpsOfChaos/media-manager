@@ -10,6 +10,7 @@ from .core.organizer import (
     build_organize_dry_run,
     execute_organize_plan,
 )
+from .core.state import write_command_run_log
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -41,6 +42,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--apply",
         action="store_true",
         help="Execute the planned organize entries.",
+    )
+    parser.add_argument(
+        "--run-log",
+        type=Path,
+        help="Optional path for a structured JSON run log.",
     )
     parser.add_argument(
         "--non-recursive",
@@ -140,13 +146,25 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     execution_result = execute_organize_plan(plan) if args.apply else None
+    payload = _build_payload(plan, execution_result)
+
+    has_errors = plan.error_count > 0 or plan.missing_source_count > 0
+    if execution_result is not None:
+        has_errors = has_errors or execution_result.error_count > 0
+    exit_code = 0 if not has_errors else 1
+
+    if args.run_log is not None:
+        write_command_run_log(
+            args.run_log,
+            command_name="organize",
+            apply_requested=args.apply,
+            exit_code=exit_code,
+            payload=payload,
+        )
 
     if args.json:
-        print(json.dumps(_build_payload(plan, execution_result), indent=2, ensure_ascii=False))
-        has_errors = plan.error_count > 0 or plan.missing_source_count > 0
-        if execution_result is not None:
-            has_errors = has_errors or execution_result.error_count > 0
-        return 0 if not has_errors else 1
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return exit_code
 
     print("Organize plan")
     print(f"  Sources: {len(plan.options.source_dirs)}")
@@ -186,7 +204,7 @@ def main(argv: list[str] | None = None) -> int:
                 target_text = str(item.target_path) if item.target_path else "-"
                 print(f"  - [{item.outcome}] {item.source_path} -> {target_text} | reason={item.reason}")
 
-    has_errors = plan.error_count > 0 or plan.missing_source_count > 0
-    if execution_result is not None:
-        has_errors = has_errors or execution_result.error_count > 0
-    return 0 if not has_errors else 1
+    if args.run_log is not None:
+        print(f"\nWrote run log: {args.run_log}")
+
+    return exit_code

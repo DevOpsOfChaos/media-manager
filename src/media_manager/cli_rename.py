@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import argparse
@@ -6,6 +5,7 @@ import json
 from pathlib import Path
 
 from .core.renamer import RenamePlannerOptions, build_rename_dry_run, execute_rename_dry_run
+from .core.state import write_command_run_log
 
 DEFAULT_RENAME_TEMPLATE = "{date:%Y-%m-%d_%H-%M-%S}_{stem}"
 
@@ -51,6 +51,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Print machine-readable JSON output.",
+    )
+    parser.add_argument(
+        "--run-log",
+        type=Path,
+        help="Optional path for a structured JSON run log.",
     )
     parser.add_argument(
         "--exiftool-path",
@@ -135,10 +140,21 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     execution_result = execute_rename_dry_run(dry_run, apply=args.apply)
+    payload = _build_json_payload(dry_run, execution_result)
+    exit_code = 0 if execution_result.error_count == 0 and dry_run.missing_source_count == 0 else 1
+
+    if args.run_log is not None:
+        write_command_run_log(
+            args.run_log,
+            command_name="rename",
+            apply_requested=args.apply,
+            exit_code=exit_code,
+            payload=payload,
+        )
 
     if args.json:
-        print(json.dumps(_build_json_payload(dry_run, execution_result), indent=2, ensure_ascii=False))
-        return 0 if execution_result.error_count == 0 and dry_run.missing_source_count == 0 else 1
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return exit_code
 
     title = "Rename apply summary" if args.apply else "Rename dry-run summary"
     print(title)
@@ -161,4 +177,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"  - [{entry.status}] {entry.source_path} -> {target_display} | {entry.reason}"
             )
 
-    return 0 if execution_result.error_count == 0 and dry_run.missing_source_count == 0 else 1
+    if args.run_log is not None:
+        print(f"\nWrote run log: {args.run_log}")
+
+    return exit_code
