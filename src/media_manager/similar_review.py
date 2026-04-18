@@ -55,7 +55,10 @@ def choose_similar_keep_path(group: SimilarImageGroup, policy: KeepPolicy) -> Pa
         raise ValueError("Similar image group must contain at least one member.")
 
     if policy == "first":
-        return min((member.path for member in group.members), key=lambda path: str(path).lower())
+        member_paths = {member.path for member in group.members}
+        if group.anchor_path in member_paths:
+            return group.anchor_path
+        return group.members[0].path
 
     dated_paths: list[tuple[float, Path]] = []
     for member in group.members:

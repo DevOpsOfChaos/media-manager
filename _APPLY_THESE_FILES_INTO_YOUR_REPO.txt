@@ -1,11 +1,13 @@
-Copy these files into the matching paths inside your repository and overwrite the existing files.
+Apply this package on top of your current main branch.
 
-Included in this package:
+Contents:
 - src/media_manager/similar_review.py
-- src/media_manager/cli_duplicates.py
-- src/media_manager/similar_images.py
-- tests/test_core_similar_review.py
-- tests/test_cli_duplicates_similar_review_v2.py
-- docs/similar-duplicates-review-v2.md
 
-Then run your normal local test flow and commit the result.
+Purpose:
+- Fix the similar-review keep selection bug for keep_policy='first'
+
+After extracting and replacing files, run:
+python -m pytest tests/test_core_similar_review.py tests/test_cli_duplicates_similar_review_v2.py
+python -m pytest
+
+Then commit and push.
