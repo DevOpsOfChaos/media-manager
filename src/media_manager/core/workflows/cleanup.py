@@ -1,20 +1,26 @@
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from media_manager.core.organizer import (
     DEFAULT_ORGANIZE_PATTERN,
     OrganizeDryRun,
+    OrganizeExecutionResult,
     OrganizePlannerOptions,
     build_organize_dry_run,
+    execute_organize_plan,
 )
 from media_manager.core.renamer import (
     RenameDryRun,
+    RenameExecutionResult,
     RenamePlannerOptions,
     build_rename_dry_run,
+    execute_rename_dry_run,
 )
+from media_manager.core.scanner import ScanOptions, ScanSummary, scan_media_sources
+from media_manager.core.state import write_execution_journal
 from media_manager.duplicate_workflow import (
     DuplicateWorkflowBundle,
     build_duplicate_decisions,
@@ -23,6 +29,8 @@ from media_manager.duplicate_workflow import (
 from media_manager.duplicates import DuplicateScanConfig, DuplicateScanResult, scan_exact_duplicates
 
 DEFAULT_CLEANUP_RENAME_TEMPLATE = "{date:%Y-%m-%d_%H-%M-%S}_{stem}"
+CleanupDuplicatePolicy = Literal["first", "newest", "oldest"]
+CleanupApplyStep = Literal["organize", "rename"]
 
 
 @dataclass(slots=True, frozen=True)
@@ -31,56 +39,91 @@ class CleanupWorkflowOptions:
     target_root: Path
     organize_pattern: str = DEFAULT_ORGANIZE_PATTERN
     rename_template: str = DEFAULT_CLEANUP_RENAME_TEMPLATE
-    duplicate_policy: str | None = None
-    duplicate_mode: str = "copy"
     recursive: bool = True
     include_hidden: bool = False
+    follow_symlinks: bool = False
+    duplicate_policy: CleanupDuplicatePolicy | None = None
+    duplicate_mode: str = "copy"
     exiftool_path: Path | None = None
 
 
 @dataclass(slots=True)
-class CleanupDryRun:
+class CleanupWorkflowReport:
     options: CleanupWorkflowOptions
-    duplicate_scan: DuplicateScanResult
-    duplicate_bundle: DuplicateWorkflowBundle
+    scan_summary: ScanSummary
+    duplicate_scan_result: DuplicateScanResult
+    duplicate_workflow: DuplicateWorkflowBundle
     organize_plan: OrganizeDryRun
-    rename_plan: RenameDryRun
-
-    @property
-    def missing_source_count(self) -> int:
-        missing: set[str] = set()
-        for collection in (
-            self.organize_plan.scan_summary.missing_sources,
-            self.rename_plan.scan_summary.missing_sources,
-        ):
-            missing.update(str(path) for path in collection)
-        return len(missing)
+    rename_dry_run: RenameDryRun
 
     @property
     def media_file_count(self) -> int:
-        return max(self.organize_plan.media_file_count, self.rename_plan.media_file_count)
+        return self.scan_summary.media_file_count
 
     @property
-    def duplicate_group_count(self) -> int:
-        return len(self.duplicate_scan.exact_groups)
+    def missing_source_count(self) -> int:
+        return len(self.scan_summary.missing_sources)
 
     @property
-    def duplicate_decision_count(self) -> int:
-        return len(self.duplicate_bundle.decisions)
+    def decisions_count(self) -> int:
+        return len(self.duplicate_workflow.decisions)
+
+    @property
+    def has_errors(self) -> bool:
+        return any(
+            [
+                self.missing_source_count > 0,
+                self.duplicate_scan_result.errors > 0,
+                self.organize_plan.error_count > 0,
+                self.rename_dry_run.error_count > 0,
+            ]
+        )
 
 
-def build_cleanup_dry_run(options: CleanupWorkflowOptions) -> CleanupDryRun:
-    duplicate_scan = scan_exact_duplicates(DuplicateScanConfig(source_dirs=list(options.source_dirs)))
+@dataclass(slots=True)
+class CleanupExecutionReport:
+    report: CleanupWorkflowReport
+    apply_step: CleanupApplyStep
+    organize_result: OrganizeExecutionResult | None = None
+    rename_result: RenameExecutionResult | None = None
+    journal_path: Path | None = None
 
-    decisions: dict[str, str] = {}
+    @property
+    def error_count(self) -> int:
+        if self.apply_step == "organize" and self.organize_result is not None:
+            return self.organize_result.error_count
+        if self.apply_step == "rename" and self.rename_result is not None:
+            return self.rename_result.error_count
+        return 0
+
+
+def build_cleanup_workflow_report(options: CleanupWorkflowOptions) -> CleanupWorkflowReport:
+    if options.duplicate_mode not in {"copy", "move", "delete"}:
+        raise ValueError("Cleanup duplicate mode must be one of: copy, move, delete.")
+
+    scan_summary = scan_media_sources(
+        ScanOptions(
+            source_dirs=options.source_dirs,
+            recursive=options.recursive,
+            include_hidden=options.include_hidden,
+            follow_symlinks=options.follow_symlinks,
+        )
+    )
+
+    duplicate_scan_result = scan_exact_duplicates(DuplicateScanConfig(source_dirs=list(options.source_dirs)))
+    duplicate_decisions: dict[str, str] = {}
     if options.duplicate_policy is not None:
-        decisions = build_duplicate_decisions(duplicate_scan.exact_groups, options.duplicate_policy)
+        duplicate_decisions = build_duplicate_decisions(
+            duplicate_scan_result.exact_groups,
+            options.duplicate_policy,
+        )
 
-    duplicate_bundle = build_duplicate_workflow_bundle(
-        duplicate_scan.exact_groups,
-        decisions,
+    duplicate_target_root = options.target_root if options.duplicate_mode in {"copy", "move"} else None
+    duplicate_workflow = build_duplicate_workflow_bundle(
+        duplicate_scan_result.exact_groups,
+        duplicate_decisions,
         options.duplicate_mode,
-        target_root=options.target_root,
+        target_root=duplicate_target_root,
     )
 
     organize_plan = build_organize_dry_run(
@@ -90,25 +133,119 @@ def build_cleanup_dry_run(options: CleanupWorkflowOptions) -> CleanupDryRun:
             pattern=options.organize_pattern,
             recursive=options.recursive,
             include_hidden=options.include_hidden,
+            follow_symlinks=options.follow_symlinks,
             operation_mode="copy",
             exiftool_path=options.exiftool_path,
         )
     )
 
-    rename_plan = build_rename_dry_run(
+    rename_dry_run = build_rename_dry_run(
         RenamePlannerOptions(
             source_dirs=options.source_dirs,
             template=options.rename_template,
             recursive=options.recursive,
             include_hidden=options.include_hidden,
+            follow_symlinks=options.follow_symlinks,
             exiftool_path=options.exiftool_path,
         )
     )
 
-    return CleanupDryRun(
+    return CleanupWorkflowReport(
         options=options,
-        duplicate_scan=duplicate_scan,
-        duplicate_bundle=duplicate_bundle,
+        scan_summary=scan_summary,
+        duplicate_scan_result=duplicate_scan_result,
+        duplicate_workflow=duplicate_workflow,
         organize_plan=organize_plan,
-        rename_plan=rename_plan,
+        rename_dry_run=rename_dry_run,
     )
+
+
+def _build_organize_journal_entries(result: OrganizeExecutionResult) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    for item in result.entries:
+        target_path = item.target_path
+        entry = {
+            "source_path": str(item.source_path),
+            "target_path": None if target_path is None else str(target_path),
+            "action": item.outcome,
+            "reason": item.reason,
+            "reversible": item.outcome in {"copied", "moved"},
+            "undo_action": None,
+            "undo_source_path": None,
+            "undo_target_path": None,
+        }
+        if item.outcome == "copied" and target_path is not None:
+            entry["undo_action"] = "delete_target"
+            entry["undo_target_path"] = str(target_path)
+        elif item.outcome == "moved" and target_path is not None:
+            entry["undo_action"] = "move_back"
+            entry["undo_source_path"] = str(target_path)
+            entry["undo_target_path"] = str(item.source_path)
+        entries.append(entry)
+    return entries
+
+
+def _build_rename_journal_entries(result: RenameExecutionResult) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    for item in result.entries:
+        entry = {
+            "source_path": str(item.source_path),
+            "target_path": None if item.target_path is None else str(item.target_path),
+            "action": item.action,
+            "reason": item.reason,
+            "reversible": item.action == "renamed" and item.target_path is not None,
+            "undo_action": None,
+            "undo_source_path": None,
+            "undo_target_path": None,
+        }
+        if item.action == "renamed" and item.target_path is not None:
+            entry["undo_action"] = "rename_back"
+            entry["undo_source_path"] = str(item.target_path)
+            entry["undo_target_path"] = str(item.source_path)
+        entries.append(entry)
+    return entries
+
+
+def execute_cleanup_workflow(
+    report: CleanupWorkflowReport,
+    *,
+    apply_step: CleanupApplyStep,
+    journal_path: str | Path | None = None,
+) -> CleanupExecutionReport:
+    if apply_step == "organize":
+        organize_result = execute_organize_plan(report.organize_plan)
+        execution_report = CleanupExecutionReport(
+            report=report,
+            apply_step=apply_step,
+            organize_result=organize_result,
+        )
+        if journal_path is not None:
+            write_execution_journal(
+                journal_path,
+                command_name="cleanup-organize",
+                apply_requested=True,
+                exit_code=0 if organize_result.error_count == 0 else 1,
+                entries=_build_organize_journal_entries(organize_result),
+            )
+            execution_report.journal_path = Path(journal_path)
+        return execution_report
+
+    if apply_step == "rename":
+        rename_result = execute_rename_dry_run(report.rename_dry_run, apply=True)
+        execution_report = CleanupExecutionReport(
+            report=report,
+            apply_step=apply_step,
+            rename_result=rename_result,
+        )
+        if journal_path is not None:
+            write_execution_journal(
+                journal_path,
+                command_name="cleanup-rename",
+                apply_requested=True,
+                exit_code=0 if rename_result.error_count == 0 else 1,
+                entries=_build_rename_journal_entries(rename_result),
+            )
+            execution_report.journal_path = Path(journal_path)
+        return execution_report
+
+    raise ValueError("Cleanup apply step must be either 'organize' or 'rename'.")

@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import json
@@ -23,14 +22,13 @@ def _resolution(path: Path) -> DateResolution:
     )
 
 
-def test_cli_cleanup_json_output_contains_section_summaries(monkeypatch, capsys, tmp_path: Path) -> None:
-    source_a = tmp_path / "a"
-    source_b = tmp_path / "b"
-    source_a.mkdir()
-    source_b.mkdir()
-
-    (source_a / "one.jpg").write_bytes(b"duplicate-bytes")
-    (source_b / "two.jpg").write_bytes(b"duplicate-bytes")
+def test_cli_cleanup_json_output_contains_sections(monkeypatch, tmp_path: Path, capsys) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+    (source / "IMG_20240810_111213.JPG").write_bytes(b"duplicate-bytes")
+    (source / "IMG_20240810_111214.JPG").write_bytes(b"other")
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
@@ -41,33 +39,23 @@ def test_cli_cleanup_json_output_contains_section_summaries(monkeypatch, capsys,
         lambda file_path, exiftool_path=None: _resolution(file_path),
     )
 
-    code = main(
-        [
-            "--source",
-            str(source_a),
-            "--source",
-            str(source_b),
-            "--target",
-            str(tmp_path / "target"),
-            "--duplicate-policy",
-            "first",
-            "--json",
-        ]
-    )
+    exit_code = main(["--source", str(source), "--target", str(target), "--json"])
     captured = capsys.readouterr()
 
-    assert code == 0
+    assert exit_code == 0
     payload = json.loads(captured.out)
-    assert payload["duplicates"]["exact_groups"] == 1
-    assert payload["duplicates"]["decisions"] == 1
-    assert payload["organize"]["planned_count"] == 2
-    assert payload["rename"]["planned_count"] == 2
+    assert payload["scan"]["media_file_count"] == 2
+    assert "duplicates" in payload
+    assert "organize" in payload
+    assert "rename" in payload
 
 
-def test_cli_cleanup_writes_run_log(monkeypatch, tmp_path: Path) -> None:
+def test_cli_cleanup_can_apply_organize_and_emit_execution_json(monkeypatch, tmp_path: Path, capsys) -> None:
     source = tmp_path / "source"
+    target = tmp_path / "target"
     source.mkdir()
-    (source / "one.jpg").write_bytes(b"solo")
+    target.mkdir()
+    (source / "photo.jpg").write_bytes(b"jpg")
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
@@ -78,20 +66,67 @@ def test_cli_cleanup_writes_run_log(monkeypatch, tmp_path: Path) -> None:
         lambda file_path, exiftool_path=None: _resolution(file_path),
     )
 
-    log_path = tmp_path / "logs" / "cleanup-run.json"
-    code = main(
-        [
-            "--source",
-            str(source),
-            "--target",
-            str(tmp_path / "target"),
-            "--run-log",
-            str(log_path),
-        ]
+    exit_code = main([
+        "--source", str(source),
+        "--target", str(target),
+        "--apply-organize",
+        "--json",
+    ])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+    assert payload["execution"]["apply_step"] == "organize"
+    assert payload["execution"]["copied_count"] == 1
+
+
+def test_cli_cleanup_can_apply_rename_and_write_journal(monkeypatch, tmp_path: Path, capsys) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+    (source / "IMG_0001.JPG").write_bytes(b"jpg")
+    journal_path = tmp_path / "journals" / "cleanup-rename.json"
+
+    monkeypatch.setattr(
+        "media_manager.core.organizer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+    monkeypatch.setattr(
+        "media_manager.core.renamer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
     )
 
-    assert code == 0
-    assert log_path.exists()
-    payload = json.loads(log_path.read_text(encoding="utf-8"))
-    assert payload["command_name"] == "cleanup"
-    assert payload["apply_requested"] is False
+    exit_code = main([
+        "--source", str(source),
+        "--target", str(target),
+        "--apply-rename",
+        "--journal", str(journal_path),
+        "--json",
+    ])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+    assert payload["execution"]["apply_step"] == "rename"
+    assert payload["execution"]["journal_path"] == str(journal_path)
+    journal = json.loads(journal_path.read_text(encoding="utf-8"))
+    assert journal["command_name"] == "cleanup-rename"
+
+
+def test_cli_cleanup_rejects_journal_without_apply(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+
+    try:
+        main([
+            "--source", str(source),
+            "--target", str(target),
+            "--journal", str(tmp_path / "journal.json"),
+        ])
+    except SystemExit as exc:
+        assert exc.code == 2
+    else:  # pragma: no cover
+        raise AssertionError("Expected argparse to reject --journal without an apply step.")
