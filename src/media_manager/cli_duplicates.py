@@ -12,6 +12,7 @@ from .duplicate_workflow import (
 )
 from .duplicates import DuplicateScanConfig, scan_exact_duplicates
 from .similar_images import SimilarImageScanConfig, scan_similar_images
+from .similar_review import build_similar_review_report
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -38,6 +39,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--show-similar-groups",
         action="store_true",
         help="Print grouped similar-image candidates when --similar-images is enabled.",
+    )
+    parser.add_argument(
+        "--show-similar-review",
+        action="store_true",
+        help="Print keep recommendations and review candidates for similar-image groups.",
+    )
+    parser.add_argument(
+        "--similar-policy",
+        choices=["first", "newest", "oldest"],
+        default="first",
+        help="Keep recommendation policy for similar-image review output. Default: first.",
     )
     parser.add_argument(
         "--similar-threshold",
@@ -114,6 +126,18 @@ def _print_similar_groups(result) -> None:
             print(f" - {member.path} ({marker})")
 
 
+def _print_similar_review(report) -> None:
+    current_group = None
+    for row in report.rows:
+        if row.group_index != current_group:
+            current_group = row.group_index
+            print(f"\n[Similar Review Group {current_group}] keep-policy={report.keep_policy}")
+        print(
+            f" - [{row.status}] {row.path} | keep={row.recommended_keep_path} | "
+            f"distance-to-keep={row.distance_to_keep} | reason={row.reason}"
+        )
+
+
 def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     invalid_sources = [path for path in args.sources if not path.is_dir()]
     if invalid_sources:
@@ -134,6 +158,9 @@ def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) ->
     if args.similar_threshold < 0:
         parser.error("--similar-threshold must be zero or greater.")
 
+    if args.show_similar_review and not args.similar_images:
+        parser.error("--show-similar-review requires --similar-images.")
+
 
 def _build_decisions(result, args: argparse.Namespace) -> dict[str, str]:
     decisions: dict[str, str] = {}
@@ -149,7 +176,7 @@ def _build_decisions(result, args: argparse.Namespace) -> dict[str, str]:
     return decisions
 
 
-def _write_json_report(path: Path, result, bundle, execution_result, similar_result=None) -> None:
+def _write_json_report(path: Path, result, bundle, execution_result, *, similar_result=None, similar_review=None) -> None:
     payload = {
         "scan": {
             "scanned_files": result.scanned_files,
@@ -180,6 +207,25 @@ def _write_json_report(path: Path, result, bundle, execution_result, similar_res
                     ],
                 }
                 for group in similar_result.similar_groups
+            ],
+        },
+        "similar_review": None if similar_review is None else {
+            "keep_policy": similar_review.keep_policy,
+            "group_count": similar_review.group_count,
+            "row_count": similar_review.row_count,
+            "keep_count": similar_review.keep_count,
+            "review_candidate_count": similar_review.review_candidate_count,
+            "rows": [
+                {
+                    "group_index": row.group_index,
+                    "path": str(row.path),
+                    "recommended_keep_path": str(row.recommended_keep_path),
+                    "status": row.status,
+                    "distance_to_keep": row.distance_to_keep,
+                    "hash_hex": row.hash_hex,
+                    "reason": row.reason,
+                }
+                for row in similar_review.rows
             ],
         },
         "decisions": bundle.decisions,
@@ -304,6 +350,7 @@ def main(argv: list[str] | None = None) -> int:
         _print_duplicate_groups(result)
 
     similar_result = None
+    similar_review = None
     if args.similar_images or args.show_similar_groups:
         similar_result = scan_similar_images(
             SimilarImageScanConfig(
@@ -318,6 +365,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         if args.show_similar_groups and similar_result.similar_groups:
             _print_similar_groups(similar_result)
+
+    if similar_result is not None:
+        similar_review = build_similar_review_report(
+            similar_result.similar_groups,
+            keep_policy=args.similar_policy,
+        )
+        if args.show_similar_review and similar_review.rows:
+            _print_similar_review(similar_review)
 
     decisions = _build_decisions(result, args)
     bundle = build_duplicate_workflow_bundle(
@@ -348,7 +403,14 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if args.json_report is not None:
-        _write_json_report(args.json_report, result, bundle, execution_result, similar_result=similar_result)
+        _write_json_report(
+            args.json_report,
+            result,
+            bundle,
+            execution_result,
+            similar_result=similar_result,
+            similar_review=similar_review,
+        )
         print(f"Wrote JSON report: {args.json_report}")
 
     if execution_result is not None and execution_result.error_rows > 0:

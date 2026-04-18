@@ -1,7 +1,11 @@
-Apply these files on top of your current latest working tree.
+Copy these files into the matching paths inside your repository and overwrite the existing files.
 
-Suggested local check:
-  python -m pytest tests/test_core_cleanup_workflow.py tests/test_cli_cleanup_v1.py
-  python -m pytest
+Included in this package:
+- src/media_manager/similar_review.py
+- src/media_manager/cli_duplicates.py
+- src/media_manager/similar_images.py
+- tests/test_core_similar_review.py
+- tests/test_cli_duplicates_similar_review_v2.py
+- docs/similar-duplicates-review-v2.md
 
-Then commit and push your normal way.
+Then run your normal local test flow and commit the result.

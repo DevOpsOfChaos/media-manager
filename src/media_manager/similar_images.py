@@ -60,6 +60,11 @@ def _ensure_pillow() -> None:
         raise RuntimeError("Pillow is required for similar image scanning. Install the project dependencies again.")
 
 
+def _image_files_from_sources(source_dirs: list[Path]) -> list[Path]:
+    media_files = iter_media_files(source_dirs)
+    return [path for path in media_files if path.suffix.lower() in IMAGE_EXTENSIONS]
+
+
 def compute_average_hash(path: Path, hash_size: int = 8) -> int:
     _ensure_pillow()
     if hash_size <= 0:
