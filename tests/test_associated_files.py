@@ -74,11 +74,10 @@ def test_build_associated_file_map_returns_peer_relationships() -> None:
 
     relation_map = build_associated_file_map(paths)
 
-    assert sorted(relation_map["/library/IMG_0001.CR3"]) == [
-        "/library/IMG_0001.JPG",
-        "/library/IMG_0001.XMP",
-    ]
-    assert sorted(relation_map["/library/IMG_0001.XMP"]) == [
-        "/library/IMG_0001.CR3",
-        "/library/IMG_0001.JPG",
-    ]
+    expected_map = {
+        str(paths[0]): sorted([str(paths[1]), str(paths[2])]),
+        str(paths[2]): sorted([str(paths[0]), str(paths[1])]),
+    }
+
+    assert sorted(relation_map[str(paths[0])]) == expected_map[str(paths[0])]
+    assert sorted(relation_map[str(paths[2])]) == expected_map[str(paths[2])]
