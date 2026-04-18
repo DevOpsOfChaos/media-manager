@@ -11,6 +11,10 @@ from .parse import describe_timezone_status, format_resolution_value, parse_date
 
 FILENAME_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
+        "pixel_datetime_ms",
+        re.compile(r"(?<!\d)(\d{8})[_-](\d{6})(\d{3})(?!\d)"),
+    ),
+    (
         "compact_datetime",
         re.compile(r"(?<!\d)(\d{8}[ _-]\d{6})(?!\d)"),
     ),
@@ -23,6 +27,10 @@ FILENAME_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         re.compile(r"(?:IMG|VID|PXL|MVIMG|Screenshot)[-_]?(\d{8})[-_](\d{6})", re.IGNORECASE),
     ),
     (
+        "whatsapp_datetime",
+        re.compile(r"(\d{4}-\d{2}-\d{2})[ _-]at[ _-](\d{2}\.\d{2}\.\d{2})", re.IGNORECASE),
+    ),
+    (
         "date_only",
         re.compile(r"(?<!\d)(\d{4}-\d{2}-\d{2}|\d{8})(?!\d)"),
     ),
@@ -31,8 +39,6 @@ FILENAME_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 def _parse_filename_match(pattern_name: str, matched_text: str) -> datetime | None:
     normalized = matched_text.replace(".", ":")
-    if pattern_name == "named_camera_datetime" and len(normalized) == 15 and "_" in normalized:
-        normalized = normalized
 
     candidates = [
         normalized,
@@ -53,6 +59,7 @@ def _parse_filename_match(pattern_name: str, matched_text: str) -> datetime | No
     return None
 
 
+
 def find_filename_datetime(file_path: Path) -> FilenameDateMatch | None:
     name = file_path.stem
 
@@ -62,6 +69,10 @@ def find_filename_datetime(file_path: Path) -> FilenameDateMatch | None:
             continue
 
         if pattern_name == "named_camera_datetime":
+            matched_text = f"{match.group(1)}_{match.group(2)}"
+        elif pattern_name == "whatsapp_datetime":
+            matched_text = f"{match.group(1)} {match.group(2)}"
+        elif pattern_name == "pixel_datetime_ms":
             matched_text = f"{match.group(1)}_{match.group(2)}"
         else:
             matched_text = match.group(1)
@@ -77,6 +88,40 @@ def find_filename_datetime(file_path: Path) -> FilenameDateMatch | None:
     return None
 
 
+
+def _collect_parseable_metadata_candidates(inspection: FileInspection) -> list[tuple[object, datetime]]:
+    parseable: list[tuple[object, datetime]] = []
+    for candidate in inspection.date_candidates:
+        parsed = parse_datetime_value(candidate.value)
+        if parsed is None:
+            continue
+        parseable.append((candidate, parsed))
+    return parseable
+
+
+
+def _build_metadata_reason(chosen_candidate, chosen_datetime: datetime, parseable_candidates: list[tuple[object, datetime]]) -> str:
+    parseable_count = len(parseable_candidates)
+    if parseable_count == 1:
+        return f"Selected the highest-priority parseable metadata candidate from {chosen_candidate.source_tag}."
+
+    differing_lower_candidates = [
+        candidate
+        for candidate, parsed in parseable_candidates[1:]
+        if format_resolution_value(parsed) != format_resolution_value(chosen_datetime)
+    ]
+    if differing_lower_candidates:
+        return (
+            f"Selected the highest-priority parseable metadata candidate from {chosen_candidate.source_tag} "
+            f"and ignored {len(differing_lower_candidates)} lower-priority candidate(s) with different values."
+        )
+    return (
+        f"Selected the highest-priority parseable metadata candidate from {chosen_candidate.source_tag}. "
+        f"{parseable_count} parseable metadata candidate(s) agreed on the same value."
+    )
+
+
+
 def resolve_capture_datetime(
     file_path: Path,
     *,
@@ -85,24 +130,26 @@ def resolve_capture_datetime(
 ) -> DateResolution:
     inspection = inspection or inspect_media_file(file_path, exiftool_path=exiftool_path)
 
-    for candidate in inspection.date_candidates:
-        parsed = parse_datetime_value(candidate.value)
-        if parsed is None:
-            continue
+    parseable_metadata_candidates = _collect_parseable_metadata_candidates(inspection)
+    if parseable_metadata_candidates:
+        chosen_candidate, chosen_datetime = parseable_metadata_candidates[0]
         return DateResolution(
             path=file_path,
-            resolved_datetime=parsed,
-            resolved_value=format_resolution_value(parsed),
+            resolved_datetime=chosen_datetime,
+            resolved_value=format_resolution_value(chosen_datetime),
             source_kind="metadata",
-            source_label=candidate.source_tag,
+            source_label=chosen_candidate.source_tag,
             confidence="high",
-            timezone_status=describe_timezone_status(parsed),
-            reason=f"Selected the first parseable metadata candidate from {candidate.source_tag}.",
+            timezone_status=describe_timezone_status(chosen_datetime),
+            reason=_build_metadata_reason(chosen_candidate, chosen_datetime, parseable_metadata_candidates),
             candidates_checked=len(inspection.date_candidates),
         )
 
     filename_match = find_filename_datetime(file_path)
     if filename_match is not None:
+        metadata_context = ""
+        if inspection.date_candidates:
+            metadata_context = f" after skipping {len(inspection.date_candidates)} unparseable metadata candidate(s)"
         return DateResolution(
             path=file_path,
             resolved_datetime=filename_match.parsed_datetime,
@@ -111,12 +158,18 @@ def resolve_capture_datetime(
             source_label=filename_match.pattern_name,
             confidence="medium",
             timezone_status=describe_timezone_status(filename_match.parsed_datetime),
-            reason=f"Fell back to a recognized filename pattern: {filename_match.matched_text}.",
+            reason=(
+                f"Fell back to a recognized filename pattern ({filename_match.pattern_name}: {filename_match.matched_text})"
+                f"{metadata_context}."
+            ),
             candidates_checked=len(inspection.date_candidates),
         )
 
     stat = file_path.stat()
     modified_at = datetime.fromtimestamp(stat.st_mtime)
+    metadata_context = ""
+    if inspection.date_candidates:
+        metadata_context = f" after skipping {len(inspection.date_candidates)} unparseable metadata candidate(s)"
     return DateResolution(
         path=file_path,
         resolved_datetime=modified_at,
@@ -125,6 +178,9 @@ def resolve_capture_datetime(
         source_label="mtime",
         confidence="low",
         timezone_status=describe_timezone_status(modified_at),
-        reason="No parseable metadata or filename datetime was found, so the file modification time was used.",
+        reason=(
+            "No parseable metadata or filename datetime was found"
+            f"{metadata_context}, so the file modification time was used."
+        ),
         candidates_checked=len(inspection.date_candidates),
     )

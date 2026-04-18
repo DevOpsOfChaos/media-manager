@@ -10,7 +10,6 @@ from media_manager.exiftool import resolve_exiftool_path
 
 from .models import DateCandidate, FileInspection
 
-
 TIME_OUTPUT_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
@@ -24,6 +23,7 @@ def _normalize_metadata_keys(metadata: dict[str, object]) -> dict[str, str]:
             continue
         normalized[str(key)] = cleaned
     return normalized
+
 
 
 def extract_date_candidates(metadata: dict[str, object]) -> list[DateCandidate]:
@@ -57,6 +57,7 @@ def extract_date_candidates(metadata: dict[str, object]) -> list[DateCandidate]:
     return candidates
 
 
+
 def _read_exiftool_metadata(file_path: Path, exiftool_path: Path | None = None) -> tuple[dict[str, object] | None, bool, str | None]:
     resolved_exiftool = resolve_exiftool_path(exiftool_path)
     if resolved_exiftool is None:
@@ -82,6 +83,7 @@ def _read_exiftool_metadata(file_path: Path, exiftool_path: Path | None = None) 
     if not payload or not isinstance(payload, list) or not isinstance(payload[0], dict):
         return {}, True, None
     return payload[0], True, None
+
 
 
 def inspect_media_file(file_path: Path, exiftool_path: Path | None = None) -> FileInspection:

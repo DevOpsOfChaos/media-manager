@@ -1,17 +1,21 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from media_manager.core.date_resolver import find_filename_datetime, parse_datetime_value, resolve_capture_datetime
 from media_manager.core.metadata.models import DateCandidate, FileInspection
 
 
-
-def test_parse_datetime_value_supports_exif_and_iso_inputs() -> None:
+def test_parse_datetime_value_supports_exif_iso_and_date_only_inputs() -> None:
     assert parse_datetime_value("2024:08:10 11:12:13") == datetime(2024, 8, 10, 11, 12, 13)
     assert parse_datetime_value("2024-08-10T11:12:13") == datetime(2024, 8, 10, 11, 12, 13)
+    assert parse_datetime_value("2024:08:10") == datetime(2024, 8, 10)
+    assert parse_datetime_value("20240810") == datetime(2024, 8, 10)
 
+
+def test_parse_datetime_value_supports_utc_z_suffix() -> None:
+    assert parse_datetime_value("2024-08-10T11:12:13Z") == datetime(2024, 8, 10, 11, 12, 13, tzinfo=timezone.utc)
 
 
 def test_find_filename_datetime_detects_camera_style_names(tmp_path: Path) -> None:
@@ -25,8 +29,29 @@ def test_find_filename_datetime_detects_camera_style_names(tmp_path: Path) -> No
     assert match.parsed_datetime == datetime(2024, 1, 2, 12, 34, 56)
 
 
+def test_find_filename_datetime_detects_whatsapp_style_names(tmp_path: Path) -> None:
+    media_file = tmp_path / "WhatsApp Image 2024-01-02 at 12.34.56.jpeg"
+    media_file.write_bytes(b"jpg")
 
-def test_resolve_capture_datetime_prefers_parseable_metadata_candidate(tmp_path: Path) -> None:
+    match = find_filename_datetime(media_file)
+
+    assert match is not None
+    assert match.pattern_name == "whatsapp_datetime"
+    assert match.parsed_datetime == datetime(2024, 1, 2, 12, 34, 56)
+
+
+def test_find_filename_datetime_detects_pixel_style_names_with_milliseconds(tmp_path: Path) -> None:
+    media_file = tmp_path / "PXL_20240102_123456789.jpg"
+    media_file.write_bytes(b"jpg")
+
+    match = find_filename_datetime(media_file)
+
+    assert match is not None
+    assert match.pattern_name == "pixel_datetime_ms"
+    assert match.parsed_datetime == datetime(2024, 1, 2, 12, 34, 56)
+
+
+def test_resolve_capture_datetime_prefers_highest_priority_parseable_metadata_candidate(tmp_path: Path) -> None:
     media_file = tmp_path / "IMG_20240102_123456.jpg"
     media_file.write_bytes(b"jpg")
 
@@ -50,7 +75,7 @@ def test_resolve_capture_datetime_prefers_parseable_metadata_candidate(tmp_path:
     assert resolution.source_label == "EXIF:DateTimeOriginal"
     assert resolution.confidence == "high"
     assert resolution.resolved_datetime == datetime(2024, 8, 10, 11, 12, 13)
-
+    assert "ignored 1 lower-priority candidate" in resolution.reason
 
 
 def test_resolve_capture_datetime_falls_back_to_filename_when_metadata_is_unparseable(tmp_path: Path) -> None:
@@ -76,7 +101,7 @@ def test_resolve_capture_datetime_falls_back_to_filename_when_metadata_is_unpars
     assert resolution.source_label in {"compact_datetime", "named_camera_datetime"}
     assert resolution.confidence == "medium"
     assert resolution.resolved_datetime == datetime(2024, 1, 2, 12, 34, 56)
-
+    assert "skipping 1 unparseable metadata candidate" in resolution.reason
 
 
 def test_resolve_capture_datetime_falls_back_to_file_mtime(tmp_path: Path) -> None:

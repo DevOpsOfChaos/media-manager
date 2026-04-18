@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
 
 DATE_FORMATS = (
@@ -7,22 +8,32 @@ DATE_FORMATS = (
     "%Y:%m:%d %H:%M:%S%z",
     "%Y:%m:%d %H:%M:%S.%f",
     "%Y:%m:%d %H:%M:%S.%f%z",
+    "%Y:%m:%d",
     "%Y-%m-%d %H:%M:%S",
     "%Y-%m-%d %H:%M:%S%z",
+    "%Y-%m-%d %H:%M:%S.%f",
+    "%Y-%m-%d %H:%M:%S.%f%z",
     "%Y-%m-%d %H-%M-%S",
     "%Y-%m-%d %H-%M-%S%z",
+    "%Y-%m-%d_%H:%M:%S",
+    "%Y-%m-%d_%H-%M-%S",
+    "%Y-%m-%d",
     "%Y-%m-%dT%H:%M:%S",
     "%Y-%m-%dT%H:%M:%S%z",
     "%Y-%m-%dT%H:%M:%S.%f",
     "%Y-%m-%dT%H:%M:%S.%f%z",
     "%Y%m%d_%H%M%S",
     "%Y%m%d-%H%M%S",
+    "%Y%m%dT%H%M%S",
+    "%Y%m%d",
 )
 
 TRUNCATED_FORMATS = (
     "%Y:%m:%d %H:%M:%S",
     "%Y-%m-%d %H:%M:%S",
     "%Y-%m-%d %H-%M-%S",
+    "%Y-%m-%d_%H:%M:%S",
+    "%Y-%m-%d_%H-%M-%S",
     "%Y-%m-%dT%H:%M:%S",
 )
 
@@ -30,8 +41,12 @@ TRUNCATED_FORMATS = (
 def _normalize_datetime_value(value: str) -> str:
     cleaned = value.strip()
     if cleaned.endswith("Z"):
-        return cleaned[:-1] + "+00:00"
+        cleaned = cleaned[:-1] + "+00:00"
+
+    if re.search(r"[+-]\d{2}$", cleaned):
+        cleaned = cleaned + "00"
     return cleaned
+
 
 
 def parse_datetime_value(value: str) -> datetime | None:
@@ -54,10 +69,12 @@ def parse_datetime_value(value: str) -> datetime | None:
     return None
 
 
+
 def format_resolution_value(value: datetime) -> str:
     if value.tzinfo is None:
         return value.strftime("%Y-%m-%d %H:%M:%S")
     return value.isoformat()
+
 
 
 def describe_timezone_status(value: datetime) -> str:

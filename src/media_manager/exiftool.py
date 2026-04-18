@@ -35,6 +35,7 @@ def resolve_exiftool_path(explicit_path: Path | None = None) -> Path | None:
     return None
 
 
+
 def read_metadata_date(file_path: Path, exiftool_path: Path | None = None) -> str | None:
     resolved_exiftool = resolve_exiftool_path(exiftool_path)
     if resolved_exiftool is None:
