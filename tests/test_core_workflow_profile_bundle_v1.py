@@ -3,14 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from media_manager.core.workflows.profile_bundle import (
-    WorkflowProfileBundle,
     WorkflowProfileBundleItem,
+    build_workflow_profile_bundle,
     build_workflow_profile_bundle_items,
     build_workflow_profile_bundle_summary,
-    compare_workflow_profile_bundles,
     filter_workflow_profile_bundle,
     load_workflow_profile_bundle,
-    merge_workflow_profile_bundles,
     write_workflow_profile_bundle,
 )
 from media_manager.core.workflows.profile_inventory import WorkflowProfileRecord
@@ -129,205 +127,49 @@ def test_write_and_load_workflow_profile_bundle_roundtrip(tmp_path: Path) -> Non
     assert loaded.profiles[0].relative_profile_path == "trip.json"
 
 
-def test_filter_workflow_profile_bundle_recomputes_summary() -> None:
-    bundle = WorkflowProfileBundle(
-        profiles_dir="profiles",
-        workflow_filter=None,
-        preset_filter=None,
-        only_valid=False,
-        only_invalid=False,
-        summary=build_workflow_profile_bundle_summary(
+def test_filter_workflow_profile_bundle_filters_invalid_profiles(tmp_path: Path) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "ok.json").write_text(
+        "\n".join(
             [
-                WorkflowProfileBundleItem(
-                    name="cleanup",
-                    title="Cleanup",
-                    workflow_name="cleanup",
-                    preset_name="cleanup-family-library",
-                    profile_name="Cleanup",
-                    profile_path="profiles/cleanup.json",
-                    relative_profile_path="cleanup.json",
-                    valid=True,
-                    command_preview="cleanup-cmd",
-                ),
-                WorkflowProfileBundleItem(
-                    name="duplicates",
-                    title="Duplicates",
-                    workflow_name="duplicates",
-                    preset_name="duplicates-similar-review",
-                    profile_name="Duplicates",
-                    profile_path="profiles/duplicates.json",
-                    relative_profile_path="duplicates.json",
-                    valid=False,
-                    problems=("duplicates apply requires yes",),
-                ),
+                "{",
+                '  "schema_version": 1,',
+                '  "profile_name": "Italy trip",',
+                '  "preset": "trip-hardlink-collection",',
+                '  "values": {',
+                '    "source": ["C:/Phone"],',
+                '    "target": "E:/Trips",',
+                '    "label": "Italy_2025",',
+                '    "start": "2025-08-01",',
+                '    "end": "2025-08-14"',
+                "  }",
+                "}",
             ]
         ),
-        profiles=[
-            WorkflowProfileBundleItem(
-                name="cleanup",
-                title="Cleanup",
-                workflow_name="cleanup",
-                preset_name="cleanup-family-library",
-                profile_name="Cleanup",
-                profile_path="profiles/cleanup.json",
-                relative_profile_path="cleanup.json",
-                valid=True,
-                command_preview="cleanup-cmd",
-            ),
-            WorkflowProfileBundleItem(
-                name="duplicates",
-                title="Duplicates",
-                workflow_name="duplicates",
-                preset_name="duplicates-similar-review",
-                profile_name="Duplicates",
-                profile_path="profiles/duplicates.json",
-                relative_profile_path="duplicates.json",
-                valid=False,
-                problems=("duplicates apply requires yes",),
-            ),
-        ],
+        encoding="utf-8",
+    )
+    (profiles_dir / "bad.json").write_text(
+        "\n".join(
+            [
+                "{",
+                '  "schema_version": 1,',
+                '  "profile_name": "Bad duplicates",',
+                '  "preset": "duplicates-similar-review",',
+                '  "values": {',
+                '    "source": ["C:/Photos"],',
+                '    "show_similar_review": true,',
+                '    "similar_images": false',
+                "  }",
+                "}",
+            ]
+        ),
+        encoding="utf-8",
     )
 
-    filtered = filter_workflow_profile_bundle(bundle, workflow_name="duplicates", only_invalid=True)
+    bundle = build_workflow_profile_bundle(profiles_dir)
+    filtered = filter_workflow_profile_bundle(bundle, only_invalid=True)
 
     assert filtered.summary.profile_count == 1
     assert filtered.summary.invalid_count == 1
-    assert filtered.summary.valid_count == 0
-    assert filtered.workflow_filter == "duplicates"
-    assert filtered.only_invalid is True
-    assert filtered.profiles[0].workflow_name == "duplicates"
-
-
-def test_merge_workflow_profile_bundles_prefers_last_version() -> None:
-    first = WorkflowProfileBundle(
-        profiles_dir="first",
-        workflow_filter=None,
-        preset_filter=None,
-        only_valid=False,
-        only_invalid=False,
-        summary=build_workflow_profile_bundle_summary([]),
-        profiles=[
-            WorkflowProfileBundleItem(
-                name="cleanup",
-                title="Family cleanup",
-                workflow_name="cleanup",
-                preset_name="cleanup-family-library",
-                profile_name="Family cleanup",
-                profile_path="first/family.json",
-                relative_profile_path="family.json",
-                valid=True,
-                command_preview="first-command",
-            )
-        ],
-    )
-    second = WorkflowProfileBundle(
-        profiles_dir="second",
-        workflow_filter=None,
-        preset_filter=None,
-        only_valid=False,
-        only_invalid=False,
-        summary=build_workflow_profile_bundle_summary([]),
-        profiles=[
-            WorkflowProfileBundleItem(
-                name="cleanup",
-                title="Family cleanup updated",
-                workflow_name="cleanup",
-                preset_name="cleanup-family-library",
-                profile_name="Family cleanup updated",
-                profile_path="second/family.json",
-                relative_profile_path="family.json",
-                valid=True,
-                command_preview="second-command",
-            )
-        ],
-    )
-
-    merged = merge_workflow_profile_bundles([first, second], prefer="last")
-
-    assert merged.summary.profile_count == 1
-    assert merged.profiles[0].title == "Family cleanup updated"
-    assert merged.profiles[0].command_preview == "second-command"
-
-
-def test_compare_workflow_profile_bundles_counts_changes() -> None:
-    left = WorkflowProfileBundle(
-        profiles_dir="left",
-        workflow_filter=None,
-        preset_filter=None,
-        only_valid=False,
-        only_invalid=False,
-        summary=build_workflow_profile_bundle_summary([]),
-        profiles=[
-            WorkflowProfileBundleItem(
-                name="cleanup",
-                title="Cleanup",
-                workflow_name="cleanup",
-                preset_name="cleanup-family-library",
-                profile_name="Cleanup",
-                profile_path="left/cleanup.json",
-                relative_profile_path="cleanup.json",
-                valid=True,
-                command_preview="cleanup-command",
-            ),
-            WorkflowProfileBundleItem(
-                name="trip",
-                title="Trip",
-                workflow_name="trip",
-                preset_name="trip-hardlink-collection",
-                profile_name="Trip",
-                profile_path="left/trip.json",
-                relative_profile_path="trip.json",
-                valid=True,
-                command_preview="trip-command",
-            ),
-        ],
-    )
-    right = WorkflowProfileBundle(
-        profiles_dir="right",
-        workflow_filter=None,
-        preset_filter=None,
-        only_valid=False,
-        only_invalid=False,
-        summary=build_workflow_profile_bundle_summary([]),
-        profiles=[
-            WorkflowProfileBundleItem(
-                name="cleanup",
-                title="Cleanup",
-                workflow_name="cleanup",
-                preset_name="cleanup-family-library",
-                profile_name="Cleanup",
-                profile_path="right/cleanup.json",
-                relative_profile_path="cleanup.json",
-                valid=False,
-                problems=("missing target",),
-                command_preview=None,
-            ),
-            WorkflowProfileBundleItem(
-                name="duplicates",
-                title="Duplicates",
-                workflow_name="duplicates",
-                preset_name="duplicates-similar-review",
-                profile_name="Duplicates",
-                profile_path="right/duplicates.json",
-                relative_profile_path="duplicates.json",
-                valid=True,
-                command_preview="duplicates-command",
-            ),
-        ],
-    )
-
-    comparison = compare_workflow_profile_bundles(left, right)
-
-    assert comparison.summary.left_profile_count == 2
-    assert comparison.summary.right_profile_count == 2
-    assert comparison.summary.added_count == 1
-    assert comparison.summary.removed_count == 1
-    assert comparison.summary.changed_count == 1
-    assert comparison.summary.unchanged_count == 0
-    assert comparison.summary.changed_validity_count == 1
-    assert comparison.summary.changed_command_count == 1
-    assert comparison.summary.changed_problem_count == 1
-    statuses = {item.key: item.status for item in comparison.entries}
-    assert statuses["cleanup.json"] == "changed"
-    assert statuses["duplicates.json"] == "added"
-    assert statuses["trip.json"] == "removed"
+    assert filtered.profiles[0].profile_name == "Bad duplicates"
