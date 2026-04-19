@@ -16,6 +16,7 @@ from .core.workflows import (
     build_workflow_profile_inventory,
     build_workflow_profile_argv,
     build_workflow_wizard_result,
+    compare_workflow_profile_bundles,
     filter_workflow_profile_bundle,
     get_workflow_definition,
     get_workflow_preset,
@@ -25,6 +26,7 @@ from .core.workflows import (
     list_workflows,
     load_workflow_profile,
     load_workflow_profile_bundle,
+    merge_workflow_profile_bundles,
     render_workflow_preset_command,
     render_workflow_profile_command,
     save_workflow_profile,
@@ -145,6 +147,25 @@ def build_parser() -> argparse.ArgumentParser:
     _add_profile_bundle_arguments(profile_bundle_audit_parser)
     profile_bundle_audit_parser.add_argument("--fail-on-empty", action="store_true", help="Return exit code 1 when no matching profiles are found.")
     profile_bundle_audit_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+    profile_bundle_merge_parser = subparsers.add_parser("profile-bundle-merge", help="Merge multiple workflow profile bundle JSON files into one bundle.")
+    profile_bundle_merge_parser.add_argument("output_path", type=Path, help="Path where the merged workflow profile bundle JSON file should be written.")
+    profile_bundle_merge_parser.add_argument("bundle_paths", nargs="+", type=Path, help="Input workflow profile bundle JSON files.")
+    _add_profile_bundle_arguments(profile_bundle_merge_parser, include_show_command=False, include_summary_only=False)
+    profile_bundle_merge_parser.add_argument("--prefer", choices=["first", "last"], default="last", help="When the same relative profile path exists multiple times, keep the first or last occurrence. Default: last.")
+    profile_bundle_merge_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+    profile_bundle_compare_parser = subparsers.add_parser("profile-bundle-compare", help="Compare two workflow profile bundle JSON files.")
+    profile_bundle_compare_parser.add_argument("left_path", type=Path, help="Left workflow profile bundle JSON file.")
+    profile_bundle_compare_parser.add_argument("right_path", type=Path, help="Right workflow profile bundle JSON file.")
+    _add_profile_bundle_arguments(profile_bundle_compare_parser)
+    profile_bundle_compare_parser.add_argument("--only-added", action="store_true", help="Only include added comparison entries.")
+    profile_bundle_compare_parser.add_argument("--only-removed", action="store_true", help="Only include removed comparison entries.")
+    profile_bundle_compare_parser.add_argument("--only-changed", action="store_true", help="Only include changed comparison entries.")
+    profile_bundle_compare_parser.add_argument("--only-unchanged", action="store_true", help="Only include unchanged comparison entries.")
+    profile_bundle_compare_parser.add_argument("--fail-on-changes", action="store_true", help="Return exit code 1 when matching bundle entries changed, were added, or were removed.")
+    profile_bundle_compare_parser.add_argument("--fail-on-empty", action="store_true", help="Return exit code 1 when no matching comparison entries are found.")
+    profile_bundle_compare_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
     profile_run_dir_parser = subparsers.add_parser("profile-run-dir", help="Run all matching valid workflow profiles from a directory.")
     _add_profile_directory_arguments(profile_run_dir_parser, include_summary_only=False)
@@ -297,6 +318,35 @@ def _profile_record_payload(item) -> dict[str, object]:
         "problems": list(getattr(item, "problems", ())),
         "command_preview": getattr(item, "command_preview", None),
     }
+
+
+def _profile_bundle_comparison_entry_payload(item) -> dict[str, object]:
+    return {
+        "key": item.key,
+        "status": item.status,
+        "validity_changed": item.validity_changed,
+        "command_changed": item.command_changed,
+        "problems_changed": item.problems_changed,
+        "left_item": None if item.left_item is None else _profile_record_payload(item.left_item),
+        "right_item": None if item.right_item is None else _profile_record_payload(item.right_item),
+    }
+
+
+def _filter_profile_bundle_comparison_entries(entries, args: argparse.Namespace):
+    filtered = list(entries)
+    statuses = []
+    if getattr(args, "only_added", False):
+        statuses.append("added")
+    if getattr(args, "only_removed", False):
+        statuses.append("removed")
+    if getattr(args, "only_changed", False):
+        statuses.append("changed")
+    if getattr(args, "only_unchanged", False):
+        statuses.append("unchanged")
+    if statuses:
+        allowed = set(statuses)
+        filtered = [item for item in filtered if item.status in allowed]
+    return filtered
 
 
 def _print_workflow_list(as_json: bool) -> int:
@@ -971,6 +1021,188 @@ def _build_profile_bundle_payload(bundle, args: argparse.Namespace) -> dict[str,
     }
 
 
+def _build_profile_bundle_merge_payload(args: argparse.Namespace) -> dict[str, object]:
+    bundles = []
+    for path in args.bundle_paths:
+        loaded = load_workflow_profile_bundle(path)
+        bundles.append(
+            filter_workflow_profile_bundle(
+                loaded,
+                workflow_name=args.workflow,
+                preset_name=args.preset,
+                only_valid=args.only_valid,
+                only_invalid=args.only_invalid,
+            )
+        )
+    merged = merge_workflow_profile_bundles(bundles, prefer=args.prefer, profiles_dir="merged")
+    profiles = [] if getattr(args, "summary_only", False) else [_profile_record_payload(item) for item in merged.profiles]
+    return {
+        "output_path": str(args.output_path),
+        "bundle_paths": [str(item) for item in args.bundle_paths],
+        "prefer": args.prefer,
+        "workflow_filter": args.workflow,
+        "preset_filter": args.preset,
+        "summary": merged.summary.to_dict(),
+        "profiles": profiles,
+    }
+
+
+def _build_profile_bundle_compare_payload(args: argparse.Namespace) -> dict[str, object]:
+    left_bundle = filter_workflow_profile_bundle(
+        load_workflow_profile_bundle(args.left_path),
+        workflow_name=args.workflow,
+        preset_name=args.preset,
+        only_valid=args.only_valid,
+        only_invalid=args.only_invalid,
+    )
+    right_bundle = filter_workflow_profile_bundle(
+        load_workflow_profile_bundle(args.right_path),
+        workflow_name=args.workflow,
+        preset_name=args.preset,
+        only_valid=args.only_valid,
+        only_invalid=args.only_invalid,
+    )
+    comparison = compare_workflow_profile_bundles(left_bundle, right_bundle)
+    entries = _filter_profile_bundle_comparison_entries(comparison.entries, args)
+
+    added_count = sum(1 for item in entries if item.status == "added")
+    removed_count = sum(1 for item in entries if item.status == "removed")
+    changed_count = sum(1 for item in entries if item.status == "changed")
+    unchanged_count = sum(1 for item in entries if item.status == "unchanged")
+    changed_validity_count = sum(1 for item in entries if item.status == "changed" and item.validity_changed)
+    changed_command_count = sum(1 for item in entries if item.status == "changed" and item.command_changed)
+    changed_problem_count = sum(1 for item in entries if item.status == "changed" and item.problems_changed)
+
+    summary = {
+        "left_profile_count": comparison.summary.left_profile_count,
+        "right_profile_count": comparison.summary.right_profile_count,
+        "added_count": added_count,
+        "removed_count": removed_count,
+        "changed_count": changed_count,
+        "unchanged_count": unchanged_count,
+        "changed_validity_count": changed_validity_count,
+        "changed_command_count": changed_command_count,
+        "changed_problem_count": changed_problem_count,
+        "entry_count": len(entries),
+    }
+    payload_entries = [] if getattr(args, "summary_only", False) else [_profile_bundle_comparison_entry_payload(item) for item in entries]
+    return {
+        "left_path": str(args.left_path),
+        "right_path": str(args.right_path),
+        "workflow_filter": args.workflow,
+        "preset_filter": args.preset,
+        "summary_only": bool(getattr(args, "summary_only", False)),
+        "summary": summary,
+        "entries": payload_entries,
+    }
+
+
+def _print_profile_bundle_merge(args: argparse.Namespace) -> int:
+    try:
+        payload = _build_profile_bundle_merge_payload(args)
+        bundles = []
+        for path in args.bundle_paths:
+            loaded = load_workflow_profile_bundle(path)
+            bundles.append(
+                filter_workflow_profile_bundle(
+                    loaded,
+                    workflow_name=args.workflow,
+                    preset_name=args.preset,
+                    only_valid=args.only_valid,
+                    only_invalid=args.only_invalid,
+                )
+            )
+        merged = merge_workflow_profile_bundles(bundles, prefer=args.prefer, profiles_dir="merged")
+        output_path = Path(args.output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(merged.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception as exc:
+        print(str(exc))
+        return 1
+
+    if args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+
+    summary = payload["summary"]
+    print(f"Merged workflow profile bundles into: {args.output_path}")
+    print(f"  Input bundles: {len(args.bundle_paths)}")
+    print(f"  Prefer: {args.prefer}")
+    print(f"  Total profiles: {summary['profile_count']}")
+    print(f"  Valid: {summary['valid_count']}")
+    print(f"  Invalid: {summary['invalid_count']}")
+    if summary["workflow_summary"]:
+        workflow_text = ", ".join(f"{key}={value}" for key, value in summary["workflow_summary"].items())
+        print(f"  Workflows: {workflow_text}")
+    if summary["preset_summary"]:
+        preset_text = ", ".join(f"{key}={value}" for key, value in summary["preset_summary"].items())
+        print(f"  Presets: {preset_text}")
+    return 0
+
+
+def _print_profile_bundle_compare(args: argparse.Namespace) -> int:
+    try:
+        payload = _build_profile_bundle_compare_payload(args)
+    except Exception as exc:
+        print(str(exc))
+        return 1
+
+    summary = payload["summary"]
+    exit_code = 0
+    if getattr(args, "fail_on_empty", False) and summary["entry_count"] == 0:
+        exit_code = 1
+    if getattr(args, "fail_on_changes", False) and (summary["added_count"] > 0 or summary["removed_count"] > 0 or summary["changed_count"] > 0):
+        exit_code = 1
+
+    if args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return exit_code
+
+    print(f"Workflow profile bundle compare: {args.left_path} vs {args.right_path}")
+    if args.workflow:
+        print(f"  Workflow filter: {args.workflow}")
+    if args.preset:
+        print(f"  Preset filter: {args.preset}")
+    print(f"  Left profiles: {summary['left_profile_count']}")
+    print(f"  Right profiles: {summary['right_profile_count']}")
+    print(f"  Added: {summary['added_count']}")
+    print(f"  Removed: {summary['removed_count']}")
+    print(f"  Changed: {summary['changed_count']}")
+    print(f"  Unchanged: {summary['unchanged_count']}")
+
+    if args.summary_only:
+        if summary["entry_count"] == 0:
+            print("  No matching bundle comparison entries found.")
+        return exit_code
+
+    if not payload["entries"]:
+        print("  No matching bundle comparison entries found.")
+        return exit_code
+
+    for item in payload["entries"]:
+        left_item = item["left_item"]
+        right_item = item["right_item"]
+        print(f"  - [{item['status']}] {item['key']}")
+        if left_item is not None:
+            print(f"    Left: {left_item['workflow_name']} | preset={left_item['preset_name']} | valid={left_item['valid']}")
+            if args.show_command and left_item["command_preview"]:
+                print(f"      Command: {left_item['command_preview']}")
+        if right_item is not None:
+            print(f"    Right: {right_item['workflow_name']} | preset={right_item['preset_name']} | valid={right_item['valid']}")
+            if args.show_command and right_item["command_preview"]:
+                print(f"      Command: {right_item['command_preview']}")
+        detail_flags = []
+        if item["validity_changed"]:
+            detail_flags.append("validity")
+        if item["command_changed"]:
+            detail_flags.append("command")
+        if item["problems_changed"]:
+            detail_flags.append("problems")
+        if detail_flags:
+            print(f"    Changed fields: {', '.join(detail_flags)}")
+    return exit_code
+
+
 def _print_profile_bundle_write(args: argparse.Namespace) -> int:
     try:
         output_path = write_workflow_profile_bundle(
@@ -1178,6 +1410,8 @@ def main(argv: list[str] | None = None) -> int:
             "  media-manager workflow profile-bundle-write bundles/profiles.json --profiles-dir <PROFILES_DIR>\n"
             "  media-manager workflow profile-bundle-show bundles/profiles.json\n"
             "  media-manager workflow profile-bundle-audit bundles/profiles.json\n"
+            "  media-manager workflow profile-bundle-merge bundles/merged.json bundles/one.json bundles/two.json\n"
+            "  media-manager workflow profile-bundle-compare bundles/left.json bundles/right.json\n"
             "  media-manager workflow profile-run <PROFILE.json> --show-command\n"
             "  media-manager workflow profile-run-dir --profiles-dir <PROFILES_DIR> --only-valid\n"
             "  media-manager workflow history --path <RUNS_DIR>\n"
@@ -1223,6 +1457,10 @@ def main(argv: list[str] | None = None) -> int:
         return _print_profile_bundle_show(args)
     if args.workflow_command == "profile-bundle-audit":
         return _print_profile_bundle_audit(args)
+    if args.workflow_command == "profile-bundle-merge":
+        return _print_profile_bundle_merge(args)
+    if args.workflow_command == "profile-bundle-compare":
+        return _print_profile_bundle_compare(args)
     if args.workflow_command == "profile-run":
         return _run_workflow_profile(args.path, args.show_command)
     if args.workflow_command == "profile-run-dir":

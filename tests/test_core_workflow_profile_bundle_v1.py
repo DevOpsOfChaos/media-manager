@@ -7,8 +7,10 @@ from media_manager.core.workflows.profile_bundle import (
     build_workflow_profile_bundle,
     build_workflow_profile_bundle_items,
     build_workflow_profile_bundle_summary,
+    compare_workflow_profile_bundles,
     filter_workflow_profile_bundle,
     load_workflow_profile_bundle,
+    merge_workflow_profile_bundles,
     write_workflow_profile_bundle,
 )
 from media_manager.core.workflows.profile_inventory import WorkflowProfileRecord
@@ -173,3 +175,78 @@ def test_filter_workflow_profile_bundle_filters_invalid_profiles(tmp_path: Path)
     assert filtered.summary.profile_count == 1
     assert filtered.summary.invalid_count == 1
     assert filtered.profiles[0].profile_name == "Bad duplicates"
+
+
+def test_merge_workflow_profile_bundles_prefers_last_by_default() -> None:
+    left = WorkflowProfileBundleItem(
+        name="trip",
+        title="Trip one",
+        workflow_name="trip",
+        preset_name="trip-hardlink-collection",
+        profile_name="Trip one",
+        profile_path="left/trip.json",
+        relative_profile_path="trip.json",
+        valid=True,
+        command_preview="media-manager workflow run trip --label One",
+    )
+    right = WorkflowProfileBundleItem(
+        name="trip",
+        title="Trip two",
+        workflow_name="trip",
+        preset_name="trip-hardlink-collection",
+        profile_name="Trip two",
+        profile_path="right/trip.json",
+        relative_profile_path="trip.json",
+        valid=True,
+        command_preview="media-manager workflow run trip --label Two",
+    )
+
+    from media_manager.core.workflows.profile_bundle import WorkflowProfileBundle, WorkflowProfileBundleSummary
+
+    empty_summary = WorkflowProfileBundleSummary(profile_count=0, valid_count=0, invalid_count=0)
+    merged = merge_workflow_profile_bundles([
+        WorkflowProfileBundle("left", None, None, False, False, empty_summary, [left]),
+        WorkflowProfileBundle("right", None, None, False, False, empty_summary, [right]),
+    ])
+
+    assert merged.summary.profile_count == 1
+    assert merged.profiles[0].profile_name == "Trip two"
+
+
+def test_compare_workflow_profile_bundles_reports_changed_validity() -> None:
+    left = WorkflowProfileBundleItem(
+        name="trip",
+        title="Italy trip",
+        workflow_name="trip",
+        preset_name="trip-hardlink-collection",
+        profile_name="Italy trip",
+        profile_path="left/trip.json",
+        relative_profile_path="trip.json",
+        valid=True,
+        command_preview="media-manager workflow run trip --label Italy_2025",
+    )
+    right = WorkflowProfileBundleItem(
+        name="trip",
+        title="Italy trip",
+        workflow_name="trip",
+        preset_name="trip-hardlink-collection",
+        profile_name="Italy trip",
+        profile_path="right/trip.json",
+        relative_profile_path="trip.json",
+        valid=False,
+        problems=("Missing required values: end",),
+        command_preview=None,
+    )
+
+    from media_manager.core.workflows.profile_bundle import WorkflowProfileBundle, WorkflowProfileBundleSummary
+
+    empty_summary = WorkflowProfileBundleSummary(profile_count=0, valid_count=0, invalid_count=0)
+    comparison = compare_workflow_profile_bundles(
+        WorkflowProfileBundle("left", None, None, False, False, empty_summary, [left]),
+        WorkflowProfileBundle("right", None, None, False, False, empty_summary, [right]),
+    )
+
+    assert comparison.summary.changed_count == 1
+    assert comparison.summary.changed_validity_count == 1
+    assert comparison.entries[0].status == "changed"
+    assert comparison.entries[0].validity_changed is True
