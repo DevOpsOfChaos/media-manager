@@ -13,6 +13,7 @@ from media_manager.core.workflows.profile_bundle import (
     filter_workflow_profile_bundle,
     load_workflow_profile_bundle,
     merge_workflow_profile_bundles,
+    sync_workflow_profile_bundle,
     write_workflow_profile_bundle,
 )
 from media_manager.core.workflows.profile_inventory import WorkflowProfileRecord
@@ -343,3 +344,74 @@ def test_extract_workflow_profile_bundle_conflicts_without_overwrite_and_can_ove
     assert second.written_count == 1
     materialized = json.loads((target_dir / "trip.json").read_text(encoding="utf-8"))
     assert materialized["preset"] == "trip-hardlink-collection"
+
+
+
+def test_sync_workflow_profile_bundle_previews_write_and_delete(tmp_path: Path) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "trip.json").write_text(
+        "\n".join([
+            "{",
+            '  "schema_version": 1,',
+            '  "profile_name": "Italy trip",',
+            '  "preset": "trip-hardlink-collection",',
+            '  "values": {',
+            '    "source": ["C:/Phone"],',
+            '    "target": "E:/Trips",',
+            '    "label": "Italy_2025",',
+            '    "start": "2025-08-01",',
+            '    "end": "2025-08-14"',
+            "  }",
+            "}",
+        ]),
+        encoding="utf-8",
+    )
+    bundle = build_workflow_profile_bundle(profiles_dir)
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    (target_dir / "obsolete.json").write_text("{}", encoding="utf-8")
+
+    result = sync_workflow_profile_bundle(bundle, target_dir, prune=True, apply=False)
+
+    assert result.selected_count == 1
+    assert result.planned_write_count == 1
+    assert result.planned_delete_count == 1
+    assert result.written_count == 0
+    assert result.deleted_count == 0
+    assert (target_dir / "trip.json").exists() is False
+
+
+def test_sync_workflow_profile_bundle_applies_overwrite_and_prune(tmp_path: Path) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "trip.json").write_text(
+        "\n".join([
+            "{",
+            '  "schema_version": 1,',
+            '  "profile_name": "Italy trip",',
+            '  "preset": "trip-hardlink-collection",',
+            '  "values": {',
+            '    "source": ["C:/Phone"],',
+            '    "target": "E:/Trips",',
+            '    "label": "Italy_2025",',
+            '    "start": "2025-08-01",',
+            '    "end": "2025-08-14"',
+            "  }",
+            "}",
+        ]),
+        encoding="utf-8",
+    )
+    bundle = build_workflow_profile_bundle(profiles_dir)
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    (target_dir / "trip.json").write_text('{"different": true}', encoding="utf-8")
+    (target_dir / "obsolete.json").write_text("{}", encoding="utf-8")
+
+    result = sync_workflow_profile_bundle(bundle, target_dir, overwrite=True, prune=True, apply=True)
+
+    assert result.overwritten_count == 1
+    assert result.deleted_count == 1
+    payload = json.loads((target_dir / "trip.json").read_text(encoding="utf-8"))
+    assert payload["preset"] == "trip-hardlink-collection"
+    assert not (target_dir / "obsolete.json").exists()

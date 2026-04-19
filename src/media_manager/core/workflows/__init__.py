@@ -72,7 +72,10 @@ from .profile_bundle import (
     filter_workflow_profile_bundle,
     load_workflow_profile_bundle,
     merge_workflow_profile_bundles,
+    sync_workflow_profile_bundle,
     write_workflow_profile_bundle,
+    WorkflowProfileBundleSyncEntry,
+    WorkflowProfileBundleSyncResult,
 )
 from .profile_inventory import (
     WorkflowProfileInventory,

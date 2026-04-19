@@ -312,3 +312,78 @@ def test_cli_workflow_profile_bundle_extract_reports_conflict_and_overwrite(tmp_
     assert second_payload["written_count"] == 1
     written = json.loads((target_dir / "trip.json").read_text(encoding="utf-8"))
     assert written["preset"] == "trip-hardlink-collection"
+
+
+
+def test_cli_workflow_profile_bundle_sync_preview_and_apply(tmp_path: Path, capsys) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    _write_valid_trip_profile(profiles_dir / "trip.json")
+    bundle_path = tmp_path / "bundles" / "profiles.json"
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    (target_dir / "obsolete.json").write_text("{}", encoding="utf-8")
+
+    main(["profile-bundle-write", str(bundle_path), "--profiles-dir", str(profiles_dir)])
+    _ = capsys.readouterr()
+
+    preview_code = main([
+        "profile-bundle-sync",
+        str(bundle_path),
+        "--target-dir",
+        str(target_dir),
+        "--prune",
+        "--json",
+    ])
+    preview_captured = capsys.readouterr()
+
+    assert preview_code == 0
+    preview_payload = json.loads(preview_captured.out)
+    assert preview_payload["planned_write_count"] == 1
+    assert preview_payload["planned_delete_count"] == 1
+    assert not (target_dir / "trip.json").exists()
+
+    apply_code = main([
+        "profile-bundle-sync",
+        str(bundle_path),
+        "--target-dir",
+        str(target_dir),
+        "--prune",
+        "--apply",
+        "--json",
+    ])
+    apply_captured = capsys.readouterr()
+
+    assert apply_code == 0
+    apply_payload = json.loads(apply_captured.out)
+    assert apply_payload["written_count"] == 1
+    assert apply_payload["deleted_count"] == 1
+    assert (target_dir / "trip.json").exists()
+    assert not (target_dir / "obsolete.json").exists()
+
+
+def test_cli_workflow_profile_bundle_sync_reports_conflict(tmp_path: Path, capsys) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    _write_valid_trip_profile(profiles_dir / "trip.json")
+    bundle_path = tmp_path / "bundles" / "profiles.json"
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    (target_dir / "trip.json").write_text('{"different": true}', encoding="utf-8")
+
+    main(["profile-bundle-write", str(bundle_path), "--profiles-dir", str(profiles_dir)])
+    _ = capsys.readouterr()
+
+    exit_code = main([
+        "profile-bundle-sync",
+        str(bundle_path),
+        "--target-dir",
+        str(target_dir),
+        "--json",
+    ])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    payload = json.loads(captured.out)
+    assert payload["conflict_count"] == 1
+    assert payload["entries"][0]["status"] == "conflict"

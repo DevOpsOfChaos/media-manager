@@ -211,6 +211,76 @@ class WorkflowProfileBundleExtractResult:
         }
 
 
+
+
+@dataclass(slots=True, frozen=True)
+class WorkflowProfileBundleSyncEntry:
+    relative_profile_path: str
+    target_path: str
+    status: str
+    reason: str
+    profile_name: str | None
+    preset_name: str | None
+    command_preview: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "relative_profile_path": self.relative_profile_path,
+            "target_path": self.target_path,
+            "status": self.status,
+            "reason": self.reason,
+            "profile_name": self.profile_name,
+            "preset_name": self.preset_name,
+            "command_preview": self.command_preview,
+        }
+
+
+@dataclass(slots=True)
+class WorkflowProfileBundleSyncResult:
+    bundle_path: str | None
+    target_dir: str
+    apply_requested: bool
+    overwrite: bool
+    prune: bool
+    preserve_structure: bool
+    selected_count: int
+    planned_write_count: int
+    planned_overwrite_count: int
+    planned_delete_count: int
+    written_count: int
+    overwritten_count: int
+    deleted_count: int
+    skipped_count: int
+    conflict_count: int
+    error_count: int
+    entries: list[WorkflowProfileBundleSyncEntry] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, object]:
+        status_summary: dict[str, int] = {}
+        for item in self.entries:
+            status_summary[item.status] = status_summary.get(item.status, 0) + 1
+        return {
+            "bundle_path": self.bundle_path,
+            "target_dir": self.target_dir,
+            "apply_requested": self.apply_requested,
+            "overwrite": self.overwrite,
+            "prune": self.prune,
+            "preserve_structure": self.preserve_structure,
+            "selected_count": self.selected_count,
+            "planned_write_count": self.planned_write_count,
+            "planned_overwrite_count": self.planned_overwrite_count,
+            "planned_delete_count": self.planned_delete_count,
+            "written_count": self.written_count,
+            "overwritten_count": self.overwritten_count,
+            "deleted_count": self.deleted_count,
+            "skipped_count": self.skipped_count,
+            "conflict_count": self.conflict_count,
+            "error_count": self.error_count,
+            "status_summary": dict(sorted(status_summary.items())),
+            "entries": [item.to_dict() for item in self.entries],
+        }
+
+
 def _safe_relative_path(profile_path: Path, base_dir: Path) -> str:
     try:
         return profile_path.relative_to(base_dir).as_posix()
@@ -617,6 +687,188 @@ def extract_workflow_profile_bundle(
             )
 
     return result
+
+
+
+def sync_workflow_profile_bundle(
+    bundle: WorkflowProfileBundle,
+    target_dir: str | Path,
+    *,
+    workflow_name: str | None = None,
+    preset_name: str | None = None,
+    only_valid: bool = False,
+    only_invalid: bool = False,
+    overwrite: bool = False,
+    prune: bool = False,
+    preserve_structure: bool = True,
+    apply: bool = False,
+    bundle_path: str | None = None,
+) -> WorkflowProfileBundleSyncResult:
+    filtered = filter_workflow_profile_bundle(
+        bundle,
+        workflow_name=workflow_name,
+        preset_name=preset_name,
+        only_valid=only_valid,
+        only_invalid=only_invalid,
+    )
+    base_dir = Path(target_dir)
+    selected_destinations: dict[str, WorkflowProfileBundleItem] = {}
+    entries: list[WorkflowProfileBundleSyncEntry] = []
+    result = WorkflowProfileBundleSyncResult(
+        bundle_path=bundle_path,
+        target_dir=str(base_dir),
+        apply_requested=apply,
+        overwrite=overwrite,
+        prune=prune,
+        preserve_structure=preserve_structure,
+        selected_count=len(filtered.profiles),
+        planned_write_count=0,
+        planned_overwrite_count=0,
+        planned_delete_count=0,
+        written_count=0,
+        overwritten_count=0,
+        deleted_count=0,
+        skipped_count=0,
+        conflict_count=0,
+        error_count=0,
+        entries=entries,
+    )
+
+    for item in filtered.profiles:
+        destination = _bundle_extract_target_path(item, target_dir=base_dir, preserve_structure=preserve_structure)
+        dest_key = str(destination).lower()
+        payload = item.profile_payload
+        if payload is None:
+            result.error_count += 1
+            entries.append(WorkflowProfileBundleSyncEntry(
+                relative_profile_path=item.relative_profile_path,
+                target_path=str(destination),
+                status='error',
+                reason='bundle item does not include a reusable profile payload',
+                profile_name=item.profile_name,
+                preset_name=item.preset_name,
+                command_preview=item.command_preview,
+            ))
+            continue
+        if dest_key in selected_destinations:
+            result.conflict_count += 1
+            entries.append(WorkflowProfileBundleSyncEntry(
+                relative_profile_path=item.relative_profile_path,
+                target_path=str(destination),
+                status='conflict',
+                reason='multiple bundle profiles would sync to the same target path',
+                profile_name=item.profile_name,
+                preset_name=item.preset_name,
+                command_preview=item.command_preview,
+            ))
+            continue
+        selected_destinations[dest_key] = item
+        try:
+            if destination.exists():
+                existing_payload = json.loads(destination.read_text(encoding='utf-8'))
+                if existing_payload == payload:
+                    result.skipped_count += 1
+                    entries.append(WorkflowProfileBundleSyncEntry(
+                        relative_profile_path=item.relative_profile_path,
+                        target_path=str(destination),
+                        status='skipped',
+                        reason='target profile already matches bundle payload',
+                        profile_name=item.profile_name,
+                        preset_name=item.preset_name,
+                        command_preview=item.command_preview,
+                    ))
+                    continue
+                if not overwrite:
+                    result.conflict_count += 1
+                    entries.append(WorkflowProfileBundleSyncEntry(
+                        relative_profile_path=item.relative_profile_path,
+                        target_path=str(destination),
+                        status='conflict',
+                        reason='target profile already exists with different content',
+                        profile_name=item.profile_name,
+                        preset_name=item.preset_name,
+                        command_preview=item.command_preview,
+                    ))
+                    continue
+                if apply:
+                    _write_bundle_profile_payload(destination, payload)
+                    result.overwritten_count += 1
+                    status = 'overwritten'
+                    reason = 'target profile overwritten from bundle payload'
+                else:
+                    result.planned_overwrite_count += 1
+                    status = 'planned-overwrite'
+                    reason = 'target profile would be overwritten from bundle payload'
+            else:
+                if apply:
+                    _write_bundle_profile_payload(destination, payload)
+                    result.written_count += 1
+                    status = 'written'
+                    reason = 'bundle profile would be written successfully' if False else 'bundle profile payload written successfully'
+                else:
+                    result.planned_write_count += 1
+                    status = 'planned-write'
+                    reason = 'bundle profile would be written to the target directory'
+            entries.append(WorkflowProfileBundleSyncEntry(
+                relative_profile_path=item.relative_profile_path,
+                target_path=str(destination),
+                status=status,
+                reason=reason,
+                profile_name=item.profile_name,
+                preset_name=item.preset_name,
+                command_preview=item.command_preview,
+            ))
+        except Exception as exc:
+            result.error_count += 1
+            entries.append(WorkflowProfileBundleSyncEntry(
+                relative_profile_path=item.relative_profile_path,
+                target_path=str(destination),
+                status='error',
+                reason=str(exc),
+                profile_name=item.profile_name,
+                preset_name=item.preset_name,
+                command_preview=item.command_preview,
+            ))
+
+    if prune:
+        existing_files = sorted(base_dir.rglob('*.json'), key=lambda p: str(p).lower()) if base_dir.exists() else []
+        for path in existing_files:
+            path_key = str(path).lower()
+            if path_key in selected_destinations:
+                continue
+            try:
+                if apply:
+                    path.unlink()
+                    result.deleted_count += 1
+                    status = 'deleted'
+                    reason = 'target profile is not present in the selected bundle set and was removed'
+                else:
+                    result.planned_delete_count += 1
+                    status = 'planned-delete'
+                    reason = 'target profile would be removed because it is not present in the selected bundle set'
+                entries.append(WorkflowProfileBundleSyncEntry(
+                    relative_profile_path=_safe_relative_path(path, base_dir),
+                    target_path=str(path),
+                    status=status,
+                    reason=reason,
+                    profile_name=None,
+                    preset_name=None,
+                    command_preview=None,
+                ))
+            except Exception as exc:
+                result.error_count += 1
+                entries.append(WorkflowProfileBundleSyncEntry(
+                    relative_profile_path=_safe_relative_path(path, base_dir),
+                    target_path=str(path),
+                    status='error',
+                    reason=str(exc),
+                    profile_name=None,
+                    preset_name=None,
+                    command_preview=None,
+                ))
+
+    return result
+
 
 
 def write_workflow_profile_bundle(

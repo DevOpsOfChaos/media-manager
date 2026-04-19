@@ -19,6 +19,7 @@ from .core.workflows import (
     compare_workflow_profile_bundles,
     extract_workflow_profile_bundle,
     filter_workflow_profile_bundle,
+    sync_workflow_profile_bundle,
     get_workflow_definition,
     get_workflow_preset,
     get_workflow_problem,
@@ -157,6 +158,17 @@ def build_parser() -> argparse.ArgumentParser:
     profile_bundle_extract_parser.add_argument("--flatten", action="store_true", help="Write matching profiles directly into the target directory instead of preserving their relative bundle paths.")
     profile_bundle_extract_parser.add_argument("--fail-on-empty", action="store_true", help="Return exit code 1 when no matching bundle profiles are found.")
     profile_bundle_extract_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+    profile_bundle_sync_parser = subparsers.add_parser("profile-bundle-sync", help="Preview or apply a workflow profile bundle against a target directory.")
+    profile_bundle_sync_parser.add_argument("path", type=Path, help="Path to the workflow profile bundle JSON file.")
+    profile_bundle_sync_parser.add_argument("--target-dir", type=Path, required=True, help="Directory that should receive the selected bundle profiles.")
+    _add_profile_bundle_arguments(profile_bundle_sync_parser)
+    profile_bundle_sync_parser.add_argument("--overwrite", action="store_true", help="Allow overwriting existing profile JSON files when their content differs.")
+    profile_bundle_sync_parser.add_argument("--prune", action="store_true", help="Remove existing target JSON profiles that are not present in the selected bundle set.")
+    profile_bundle_sync_parser.add_argument("--flatten", action="store_true", help="Write selected profiles directly into the target directory instead of preserving relative bundle paths.")
+    profile_bundle_sync_parser.add_argument("--apply", action="store_true", help="Execute the planned bundle sync actions instead of only previewing them.")
+    profile_bundle_sync_parser.add_argument("--fail-on-empty", action="store_true", help="Return exit code 1 when no matching bundle profiles are found.")
+    profile_bundle_sync_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
     profile_bundle_merge_parser = subparsers.add_parser("profile-bundle-merge", help="Merge multiple workflow profile bundle JSON files into one bundle.")
     profile_bundle_merge_parser.add_argument("output_path", type=Path, help="Path where the merged workflow profile bundle JSON file should be written.")
@@ -1168,6 +1180,83 @@ def _print_profile_bundle_extract(args: argparse.Namespace) -> int:
     return exit_code
 
 
+def _print_profile_bundle_sync(args: argparse.Namespace) -> int:
+    try:
+        bundle = load_workflow_profile_bundle(args.path)
+        result = sync_workflow_profile_bundle(
+            bundle,
+            args.target_dir,
+            workflow_name=args.workflow,
+            preset_name=args.preset,
+            only_valid=args.only_valid,
+            only_invalid=args.only_invalid,
+            overwrite=args.overwrite,
+            prune=args.prune,
+            preserve_structure=not args.flatten,
+            apply=args.apply,
+            bundle_path=str(args.path),
+        )
+    except Exception as exc:
+        print(str(exc))
+        return 1
+
+    payload = result.to_dict()
+    payload["workflow_filter"] = args.workflow
+    payload["preset_filter"] = args.preset
+    payload["flatten"] = bool(args.flatten)
+    payload["bundle_path"] = str(args.path)
+    payload["summary_only"] = bool(getattr(args, "summary_only", False))
+
+    exit_code = 0
+    if getattr(args, "fail_on_empty", False) and result.selected_count == 0:
+        exit_code = 1
+    elif result.conflict_count > 0 or result.error_count > 0:
+        exit_code = 1
+
+    if args.json:
+        if getattr(args, "summary_only", False):
+            payload = {k: v for k, v in payload.items() if k != "entries"}
+            payload["entries"] = []
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return exit_code
+
+    mode_text = "apply" if args.apply else "preview"
+    print(f"Workflow profile bundle sync ({mode_text}): {args.path}")
+    print(f"  Target dir: {args.target_dir}")
+    if args.workflow:
+        print(f"  Workflow filter: {args.workflow}")
+    if args.preset:
+        print(f"  Preset filter: {args.preset}")
+    print(f"  Selected profiles: {result.selected_count}")
+    print(f"  Planned writes: {result.planned_write_count}")
+    print(f"  Planned overwrites: {result.planned_overwrite_count}")
+    print(f"  Planned deletes: {result.planned_delete_count}")
+    print(f"  Written: {result.written_count}")
+    print(f"  Overwritten: {result.overwritten_count}")
+    print(f"  Deleted: {result.deleted_count}")
+    print(f"  Skipped: {result.skipped_count}")
+    print(f"  Conflicts: {result.conflict_count}")
+    print(f"  Errors: {result.error_count}")
+
+    if getattr(args, "summary_only", False):
+        if result.selected_count == 0:
+            print("  No matching bundle profiles found.")
+        return exit_code
+
+    if not result.entries:
+        print("  No matching bundle profiles found.")
+        return exit_code
+
+    for item in payload["entries"]:
+        title = item["profile_name"] or item["relative_profile_path"] or item["target_path"]
+        print(f"  - [{item['status']}] {title}")
+        print(f"    {item['target_path']}")
+        print(f"    Reason: {item['reason']}")
+        if args.show_command and item.get("command_preview"):
+            print(f"    Command: {item['command_preview']}")
+    return exit_code
+
+
 def _print_profile_bundle_merge(args: argparse.Namespace) -> int:
     try:
         payload = _build_profile_bundle_merge_payload(args)
@@ -1532,6 +1621,8 @@ def main(argv: list[str] | None = None) -> int:
         return _print_profile_bundle_audit(args)
     if args.workflow_command == "profile-bundle-extract":
         return _print_profile_bundle_extract(args)
+    if args.workflow_command == "profile-bundle-sync":
+        return _print_profile_bundle_sync(args)
     if args.workflow_command == "profile-bundle-merge":
         return _print_profile_bundle_merge(args)
     if args.workflow_command == "profile-bundle-compare":
