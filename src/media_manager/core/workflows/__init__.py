@@ -44,6 +44,7 @@ from .launchers import (
 from .presets import (
     WorkflowPreset,
     WorkflowProfile,
+    WorkflowProfileValidation,
     build_workflow_profile_argv,
     build_workflow_profile_payload,
     get_workflow_preset,
@@ -53,6 +54,14 @@ from .presets import (
     render_workflow_profile_command,
     save_workflow_profile,
     validate_workflow_profile,
+)
+from .profile_inventory import (
+    WorkflowProfileInventory,
+    WorkflowProfileRecord,
+    build_workflow_profile_inventory,
+    filter_workflow_profile_records,
+    scan_workflow_profile_inventory,
+    summarize_workflow_profile_records,
 )
 from .trip import (
     TripDryRun,
@@ -94,6 +103,7 @@ __all__ = [
     "build_workflow_launcher_model",
     "WorkflowPreset",
     "WorkflowProfile",
+    "WorkflowProfileValidation",
     "build_workflow_profile_payload",
     "build_workflow_profile_argv",
     "list_workflow_presets",
@@ -103,6 +113,12 @@ __all__ = [
     "render_workflow_profile_command",
     "save_workflow_profile",
     "validate_workflow_profile",
+    "WorkflowProfileRecord",
+    "WorkflowProfileInventory",
+    "scan_workflow_profile_inventory",
+    "filter_workflow_profile_records",
+    "summarize_workflow_profile_records",
+    "build_workflow_profile_inventory",
     "WorkflowCommandSuggestion",
     "WorkflowWizardResult",
     "build_workflow_wizard_result",

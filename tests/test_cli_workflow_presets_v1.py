@@ -433,3 +433,86 @@ def test_cli_workflow_profile_run_delegates_runtime_flags_from_profile_json(tmp_
     assert "--similar-images" in captured_args
     assert "--show-similar-review" in captured_args
     assert "--history-dir" in captured_args
+
+
+def test_cli_workflow_profile_list_summary_only_json_omits_profile_rows(tmp_path: Path, capsys) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+
+    (profiles_dir / "cleanup.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Family cleanup",
+                "preset": "cleanup-family-library",
+                "values": {
+                    "source": ["C:/Photos", "D:/Phone"],
+                    "target": "E:/Library",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (profiles_dir / "bad-duplicates.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Bad duplicates",
+                "preset": "duplicates-similar-review",
+                "values": {
+                    "source": ["C:/Photos"],
+                    "show_similar_review": True,
+                    "similar_images": False,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["profile-list", "--profiles-dir", str(profiles_dir), "--summary-only", "--json"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+    assert payload["summary_only"] is True
+    assert payload["summary"]["profile_count"] == 2
+    assert payload["summary"]["invalid_count"] == 1
+    assert payload["profiles"] == []
+
+
+def test_cli_workflow_profile_list_show_command_in_text_mode(tmp_path: Path, capsys) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+
+    (profiles_dir / "cleanup.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Family cleanup",
+                "preset": "cleanup-family-library",
+                "values": {
+                    "source": ["C:/Photos", "D:/Phone"],
+                    "target": "E:/Library",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["profile-list", "--profiles-dir", str(profiles_dir), "--show-command"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Command: media-manager workflow run cleanup" in captured.out
+
+
+def test_cli_workflow_profile_audit_fail_on_empty_returns_nonzero(tmp_path: Path, capsys) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+
+    exit_code = main(["profile-audit", "--profiles-dir", str(profiles_dir), "--fail-on-empty", "--json"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    payload = json.loads(captured.out)
+    assert payload["summary"]["profile_count"] == 0
