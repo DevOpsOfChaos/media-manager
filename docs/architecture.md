@@ -2,165 +2,148 @@
 
 ## Design goal
 
-Build a trustworthy media-management core first.
+Build a trustworthy media-management core first, and keep interfaces thin.
 
-That core must remain independent from the CLI and from any later GUI so the project can evolve without rewriting the actual media logic every time the interface changes.
+The repository now has more real CLI/product surface than an early reset snapshot suggests, but the architectural rule is unchanged:
 
-## Architectural reset
+- core decides behavior
+- CLI exposes behavior clearly
+- workflow/profile/bundle layers help compose behavior
+- GUI comes later and should stay thinner than the CLI layer, not thicker
 
-Earlier repository phases explored desktop-first directions too early.
+## Current active layers
 
-The current reset changes the order of work:
-
-1. core media logic
-2. CLI workflows
-3. state and idempotent processing
-4. duplicate handling
-5. guided workflows
-6. GUI later
-
-This is not cosmetic repositioning. It is a structural correction.
-
-## Target layers
-
-### 1. Core domain
+### 1. Core media logic
 
 This layer is responsible for:
 
 - discovering media files
-- reading metadata through ExifTool
+- reading metadata through ExifTool and related inspection paths
 - resolving the best available capture date
-- planning target paths
-- planning rename results
-- detecting duplicates
-- deciding what is already compliant and should be skipped
+- planning organization and renaming actions
+- detecting exact duplicates and supporting review-oriented duplicate flows
+- building workflow-level reports and summaries
 
-This layer must not know anything about widgets, windows, or presentation state.
+This layer must stay independent from GUI concerns.
 
-### 2. State layer
+### 2. State, history, and journaling
 
 This layer is responsible for:
 
-- run history
-- file fingerprints
-- planned versus executed actions
-- idempotent skip decisions
-- undo / journal support later
+- run logs
+- execution journals
+- workflow history scanning and summaries
+- undo-oriented data capture
+- repeatability and explainable reruns
 
-A lightweight SQLite-backed implementation is the intended direction.
+The exact internal shape can still evolve, but the direction is clear: actions should become easier to inspect, review, and rerun safely.
 
-### 3. CLI layer
+### 3. CLI product layer
 
-The CLI is the first real product surface.
+The CLI is no longer just a temporary debug surface.
 
-Its responsibilities are:
+It is currently the main product surface for:
 
-- collecting user options
-- launching scans, inspections, plans, and apply steps
-- rendering safe human-readable output
-- exporting machine-readable reports later
+- scan / inspect
+- organize / rename
+- duplicates and similar-review flows
+- trip and cleanup workflows
+- reporting and JSON output
+- history and audit-oriented commands
 
-The CLI should expose the real engine clearly enough that the later GUI becomes a thinner interface, not a second system.
+### 4. Workflow composition layer
 
-### 4. GUI layer
+This layer sits on top of the CLI/Core contract and is now substantial enough to matter architecturally.
+
+It includes:
+
+- workflow presets
+- saved workflow profiles
+- profile validation and inventory
+- profile bundles
+- bundle compare / merge / extract / sync / run flows
+- shell/form/launcher models for future UI consumption
+
+This layer should remain **data- and contract-driven**, not GUI-driven.
+
+### 5. GUI later
 
 A GUI is still part of the long-term plan.
 
-But it comes after the core and CLI are stable enough that the interface is wrapping good behavior instead of compensating for missing foundations.
+But it should consume:
 
-## Target product modules
+- core planning/reporting models
+- workflow/profile/bundle metadata
+- shell/form/launcher models
 
-The intended product shape is best understood as these modules built on one shared core:
+It should not re-implement engine decisions.
 
-1. **Scan / Inspect**
-2. **Organize**
-3. **Rename**
-4. **Duplicates**
-5. **Workflows**
+## Current product shape
 
-## Target package direction
+The repository is best understood as a shared core with several product-facing clusters:
 
-```text
-src/media_manager/
-  cli.py
-  config.py
-  scanner/
-  metadata/
-  date_resolver/
-  organizer/
-  renamer/
-  state/
-  reporting/
-  workflows/
-  duplicates/
-  utils/
-```
+1. **Inspect and date reasoning**
+2. **Organize and rename**
+3. **Duplicate review**
+4. **Guided workflows**
+5. **Workflow profiles and bundles**
+6. **Shell/launcher/form models for later UI use**
 
-## Key technical rules
+## Architectural rules
 
-### Core/UI separation
+### Core over presentation
 
-No GUI code should decide:
+No GUI or shell layer should decide:
 
-- which metadata date wins
+- which date wins
+- which duplicate candidate is kept
 - whether a file is already compliant
-- how duplicates are grouped
 - how collisions are resolved
-- whether a file should be skipped or processed
+- whether a workflow/profile is valid
+- how a profile bundle is compared or merged
 
-Those decisions belong in the core.
+Those decisions belong in the core and workflow logic.
 
-### Safety first
+### Safety before convenience
 
-Preview modes and reviewable plans should come before destructive actions.
+Preview and reporting paths must exist before destructive execution becomes easy.
 
-Deleting or overwriting media without a visible review path is not acceptable.
+Examples:
 
-### Idempotence
+- preview before apply
+- visible skip reasons
+- visible duplicate decisions
+- visible workflow/profile validation problems
+- auditable bundle/profile operations
 
-The project must move beyond one-shot scripting behavior.
+### Additive contracts are preferred
 
-Important examples:
+The repository now has many tests that depend on:
 
-- files already in the correct target location should be skipped
-- files already matching the naming template should not be renamed again
-- prior processing decisions should be reusable where safe
-- rerunning the same operation should not create avoidable churn
+- JSON field names
+- text output fragments
+- helper exports
+- compatibility shims
 
-### Date resolution must be explainable
+That means architectural cleanup should prefer **additive improvement** over casual contract replacement.
 
-The project cannot rely on a flat metadata-date shortcut forever.
+### Windows-first is a real constraint
 
-It needs a real date-resolution system that can report:
+Path handling, quoting, file operations, and examples should continue to be checked with Windows behavior in mind.
 
-- chosen date
-- source tag or fallback source
-- confidence level
-- timezone status
-- reasoning
+### Workflow metadata is now part of the architecture
 
-### Legacy code is reference, not authority
+Workflow presets, profiles, inventories, bundles, shell forms, and launchers are no longer side notes. They are becoming a real composition layer over the core/CLI product.
 
-Older desktop-oriented code may still hold useful snippets or tests.
+That means they should be treated as first-class architectural pieces, not as throwaway convenience scripts.
 
-But the new architecture must not be forced to preserve weak abstractions just because they already exist in the repository.
+## Immediate direction
 
-## Non-goals during the reset
+Near-term architectural work should continue to improve:
 
-- pretending the legacy structure is already correct
-- building a new GUI before the engine stabilizes
-- hiding architectural uncertainty behind polished screenshots
-- introducing fake complexity without product value
+- CLI/Core robustness
+- reporting and journaling consistency
+- profile/bundle usability and auditability
+- clearer documentation and repository truthfulness
 
-## Immediate implementation direction
-
-The first rebuild milestone should focus on:
-
-1. file discovery
-2. metadata inspection
-3. date-resolution baseline
-4. dry-run organization planning
-5. rename-template planning
-6. reporting baseline
-
-Only after that foundation is solid should the project expand into duplicate review, guided workflows, and later a modern GUI.
+The goal is not to inflate the number of features. The goal is to make the existing surface more trustworthy and easier to operate.
