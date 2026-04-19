@@ -78,12 +78,16 @@ class WorkflowProfileBundle:
     only_invalid: bool
     summary: WorkflowProfileBundleSummary
     profiles: list[WorkflowProfileBundleItem] = field(default_factory=list)
+    profile_name_filter: str | None = None
+    relative_path_filter: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
             "profiles_dir": self.profiles_dir,
             "workflow_filter": self.workflow_filter,
             "preset_filter": self.preset_filter,
+            "profile_name_filter": self.profile_name_filter,
+            "relative_path_filter": self.relative_path_filter,
             "only_valid": self.only_valid,
             "only_invalid": self.only_invalid,
             "summary": self.summary.to_dict(),
@@ -211,8 +215,6 @@ class WorkflowProfileBundleExtractResult:
         }
 
 
-
-
 @dataclass(slots=True, frozen=True)
 class WorkflowProfileBundleSyncEntry:
     relative_profile_path: str
@@ -331,6 +333,40 @@ def _bundle_extract_target_path(
     return target_dir / name
 
 
+def _contains_case_insensitive(value: str | None, needle: str | None) -> bool:
+    if not needle:
+        return True
+    if not value:
+        return False
+    return needle.strip().lower() in value.strip().lower()
+
+
+def _matches_bundle_profile_name(item: WorkflowProfileBundleItem, profile_name_contains: str | None) -> bool:
+    if not profile_name_contains:
+        return True
+    candidates = (
+        item.profile_name,
+        item.title,
+        item.name,
+    )
+    normalized = profile_name_contains.strip().lower()
+    return any(candidate and normalized in candidate.strip().lower() for candidate in candidates)
+
+
+def _normalize_path_match_text(value: str | None) -> str:
+    if not value:
+        return ""
+    return value.strip().replace("\\", "/").lower()
+
+
+def _matches_relative_path(item: WorkflowProfileBundleItem, relative_path_contains: str | None) -> bool:
+    needle = _normalize_path_match_text(relative_path_contains)
+    if not needle:
+        return True
+    haystack = _normalize_path_match_text(item.relative_profile_path)
+    return needle in haystack
+
+
 def build_workflow_profile_bundle_items(records: list[WorkflowProfileRecord], *, profiles_dir: str | Path) -> list[WorkflowProfileBundleItem]:
     base_dir = Path(profiles_dir)
     items: list[WorkflowProfileBundleItem] = []
@@ -400,6 +436,8 @@ def build_workflow_profile_bundle(
     *,
     workflow_name: str | None = None,
     preset_name: str | None = None,
+    profile_name_contains: str | None = None,
+    profile_path_contains: str | None = None,
     only_valid: bool = False,
     only_invalid: bool = False,
 ) -> WorkflowProfileBundle:
@@ -407,6 +445,8 @@ def build_workflow_profile_bundle(
         profiles_dir,
         workflow_name=workflow_name,
         preset_name=preset_name,
+        profile_name_contains=profile_name_contains,
+        profile_path_contains=profile_path_contains,
         only_valid=only_valid,
         only_invalid=only_invalid,
     )
@@ -415,6 +455,8 @@ def build_workflow_profile_bundle(
         profiles_dir=str(profiles_dir),
         workflow_filter=workflow_name,
         preset_filter=preset_name,
+        profile_name_filter=profile_name_contains,
+        relative_path_filter=profile_path_contains,
         only_valid=only_valid,
         only_invalid=only_invalid,
         summary=build_workflow_profile_bundle_summary(items),
@@ -427,6 +469,8 @@ def filter_workflow_profile_bundle(
     *,
     workflow_name: str | None = None,
     preset_name: str | None = None,
+    profile_name_contains: str | None = None,
+    relative_path_contains: str | None = None,
     only_valid: bool = False,
     only_invalid: bool = False,
 ) -> WorkflowProfileBundle:
@@ -440,6 +484,12 @@ def filter_workflow_profile_bundle(
         normalized = preset_name.strip().lower()
         filtered = [item for item in filtered if (item.preset_name or "").strip().lower() == normalized]
 
+    if profile_name_contains:
+        filtered = [item for item in filtered if _matches_bundle_profile_name(item, profile_name_contains)]
+
+    if relative_path_contains:
+        filtered = [item for item in filtered if _matches_relative_path(item, relative_path_contains)]
+
     if only_valid and not only_invalid:
         filtered = [item for item in filtered if item.valid]
     elif only_invalid and not only_valid:
@@ -450,6 +500,8 @@ def filter_workflow_profile_bundle(
         profiles_dir=bundle.profiles_dir,
         workflow_filter=workflow_name,
         preset_filter=preset_name,
+        profile_name_filter=profile_name_contains,
+        relative_path_filter=relative_path_contains,
         only_valid=only_valid,
         only_invalid=only_invalid,
         summary=build_workflow_profile_bundle_summary(filtered),
@@ -479,6 +531,8 @@ def merge_workflow_profile_bundles(
         profiles_dir=profiles_dir,
         workflow_filter=None,
         preset_filter=None,
+        profile_name_filter=None,
+        relative_path_filter=None,
         only_valid=False,
         only_invalid=False,
         summary=build_workflow_profile_bundle_summary(items),
@@ -587,6 +641,8 @@ def extract_workflow_profile_bundle(
     *,
     workflow_name: str | None = None,
     preset_name: str | None = None,
+    profile_name_contains: str | None = None,
+    relative_path_contains: str | None = None,
     only_valid: bool = False,
     only_invalid: bool = False,
     overwrite: bool = False,
@@ -597,6 +653,8 @@ def extract_workflow_profile_bundle(
         bundle,
         workflow_name=workflow_name,
         preset_name=preset_name,
+        profile_name_contains=profile_name_contains,
+        relative_path_contains=relative_path_contains,
         only_valid=only_valid,
         only_invalid=only_invalid,
     )
@@ -689,13 +747,14 @@ def extract_workflow_profile_bundle(
     return result
 
 
-
 def sync_workflow_profile_bundle(
     bundle: WorkflowProfileBundle,
     target_dir: str | Path,
     *,
     workflow_name: str | None = None,
     preset_name: str | None = None,
+    profile_name_contains: str | None = None,
+    relative_path_contains: str | None = None,
     only_valid: bool = False,
     only_invalid: bool = False,
     overwrite: bool = False,
@@ -708,6 +767,8 @@ def sync_workflow_profile_bundle(
         bundle,
         workflow_name=workflow_name,
         preset_name=preset_name,
+        profile_name_contains=profile_name_contains,
+        relative_path_contains=relative_path_contains,
         only_valid=only_valid,
         only_invalid=only_invalid,
     )
@@ -804,7 +865,7 @@ def sync_workflow_profile_bundle(
                     _write_bundle_profile_payload(destination, payload)
                     result.written_count += 1
                     status = 'written'
-                    reason = 'bundle profile would be written successfully' if False else 'bundle profile payload written successfully'
+                    reason = 'bundle profile payload written successfully'
                 else:
                     result.planned_write_count += 1
                     status = 'planned-write'
@@ -870,13 +931,14 @@ def sync_workflow_profile_bundle(
     return result
 
 
-
 def write_workflow_profile_bundle(
     path: str | Path,
     profiles_dir: str | Path,
     *,
     workflow_name: str | None = None,
     preset_name: str | None = None,
+    profile_name_contains: str | None = None,
+    profile_path_contains: str | None = None,
     only_valid: bool = False,
     only_invalid: bool = False,
 ) -> Path:
@@ -884,6 +946,8 @@ def write_workflow_profile_bundle(
         profiles_dir,
         workflow_name=workflow_name,
         preset_name=preset_name,
+        profile_name_contains=profile_name_contains,
+        profile_path_contains=profile_path_contains,
         only_valid=only_valid,
         only_invalid=only_invalid,
     )
@@ -930,6 +994,8 @@ def load_workflow_profile_bundle(path: str | Path) -> WorkflowProfileBundle:
         profiles_dir=str(payload.get("profiles_dir", "")),
         workflow_filter=payload.get("workflow_filter"),
         preset_filter=payload.get("preset_filter"),
+        profile_name_filter=payload.get("profile_name_filter"),
+        relative_path_filter=payload.get("relative_path_filter"),
         only_valid=bool(payload.get("only_valid", False)),
         only_invalid=bool(payload.get("only_invalid", False)),
         summary=summary,
