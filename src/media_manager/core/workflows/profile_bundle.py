@@ -5,6 +5,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .presets import build_workflow_profile_payload, load_workflow_profile
 from .profile_inventory import WorkflowProfileRecord, build_workflow_profile_inventory
 
 
@@ -21,6 +22,7 @@ class WorkflowProfileBundleItem:
     missing_required_fields: tuple[str, ...] = ()
     problems: tuple[str, ...] = ()
     command_preview: str | None = None
+    profile_payload: dict[str, object] | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -35,6 +37,7 @@ class WorkflowProfileBundleItem:
             "missing_required_fields": list(self.missing_required_fields),
             "problems": list(self.problems),
             "command_preview": self.command_preview,
+            "profile_payload": None if self.profile_payload is None else dict(self.profile_payload),
         }
 
 
@@ -97,6 +100,7 @@ class WorkflowProfileBundleComparisonEntry:
     validity_changed: bool = False
     command_changed: bool = False
     problems_changed: bool = False
+    payload_changed: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -107,6 +111,7 @@ class WorkflowProfileBundleComparisonEntry:
             "validity_changed": self.validity_changed,
             "command_changed": self.command_changed,
             "problems_changed": self.problems_changed,
+            "payload_changed": self.payload_changed,
         }
 
 
@@ -121,6 +126,7 @@ class WorkflowProfileBundleComparisonSummary:
     changed_validity_count: int = 0
     changed_command_count: int = 0
     changed_problem_count: int = 0
+    changed_payload_count: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -133,6 +139,7 @@ class WorkflowProfileBundleComparisonSummary:
             "changed_validity_count": self.changed_validity_count,
             "changed_command_count": self.changed_command_count,
             "changed_problem_count": self.changed_problem_count,
+            "changed_payload_count": self.changed_payload_count,
         }
 
 
@@ -152,6 +159,58 @@ class WorkflowProfileBundleComparison:
         }
 
 
+@dataclass(slots=True, frozen=True)
+class WorkflowProfileBundleExtractEntry:
+    relative_profile_path: str
+    target_path: str
+    status: str
+    reason: str
+    profile_name: str | None
+    preset_name: str | None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "relative_profile_path": self.relative_profile_path,
+            "target_path": self.target_path,
+            "status": self.status,
+            "reason": self.reason,
+            "profile_name": self.profile_name,
+            "preset_name": self.preset_name,
+        }
+
+
+@dataclass(slots=True)
+class WorkflowProfileBundleExtractResult:
+    bundle_path: str | None
+    target_dir: str
+    overwrite: bool
+    preserve_structure: bool
+    selected_count: int
+    written_count: int
+    skipped_count: int
+    conflict_count: int
+    error_count: int
+    entries: list[WorkflowProfileBundleExtractEntry] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, object]:
+        status_summary: dict[str, int] = {}
+        for item in self.entries:
+            status_summary[item.status] = status_summary.get(item.status, 0) + 1
+        return {
+            "bundle_path": self.bundle_path,
+            "target_dir": self.target_dir,
+            "overwrite": self.overwrite,
+            "preserve_structure": self.preserve_structure,
+            "selected_count": self.selected_count,
+            "written_count": self.written_count,
+            "skipped_count": self.skipped_count,
+            "conflict_count": self.conflict_count,
+            "error_count": self.error_count,
+            "status_summary": dict(sorted(status_summary.items())),
+            "entries": [item.to_dict() for item in self.entries],
+        }
+
+
 def _safe_relative_path(profile_path: Path, base_dir: Path) -> str:
     try:
         return profile_path.relative_to(base_dir).as_posix()
@@ -165,6 +224,41 @@ def _bundle_item_key(item: WorkflowProfileBundleItem) -> str:
 
 def _sort_bundle_items(items: list[WorkflowProfileBundleItem]) -> list[WorkflowProfileBundleItem]:
     return sorted(items, key=lambda item: (_bundle_item_key(item).lower(), item.name.lower(), item.title.lower()))
+
+
+def _load_profile_payload_from_path(path: Path) -> dict[str, object] | None:
+    try:
+        profile = load_workflow_profile(path)
+    except Exception:
+        return None
+    return build_workflow_profile_payload(
+        profile_name=profile.profile_name,
+        preset_name=profile.preset_name,
+        values=dict(profile.values),
+    )
+
+
+def _normalize_json_text(payload: dict[str, object]) -> str:
+    return json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True)
+
+
+def _write_bundle_profile_payload(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_normalize_json_text(payload), encoding="utf-8")
+
+
+def _bundle_extract_target_path(
+    item: WorkflowProfileBundleItem,
+    *,
+    target_dir: Path,
+    preserve_structure: bool,
+) -> Path:
+    if preserve_structure and item.relative_profile_path:
+        return target_dir / Path(item.relative_profile_path)
+    name = Path(item.relative_profile_path or item.profile_path or f"{item.name}.json").name
+    if not name.lower().endswith(".json"):
+        name = f"{name}.json"
+    return target_dir / name
 
 
 def build_workflow_profile_bundle_items(records: list[WorkflowProfileRecord], *, profiles_dir: str | Path) -> list[WorkflowProfileBundleItem]:
@@ -184,6 +278,7 @@ def build_workflow_profile_bundle_items(records: list[WorkflowProfileRecord], *,
                 missing_required_fields=tuple(item.missing_required_fields),
                 problems=tuple(item.problems),
                 command_preview=item.command_preview,
+                profile_payload=_load_profile_payload_from_path(item.profile_path),
             )
         )
     return _sort_bundle_items(items)
@@ -337,32 +432,19 @@ def compare_workflow_profile_bundles(
     changed_validity_count = 0
     changed_command_count = 0
     changed_problem_count = 0
+    changed_payload_count = 0
 
     for key in keys:
         left_item = left_map.get(key)
         right_item = right_map.get(key)
 
         if left_item is None and right_item is not None:
-            entries.append(
-                WorkflowProfileBundleComparisonEntry(
-                    key=key,
-                    status="added",
-                    left_item=None,
-                    right_item=right_item,
-                )
-            )
+            entries.append(WorkflowProfileBundleComparisonEntry(key=key, status="added", right_item=right_item))
             added_count += 1
             continue
 
         if right_item is None and left_item is not None:
-            entries.append(
-                WorkflowProfileBundleComparisonEntry(
-                    key=key,
-                    status="removed",
-                    left_item=left_item,
-                    right_item=None,
-                )
-            )
+            entries.append(WorkflowProfileBundleComparisonEntry(key=key, status="removed", left_item=left_item))
             removed_count += 1
             continue
 
@@ -370,11 +452,13 @@ def compare_workflow_profile_bundles(
         validity_changed = left_item.valid != right_item.valid
         command_changed = left_item.command_preview != right_item.command_preview
         problems_changed = left_item.problems != right_item.problems
+        payload_changed = left_item.profile_payload != right_item.profile_payload
 
         changed = (
             validity_changed
             or command_changed
             or problems_changed
+            or payload_changed
             or left_item.profile_name != right_item.profile_name
             or left_item.preset_name != right_item.preset_name
             or left_item.workflow_name != right_item.workflow_name
@@ -390,6 +474,7 @@ def compare_workflow_profile_bundles(
                 validity_changed=validity_changed,
                 command_changed=command_changed,
                 problems_changed=problems_changed,
+                payload_changed=payload_changed,
             )
         )
 
@@ -401,6 +486,8 @@ def compare_workflow_profile_bundles(
                 changed_command_count += 1
             if problems_changed:
                 changed_problem_count += 1
+            if payload_changed:
+                changed_payload_count += 1
         else:
             unchanged_count += 1
 
@@ -414,6 +501,7 @@ def compare_workflow_profile_bundles(
         changed_validity_count=changed_validity_count,
         changed_command_count=changed_command_count,
         changed_problem_count=changed_problem_count,
+        changed_payload_count=changed_payload_count,
     )
     return WorkflowProfileBundleComparison(
         left_profiles_dir=left.profiles_dir,
@@ -421,6 +509,114 @@ def compare_workflow_profile_bundles(
         summary=summary,
         entries=entries,
     )
+
+
+def extract_workflow_profile_bundle(
+    bundle: WorkflowProfileBundle,
+    target_dir: str | Path,
+    *,
+    workflow_name: str | None = None,
+    preset_name: str | None = None,
+    only_valid: bool = False,
+    only_invalid: bool = False,
+    overwrite: bool = False,
+    preserve_structure: bool = True,
+    bundle_path: str | None = None,
+) -> WorkflowProfileBundleExtractResult:
+    filtered = filter_workflow_profile_bundle(
+        bundle,
+        workflow_name=workflow_name,
+        preset_name=preset_name,
+        only_valid=only_valid,
+        only_invalid=only_invalid,
+    )
+    base_dir = Path(target_dir)
+    result = WorkflowProfileBundleExtractResult(
+        bundle_path=bundle_path,
+        target_dir=str(base_dir),
+        overwrite=overwrite,
+        preserve_structure=preserve_structure,
+        selected_count=len(filtered.profiles),
+        written_count=0,
+        skipped_count=0,
+        conflict_count=0,
+        error_count=0,
+        entries=[],
+    )
+
+    for item in filtered.profiles:
+        destination = _bundle_extract_target_path(item, target_dir=base_dir, preserve_structure=preserve_structure)
+        payload = item.profile_payload
+        if payload is None:
+            result.error_count += 1
+            result.entries.append(
+                WorkflowProfileBundleExtractEntry(
+                    relative_profile_path=item.relative_profile_path,
+                    target_path=str(destination),
+                    status="error",
+                    reason="bundle item does not include a reusable profile payload",
+                    profile_name=item.profile_name,
+                    preset_name=item.preset_name,
+                )
+            )
+            continue
+
+        try:
+            if destination.exists():
+                existing_payload = json.loads(destination.read_text(encoding="utf-8"))
+                if existing_payload == payload:
+                    result.skipped_count += 1
+                    result.entries.append(
+                        WorkflowProfileBundleExtractEntry(
+                            relative_profile_path=item.relative_profile_path,
+                            target_path=str(destination),
+                            status="skipped",
+                            reason="target profile already matches bundle payload",
+                            profile_name=item.profile_name,
+                            preset_name=item.preset_name,
+                        )
+                    )
+                    continue
+                if not overwrite:
+                    result.conflict_count += 1
+                    result.entries.append(
+                        WorkflowProfileBundleExtractEntry(
+                            relative_profile_path=item.relative_profile_path,
+                            target_path=str(destination),
+                            status="conflict",
+                            reason="target profile already exists with different content",
+                            profile_name=item.profile_name,
+                            preset_name=item.preset_name,
+                        )
+                    )
+                    continue
+
+            _write_bundle_profile_payload(destination, payload)
+            result.written_count += 1
+            result.entries.append(
+                WorkflowProfileBundleExtractEntry(
+                    relative_profile_path=item.relative_profile_path,
+                    target_path=str(destination),
+                    status="written",
+                    reason="bundle profile payload written successfully",
+                    profile_name=item.profile_name,
+                    preset_name=item.preset_name,
+                )
+            )
+        except Exception as exc:
+            result.error_count += 1
+            result.entries.append(
+                WorkflowProfileBundleExtractEntry(
+                    relative_profile_path=item.relative_profile_path,
+                    target_path=str(destination),
+                    status="error",
+                    reason=str(exc),
+                    profile_name=item.profile_name,
+                    preset_name=item.preset_name,
+                )
+            )
+
+    return result
 
 
 def write_workflow_profile_bundle(
@@ -474,6 +670,7 @@ def load_workflow_profile_bundle(path: str | Path) -> WorkflowProfileBundle:
             missing_required_fields=tuple(item.get("missing_required_fields", [])),
             problems=tuple(item.get("problems", [])),
             command_preview=item.get("command_preview"),
+            profile_payload=None if item.get("profile_payload") is None else dict(item.get("profile_payload", {})),
         )
         for item in profiles_payload
     ]

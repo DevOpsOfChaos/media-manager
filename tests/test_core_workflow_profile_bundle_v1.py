@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from media_manager.core.workflows.profile_bundle import (
@@ -8,6 +9,7 @@ from media_manager.core.workflows.profile_bundle import (
     build_workflow_profile_bundle_items,
     build_workflow_profile_bundle_summary,
     compare_workflow_profile_bundles,
+    extract_workflow_profile_bundle,
     filter_workflow_profile_bundle,
     load_workflow_profile_bundle,
     merge_workflow_profile_bundles,
@@ -250,3 +252,94 @@ def test_compare_workflow_profile_bundles_reports_changed_validity() -> None:
     assert comparison.summary.changed_validity_count == 1
     assert comparison.entries[0].status == "changed"
     assert comparison.entries[0].validity_changed is True
+
+
+def test_extract_workflow_profile_bundle_writes_profiles_with_relative_paths(tmp_path: Path) -> None:
+    bundle_path = tmp_path / "exports" / "profiles-bundle.json"
+    profiles_dir = tmp_path / "profiles"
+    nested_dir = profiles_dir / "family"
+    nested_dir.mkdir(parents=True)
+    (nested_dir / "trip.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Italy trip",
+                "preset": "trip-hardlink-collection",
+                "values": {
+                    "source": ["C:/Phone"],
+                    "target": "E:/Trips",
+                    "label": "Italy_2025",
+                    "start": "2025-08-01",
+                    "end": "2025-08-14",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    written = write_workflow_profile_bundle(bundle_path, profiles_dir)
+    loaded = load_workflow_profile_bundle(written)
+    target_dir = tmp_path / "materialized"
+
+    result = extract_workflow_profile_bundle(loaded, target_dir)
+
+    assert result.selected_count == 1
+    assert result.written_count == 1
+    assert (target_dir / "family" / "trip.json").exists()
+    materialized = json.loads((target_dir / "family" / "trip.json").read_text(encoding="utf-8"))
+    assert materialized["profile_name"] == "Italy trip"
+    assert loaded.profiles[0].profile_payload is not None
+    assert loaded.profiles[0].profile_payload["values"]["label"] == "Italy_2025"
+
+
+def test_extract_workflow_profile_bundle_conflicts_without_overwrite_and_can_overwrite(tmp_path: Path) -> None:
+    bundle_path = tmp_path / "exports" / "profiles-bundle.json"
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "trip.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Italy trip",
+                "preset": "trip-hardlink-collection",
+                "values": {
+                    "source": ["C:/Phone"],
+                    "target": "E:/Trips",
+                    "label": "Italy_2025",
+                    "start": "2025-08-01",
+                    "end": "2025-08-14",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    loaded = load_workflow_profile_bundle(write_workflow_profile_bundle(bundle_path, profiles_dir))
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    (target_dir / "trip.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Different trip",
+                "preset": "trip-copy-review",
+                "values": {
+                    "source": ["C:/Phone"],
+                    "target": "E:/Trips",
+                    "label": "Italy_2025",
+                    "start": "2025-08-01",
+                    "end": "2025-08-14",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    first = extract_workflow_profile_bundle(loaded, target_dir, preserve_structure=False)
+    assert first.conflict_count == 1
+    assert first.written_count == 0
+
+    second = extract_workflow_profile_bundle(loaded, target_dir, preserve_structure=False, overwrite=True)
+    assert second.conflict_count == 0
+    assert second.written_count == 1
+    materialized = json.loads((target_dir / "trip.json").read_text(encoding="utf-8"))
+    assert materialized["preset"] == "trip-hardlink-collection"

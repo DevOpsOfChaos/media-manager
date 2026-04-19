@@ -228,3 +228,87 @@ def test_cli_workflow_profile_bundle_compare_detects_changed_profiles(tmp_path: 
     assert payload["summary"]["changed_count"] == 1
     assert payload["summary"]["changed_validity_count"] == 1
     assert payload["entries"][0]["status"] == "changed"
+
+
+def test_cli_workflow_profile_bundle_extract_writes_matching_profiles(tmp_path: Path, capsys) -> None:
+    profiles_dir = tmp_path / "profiles"
+    nested_dir = profiles_dir / "family"
+    nested_dir.mkdir(parents=True)
+    _write_valid_trip_profile(nested_dir / "trip.json")
+    bundle_path = tmp_path / "bundles" / "profiles.json"
+    target_dir = tmp_path / "materialized"
+
+    main(["profile-bundle-write", str(bundle_path), "--profiles-dir", str(profiles_dir)])
+    _ = capsys.readouterr()
+
+    exit_code = main([
+        "profile-bundle-extract",
+        str(bundle_path),
+        "--target-dir",
+        str(target_dir),
+        "--json",
+    ])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+    assert payload["written_count"] == 1
+    assert (target_dir / "family" / "trip.json").exists()
+
+
+def test_cli_workflow_profile_bundle_extract_reports_conflict_and_overwrite(tmp_path: Path, capsys) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    _write_valid_trip_profile(profiles_dir / "trip.json")
+    bundle_path = tmp_path / "bundles" / "profiles.json"
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    (target_dir / "trip.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Different trip",
+                "preset": "trip-copy-review",
+                "values": {
+                    "source": ["C:/Phone"],
+                    "target": "E:/Trips",
+                    "label": "Italy_2025",
+                    "start": "2025-08-01",
+                    "end": "2025-08-14",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    main(["profile-bundle-write", str(bundle_path), "--profiles-dir", str(profiles_dir)])
+    _ = capsys.readouterr()
+
+    first_code = main([
+        "profile-bundle-extract",
+        str(bundle_path),
+        "--target-dir",
+        str(target_dir),
+        "--flatten",
+        "--json",
+    ])
+    first = capsys.readouterr()
+    assert first_code == 1
+    first_payload = json.loads(first.out)
+    assert first_payload["conflict_count"] == 1
+
+    second_code = main([
+        "profile-bundle-extract",
+        str(bundle_path),
+        "--target-dir",
+        str(target_dir),
+        "--flatten",
+        "--overwrite",
+        "--json",
+    ])
+    second = capsys.readouterr()
+    assert second_code == 0
+    second_payload = json.loads(second.out)
+    assert second_payload["written_count"] == 1
+    written = json.loads((target_dir / "trip.json").read_text(encoding="utf-8"))
+    assert written["preset"] == "trip-hardlink-collection"
