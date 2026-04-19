@@ -77,6 +77,14 @@ from .profile_bundle import (
     WorkflowProfileBundleSyncEntry,
     WorkflowProfileBundleSyncResult,
 )
+from .profile_bundle_inventory import (
+    WorkflowProfileBundleDirectoryInventory,
+    WorkflowProfileBundleRecord,
+    build_workflow_profile_bundle_inventory,
+    filter_workflow_profile_bundle_records,
+    scan_workflow_profile_bundle_inventory,
+    summarize_workflow_profile_bundle_records,
+)
 from .profile_inventory import (
     WorkflowProfileInventory,
     WorkflowProfileRecord,
@@ -155,6 +163,12 @@ __all__ = [
     "filter_workflow_profile_records",
     "summarize_workflow_profile_records",
     "build_workflow_profile_inventory",
+    "WorkflowProfileBundleRecord",
+    "WorkflowProfileBundleDirectoryInventory",
+    "scan_workflow_profile_bundle_inventory",
+    "filter_workflow_profile_bundle_records",
+    "summarize_workflow_profile_bundle_records",
+    "build_workflow_profile_bundle_inventory",
     "WorkflowCommandSuggestion",
     "WorkflowWizardResult",
     "build_workflow_wizard_result",
