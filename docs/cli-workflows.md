@@ -178,5 +178,14 @@ Useful history filters:
 - `--has-reversible-entries`
 - `--min-entry-count <N>`
 - `--min-reversible-entry-count <N>`
+- `--created-at-after <ISO_TIMESTAMP>`
+- `--created-at-before <ISO_TIMESTAMP>`
 - `--summary-only` on `history`
 - `--fail-on-empty` on `history`
+
+Date-window examples:
+
+```powershell
+media-manager workflow history --path .\runs --created-at-after 2026-04-01T00:00:00Z --created-at-before 2026-04-30T23:59:59Z
+media-manager workflow last --path .\runs --command organize --created-at-after 2026-04-15T00:00:00Z
+```

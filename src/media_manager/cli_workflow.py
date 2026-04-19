@@ -86,6 +86,8 @@ def _add_history_filter_arguments(
     parser.add_argument("--has-reversible-entries", action="store_true", help="Only include history entries that contain reversible actions.")
     parser.add_argument("--min-entry-count", type=int, help="Only include history entries with at least this many total entries.")
     parser.add_argument("--min-reversible-entry-count", type=int, help="Only include history entries with at least this many reversible entries.")
+    parser.add_argument("--created-at-after", help="Only include history entries created at or after this ISO timestamp.")
+    parser.add_argument("--created-at-before", help="Only include history entries created at or before this ISO timestamp.")
     if include_summary_only:
         parser.add_argument("--summary-only", action="store_true", help="Only print or return the summary block.")
     if include_fail_on_empty:
@@ -103,6 +105,8 @@ def _build_history_filter_kwargs(args: argparse.Namespace) -> dict[str, object]:
         "has_reversible_entries": _get_history_has_reversible_entries(args),
         "min_entry_count": getattr(args, "min_entry_count", None),
         "min_reversible_entry_count": getattr(args, "min_reversible_entry_count", None),
+        "created_at_after": getattr(args, "created_at_after", None),
+        "created_at_before": getattr(args, "created_at_before", None),
     }
 
 
@@ -117,6 +121,8 @@ def _build_history_filter_payload(args: argparse.Namespace) -> dict[str, object]
         "has_reversible_entries": _get_history_has_reversible_entries(args),
         "min_entry_count": getattr(args, "min_entry_count", None),
         "min_reversible_entry_count": getattr(args, "min_reversible_entry_count", None),
+        "created_at_after": getattr(args, "created_at_after", None),
+        "created_at_before": getattr(args, "created_at_before", None),
     }
 
 
@@ -139,6 +145,10 @@ def _append_history_filter_lines(lines: list[str], args: argparse.Namespace) -> 
         lines.append(f"  Minimum entry count: {args.min_entry_count}")
     if getattr(args, "min_reversible_entry_count", None) is not None:
         lines.append(f"  Minimum reversible entry count: {args.min_reversible_entry_count}")
+    if getattr(args, "created_at_after", None):
+        lines.append(f"  Created at after: {args.created_at_after}")
+    if getattr(args, "created_at_before", None):
+        lines.append(f"  Created at before: {args.created_at_before}")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -2183,6 +2193,7 @@ def main(argv: list[str] | None = None) -> int:
             "  media-manager workflow history --path <RUNS_DIR>\n"
             "  media-manager workflow history --path <RUNS_DIR> --command organize --only-failed --record-type run_log\n"
             "  media-manager workflow history --path <RUNS_DIR> --only-apply --has-reversible-entries --summary-only\n"
+            "  media-manager workflow history --path <RUNS_DIR> --created-at-after 2026-04-01T00:00:00Z --created-at-before 2026-04-30T23:59:59Z\n"
             "  media-manager workflow last --path <RUNS_DIR> --command organize --only-successful --record-type execution_journal\n"
             "  media-manager workflow run cleanup --source <A> --source <B> --target <TARGET>\n"
         )

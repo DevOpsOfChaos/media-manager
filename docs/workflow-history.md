@@ -1,59 +1,82 @@
-# Workflow history
+# Workflow history filtering and audit notes
 
-The workflow history layer is meant to support review, auditing, and repeatable reruns.
+The workflow history layer can be used to inspect command run logs and execution journals after repeated CLI work.
 
-## What counts as workflow history
+## What history records capture
 
-The current history helpers recognize two main record shapes:
+Recognized history records include:
 
-- command run logs
+- run logs
 - execution journals
 
-Both are normalized into `WorkflowHistoryEntry` records so they can be filtered and summarized together.
+Each summarized history entry exposes:
 
-## Core filtering
+- command name
+- whether apply mode was requested
+- exit code
+- created timestamp in UTC
+- total entry count
+- reversible entry count
 
-The core helpers now support more than simple command filtering.
+## New filter directions
 
-Useful filters include:
+The core history helpers now support additive filtering for audit-focused workflows.
 
-- `command_name`
-- `record_type`
-- `only_successful`
-- `only_failed`
-- `only_apply_requested`
-- `only_preview`
-- `has_reversible_entries`
-- `min_entry_count`
-- `min_reversible_entry_count`
-- `created_at_after`
-- `created_at_before`
+Examples of useful filters:
 
-That makes it easier to answer questions like:
+- command name
+- record type
+- only successful runs
+- only failed runs
+- only apply-requested runs
+- only preview runs
+- require reversible entries
+- minimum total entry count
+- minimum reversible entry count
+- created-at lower bound
+- created-at upper bound
 
-- What was the latest successful trip apply run this week?
-- Which execution journals in a date window still contain reversible entries?
-- Which runs in the last few days actually touched many planned items?
+## Why this matters
 
-## Timestamp window behavior
+This makes it easier to answer practical questions like:
 
-`created_at_after` and `created_at_before` expect ISO-like timestamps.
+- show only failed duplicate preview runs
+- find the newest successful apply journal for organize
+- inspect only runs that actually produced reversible actions
+- focus on larger runs instead of one-file smoke tests
+
+## Example audit questions
+
+- Which `organize` runs were successful and used apply mode?
+- What is the latest `trip` execution journal with reversible entries?
+- Which history records are preview-only failures?
+- Which runs had at least 10 planned or executed entries?
+
+## Intended next CLI use
+
+These helpers are designed so the workflow CLI can expose stronger history filtering without re-implementing audit logic in the command layer.
+
+## CLI usage examples
+
+The workflow CLI now exposes these filters directly.
+
+```powershell
+media-manager workflow history --path .\runs --command organize --record-type run_log --only-failed
+media-manager workflow history --path .\runs --only-apply --has-reversible-entries --min-entry-count 10 --summary-only
+media-manager workflow last --path .\runs --command trip --record-type execution_journal --only-successful
+```
+
+This keeps the audit logic in the core helpers while making the CLI useful for real triage and review work.
+
+## Date-window audit use
+
+You can now narrow history inspection to a concrete ISO timestamp window.
 
 Examples:
 
-- `2026-04-10T00:00:00+00:00`
-- `2026-04-10T12:30:00Z`
+```powershell
+media-manager workflow history --path .\runs --created-at-after 2026-04-01T00:00:00Z --created-at-before 2026-04-30T23:59:59Z
+media-manager workflow last --path .\runs --command trip --created-at-after 2026-04-15T00:00:00Z
+```
 
-When a date-window filter is active, entries with invalid or missing timestamps are excluded from that filtered result.
-
-## Current scope
-
-This block hardens the core helpers first.
-
-That means the filter logic is available for:
-
-- direct Python usage
-- internal higher-level CLI wiring
-- future reporting and audit commands
-
-The goal is to keep history inspection additive and review-oriented rather than bolting on fragile output-only behavior.
+This is useful when you want to audit only one review cycle, one migration window, or one cleanup session without mixing in older runs.
