@@ -18,6 +18,7 @@ from .core.state import (
     find_latest_history_entries_by_command,
     find_latest_history_entry,
     scan_history_directory,
+    summarize_history_entries_by_command,
 )
 from .core.workflows import (
     WorkflowProfile,
@@ -204,6 +205,14 @@ def build_parser() -> argparse.ArgumentParser:
     history_latest_by_command_parser.add_argument("--path", type=Path, required=True, help="Directory to scan for run logs and journals.")
     _add_history_filter_arguments(history_latest_by_command_parser, include_summary_only=True, include_fail_on_empty=True)
     history_latest_by_command_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+    history_summary_by_command_parser = subparsers.add_parser(
+        "history-summary-by-command",
+        help="Summarize matching workflow history entries grouped by command.",
+    )
+    history_summary_by_command_parser.add_argument("--path", type=Path, required=True, help="Directory to scan for run logs and journals.")
+    _add_history_filter_arguments(history_summary_by_command_parser, include_summary_only=True, include_fail_on_empty=True)
+    history_summary_by_command_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
     presets_parser = subparsers.add_parser("presets", help="List built-in workflow presets.")
     presets_parser.add_argument("--json", action="store_true", help="Print JSON output.")
@@ -511,6 +520,9 @@ def _history_payload(item) -> dict[str, object]:
         "successful": item.successful,
         "has_reversible_entries": item.has_reversible_entries,
     }
+
+def _history_command_summary_payload(item) -> dict[str, object]:
+    return item.to_dict()
 
 
 def _profile_validation_payload(validation) -> dict[str, object]:
@@ -833,6 +845,83 @@ def _print_history_latest_by_command(args: argparse.Namespace) -> int:
             f"exit={item.exit_code} | entries={item.entry_count} | created={item.created_at_utc}"
         )
         lines.append(f"    {item.path}")
+    print("\n".join(lines))
+    return exit_code
+
+def _print_history_summary_by_command(args: argparse.Namespace) -> int:
+    filter_kwargs = _build_history_filter_kwargs(args)
+    filter_payload = _build_history_filter_payload(args)
+    filtered_entries = scan_history_directory(args.path, **filter_kwargs)
+    summary = build_history_summary(filtered_entries)
+    command_summaries = summarize_history_entries_by_command(filtered_entries)
+    payload = {
+        "path": str(args.path),
+        **filter_payload,
+        "summary_only": bool(getattr(args, "summary_only", False)),
+        "summary": summary,
+        "command_summaries": []
+        if getattr(args, "summary_only", False)
+        else [_history_command_summary_payload(item) for item in command_summaries],
+    }
+    exit_code = 1 if getattr(args, "fail_on_empty", False) and not command_summaries else 0
+    if args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return exit_code
+
+    lines = [f"Workflow history summary by command in {args.path}"]
+    _append_history_filter_lines(lines, args)
+    lines.extend(
+        [
+            f"  Commands matched: {len(command_summaries)}",
+            f"  Total entries: {summary['entry_count']}",
+            f"  Successful: {summary['successful_count']}",
+            f"  Failed: {summary['failed_count']}",
+            f"  Reversible entries: {summary['reversible_entry_count']}",
+            f"  Entries with reversible actions: {summary['entries_with_reversible_count']}",
+        ]
+    )
+    if summary["latest_created_at_utc"]:
+        lines.append(f"  Latest: {summary['latest_created_at_utc']}")
+    if summary["apply_summary"]:
+        apply_text = ", ".join(f"{key}={value}" for key, value in summary["apply_summary"].items())
+        lines.append(f"  Apply modes: {apply_text}")
+    if summary["exit_code_summary"]:
+        exit_text = ", ".join(f"{key}={value}" for key, value in summary["exit_code_summary"].items())
+        lines.append(f"  Exit codes: {exit_text}")
+    if not command_summaries:
+        lines.append("  No recognized run logs or execution journals found.")
+        print("\n".join(lines))
+        return exit_code
+    if summary["command_summary"]:
+        command_text = ", ".join(f"{key}={value}" for key, value in summary["command_summary"].items())
+        lines.append(f"  Commands: {command_text}")
+    if summary["record_type_summary"]:
+        record_text = ", ".join(f"{key}={value}" for key, value in summary["record_type_summary"].items())
+        lines.append(f"  Record types: {record_text}")
+    if getattr(args, "summary_only", False):
+        print("\n".join(lines))
+        return exit_code
+    for item in command_summaries:
+        lines.append(
+            f"  - {item.command_name} | runs={item.entry_count} | successful={item.successful_count} | "
+            f"failed={item.failed_count} | latest={item.latest_created_at_utc}"
+        )
+        lines.append(
+            f"    latest_type={item.latest_record_type} | latest_apply={item.latest_apply_requested} | "
+            f"latest_exit={item.latest_exit_code} | latest_entries={item.latest_entry_count}"
+        )
+        lines.append(
+            f"    apply_requested={item.apply_requested_count} | preview_only={item.preview_only_count} | "
+            f"reversible_entries={item.reversible_entry_count} | entries_with_reversible={item.entries_with_reversible_count}"
+        )
+        if item.record_type_summary:
+            record_text = ", ".join(f"{key}={value}" for key, value in item.record_type_summary.items())
+            lines.append(f"    record_types: {record_text}")
+        if item.exit_code_summary:
+            exit_text = ", ".join(f"{key}={value}" for key, value in item.exit_code_summary.items())
+            lines.append(f"    exit_codes: {exit_text}")
+        if item.latest_path:
+            lines.append(f"    {item.latest_path}")
     print("\n".join(lines))
     return exit_code
 
@@ -2266,6 +2355,7 @@ def main(argv: list[str] | None = None) -> int:
             "  media-manager workflow history --path <RUNS_DIR> --created-at-after 2026-04-01T00:00:00Z --created-at-before 2026-04-30T23:59:59Z\n"
             "  media-manager workflow last --path <RUNS_DIR> --command organize --only-successful --record-type execution_journal\n"
             "  media-manager workflow history-latest-by-command --path <RUNS_DIR> --only-failed --summary-only\n"
+            "  media-manager workflow history-summary-by-command --path <RUNS_DIR> --summary-only\n"
             "  media-manager workflow run cleanup --source <A> --source <B> --target <TARGET>\n"
         )
         return 0
@@ -2286,6 +2376,8 @@ def main(argv: list[str] | None = None) -> int:
         return _print_last_history(args)
     if args.workflow_command == "history-latest-by-command":
         return _print_history_latest_by_command(args)
+    if args.workflow_command == "history-summary-by-command":
+        return _print_history_summary_by_command(args)
     if args.workflow_command == "presets":
         return _print_presets(args.json)
     if args.workflow_command == "preset-show":
