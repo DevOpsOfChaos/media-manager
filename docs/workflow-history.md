@@ -52,25 +52,6 @@ This makes it easier to answer practical questions like:
 - Which history records are preview-only failures?
 - Which runs had at least 10 planned or executed entries?
 
-## Latest-per-command core helper
-
-The history core now also supports a grouped view of **the newest matching entry per command**.
-
-This is useful when you want a compact operational snapshot instead of a full chronological list.
-
-Examples:
-
-- newest matching `rename`, `organize`, `trip`, and `duplicates` runs in one result
-- newest failed record for each command after a migration or cleanup session
-- newest apply-requested entry per command inside one date window
-
-The new helper names are:
-
-- `latest_history_entries_by_command(...)`
-- `find_latest_history_entries_by_command(...)`
-
-These stay additive and do not change the behavior of the existing `history` or `last` calls.
-
 ## Intended next CLI use
 
 These helpers are designed so the workflow CLI can expose stronger history filtering without re-implementing audit logic in the command layer.
@@ -100,14 +81,21 @@ media-manager workflow last --path .\runs --command trip --created-at-after 2026
 
 This is useful when you want to audit only one review cycle, one migration window, or one cleanup session without mixing in older runs.
 
-## Latest-per-command overview
+## Per-command summary layer
 
-When you want a compact audit view instead of the full history list, the core helpers can now return the newest matching entry for each command.
+The core history helpers can now also collapse filtered history into one summary row per command.
 
-That makes it easier to answer questions like:
+Each per-command summary tracks:
 
-- what is the latest `organize`, `rename`, `trip`, and `duplicates` run in this window?
-- which commands most recently failed?
-- what is the newest apply-oriented result per command?
+- total matching entries for that command
+- successful vs failed counts
+- apply vs preview counts
+- reversible totals
+- record-type and exit-code summaries
+- newest matching timestamp and path
 
-This is designed to back an additive CLI overview without changing the existing `history` and `last` output contracts.
+This is useful when you want a compact operational view like:
+
+- latest matching `rename`, `organize`, `trip`, and `duplicates` runs
+- which commands failed most recently in a given date window
+- which commands have apply-oriented history vs preview-only history

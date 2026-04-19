@@ -2,13 +2,16 @@
 
 from .execution_journal import build_execution_journal, load_execution_journal, write_execution_journal
 from .history import (
+    WorkflowHistoryCommandSummary,
     WorkflowHistoryEntry,
     build_history_summary,
+    build_history_summary_by_command,
     filter_history_entries,
     find_latest_history_entries_by_command,
     find_latest_history_entry,
     latest_history_entries_by_command,
     scan_history_directory,
+    summarize_history_entries_by_command,
     summarize_history_file,
 )
 from .history_artifacts import build_history_artifact_paths, write_history_artifacts
@@ -24,12 +27,15 @@ __all__ = [
     "build_history_artifact_paths",
     "write_history_artifacts",
     "WorkflowHistoryEntry",
+    "WorkflowHistoryCommandSummary",
     "build_history_summary",
+    "build_history_summary_by_command",
     "filter_history_entries",
-    "latest_history_entries_by_command",
     "summarize_history_file",
+    "summarize_history_entries_by_command",
     "scan_history_directory",
     "find_latest_history_entry",
+    "latest_history_entries_by_command",
     "find_latest_history_entries_by_command",
     "UndoEntryResult",
     "UndoExecutionResult",
