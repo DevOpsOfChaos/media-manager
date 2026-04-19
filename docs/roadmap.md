@@ -1,94 +1,96 @@
 # Roadmap
 
-## Reset principle
+## Direction
 
-The repository is being reset around a stable media core.
+The current product strategy is:
 
-That means the roadmap order is now:
-
-1. core
-2. CLI
-3. state
-4. duplicates
-5. workflows
+1. core foundation
+2. CLI quality and safe apply flows
+3. state / journaling / history / undo
+4. duplicates and similar-review hardening
+5. workflow presets / profiles / bundles
 6. GUI later
 
-## Phase 1 — repository reset and cleanup
+This roadmap intentionally reflects the **current working direction**, not the older reset text alone.
 
-- [x] keep the existing repository name
-- [x] keep repository history
-- [x] document that the repository is being reset
-- [x] rewrite the public project direction around the core-first plan
-- [x] add explicit legacy guidance
-- [ ] freeze or relocate legacy-oriented files as the reset continues
+## What is already in place
 
-## Phase 2 — scan and inspect baseline
+### Core and scan/date foundation
 
-- [x] implement a clean scanner module
-- [x] support multiple source folders
-- [x] add a first inspect command for metadata and date debugging
-- [x] report relevant date candidates for a file
-- [x] make ExifTool integration observable and debuggable
+Available now in the active CLI/core line:
 
-## Phase 3 — date resolution baseline
+- media scanning across one or more source folders
+- capture-date resolution with diagnostics and reasons
+- inspect/metadata visibility for debugging and trust
+- filename and filesystem fallbacks where metadata is weak
 
-- [x] create a dedicated date resolver module
-- [ ] support prioritized metadata tags
-- [x] support filename-based date extraction as a fallback
-- [x] support filesystem fallback as a last resort
-- [x] record source, confidence, and reasoning for the chosen date
-- [ ] improve handling of video / QuickTime date edge cases
+### Organize / rename / history basics
 
-## Phase 4 — organize baseline
+Available now in the active CLI/core line:
 
-- [ ] build dry-run planning first
-- [ ] support move, copy, and link-aware workflows where appropriate
-- [ ] support configurable target folder structures
-- [ ] improve collision handling
-- [ ] add explicit skip reasons for already compliant files
+- organize preview/apply flows
+- rename preview/apply flows
+- journaling and run-log support
+- history summaries and command-filtered history views
+- undo-oriented reporting and state helpers
 
-## Phase 5 — rename baseline
+### Duplicates and review layer
 
-- [ ] build composable naming templates
-- [ ] preview rename plans before apply
-- [ ] support text blocks and date-format blocks
-- [ ] detect and handle rename collisions safely
-- [ ] avoid renaming already compliant files
+Available now in the active CLI/core line:
 
-## Phase 6 — state and idempotence
+- exact-duplicate review paths
+- similar-review oriented workflow support
+- duplicate planning/reporting helpers
+- safer review-first direction instead of blind destructive execution
 
-- [ ] add a lightweight state store
-- [ ] track file fingerprints and prior actions
-- [ ] support rerun-safe behavior
-- [ ] support clear skip explanations
-- [ ] prepare the basis for undo and journaling
+### Workflow productivity layer
 
-## Phase 7 — duplicates
+Available now in the active CLI/core line:
 
-- [ ] exact duplicate detection
-- [ ] review-safe duplicate grouping
-- [ ] quarantine-oriented actions instead of unsafe deletion
-- [ ] similar-image duplicate detection after the exact pipeline is stable
+- workflow discovery / recommendation / wizard helpers
+- built-in workflow presets
+- saved workflow profiles
+- profile validation, inventory, audit, and directory execution
+- profile bundles for write / show / audit / merge / compare / extract / sync / run
+- shell/form/launcher models that understand presets and profiles better
 
-## Phase 8 — workflows
+## Current hardening priorities
 
-- [ ] cleanup workflow for messy multi-source collections
-- [ ] trip workflow using date ranges and collection output
-- [ ] shared workflow state and reporting
-- [ ] guided step-by-step execution built on the same core actions
+These are the areas that deserve the most attention next.
 
-## Phase 9 — GUI later
+### 1. CLI/core product hardening
 
-- [ ] design a modern interface on top of the stable core
-- [ ] keep the GUI thin and workflow-oriented
-- [ ] avoid reintroducing business logic into presentation code
-- [ ] package a stable Windows release later
+- broader regression checks before every ZIP/commit
+- fewer compatibility slips across `__init__` exports and helper imports
+- preserve older JSON/text contracts unless there is a deliberate migration
+- keep Windows path behavior explicitly tested
 
-## Scope guardrails
+### 2. Media workflows people actually use
 
-The following are intentionally not first-priority during the reset:
+- strengthen organize/rename reporting and journaling consistency
+- keep duplicate and similar-review flows easy to inspect before apply
+- continue reducing friction for repeatable workflows built from saved profiles
 
-- polishing desktop visuals before the core stabilizes
-- growing multiple UI stacks in parallel
-- pretending the product is further along than it is
-- deleting media without a reviewable safety path
+### 3. Workflow/profile/bundle ergonomics
+
+- make profile and bundle operations easier to document and maintain
+- keep bundle/profile commands internally consistent
+- avoid duplicating inventory/filter/summary logic in multiple layers
+
+## Not the main focus right now
+
+The following are intentionally not first-priority:
+
+- polishing desktop visuals before the CLI/core stabilizes
+- reintroducing GUI-first product decisions
+- pretending the repository is already a finished end-user app
+- unsafe destructive flows without reviewable reporting
+
+## Near-term next-step ideas
+
+Good next larger blocks include:
+
+- repo maintenance and documentation consolidation
+- workflow/profile import/export polish
+- organize/rename/duplicate reporting quality improvements
+- cleanup workflow hardening on top of the now-stronger profile/bundle layer

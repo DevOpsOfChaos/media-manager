@@ -6,9 +6,9 @@
 
 Open-source media organization software for photos and videos.
 
-> **Project status:** repository reset in progress.
+> **Project status:** active core/CLI build.
 >
-> This repository is being re-founded around a stable core, a clear CLI, safe planning flows, and a later GUI. Some older desktop-oriented code still exists in the repository and should currently be treated as **legacy reference**, not as the product direction.
+> The repository is currently being shaped into a reliable media-management core with a practical CLI, review-safe workflows, reusable profiles, and a later GUI on top. The product direction is intentionally **core first, CLI first, Windows first, English first**.
 
 ## Project language
 
@@ -17,38 +17,38 @@ English is the default language for:
 - repository documentation
 - issues and pull requests
 - application UI and runtime messages
+- JSON fields and CLI-facing output
 
 Additional localizations may be added later. German is a likely secondary language, but it is not the default.
 
-## Why this repository exists
+## Product direction
 
-The project started from a script that already handled media sorting reasonably well.
+The repository is being built in this order:
 
-The long-term goal is much larger:
-
-- organize photos and videos from one or more source folders
-- resolve capture dates more reliably
-- rename files using user-controlled templates
-- detect exact duplicates safely
-- later detect likely duplicates for review
-- support guided workflows such as cleanup and trip collections
-
-The repository is now being reset so these capabilities grow from a reliable foundation instead of from UI-first experiments.
-
-## Current direction
-
-The project is being rebuilt in this order:
-
-1. **Core foundation**
-2. **CLI workflows**
-3. **State and idempotent processing**
-4. **Duplicate handling**
-5. **Guided workflows**
-6. **Modern GUI later**
+1. core foundation
+2. CLI commands and safe preview/apply flows
+3. state, journaling, history, and undo
+4. duplicate and similar-media review
+5. workflow helpers, reusable profiles, and profile bundles
+6. GUI later
 
 That order is deliberate.
 
-A polished interface does not matter if capture-date resolution, planning, skip behavior, duplicate handling, and safety rules are still weak.
+A polished interface does not matter if capture-date resolution, planning, conflict handling, duplicate review, and safety rules are still weak.
+
+## Current capability snapshot
+
+The current CLI-first product line centers on:
+
+- metadata/date inspection and date-resolution diagnostics
+- organize and rename planning/apply flows
+- exact duplicate review and similar-review helpers
+- workflow history, journaling, and undo-oriented reporting
+- guided workflow entry points such as cleanup and trip
+- reusable workflow presets and saved profiles
+- profile inventory, audit, batch execution, and bundle roundtrips
+
+The workflow/profile layer is no longer just scaffolding. It is becoming a real productivity layer over the core CLI commands.
 
 ## Core principles
 
@@ -59,36 +59,32 @@ A polished interface does not matter if capture-date resolution, planning, skip 
 - **Windows first** — Windows is the primary target for the early stable milestones
 - **English first** — localization can be layered in later
 
-## Planned feature groups
+## Workflow layer
 
-### Organize
+The workflow CLI now covers more than just “run one workflow”.
 
-- process one or more source folders
-- resolve the best available capture date
-- build target folder structures safely
-- move, copy, or link depending on workflow and user choice
+Examples:
 
-### Rename
+```powershell
+media-manager workflow presets
+media-manager workflow render-preset cleanup-family-library --source C:\Photos --source D:\Phone --target E:\Library
+media-manager workflow profile-save .\profiles\family-cleanup.json --preset cleanup-family-library --source C:\Photos --source D:\Phone --target E:\Library
+media-manager workflow profile-list --profiles-dir .\profiles
+media-manager workflow profile-run-dir --profiles-dir .\profiles --only-valid
+media-manager workflow profile-bundle-write .\bundles\profiles.json --profiles-dir .\profiles
+media-manager workflow profile-bundle-run .\bundles\profiles.json --only-valid
+media-manager workflow profile-bundle-sync .\bundles\profiles.json --target-dir .\profiles-restored --apply
+```
 
-- preview rename plans
-- support composable naming templates
-- avoid collisions safely
+See also:
 
-### Duplicates
-
-- exact duplicate detection first
-- later similarity-based review for likely duplicates
-- quarantine / review flow instead of unsafe bulk deletion
-
-### Workflows
-
-- cleanup workflow for unsorted mixed sources
-- trip workflow for time-range-based collections
-- guided step-by-step execution built on the same core
+- [Workflow CLI guide](docs/cli-workflows.md)
+- [Workflow profiles and bundles](docs/workflow-profiles-and-bundles.md)
+- [Current development status](docs/status.md)
 
 ## Legacy notice
 
-This repository contains older implementation directions that are no longer the architectural target.
+The repository still contains older implementation directions that are no longer the architectural target.
 
 Examples include earlier GUI-heavy and desktop-first iterations. They may still contain useful code or ideas, but they should be treated as reference material while the new core-first structure is established.
 
@@ -105,29 +101,21 @@ See:
 - Python 3.11+
 - ExifTool
 
-## Development state
-
-The repository should currently be understood as:
-
-- an active reset
-- not a finished product
-- not yet feature-complete
-- intentionally moving away from premature UI expansion
-
-That honesty matters more than pretending the repository is already a polished media manager.
-
 ## Development
 
 Run tests:
 
 ```powershell
-pytest
+pytest -q
 ```
 
 See also:
 
 - [Roadmap](docs/roadmap.md)
 - [Architecture notes](docs/architecture.md)
+- [Workflow CLI guide](docs/cli-workflows.md)
+- [Workflow profiles and bundles](docs/workflow-profiles-and-bundles.md)
+- [Current status](docs/status.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Support](SUPPORT.md)
@@ -136,4 +124,4 @@ See also:
 
 This is not yet a finished public media manager.
 
-It is a project being reset onto a stronger architectural foundation so the later open-source product can actually become trustworthy.
+It is a serious CLI/core-first rebuild aimed at becoming a trustworthy media-management product rather than a UI-first prototype with fragile internals.
