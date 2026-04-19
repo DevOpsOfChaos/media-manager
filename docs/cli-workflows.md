@@ -54,6 +54,8 @@ Useful filters:
 
 - `--workflow <NAME>`
 - `--preset <NAME>`
+- `--profile-name-contains <TEXT>`
+- `--profile-path-contains <TEXT>`
 - `--only-valid`
 - `--only-invalid`
 - `--show-command`
@@ -61,6 +63,20 @@ Useful filters:
 - `--continue-on-error`
 - `--fail-on-empty`
 - `--json`
+
+### Profile selection filters
+
+The profile directory commands can now narrow large profile collections without forcing you to reorganize files first.
+
+Examples:
+
+```powershell
+media-manager workflow profile-list --profiles-dir .\profiles --profile-name-contains family
+media-manager workflow profile-audit --profiles-dir .\profiles --profile-path-contains family\
+media-manager workflow profile-run-dir --profiles-dir .\profiles --profile-name-contains cleanup --only-valid
+```
+
+`--profile-path-contains` is path-normalized. Slash and backslash variants are treated the same so the filter stays usable on Windows.
 
 ## Profile bundles
 
@@ -96,6 +112,34 @@ media-manager workflow profile-bundle-list-dir --bundles-dir .\bundles
 media-manager workflow profile-bundle-audit-dir --bundles-dir .\bundles
 media-manager workflow profile-bundle-run-dir --bundles-dir .\bundles --only-clean-bundles
 ```
+
+### Bundle selection filters
+
+Bundle-oriented commands support the same kind of narrowing at the bundle layer.
+
+Examples:
+
+```powershell
+media-manager workflow profile-bundle-write .\bundles\family.json --profiles-dir .\profiles --profile-name-contains family --profile-path-contains family\
+media-manager workflow profile-bundle-show .\bundles\profiles.json --relative-path-contains trips\
+media-manager workflow profile-bundle-list-dir --bundles-dir .\bundles --profile-name-contains family
+```
+
+Useful filters:
+
+- `--workflow <NAME>`
+- `--preset <NAME>`
+- `--profile-name-contains <TEXT>`
+- `--relative-path-contains <TEXT>`
+- `--only-valid`
+- `--only-invalid`
+- `--only-clean-bundles`
+- `--only-problematic-bundles`
+- `--show-command`
+- `--summary-only`
+- `--continue-on-error`
+- `--fail-on-empty`
+- `--json`
 
 ## History
 

@@ -67,6 +67,48 @@ media-manager workflow profile-bundle-compare .\bundles\before.json .\bundles\af
 media-manager workflow profile-bundle-sync .\bundles\profiles.json --target-dir .\profiles-restored --apply
 ```
 
+## Selection filters for large collections
+
+Once profile collections get larger, workflow/preset filters alone are often not enough.
+
+The workflow CLI now supports two additional narrowing layers:
+
+### Profile directory filters
+
+- `--profile-name-contains <TEXT>`
+- `--profile-path-contains <TEXT>`
+
+Examples:
+
+```powershell
+media-manager workflow profile-list --profiles-dir .\profiles --profile-name-contains family
+media-manager workflow profile-audit --profiles-dir .\profiles --profile-path-contains trips\
+media-manager workflow profile-run-dir --profiles-dir .\profiles --profile-name-contains cleanup --only-valid
+```
+
+### Bundle filters
+
+- `--profile-name-contains <TEXT>`
+- `--relative-path-contains <TEXT>`
+
+Examples:
+
+```powershell
+media-manager workflow profile-bundle-show .\bundles\profiles.json --relative-path-contains family\
+media-manager workflow profile-bundle-run .\bundles\profiles.json --profile-name-contains trip --only-valid
+media-manager workflow profile-bundle-list-dir --bundles-dir .\bundles --profile-name-contains family
+```
+
+### Important path note
+
+Path-based filters are normalized so slash and backslash variants are treated the same.
+
+That matters on Windows because:
+
+- stored relative bundle paths should remain portable slash-style paths
+- local filesystem paths may still be represented with backslashes
+- users should not need to remember which separator form a command expects
+
 ## Safety expectations
 
 The current direction is review-first, not blind mass execution.
