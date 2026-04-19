@@ -81,7 +81,68 @@ def summarize_history_file(path: str | Path) -> WorkflowHistoryEntry | None:
     return None
 
 
-def scan_history_directory(root_path: str | Path) -> list[WorkflowHistoryEntry]:
+def filter_history_entries(
+    entries: list[WorkflowHistoryEntry],
+    *,
+    command_name: str | None = None,
+    record_type: str | None = None,
+    only_successful: bool = False,
+    only_failed: bool = False,
+    only_apply_requested: bool = False,
+    only_preview: bool = False,
+    has_reversible_entries: bool | None = None,
+    min_entry_count: int | None = None,
+    min_reversible_entry_count: int | None = None,
+) -> list[WorkflowHistoryEntry]:
+    filtered = list(entries)
+
+    if command_name:
+        normalized = command_name.strip().lower()
+        filtered = [item for item in filtered if item.command_name.strip().lower() == normalized]
+
+    if record_type:
+        normalized = record_type.strip().lower()
+        filtered = [item for item in filtered if item.record_type.strip().lower() == normalized]
+
+    if only_successful and not only_failed:
+        filtered = [item for item in filtered if item.successful]
+    elif only_failed and not only_successful:
+        filtered = [item for item in filtered if not item.successful]
+
+    if only_apply_requested and not only_preview:
+        filtered = [item for item in filtered if item.apply_requested]
+    elif only_preview and not only_apply_requested:
+        filtered = [item for item in filtered if not item.apply_requested]
+
+    if has_reversible_entries is True:
+        filtered = [item for item in filtered if item.has_reversible_entries]
+    elif has_reversible_entries is False:
+        filtered = [item for item in filtered if not item.has_reversible_entries]
+
+    if min_entry_count is not None:
+        threshold = max(0, int(min_entry_count))
+        filtered = [item for item in filtered if item.entry_count >= threshold]
+
+    if min_reversible_entry_count is not None:
+        threshold = max(0, int(min_reversible_entry_count))
+        filtered = [item for item in filtered if item.reversible_entry_count >= threshold]
+
+    return filtered
+
+
+def scan_history_directory(
+    root_path: str | Path,
+    *,
+    command_name: str | None = None,
+    record_type: str | None = None,
+    only_successful: bool = False,
+    only_failed: bool = False,
+    only_apply_requested: bool = False,
+    only_preview: bool = False,
+    has_reversible_entries: bool | None = None,
+    min_entry_count: int | None = None,
+    min_reversible_entry_count: int | None = None,
+) -> list[WorkflowHistoryEntry]:
     root = Path(root_path)
     if not root.exists() or not root.is_dir():
         return []
@@ -99,23 +160,46 @@ def scan_history_directory(root_path: str | Path) -> list[WorkflowHistoryEntry]:
         ),
         reverse=True,
     )
-    return entries
+    return filter_history_entries(
+        entries,
+        command_name=command_name,
+        record_type=record_type,
+        only_successful=only_successful,
+        only_failed=only_failed,
+        only_apply_requested=only_apply_requested,
+        only_preview=only_preview,
+        has_reversible_entries=has_reversible_entries,
+        min_entry_count=min_entry_count,
+        min_reversible_entry_count=min_reversible_entry_count,
+    )
 
 
 def find_latest_history_entry(
     root_path: str | Path,
     *,
     command_name: str | None = None,
+    record_type: str | None = None,
+    only_successful: bool = False,
+    only_failed: bool = False,
+    only_apply_requested: bool = False,
+    only_preview: bool = False,
+    has_reversible_entries: bool | None = None,
+    min_entry_count: int | None = None,
+    min_reversible_entry_count: int | None = None,
 ) -> WorkflowHistoryEntry | None:
-    entries = scan_history_directory(root_path)
-    if command_name is None:
-        return entries[0] if entries else None
-
-    normalized = command_name.strip().lower()
-    for entry in entries:
-        if entry.command_name.strip().lower() == normalized:
-            return entry
-    return None
+    entries = scan_history_directory(
+        root_path,
+        command_name=command_name,
+        record_type=record_type,
+        only_successful=only_successful,
+        only_failed=only_failed,
+        only_apply_requested=only_apply_requested,
+        only_preview=only_preview,
+        has_reversible_entries=has_reversible_entries,
+        min_entry_count=min_entry_count,
+        min_reversible_entry_count=min_reversible_entry_count,
+    )
+    return entries[0] if entries else None
 
 
 def build_history_summary(entries: list[WorkflowHistoryEntry]) -> dict[str, object]:

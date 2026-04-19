@@ -157,3 +157,26 @@ media-manager workflow last --path .\runs --command organize
 - English is the primary language for CLI output and JSON fields.
 - Prefer preview/review flows before destructive apply modes.
 - The workflow layer is meant to make the lower-level CLI more repeatable, not to hide it completely.
+
+## History audit filters
+
+The history commands now support stronger audit-style filtering.
+
+```powershell
+media-manager workflow history --path .\runs --command organize --record-type run_log --only-failed
+media-manager workflow history --path .\runs --only-apply --has-reversible-entries --min-entry-count 10 --summary-only
+media-manager workflow last --path .\runs --command trip --record-type execution_journal --only-successful
+```
+
+Useful history filters:
+
+- `--record-type <run_log|execution_journal>`
+- `--only-successful`
+- `--only-failed`
+- `--only-apply`
+- `--only-preview`
+- `--has-reversible-entries`
+- `--min-entry-count <N>`
+- `--min-reversible-entry-count <N>`
+- `--summary-only` on `history`
+- `--fail-on-empty` on `history`

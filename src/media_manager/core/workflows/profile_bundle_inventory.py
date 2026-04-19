@@ -82,6 +82,8 @@ def scan_workflow_profile_bundle_inventory(
     *,
     workflow_name: str | None = None,
     preset_name: str | None = None,
+    profile_name_contains: str | None = None,
+    relative_path_contains: str | None = None,
     only_valid: bool = False,
     only_invalid: bool = False,
 ) -> list[WorkflowProfileBundleRecord]:
@@ -97,6 +99,8 @@ def scan_workflow_profile_bundle_inventory(
                 bundle,
                 workflow_name=workflow_name,
                 preset_name=preset_name,
+                profile_name_contains=profile_name_contains,
+                relative_path_contains=relative_path_contains,
                 only_valid=only_valid,
                 only_invalid=only_invalid,
             )
@@ -201,6 +205,8 @@ def build_workflow_profile_bundle_inventory(
     *,
     workflow_name: str | None = None,
     preset_name: str | None = None,
+    profile_name_contains: str | None = None,
+    relative_path_contains: str | None = None,
     only_valid: bool = False,
     only_invalid: bool = False,
     bundle_name: str | None = None,
@@ -211,6 +217,8 @@ def build_workflow_profile_bundle_inventory(
         bundles_dir,
         workflow_name=workflow_name,
         preset_name=preset_name,
+        profile_name_contains=profile_name_contains,
+        relative_path_contains=relative_path_contains,
         only_valid=only_valid,
         only_invalid=only_invalid,
     )

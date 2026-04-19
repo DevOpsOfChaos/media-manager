@@ -65,6 +65,40 @@ def _invalid_record(file_path: Path, message: str) -> WorkflowProfileRecord:
     )
 
 
+def _contains_case_insensitive(value: str | None, needle: str | None) -> bool:
+    if not needle:
+        return True
+    if not value:
+        return False
+    return needle.strip().lower() in value.strip().lower()
+
+
+def _matches_profile_name(record: WorkflowProfileRecord, profile_name_contains: str | None) -> bool:
+    if not profile_name_contains:
+        return True
+    candidates = (
+        record.profile_name,
+        record.title,
+        record.name,
+    )
+    normalized = profile_name_contains.strip().lower()
+    return any(candidate and normalized in candidate.strip().lower() for candidate in candidates)
+
+
+def _normalize_path_match_text(value: str | None) -> str:
+    if not value:
+        return ""
+    return value.strip().replace("\\", "/").lower()
+
+
+def _matches_profile_path(record: WorkflowProfileRecord, profile_path_contains: str | None) -> bool:
+    needle = _normalize_path_match_text(profile_path_contains)
+    if not needle:
+        return True
+    haystack = _normalize_path_match_text(str(record.profile_path))
+    return needle in haystack
+
+
 def scan_workflow_profile_inventory(profiles_dir: str | Path) -> list[WorkflowProfileRecord]:
     base_path = Path(profiles_dir)
     if not base_path.exists() or not base_path.is_dir():
@@ -99,6 +133,8 @@ def filter_workflow_profile_records(
     *,
     workflow_name: str | None = None,
     preset_name: str | None = None,
+    profile_name_contains: str | None = None,
+    profile_path_contains: str | None = None,
     only_valid: bool = False,
     only_invalid: bool = False,
 ) -> list[WorkflowProfileRecord]:
@@ -115,6 +151,12 @@ def filter_workflow_profile_records(
             for item in filtered
             if (item.preset_name or "").strip().lower() == normalized
         ]
+
+    if profile_name_contains:
+        filtered = [item for item in filtered if _matches_profile_name(item, profile_name_contains)]
+
+    if profile_path_contains:
+        filtered = [item for item in filtered if _matches_profile_path(item, profile_path_contains)]
 
     if only_valid and not only_invalid:
         filtered = [item for item in filtered if item.valid]
@@ -157,6 +199,8 @@ def build_workflow_profile_inventory(
     *,
     workflow_name: str | None = None,
     preset_name: str | None = None,
+    profile_name_contains: str | None = None,
+    profile_path_contains: str | None = None,
     only_valid: bool = False,
     only_invalid: bool = False,
 ) -> WorkflowProfileInventory:
@@ -165,6 +209,8 @@ def build_workflow_profile_inventory(
         records,
         workflow_name=workflow_name,
         preset_name=preset_name,
+        profile_name_contains=profile_name_contains,
+        profile_path_contains=profile_path_contains,
         only_valid=only_valid,
         only_invalid=only_invalid,
     )
