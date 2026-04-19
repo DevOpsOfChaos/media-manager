@@ -67,6 +67,80 @@ def _get_relative_path_contains(args: argparse.Namespace) -> str | None:
     return getattr(args, "relative_path_contains", None)
 
 
+def _get_history_has_reversible_entries(args: argparse.Namespace) -> bool | None:
+    return True if getattr(args, "has_reversible_entries", False) else None
+
+
+def _add_history_filter_arguments(
+    parser: argparse.ArgumentParser,
+    *,
+    include_summary_only: bool = False,
+    include_fail_on_empty: bool = False,
+) -> None:
+    parser.add_argument("--command", help="Optional command name filter, for example organize or rename.")
+    parser.add_argument("--record-type", choices=["run_log", "execution_journal"], help="Optional history record type filter.")
+    parser.add_argument("--only-successful", action="store_true", help="Only include successful history entries.")
+    parser.add_argument("--only-failed", action="store_true", help="Only include failed history entries.")
+    parser.add_argument("--only-apply", action="store_true", help="Only include history entries where apply mode was requested.")
+    parser.add_argument("--only-preview", action="store_true", help="Only include preview-only history entries.")
+    parser.add_argument("--has-reversible-entries", action="store_true", help="Only include history entries that contain reversible actions.")
+    parser.add_argument("--min-entry-count", type=int, help="Only include history entries with at least this many total entries.")
+    parser.add_argument("--min-reversible-entry-count", type=int, help="Only include history entries with at least this many reversible entries.")
+    if include_summary_only:
+        parser.add_argument("--summary-only", action="store_true", help="Only print or return the summary block.")
+    if include_fail_on_empty:
+        parser.add_argument("--fail-on-empty", action="store_true", help="Return exit code 1 when no matching history entries are found.")
+
+
+def _build_history_filter_kwargs(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "command_name": getattr(args, "command", None),
+        "record_type": getattr(args, "record_type", None),
+        "only_successful": bool(getattr(args, "only_successful", False)),
+        "only_failed": bool(getattr(args, "only_failed", False)),
+        "only_apply_requested": bool(getattr(args, "only_apply", False)),
+        "only_preview": bool(getattr(args, "only_preview", False)),
+        "has_reversible_entries": _get_history_has_reversible_entries(args),
+        "min_entry_count": getattr(args, "min_entry_count", None),
+        "min_reversible_entry_count": getattr(args, "min_reversible_entry_count", None),
+    }
+
+
+def _build_history_filter_payload(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "command_filter": getattr(args, "command", None),
+        "record_type_filter": getattr(args, "record_type", None),
+        "only_successful": bool(getattr(args, "only_successful", False)),
+        "only_failed": bool(getattr(args, "only_failed", False)),
+        "only_apply_requested": bool(getattr(args, "only_apply", False)),
+        "only_preview": bool(getattr(args, "only_preview", False)),
+        "has_reversible_entries": _get_history_has_reversible_entries(args),
+        "min_entry_count": getattr(args, "min_entry_count", None),
+        "min_reversible_entry_count": getattr(args, "min_reversible_entry_count", None),
+    }
+
+
+def _append_history_filter_lines(lines: list[str], args: argparse.Namespace) -> None:
+    if getattr(args, "command", None):
+        lines.append(f"  Command filter: {args.command}")
+    if getattr(args, "record_type", None):
+        lines.append(f"  Record type filter: {args.record_type}")
+    if getattr(args, "only_successful", False):
+        lines.append("  Success filter: only successful")
+    elif getattr(args, "only_failed", False):
+        lines.append("  Success filter: only failed")
+    if getattr(args, "only_apply", False):
+        lines.append("  Mode filter: apply requested only")
+    elif getattr(args, "only_preview", False):
+        lines.append("  Mode filter: preview only")
+    if getattr(args, "has_reversible_entries", False):
+        lines.append("  Reversible filter: requires reversible entries")
+    if getattr(args, "min_entry_count", None) is not None:
+        lines.append(f"  Minimum entry count: {args.min_entry_count}")
+    if getattr(args, "min_reversible_entry_count", None) is not None:
+        lines.append(f"  Minimum reversible entry count: {args.min_reversible_entry_count}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager workflow",
@@ -100,12 +174,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     history_parser = subparsers.add_parser("history", help="List workflow run logs and execution journals from a directory.")
     history_parser.add_argument("--path", type=Path, required=True, help="Directory to scan for run logs and journals.")
-    history_parser.add_argument("--command", help="Optional command name filter, for example organize or rename.")
+    _add_history_filter_arguments(history_parser, include_summary_only=True, include_fail_on_empty=True)
     history_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
     last_parser = subparsers.add_parser("last", help="Show the newest matching workflow history entry.")
     last_parser.add_argument("--path", type=Path, required=True, help="Directory to scan for run logs and journals.")
-    last_parser.add_argument("--command", help="Optional command name filter, for example organize or rename.")
+    _add_history_filter_arguments(last_parser)
     last_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
     presets_parser = subparsers.add_parser("presets", help="List built-in workflow presets.")
@@ -582,86 +656,104 @@ def _print_wizard_result(args: argparse.Namespace) -> int:
     return 0
 
 
-def _filter_history_entries(entries, command_name: str | None):
-    if command_name is None:
-        return list(entries)
-    normalized = command_name.strip().lower()
-    return [entry for entry in entries if entry.command_name.strip().lower() == normalized]
-
-
-def _print_history(path: Path, command_name: str | None, as_json: bool) -> int:
-    entries = scan_history_directory(path)
-    filtered_entries = _filter_history_entries(entries, command_name)
+def _print_history(args: argparse.Namespace) -> int:
+    filter_kwargs = _build_history_filter_kwargs(args)
+    filter_payload = _build_history_filter_payload(args)
+    filtered_entries = scan_history_directory(args.path, **filter_kwargs)
     summary = build_history_summary(filtered_entries)
     payload = {
-        "command_filter": command_name,
+        "path": str(args.path),
+        **filter_payload,
+        "summary_only": bool(getattr(args, "summary_only", False)),
         "summary": summary,
-        "entries": [_history_payload(item) for item in filtered_entries],
+        "entries": [] if getattr(args, "summary_only", False) else [_history_payload(item) for item in filtered_entries],
     }
-    if as_json:
+    exit_code = 1 if getattr(args, "fail_on_empty", False) and not filtered_entries else 0
+    if args.json:
         print(json.dumps(payload, indent=2, ensure_ascii=False))
-        return 0
+        return exit_code
 
-    print(f"Workflow history in {path}")
-    if command_name:
-        print(f"  Command filter: {command_name}")
-    print(f"  Total entries: {summary['entry_count']}")
-    print(f"  Successful: {summary['successful_count']}")
-    print(f"  Failed: {summary['failed_count']}")
-    print(f"  Reversible entries: {summary['reversible_entry_count']}")
-    print(f"  Entries with reversible actions: {summary['entries_with_reversible_count']}")
+    lines = [f"Workflow history in {args.path}"]
+    _append_history_filter_lines(lines, args)
+    lines.extend([
+        f"  Total entries: {summary['entry_count']}",
+        f"  Successful: {summary['successful_count']}",
+        f"  Failed: {summary['failed_count']}",
+        f"  Reversible entries: {summary['reversible_entry_count']}",
+        f"  Entries with reversible actions: {summary['entries_with_reversible_count']}",
+    ])
     if summary["latest_created_at_utc"]:
-        print(f"  Latest: {summary['latest_created_at_utc']}")
+        lines.append(f"  Latest: {summary['latest_created_at_utc']}")
     if summary["apply_summary"]:
         apply_text = ", ".join(f"{key}={value}" for key, value in summary["apply_summary"].items())
-        print(f"  Apply modes: {apply_text}")
+        lines.append(f"  Apply modes: {apply_text}")
     if summary["exit_code_summary"]:
         exit_text = ", ".join(f"{key}={value}" for key, value in summary["exit_code_summary"].items())
-        print(f"  Exit codes: {exit_text}")
+        lines.append(f"  Exit codes: {exit_text}")
     if not filtered_entries:
-        print("  No recognized run logs or execution journals found.")
-        return 0
+        lines.append("  No recognized run logs or execution journals found.")
+        print("\n".join(lines))
+        return exit_code
     if summary["command_summary"]:
         command_text = ", ".join(f"{key}={value}" for key, value in summary["command_summary"].items())
-        print(f"  Commands: {command_text}")
+        lines.append(f"  Commands: {command_text}")
     if summary["record_type_summary"]:
         record_text = ", ".join(f"{key}={value}" for key, value in summary["record_type_summary"].items())
-        print(f"  Record types: {record_text}")
+        lines.append(f"  Record types: {record_text}")
+    if getattr(args, "summary_only", False):
+        print("\n".join(lines))
+        return exit_code
     for item in filtered_entries:
-        print(
+        lines.append(
             f"  - [{item.record_type}] {item.command_name} | apply={item.apply_requested} | "
             f"exit={item.exit_code} | entries={item.entry_count} | created={item.created_at_utc}"
         )
-        print(f"    {item.path}")
-    return 0
+        lines.append(f"    {item.path}")
+    print("\n".join(lines))
+    return exit_code
 
 
-def _print_last_history(path: Path, command_name: str | None, as_json: bool) -> int:
-    entry = find_latest_history_entry(path, command_name=command_name)
+def _print_last_history(args: argparse.Namespace) -> int:
+    filter_kwargs = _build_history_filter_kwargs(args)
+    filter_payload = _build_history_filter_payload(args)
+    entry = find_latest_history_entry(args.path, **filter_kwargs)
+    exit_code = 0
     if entry is None:
-        if as_json:
-            print(json.dumps({"entry": None}, indent=2, ensure_ascii=False))
+        exit_code = 1
+        if args.json:
+            print(json.dumps({"path": str(args.path), **filter_payload, "entry": None}, indent=2, ensure_ascii=False))
         else:
-            label = f" for command '{command_name}'" if command_name else ""
-            print(f"No recognized workflow history entry found{label}.")
-        return 1
+            lines = ["No recognized workflow history entry found."]
+            _append_history_filter_lines(lines, args)
+            print("\n".join(lines))
+        return exit_code
 
-    payload = _history_payload(entry)
-    if as_json:
+    entry_payload = _history_payload(entry)
+    payload = dict(entry_payload)
+    payload["path"] = str(args.path)
+    payload["entry"] = entry_payload
+    payload["entry_path"] = entry_payload.get("path")
+    payload.update(filter_payload)
+    payload["history_root_path"] = str(args.path)
+    if args.json:
         print(json.dumps(payload, indent=2, ensure_ascii=False))
         return 0
 
-    print("Latest workflow history entry")
-    print(f"  Type: {entry.record_type}")
-    print(f"  Command: {entry.command_name}")
-    print(f"  Apply requested: {entry.apply_requested}")
-    print(f"  Exit code: {entry.exit_code}")
-    print(f"  Entry count: {entry.entry_count}")
-    print(f"  Reversible entries: {entry.reversible_entry_count}")
-    print(f"  Successful: {entry.successful}")
-    print(f"  Has reversible entries: {entry.has_reversible_entries}")
-    print(f"  Created: {entry.created_at_utc}")
-    print(f"  Path: {entry.path}")
+    lines = ["Latest workflow history entry"]
+    _append_history_filter_lines(lines, args)
+    lines.extend([
+        f"  Type: {entry.record_type}",
+        f"  Command: {entry.command_name}",
+        f"  Apply requested: {entry.apply_requested}",
+        f"  Exit code: {entry.exit_code}",
+        f"  Entry count: {entry.entry_count}",
+        f"  Reversible entries: {entry.reversible_entry_count}",
+        f"  Successful: {entry.successful}",
+        f"  Has reversible entries: {entry.has_reversible_entries}",
+        f"  Created: {entry.created_at_utc}",
+        f"  Path: {entry.path}",
+    ])
+    print("\n".join(lines))
     return 0
 
 
@@ -2089,8 +2181,9 @@ def main(argv: list[str] | None = None) -> int:
             "  media-manager workflow profile-run <PROFILE.json> --show-command\n"
             "  media-manager workflow profile-run-dir --profiles-dir <PROFILES_DIR> --only-valid\n"
             "  media-manager workflow history --path <RUNS_DIR>\n"
-            "  media-manager workflow history --path <RUNS_DIR> --command organize\n"
-            "  media-manager workflow last --path <RUNS_DIR> --command organize\n"
+            "  media-manager workflow history --path <RUNS_DIR> --command organize --only-failed --record-type run_log\n"
+            "  media-manager workflow history --path <RUNS_DIR> --only-apply --has-reversible-entries --summary-only\n"
+            "  media-manager workflow last --path <RUNS_DIR> --command organize --only-successful --record-type execution_journal\n"
             "  media-manager workflow run cleanup --source <A> --source <B> --target <TARGET>\n"
         )
         return 0
@@ -2106,9 +2199,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.workflow_command == "wizard":
         return _print_wizard_result(args)
     if args.workflow_command == "history":
-        return _print_history(args.path, args.command, args.json)
+        return _print_history(args)
     if args.workflow_command == "last":
-        return _print_last_history(args.path, args.command, args.json)
+        return _print_last_history(args)
     if args.workflow_command == "presets":
         return _print_presets(args.json)
     if args.workflow_command == "preset-show":
