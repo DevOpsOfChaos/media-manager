@@ -55,6 +55,16 @@ from .presets import (
     save_workflow_profile,
     validate_workflow_profile,
 )
+from .profile_bundle import (
+    WorkflowProfileBundle,
+    WorkflowProfileBundleItem,
+    WorkflowProfileBundleSummary,
+    build_workflow_profile_bundle,
+    build_workflow_profile_bundle_items,
+    build_workflow_profile_bundle_summary,
+    load_workflow_profile_bundle,
+    write_workflow_profile_bundle,
+)
 from .profile_inventory import (
     WorkflowProfileInventory,
     WorkflowProfileRecord,
@@ -119,6 +129,14 @@ __all__ = [
     "filter_workflow_profile_records",
     "summarize_workflow_profile_records",
     "build_workflow_profile_inventory",
+    "WorkflowProfileBundleItem",
+    "WorkflowProfileBundleSummary",
+    "WorkflowProfileBundle",
+    "build_workflow_profile_bundle_items",
+    "build_workflow_profile_bundle_summary",
+    "build_workflow_profile_bundle",
+    "write_workflow_profile_bundle",
+    "load_workflow_profile_bundle",
     "WorkflowCommandSuggestion",
     "WorkflowWizardResult",
     "build_workflow_wizard_result",
