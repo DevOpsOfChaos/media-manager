@@ -127,6 +127,12 @@ def build_parser() -> argparse.ArgumentParser:
     profile_audit_parser.add_argument("--fail-on-empty", action="store_true", help="Return exit code 1 when no matching profiles are found.")
     profile_audit_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
+    profile_run_dir_parser = subparsers.add_parser("profile-run-dir", help="Run all matching valid workflow profiles from a directory.")
+    _add_profile_directory_arguments(profile_run_dir_parser, include_summary_only=False)
+    profile_run_dir_parser.add_argument("--continue-on-error", action="store_true", help="Keep running later matching profiles after one delegated workflow returns a non-zero exit code.")
+    profile_run_dir_parser.add_argument("--fail-on-empty", action="store_true", help="Return exit code 1 when no matching profiles are found.")
+    profile_run_dir_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
     run_parser = subparsers.add_parser("run", help="Run a workflow through the shell.")
     run_parser.add_argument("workflow", help="Workflow name to run.")
     run_parser.add_argument("args", nargs=argparse.REMAINDER, help="Arguments forwarded to the delegated workflow.")
@@ -150,14 +156,21 @@ def _add_preset_override_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--show-plan", action="store_true", help="Enable duplicate plan output when the preset supports it.")
 
 
-def _add_profile_directory_arguments(parser: argparse.ArgumentParser) -> None:
+def _add_profile_directory_arguments(
+    parser: argparse.ArgumentParser,
+    *,
+    include_show_command: bool = True,
+    include_summary_only: bool = True,
+) -> None:
     parser.add_argument("--profiles-dir", type=Path, required=True, help="Directory containing workflow profile JSON files.")
     parser.add_argument("--workflow", help="Optional workflow filter, for example cleanup or trip.")
     parser.add_argument("--preset", help="Optional preset filter, for example cleanup-family-library.")
     parser.add_argument("--only-valid", action="store_true", help="Only include valid profiles.")
     parser.add_argument("--only-invalid", action="store_true", help="Only include invalid profiles.")
-    parser.add_argument("--show-command", action="store_true", help="Include rendered command previews in text output.")
-    parser.add_argument("--summary-only", action="store_true", help="Only print or return the summary block.")
+    if include_show_command:
+        parser.add_argument("--show-command", action="store_true", help="Include rendered command previews in text output.")
+    if include_summary_only:
+        parser.add_argument("--summary-only", action="store_true", help="Only print or return the summary block.")
 
 
 def _workflow_payload(item) -> dict[str, str]:
@@ -232,7 +245,6 @@ def _profile_validation_payload(validation) -> dict[str, object]:
         "command": validation.command_preview,
         "problems": list(validation.problems),
     }
-
 
 
 def _profile_record_payload(item) -> dict[str, object]:
@@ -612,7 +624,6 @@ def _print_profile_save(args: argparse.Namespace) -> int:
     return 0
 
 
-
 def _build_profile_directory_payload(args: argparse.Namespace) -> dict[str, object]:
     inventory = build_workflow_profile_inventory(
         args.profiles_dir,
@@ -734,6 +745,176 @@ def _print_profile_audit(args: argparse.Namespace) -> int:
     return exit_code
 
 
+def _build_profile_run_payload(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
+    inventory = build_workflow_profile_inventory(
+        args.profiles_dir,
+        workflow_name=args.workflow,
+        preset_name=args.preset,
+        only_valid=args.only_valid,
+        only_invalid=args.only_invalid,
+    )
+    records = list(inventory.records)
+    selected_summary = inventory.build_summary()
+    payload: dict[str, object] = {
+        "profiles_dir": str(args.profiles_dir),
+        "workflow_filter": args.workflow,
+        "preset_filter": args.preset,
+        "continue_on_error": bool(args.continue_on_error),
+        "show_command": bool(args.show_command),
+        "fail_on_empty": bool(args.fail_on_empty),
+        "summary": {
+            "selected_count": selected_summary["profile_count"],
+            "valid_count": selected_summary["valid_count"],
+            "invalid_count": selected_summary["invalid_count"],
+            "workflow_summary": selected_summary["workflow_summary"],
+            "preset_summary": selected_summary["preset_summary"],
+            "problem_summary": selected_summary["problem_summary"],
+            "executed_count": 0,
+            "succeeded_count": 0,
+            "failed_count": 0,
+            "stopped_after_error": False,
+            "exit_code_summary": {},
+        },
+        "runs": [],
+    }
+
+    if not records:
+        exit_code = 1 if args.fail_on_empty else 0
+        return exit_code, payload
+
+    invalid_records = [item for item in records if not item.valid]
+    if invalid_records:
+        payload["runs"] = [
+            {
+                **_profile_record_payload(item),
+                "delegated": False,
+                "exit_code": None,
+                "status": "invalid",
+            }
+            for item in invalid_records
+        ]
+        return 1, payload
+
+    run_results: list[dict[str, object]] = []
+    exit_code_summary: dict[str, int] = {}
+    executed_count = 0
+    succeeded_count = 0
+    failed_count = 0
+    stopped_after_error = False
+
+    for item in records:
+        profile = load_workflow_profile(item.profile_path)
+        validation = validate_workflow_profile(profile)
+        run_payload = {
+            **_profile_record_payload(item),
+            "delegated": False,
+            "exit_code": None,
+            "status": "pending",
+            "command_preview": validation.command_preview,
+            "problems": list(validation.problems),
+        }
+
+        if not validation.valid or not validation.command_argv or validation.workflow_name is None:
+            run_payload["status"] = "invalid"
+            run_results.append(run_payload)
+            failed_count += 1
+            stopped_after_error = True
+            break
+
+        delegated_exit_code = int(_run_delegated_workflow(validation.workflow_name, list(validation.command_argv[4:])))
+        run_payload["delegated"] = True
+        run_payload["exit_code"] = delegated_exit_code
+        run_payload["status"] = "ok" if delegated_exit_code == 0 else "error"
+        run_results.append(run_payload)
+
+        executed_count += 1
+        exit_code_key = str(delegated_exit_code)
+        exit_code_summary[exit_code_key] = exit_code_summary.get(exit_code_key, 0) + 1
+        if delegated_exit_code == 0:
+            succeeded_count += 1
+        else:
+            failed_count += 1
+            if not args.continue_on_error:
+                stopped_after_error = True
+                break
+
+    payload["runs"] = run_results
+    payload["summary"]["executed_count"] = executed_count
+    payload["summary"]["succeeded_count"] = succeeded_count
+    payload["summary"]["failed_count"] = failed_count
+    payload["summary"]["stopped_after_error"] = stopped_after_error
+    payload["summary"]["exit_code_summary"] = dict(sorted(exit_code_summary.items()))
+
+    return (1 if failed_count > 0 else 0), payload
+
+
+def _print_profile_run_dir(args: argparse.Namespace) -> int:
+    exit_code, payload = _build_profile_run_payload(args)
+    if args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return exit_code
+
+    summary = payload["summary"]
+    print(f"Workflow profile run in {args.profiles_dir}")
+    if args.workflow:
+        print(f"  Workflow filter: {args.workflow}")
+    if args.preset:
+        print(f"  Preset filter: {args.preset}")
+    print(f"  Selected profiles: {summary['selected_count']}")
+    print(f"  Valid: {summary['valid_count']}")
+    print(f"  Invalid: {summary['invalid_count']}")
+    print(f"  Executed: {summary['executed_count']}")
+    print(f"  Succeeded: {summary['succeeded_count']}")
+    print(f"  Failed: {summary['failed_count']}")
+
+    if summary["workflow_summary"]:
+        workflow_text = ", ".join(f"{key}={value}" for key, value in summary["workflow_summary"].items())
+        print(f"  Workflows: {workflow_text}")
+    if summary["preset_summary"]:
+        preset_text = ", ".join(f"{key}={value}" for key, value in summary["preset_summary"].items())
+        print(f"  Presets: {preset_text}")
+    if summary["problem_summary"]:
+        problem_text = ", ".join(f"{key}={value}" for key, value in summary["problem_summary"].items())
+        print(f"  Problems: {problem_text}")
+
+    runs = list(payload["runs"])
+    if summary["selected_count"] == 0:
+        print("  No matching workflow profiles found.")
+        return exit_code
+
+    if summary["invalid_count"] > 0:
+        print("  Invalid matching profiles block execution.")
+        for item in runs:
+            title = item["profile_name"] or item["title"] or item["name"]
+            print(f"    - {title} | workflow={item['workflow_name']} | preset={item['preset_name']}")
+            if item["profile_path"]:
+                print(f"      {item['profile_path']}")
+            for problem in item["problems"]:
+                print(f"      - {problem}")
+        return exit_code
+
+    if not runs:
+        print("  No delegated workflow executions were recorded.")
+        return exit_code
+
+    print("  Run results:")
+    for item in runs:
+        title = item["profile_name"] or item["title"] or item["name"]
+        exit_text = "n/a" if item["exit_code"] is None else str(item["exit_code"])
+        print(f"    - [{item['status']}] {title} | workflow={item['workflow_name']} | preset={item['preset_name']} | exit={exit_text}")
+        if item["profile_path"]:
+            print(f"      {item['profile_path']}")
+        if args.show_command and item["command_preview"]:
+            print(f"      Command: {item['command_preview']}")
+
+    if summary["stopped_after_error"]:
+        print("  Execution stopped after the first delegated error.")
+    elif args.continue_on_error and summary["failed_count"] > 0:
+        print("  Execution continued after delegated errors.")
+
+    return exit_code
+
+
 def _run_workflow_profile(path: Path, show_command: bool) -> int:
     try:
         profile = load_workflow_profile(path)
@@ -788,6 +969,7 @@ def main(argv: list[str] | None = None) -> int:
             "  media-manager workflow profile-list --profiles-dir <PROFILES_DIR>\n"
             "  media-manager workflow profile-audit --profiles-dir <PROFILES_DIR>\n"
             "  media-manager workflow profile-run <PROFILE.json> --show-command\n"
+            "  media-manager workflow profile-run-dir --profiles-dir <PROFILES_DIR> --only-valid\n"
             "  media-manager workflow history --path <RUNS_DIR>\n"
             "  media-manager workflow history --path <RUNS_DIR> --command organize\n"
             "  media-manager workflow last --path <RUNS_DIR> --command organize\n"
@@ -827,6 +1009,8 @@ def main(argv: list[str] | None = None) -> int:
         return _print_profile_audit(args)
     if args.workflow_command == "profile-run":
         return _run_workflow_profile(args.path, args.show_command)
+    if args.workflow_command == "profile-run-dir":
+        return _print_profile_run_dir(args)
     if args.workflow_command == "run":
         return _run_delegated_workflow(args.workflow, list(args.args))
 

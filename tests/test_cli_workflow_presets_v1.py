@@ -208,157 +208,6 @@ def test_cli_workflow_profile_validate_reports_valid_profile(tmp_path: Path, cap
     assert payload["command"].startswith("media-manager workflow run cleanup")
 
 
-def test_cli_workflow_profile_list_json_summarizes_profiles(tmp_path: Path, capsys) -> None:
-    profiles_dir = tmp_path / "profiles"
-    profiles_dir.mkdir()
-
-    (profiles_dir / "cleanup.json").write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "profile_name": "Family cleanup",
-                "preset": "cleanup-family-library",
-                "values": {
-                    "source": ["C:/Photos", "D:/Phone"],
-                    "target": "E:/Library",
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-    (profiles_dir / "bad-duplicates.json").write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "profile_name": "Bad duplicates",
-                "preset": "duplicates-similar-review",
-                "values": {
-                    "source": ["C:/Photos"],
-                    "show_similar_review": True,
-                    "similar_images": False,
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    exit_code = main(["profile-list", "--profiles-dir", str(profiles_dir), "--json"])
-    captured = capsys.readouterr()
-
-    assert exit_code == 0
-    payload = json.loads(captured.out)
-    assert payload["summary"]["profile_count"] == 2
-    assert payload["summary"]["valid_count"] == 1
-    assert payload["summary"]["invalid_count"] == 1
-    assert any(item["profile_name"] == "Family cleanup" for item in payload["profiles"])
-    assert any(item["profile_name"] == "Bad duplicates" and item["valid"] is False for item in payload["profiles"])
-
-
-def test_cli_workflow_profile_list_can_filter_invalid_only(tmp_path: Path, capsys) -> None:
-    profiles_dir = tmp_path / "profiles"
-    profiles_dir.mkdir()
-
-    (profiles_dir / "cleanup.json").write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "profile_name": "Family cleanup",
-                "preset": "cleanup-family-library",
-                "values": {
-                    "source": ["C:/Photos", "D:/Phone"],
-                    "target": "E:/Library",
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-    (profiles_dir / "bad-duplicates.json").write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "profile_name": "Bad duplicates",
-                "preset": "duplicates-similar-review",
-                "values": {
-                    "source": ["C:/Photos"],
-                    "show_similar_review": True,
-                    "similar_images": False,
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    exit_code = main(["profile-list", "--profiles-dir", str(profiles_dir), "--only-invalid", "--json"])
-    captured = capsys.readouterr()
-
-    assert exit_code == 0
-    payload = json.loads(captured.out)
-    assert payload["summary"]["profile_count"] == 1
-    assert payload["summary"]["valid_count"] == 0
-    assert payload["summary"]["invalid_count"] == 1
-    assert [item["profile_name"] for item in payload["profiles"]] == ["Bad duplicates"]
-
-
-def test_cli_workflow_profile_audit_returns_nonzero_for_invalid_profiles(tmp_path: Path, capsys) -> None:
-    profiles_dir = tmp_path / "profiles"
-    profiles_dir.mkdir()
-
-    (profiles_dir / "bad-duplicates.json").write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "profile_name": "Bad duplicates",
-                "preset": "duplicates-similar-review",
-                "values": {
-                    "source": ["C:/Photos"],
-                    "show_similar_review": True,
-                    "similar_images": False,
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    exit_code = main(["profile-audit", "--profiles-dir", str(profiles_dir), "--json"])
-    captured = capsys.readouterr()
-
-    assert exit_code == 1
-    payload = json.loads(captured.out)
-    assert payload["summary"]["profile_count"] == 1
-    assert payload["summary"]["invalid_count"] == 1
-    assert payload["profiles"][0]["profile_name"] == "Bad duplicates"
-    assert payload["profiles"][0]["valid"] is False
-
-
-def test_cli_workflow_profile_audit_returns_zero_for_valid_profiles(tmp_path: Path, capsys) -> None:
-    profiles_dir = tmp_path / "profiles"
-    profiles_dir.mkdir()
-
-    (profiles_dir / "cleanup.json").write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "profile_name": "Family cleanup",
-                "preset": "cleanup-family-library",
-                "values": {
-                    "source": ["C:/Photos", "D:/Phone"],
-                    "target": "E:/Library",
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    exit_code = main(["profile-audit", "--profiles-dir", str(profiles_dir), "--json"])
-    captured = capsys.readouterr()
-
-    assert exit_code == 0
-    payload = json.loads(captured.out)
-    assert payload["summary"]["profile_count"] == 1
-    assert payload["summary"]["valid_count"] == 1
-    assert payload["summary"]["invalid_count"] == 0
-
-
 def test_cli_workflow_profile_run_delegates_to_trip_handler(tmp_path: Path, capsys, monkeypatch) -> None:
     profile_path = tmp_path / "trip-profile.json"
     profile_path.write_text(
@@ -435,25 +284,23 @@ def test_cli_workflow_profile_run_delegates_runtime_flags_from_profile_json(tmp_
     assert "--history-dir" in captured_args
 
 
-def test_cli_workflow_profile_list_summary_only_json_omits_profile_rows(tmp_path: Path, capsys) -> None:
+def test_cli_workflow_profile_list_summary_only_reports_counts(tmp_path: Path, capsys) -> None:
     profiles_dir = tmp_path / "profiles"
     profiles_dir.mkdir()
-
-    (profiles_dir / "cleanup.json").write_text(
+    (profiles_dir / "good.json").write_text(
         json.dumps(
             {
                 "schema_version": 1,
-                "profile_name": "Family cleanup",
-                "preset": "cleanup-family-library",
+                "profile_name": "Good duplicates",
+                "preset": "duplicates-similar-review",
                 "values": {
-                    "source": ["C:/Photos", "D:/Phone"],
-                    "target": "E:/Library",
+                    "source": ["C:/Photos"],
                 },
             }
         ),
         encoding="utf-8",
     )
-    (profiles_dir / "bad-duplicates.json").write_text(
+    (profiles_dir / "bad.json").write_text(
         json.dumps(
             {
                 "schema_version": 1,
@@ -475,44 +322,229 @@ def test_cli_workflow_profile_list_summary_only_json_omits_profile_rows(tmp_path
     assert exit_code == 0
     payload = json.loads(captured.out)
     assert payload["summary_only"] is True
-    assert payload["summary"]["profile_count"] == 2
-    assert payload["summary"]["invalid_count"] == 1
     assert payload["profiles"] == []
+    assert payload["summary"]["profile_count"] == 2
+    assert payload["summary"]["valid_count"] == 1
+    assert payload["summary"]["invalid_count"] == 1
 
 
-def test_cli_workflow_profile_list_show_command_in_text_mode(tmp_path: Path, capsys) -> None:
+def test_cli_workflow_profile_audit_fail_on_empty_returns_error(tmp_path: Path, capsys) -> None:
     profiles_dir = tmp_path / "profiles"
     profiles_dir.mkdir()
 
-    (profiles_dir / "cleanup.json").write_text(
+    exit_code = main(["profile-audit", "--profiles-dir", str(profiles_dir), "--fail-on-empty"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "No matching workflow profiles found." in captured.out
+
+
+def test_cli_workflow_profile_run_dir_runs_matching_valid_profiles(tmp_path: Path, capsys, monkeypatch) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "one.json").write_text(
         json.dumps(
             {
                 "schema_version": 1,
-                "profile_name": "Family cleanup",
-                "preset": "cleanup-family-library",
+                "profile_name": "Duplicates one",
+                "preset": "duplicates-similar-review",
+                "values": {"source": ["C:/One"]},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (profiles_dir / "two.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Duplicates two",
+                "preset": "duplicates-similar-review",
+                "values": {"source": ["C:/Two"]},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    captured_runs: list[list[str]] = []
+
+    def fake_duplicates_handler(args: list[str]) -> int:
+        captured_runs.append(list(args))
+        print("duplicates-run")
+        return 0
+
+    monkeypatch.setitem(DELEGATE_HANDLERS, "duplicates", fake_duplicates_handler)
+
+    exit_code = main(
+        [
+            "profile-run-dir",
+            "--profiles-dir",
+            str(profiles_dir),
+            "--workflow",
+            "duplicates",
+            "--show-command",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert len(captured_runs) == 2
+    assert captured.out.count("duplicates-run") == 2
+    assert "Executed: 2" in captured.out
+    assert "Succeeded: 2" in captured.out
+
+
+def test_cli_workflow_profile_run_dir_blocks_invalid_profiles_by_default(tmp_path: Path, capsys, monkeypatch) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "good.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Good duplicates",
+                "preset": "duplicates-similar-review",
+                "values": {"source": ["C:/Good"]},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (profiles_dir / "bad.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Bad duplicates",
+                "preset": "duplicates-similar-review",
                 "values": {
-                    "source": ["C:/Photos", "D:/Phone"],
-                    "target": "E:/Library",
+                    "source": ["C:/Bad"],
+                    "show_similar_review": True,
+                    "similar_images": False,
                 },
             }
         ),
         encoding="utf-8",
     )
 
-    exit_code = main(["profile-list", "--profiles-dir", str(profiles_dir), "--show-command"])
+    called = False
+
+    def fake_duplicates_handler(args: list[str]) -> int:
+        nonlocal called
+        called = True
+        return 0
+
+    monkeypatch.setitem(DELEGATE_HANDLERS, "duplicates", fake_duplicates_handler)
+
+    exit_code = main(["profile-run-dir", "--profiles-dir", str(profiles_dir)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert called is False
+    assert "Invalid matching profiles block execution." in captured.out
+    assert "Bad duplicates" in captured.out
+
+
+def test_cli_workflow_profile_run_dir_only_valid_skips_invalid_profiles(tmp_path: Path, capsys, monkeypatch) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    (profiles_dir / "good.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Good duplicates",
+                "preset": "duplicates-similar-review",
+                "values": {"source": ["C:/Good"]},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (profiles_dir / "bad.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Bad duplicates",
+                "preset": "duplicates-similar-review",
+                "values": {
+                    "source": ["C:/Bad"],
+                    "show_similar_review": True,
+                    "similar_images": False,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    captured_runs: list[list[str]] = []
+
+    def fake_duplicates_handler(args: list[str]) -> int:
+        captured_runs.append(list(args))
+        return 0
+
+    monkeypatch.setitem(DELEGATE_HANDLERS, "duplicates", fake_duplicates_handler)
+
+    exit_code = main(["profile-run-dir", "--profiles-dir", str(profiles_dir), "--only-valid"])
     captured = capsys.readouterr()
 
     assert exit_code == 0
-    assert "Command: media-manager workflow run cleanup" in captured.out
+    assert len(captured_runs) == 1
+    assert "Executed: 1" in captured.out
+    assert "Invalid: 0" in captured.out
 
 
-def test_cli_workflow_profile_audit_fail_on_empty_returns_nonzero(tmp_path: Path, capsys) -> None:
+def test_cli_workflow_profile_run_dir_continue_on_error_reports_json_summary(tmp_path: Path, capsys, monkeypatch) -> None:
     profiles_dir = tmp_path / "profiles"
     profiles_dir.mkdir()
+    (profiles_dir / "one.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Duplicates one",
+                "preset": "duplicates-similar-review",
+                "values": {"source": ["C:/One"]},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (profiles_dir / "two.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Duplicates two",
+                "preset": "duplicates-similar-review",
+                "values": {"source": ["C:/Two"]},
+            }
+        ),
+        encoding="utf-8",
+    )
 
-    exit_code = main(["profile-audit", "--profiles-dir", str(profiles_dir), "--fail-on-empty", "--json"])
+    def fake_duplicates_handler(args: list[str]) -> int:
+        source_index = args.index("--source") + 1
+        return 2 if args[source_index] == "C:/One" else 0
+
+    monkeypatch.setitem(DELEGATE_HANDLERS, "duplicates", fake_duplicates_handler)
+
+    exit_code = main(
+        [
+            "profile-run-dir",
+            "--profiles-dir",
+            str(profiles_dir),
+            "--continue-on-error",
+            "--json",
+        ]
+    )
     captured = capsys.readouterr()
 
     assert exit_code == 1
     payload = json.loads(captured.out)
-    assert payload["summary"]["profile_count"] == 0
+    assert payload["summary"]["executed_count"] == 2
+    assert payload["summary"]["succeeded_count"] == 1
+    assert payload["summary"]["failed_count"] == 1
+    assert payload["summary"]["exit_code_summary"] == {"0": 1, "2": 1}
+
+
+def test_cli_workflow_profile_run_dir_fail_on_empty_returns_error(tmp_path: Path, capsys) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+
+    exit_code = main(["profile-run-dir", "--profiles-dir", str(profiles_dir), "--fail-on-empty"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "No matching workflow profiles found." in captured.out
