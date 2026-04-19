@@ -1,67 +1,59 @@
-# Workflow history filtering and audit notes
+# Workflow history
 
-The workflow history layer can be used to inspect command run logs and execution journals after repeated CLI work.
+The workflow history layer is meant to support review, auditing, and repeatable reruns.
 
-## What history records capture
+## What counts as workflow history
 
-Recognized history records include:
+The current history helpers recognize two main record shapes:
 
-- run logs
+- command run logs
 - execution journals
 
-Each summarized history entry exposes:
+Both are normalized into `WorkflowHistoryEntry` records so they can be filtered and summarized together.
 
-- command name
-- whether apply mode was requested
-- exit code
-- created timestamp in UTC
-- total entry count
-- reversible entry count
+## Core filtering
 
-## New filter directions
+The core helpers now support more than simple command filtering.
 
-The core history helpers now support additive filtering for audit-focused workflows.
+Useful filters include:
 
-Examples of useful filters:
+- `command_name`
+- `record_type`
+- `only_successful`
+- `only_failed`
+- `only_apply_requested`
+- `only_preview`
+- `has_reversible_entries`
+- `min_entry_count`
+- `min_reversible_entry_count`
+- `created_at_after`
+- `created_at_before`
 
-- command name
-- record type
-- only successful runs
-- only failed runs
-- only apply-requested runs
-- only preview runs
-- require reversible entries
-- minimum total entry count
-- minimum reversible entry count
+That makes it easier to answer questions like:
 
-## Why this matters
+- What was the latest successful trip apply run this week?
+- Which execution journals in a date window still contain reversible entries?
+- Which runs in the last few days actually touched many planned items?
 
-This makes it easier to answer practical questions like:
+## Timestamp window behavior
 
-- show only failed duplicate preview runs
-- find the newest successful apply journal for organize
-- inspect only runs that actually produced reversible actions
-- focus on larger runs instead of one-file smoke tests
+`created_at_after` and `created_at_before` expect ISO-like timestamps.
 
-## Example audit questions
+Examples:
 
-- Which `organize` runs were successful and used apply mode?
-- What is the latest `trip` execution journal with reversible entries?
-- Which history records are preview-only failures?
-- Which runs had at least 10 planned or executed entries?
+- `2026-04-10T00:00:00+00:00`
+- `2026-04-10T12:30:00Z`
 
-## Intended next CLI use
+When a date-window filter is active, entries with invalid or missing timestamps are excluded from that filtered result.
 
-These helpers are designed so the workflow CLI can expose stronger history filtering without re-implementing audit logic in the command layer.
+## Current scope
 
-## CLI usage examples
+This block hardens the core helpers first.
 
-The workflow CLI now exposes these filters directly.
+That means the filter logic is available for:
 
-```powershell
-media-manager workflow history --path .\runs --command organize --record-type run_log --only-failed
-media-manager workflow history --path .\runs --only-apply --has-reversible-entries --min-entry-count 10 --summary-only
-media-manager workflow last --path .\runs --command trip --record-type execution_journal --only-successful
-```
+- direct Python usage
+- internal higher-level CLI wiring
+- future reporting and audit commands
 
-This keeps the audit logic in the core helpers while making the CLI useful for real triage and review work.
+The goal is to keep history inspection additive and review-oriented rather than bolting on fragile output-only behavior.

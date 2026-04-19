@@ -26,14 +26,22 @@ class WorkflowHistoryEntry:
         return self.reversible_entry_count > 0
 
 
-def _parse_created_at_sort_key(value: str) -> tuple[int, str]:
+def _parse_timestamp(value: str) -> datetime | None:
     text = value.strip()
     if not text:
-        return (0, "")
+        return None
     try:
-        return (1, datetime.fromisoformat(text.replace("Z", "+00:00")).isoformat())
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
+        return None
+
+
+def _parse_created_at_sort_key(value: str) -> tuple[int, str]:
+    parsed = _parse_timestamp(value)
+    if parsed is None:
+        text = value.strip()
         return (0, text)
+    return (1, parsed.isoformat())
 
 
 def _load_json_file(path: Path) -> dict[str, object] | None:
@@ -90,9 +98,11 @@ def filter_history_entries(
     only_failed: bool = False,
     only_apply_requested: bool = False,
     only_preview: bool = False,
-    has_reversible_entries: bool | None = None,
+    has_reversible_entries: bool = False,
     min_entry_count: int | None = None,
     min_reversible_entry_count: int | None = None,
+    created_at_after: str | None = None,
+    created_at_before: str | None = None,
 ) -> list[WorkflowHistoryEntry]:
     filtered = list(entries)
 
@@ -114,19 +124,36 @@ def filter_history_entries(
     elif only_preview and not only_apply_requested:
         filtered = [item for item in filtered if not item.apply_requested]
 
-    if has_reversible_entries is True:
+    if has_reversible_entries:
         filtered = [item for item in filtered if item.has_reversible_entries]
-    elif has_reversible_entries is False:
-        filtered = [item for item in filtered if not item.has_reversible_entries]
 
     if min_entry_count is not None:
-        threshold = max(0, int(min_entry_count))
-        filtered = [item for item in filtered if item.entry_count >= threshold]
+        filtered = [item for item in filtered if item.entry_count >= min_entry_count]
 
     if min_reversible_entry_count is not None:
-        threshold = max(0, int(min_reversible_entry_count))
-        filtered = [item for item in filtered if item.reversible_entry_count >= threshold]
+        filtered = [item for item in filtered if item.reversible_entry_count >= min_reversible_entry_count]
 
+    after_dt = _parse_timestamp(created_at_after or "") if created_at_after is not None else None
+    if after_dt is not None:
+        filtered = [
+            item for item in filtered
+            if (parsed := _parse_timestamp(item.created_at_utc)) is not None and parsed >= after_dt
+        ]
+
+    before_dt = _parse_timestamp(created_at_before or "") if created_at_before is not None else None
+    if before_dt is not None:
+        filtered = [
+            item for item in filtered
+            if (parsed := _parse_timestamp(item.created_at_utc)) is not None and parsed <= before_dt
+        ]
+
+    filtered.sort(
+        key=lambda item: (
+            _parse_created_at_sort_key(item.created_at_utc),
+            str(item.path).lower(),
+        ),
+        reverse=True,
+    )
     return filtered
 
 
@@ -139,9 +166,11 @@ def scan_history_directory(
     only_failed: bool = False,
     only_apply_requested: bool = False,
     only_preview: bool = False,
-    has_reversible_entries: bool | None = None,
+    has_reversible_entries: bool = False,
     min_entry_count: int | None = None,
     min_reversible_entry_count: int | None = None,
+    created_at_after: str | None = None,
+    created_at_before: str | None = None,
 ) -> list[WorkflowHistoryEntry]:
     root = Path(root_path)
     if not root.exists() or not root.is_dir():
@@ -153,13 +182,6 @@ def scan_history_directory(
         if summary is not None:
             entries.append(summary)
 
-    entries.sort(
-        key=lambda item: (
-            _parse_created_at_sort_key(item.created_at_utc),
-            str(item.path).lower(),
-        ),
-        reverse=True,
-    )
     return filter_history_entries(
         entries,
         command_name=command_name,
@@ -171,6 +193,8 @@ def scan_history_directory(
         has_reversible_entries=has_reversible_entries,
         min_entry_count=min_entry_count,
         min_reversible_entry_count=min_reversible_entry_count,
+        created_at_after=created_at_after,
+        created_at_before=created_at_before,
     )
 
 
@@ -183,9 +207,11 @@ def find_latest_history_entry(
     only_failed: bool = False,
     only_apply_requested: bool = False,
     only_preview: bool = False,
-    has_reversible_entries: bool | None = None,
+    has_reversible_entries: bool = False,
     min_entry_count: int | None = None,
     min_reversible_entry_count: int | None = None,
+    created_at_after: str | None = None,
+    created_at_before: str | None = None,
 ) -> WorkflowHistoryEntry | None:
     entries = scan_history_directory(
         root_path,
@@ -198,6 +224,8 @@ def find_latest_history_entry(
         has_reversible_entries=has_reversible_entries,
         min_entry_count=min_entry_count,
         min_reversible_entry_count=min_reversible_entry_count,
+        created_at_after=created_at_after,
+        created_at_before=created_at_before,
     )
     return entries[0] if entries else None
 
@@ -232,7 +260,7 @@ def build_history_summary(entries: list[WorkflowHistoryEntry]) -> dict[str, obje
 
     latest_created_at_utc = entries[0].created_at_utc if entries else ""
 
-    summary = {
+    return {
         "entry_count": len(entries),
         "total_entries": len(entries),
         "successful_count": successful_count,
@@ -249,4 +277,3 @@ def build_history_summary(entries: list[WorkflowHistoryEntry]) -> dict[str, obje
         "exit_code_summary": dict(sorted(exit_code_summary.items())),
         "latest_created_at_utc": latest_created_at_utc,
     }
-    return summary
