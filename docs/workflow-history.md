@@ -99,3 +99,15 @@ media-manager workflow last --path .\runs --command trip --created-at-after 2026
 ```
 
 This is useful when you want to audit only one review cycle, one migration window, or one cleanup session without mixing in older runs.
+
+## Latest-per-command overview
+
+When you want a compact audit view instead of the full history list, the core helpers can now return the newest matching entry for each command.
+
+That makes it easier to answer questions like:
+
+- what is the latest `organize`, `rename`, `trip`, and `duplicates` run in this window?
+- which commands most recently failed?
+- what is the newest apply-oriented result per command?
+
+This is designed to back an additive CLI overview without changing the existing `history` and `last` output contracts.

@@ -168,6 +168,13 @@ media-manager workflow history --path .\runs --only-apply --has-reversible-entri
 media-manager workflow last --path .\runs --command trip --record-type execution_journal --only-successful
 ```
 
+Latest-per-command overview:
+
+```powershell
+media-manager workflow history-latest-by-command --path .\runs
+media-manager workflow history-latest-by-command --path .\runs --only-failed --summary-only
+```
+
 Useful history filters:
 
 - `--record-type <run_log|execution_journal>`

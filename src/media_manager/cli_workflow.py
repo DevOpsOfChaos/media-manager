@@ -13,7 +13,12 @@ try:  # optional while older cumulative states are still present
 except Exception:  # pragma: no cover - compatibility fallback
     cli_cleanup = None
 
-from .core.state import build_history_summary, find_latest_history_entry, scan_history_directory
+from .core.state import (
+    build_history_summary,
+    find_latest_history_entries_by_command,
+    find_latest_history_entry,
+    scan_history_directory,
+)
 from .core.workflows import (
     WorkflowProfile,
     build_workflow_profile_bundle_inventory,
@@ -191,6 +196,14 @@ def build_parser() -> argparse.ArgumentParser:
     last_parser.add_argument("--path", type=Path, required=True, help="Directory to scan for run logs and journals.")
     _add_history_filter_arguments(last_parser)
     last_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+    history_latest_by_command_parser = subparsers.add_parser(
+        "history-latest-by-command",
+        help="Show the newest matching workflow history entry for each command.",
+    )
+    history_latest_by_command_parser.add_argument("--path", type=Path, required=True, help="Directory to scan for run logs and journals.")
+    _add_history_filter_arguments(history_latest_by_command_parser, include_summary_only=True, include_fail_on_empty=True)
+    history_latest_by_command_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
     presets_parser = subparsers.add_parser("presets", help="List built-in workflow presets.")
     presets_parser.add_argument("--json", action="store_true", help="Print JSON output.")
@@ -765,6 +778,63 @@ def _print_last_history(args: argparse.Namespace) -> int:
     ])
     print("\n".join(lines))
     return 0
+
+
+def _print_history_latest_by_command(args: argparse.Namespace) -> int:
+    filter_kwargs = _build_history_filter_kwargs(args)
+    filter_payload = _build_history_filter_payload(args)
+    filtered_entries = find_latest_history_entries_by_command(args.path, **filter_kwargs)
+    summary = build_history_summary(filtered_entries)
+    payload = {
+        "path": str(args.path),
+        **filter_payload,
+        "summary_only": bool(getattr(args, "summary_only", False)),
+        "summary": summary,
+        "entries": [] if getattr(args, "summary_only", False) else [_history_payload(item) for item in filtered_entries],
+    }
+    exit_code = 1 if getattr(args, "fail_on_empty", False) and not filtered_entries else 0
+    if args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return exit_code
+
+    lines = [f"Latest workflow history entry per command in {args.path}"]
+    _append_history_filter_lines(lines, args)
+    lines.extend([
+        f"  Commands matched: {summary['entry_count']}",
+        f"  Successful: {summary['successful_count']}",
+        f"  Failed: {summary['failed_count']}",
+        f"  Reversible entries: {summary['reversible_entry_count']}",
+        f"  Entries with reversible actions: {summary['entries_with_reversible_count']}",
+    ])
+    if summary["latest_created_at_utc"]:
+        lines.append(f"  Latest: {summary['latest_created_at_utc']}")
+    if summary["apply_summary"]:
+        apply_text = ", ".join(f"{key}={value}" for key, value in summary["apply_summary"].items())
+        lines.append(f"  Apply modes: {apply_text}")
+    if summary["exit_code_summary"]:
+        exit_text = ", ".join(f"{key}={value}" for key, value in summary["exit_code_summary"].items())
+        lines.append(f"  Exit codes: {exit_text}")
+    if not filtered_entries:
+        lines.append("  No recognized run logs or execution journals found.")
+        print("\n".join(lines))
+        return exit_code
+    if summary["command_summary"]:
+        command_text = ", ".join(f"{key}={value}" for key, value in summary["command_summary"].items())
+        lines.append(f"  Commands: {command_text}")
+    if summary["record_type_summary"]:
+        record_text = ", ".join(f"{key}={value}" for key, value in summary["record_type_summary"].items())
+        lines.append(f"  Record types: {record_text}")
+    if getattr(args, "summary_only", False):
+        print("\n".join(lines))
+        return exit_code
+    for item in filtered_entries:
+        lines.append(
+            f"  - [{item.record_type}] {item.command_name} | apply={item.apply_requested} | "
+            f"exit={item.exit_code} | entries={item.entry_count} | created={item.created_at_utc}"
+        )
+        lines.append(f"    {item.path}")
+    print("\n".join(lines))
+    return exit_code
 
 
 def _print_presets(as_json: bool) -> int:
@@ -2195,6 +2265,7 @@ def main(argv: list[str] | None = None) -> int:
             "  media-manager workflow history --path <RUNS_DIR> --only-apply --has-reversible-entries --summary-only\n"
             "  media-manager workflow history --path <RUNS_DIR> --created-at-after 2026-04-01T00:00:00Z --created-at-before 2026-04-30T23:59:59Z\n"
             "  media-manager workflow last --path <RUNS_DIR> --command organize --only-successful --record-type execution_journal\n"
+            "  media-manager workflow history-latest-by-command --path <RUNS_DIR> --only-failed --summary-only\n"
             "  media-manager workflow run cleanup --source <A> --source <B> --target <TARGET>\n"
         )
         return 0
@@ -2213,6 +2284,8 @@ def main(argv: list[str] | None = None) -> int:
         return _print_history(args)
     if args.workflow_command == "last":
         return _print_last_history(args)
+    if args.workflow_command == "history-latest-by-command":
+        return _print_history_latest_by_command(args)
     if args.workflow_command == "presets":
         return _print_presets(args.json)
     if args.workflow_command == "preset-show":
