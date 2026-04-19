@@ -52,6 +52,25 @@ This makes it easier to answer practical questions like:
 - Which history records are preview-only failures?
 - Which runs had at least 10 planned or executed entries?
 
+## Latest-per-command core helper
+
+The history core now also supports a grouped view of **the newest matching entry per command**.
+
+This is useful when you want a compact operational snapshot instead of a full chronological list.
+
+Examples:
+
+- newest matching `rename`, `organize`, `trip`, and `duplicates` runs in one result
+- newest failed record for each command after a migration or cleanup session
+- newest apply-requested entry per command inside one date window
+
+The new helper names are:
+
+- `latest_history_entries_by_command(...)`
+- `find_latest_history_entries_by_command(...)`
+
+These stay additive and do not change the behavior of the existing `history` or `last` calls.
+
 ## Intended next CLI use
 
 These helpers are designed so the workflow CLI can expose stronger history filtering without re-implementing audit logic in the command layer.
