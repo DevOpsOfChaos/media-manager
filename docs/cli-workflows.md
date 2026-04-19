@@ -145,34 +145,23 @@ Useful filters:
 
 Workflow history sits next to the workflow/profile layer and helps with repeatable review.
 
+### Basic history views
+
 ```powershell
 media-manager workflow history --path .\runs
 media-manager workflow history --path .\runs --command organize
 media-manager workflow last --path .\runs --command organize
+media-manager workflow history-latest-by-command --path .\runs --only-failed --summary-only
 ```
 
-## Notes
+### History audit filters
 
-- Windows is the primary target right now.
-- English is the primary language for CLI output and JSON fields.
-- Prefer preview/review flows before destructive apply modes.
-- The workflow layer is meant to make the lower-level CLI more repeatable, not to hide it completely.
-
-## History audit filters
-
-The history commands now support stronger audit-style filtering.
+The history commands support stronger audit-style filtering.
 
 ```powershell
 media-manager workflow history --path .\runs --command organize --record-type run_log --only-failed
 media-manager workflow history --path .\runs --only-apply --has-reversible-entries --min-entry-count 10 --summary-only
 media-manager workflow last --path .\runs --command trip --record-type execution_journal --only-successful
-```
-
-Latest-per-command overview:
-
-```powershell
-media-manager workflow history-latest-by-command --path .\runs
-media-manager workflow history-latest-by-command --path .\runs --only-failed --summary-only
 ```
 
 Useful history filters:
@@ -187,12 +176,35 @@ Useful history filters:
 - `--min-reversible-entry-count <N>`
 - `--created-at-after <ISO_TIMESTAMP>`
 - `--created-at-before <ISO_TIMESTAMP>`
-- `--summary-only` on `history`
-- `--fail-on-empty` on `history`
+- `--summary-only` on `history` and `history-latest-by-command`
+- `--fail-on-empty` on `history` and `history-latest-by-command`
 
-Date-window examples:
+### Date-window examples
 
 ```powershell
 media-manager workflow history --path .\runs --created-at-after 2026-04-01T00:00:00Z --created-at-before 2026-04-30T23:59:59Z
 media-manager workflow last --path .\runs --command organize --created-at-after 2026-04-15T00:00:00Z
+media-manager workflow history-latest-by-command --path .\runs --created-at-after 2026-04-01T00:00:00Z --only-successful
 ```
+
+### Audit snapshot direction
+
+The core history layer also supports a richer audit snapshot view that combines:
+
+- the filtered overall summary
+- the newest matching entry per command
+- per-command summary rows
+
+That makes it a good building block for later workflow reporting surfaces without rewriting audit logic in multiple places.
+
+See also:
+
+- `docs/workflow-history.md`
+- `docs/workflow-profiles-and-bundles.md`
+
+## Notes
+
+- Windows is the primary target right now.
+- English is the primary language for CLI output and JSON fields.
+- Prefer preview/review flows before destructive apply modes.
+- The workflow layer is meant to make the lower-level CLI more repeatable, not to hide it completely.

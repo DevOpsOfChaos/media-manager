@@ -7,10 +7,12 @@ This document is the quickest way to understand where to look in the repository.
 If you are new to the repo, read these first:
 
 1. `README.md`
-2. `docs/status.md`
-3. `docs/cli-workflows.md`
-4. `docs/workflow-profiles-and-bundles.md`
-5. `docs/roadmap.md`
+2. `docs/index.md`
+3. `docs/status.md`
+4. `docs/cli-workflows.md`
+5. `docs/workflow-history.md`
+6. `docs/workflow-profiles-and-bundles.md`
+7. `docs/roadmap.md`
 
 ## Top-level project docs
 
@@ -31,6 +33,10 @@ What kind of support requests are useful right now and what details to include.
 How to report security-sensitive issues privately.
 
 ## Direction and status docs
+
+### `docs/index.md`
+
+Fast documentation entry point and reading guide for the current repo direction.
 
 ### `docs/status.md`
 
@@ -54,6 +60,10 @@ Why the repository was reset and how to think about older code.
 
 Overview of the main CLI workflows and how they relate.
 
+### `docs/workflow-history.md`
+
+How history, execution journals, filters, latest-per-command helpers, and audit snapshots fit together.
+
 ### `docs/workflow-profiles-and-bundles.md`
 
 How presets, saved profiles, inventories, bundles, sync, compare, extract, and run flows fit together.
@@ -74,6 +84,10 @@ Important current product-facing areas include:
 ### `src/media_manager/core/`
 
 Core logic and product-facing helpers.
+
+### `src/media_manager/core/state/`
+
+State, journaling, history, artifact, and undo helpers.
 
 ### `src/media_manager/core/workflows/`
 
@@ -98,10 +112,11 @@ When changing behavior, do not look only at the one obvious new test. Many compa
 Read:
 
 1. `README.md`
-2. `docs/status.md`
-3. `docs/architecture.md`
-4. the relevant files under `src/media_manager/`
-5. the matching tests under `tests/`
+2. `docs/index.md`
+3. `docs/status.md`
+4. `docs/architecture.md`
+5. the relevant files under `src/media_manager/`
+6. the matching tests under `tests/`
 
 ### If you want to work on workflows/profiles/bundles
 
@@ -109,9 +124,19 @@ Read:
 
 1. `docs/workflow-profiles-and-bundles.md`
 2. `docs/cli-workflows.md`
-3. `docs/architecture.md`
-4. `src/media_manager/core/workflows/`
-5. matching `tests/test_*workflow*` files
+3. `docs/workflow-history.md`
+4. `docs/architecture.md`
+5. `src/media_manager/core/workflows/`
+6. matching `tests/test_*workflow*` files
+
+### If you want to understand history/journaling/undo
+
+Read:
+
+1. `docs/workflow-history.md`
+2. `docs/architecture.md`
+3. `src/media_manager/core/state/`
+4. matching `tests/test_core_*history*`, `tests/test_core_execution_journal.py`, and `tests/test_core_undo.py`
 
 ### If you want to understand old vs. current direction
 

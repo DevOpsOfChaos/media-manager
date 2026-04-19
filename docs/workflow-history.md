@@ -18,9 +18,9 @@ Each summarized history entry exposes:
 - total entry count
 - reversible entry count
 
-## New filter directions
+## Additive filter surface
 
-The core history helpers now support additive filtering for audit-focused workflows.
+The core history helpers support additive filtering for audit-focused workflows.
 
 Examples of useful filters:
 
@@ -52,50 +52,76 @@ This makes it easier to answer practical questions like:
 - Which history records are preview-only failures?
 - Which runs had at least 10 planned or executed entries?
 
-## Intended next CLI use
+## Core helper layers
 
-These helpers are designed so the workflow CLI can expose stronger history filtering without re-implementing audit logic in the command layer.
+The current history core is now broad enough to support multiple audit views without re-implementing filter logic.
+
+### Single-entry helpers
+
+- `find_latest_history_entry(...)`
+
+Use this when you want one newest matching entry overall.
+
+### Per-command latest helpers
+
+- `latest_history_entries_by_command(...)`
+- `find_latest_history_entries_by_command(...)`
+
+Use these when you want the newest matching entry for each command separately.
+
+### Per-command summary helpers
+
+- `WorkflowHistoryCommandSummary`
+- `summarize_history_entries_by_command(...)`
+- `build_history_summary_by_command(...)`
+
+Use these when you want compact rows with counts plus latest matching metadata per command.
+
+### Audit snapshot helpers
+
+- `WorkflowHistoryAuditSnapshot`
+- `build_history_audit_snapshot(...)`
+- `scan_history_audit_snapshot(...)`
+
+Use these when you want one object containing:
+
+- the filtered overall summary
+- the newest matching entry per command
+- the per-command summary rows
+- the filter metadata used to build the snapshot
 
 ## CLI usage examples
 
-The workflow CLI now exposes these filters directly.
+The workflow CLI exposes a practical subset of this history surface directly.
 
 ```powershell
 media-manager workflow history --path .\runs --command organize --record-type run_log --only-failed
 media-manager workflow history --path .\runs --only-apply --has-reversible-entries --min-entry-count 10 --summary-only
 media-manager workflow last --path .\runs --command trip --record-type execution_journal --only-successful
+media-manager workflow history-latest-by-command --path .\runs --only-failed --summary-only
 ```
 
 This keeps the audit logic in the core helpers while making the CLI useful for real triage and review work.
 
 ## Date-window audit use
 
-You can now narrow history inspection to a concrete ISO timestamp window.
+You can narrow history inspection to a concrete ISO timestamp window.
 
 Examples:
 
 ```powershell
 media-manager workflow history --path .\runs --created-at-after 2026-04-01T00:00:00Z --created-at-before 2026-04-30T23:59:59Z
 media-manager workflow last --path .\runs --command trip --created-at-after 2026-04-15T00:00:00Z
+media-manager workflow history-latest-by-command --path .\runs --created-at-after 2026-04-01T00:00:00Z --only-successful
 ```
 
 This is useful when you want to audit only one review cycle, one migration window, or one cleanup session without mixing in older runs.
 
-## Per-command summary layer
+## Practical reading path
 
-The core history helpers can now also collapse filtered history into one summary row per command.
+If you need to work in this area, read in this order:
 
-Each per-command summary tracks:
-
-- total matching entries for that command
-- successful vs failed counts
-- apply vs preview counts
-- reversible totals
-- record-type and exit-code summaries
-- newest matching timestamp and path
-
-This is useful when you want a compact operational view like:
-
-- latest matching `rename`, `organize`, `trip`, and `duplicates` runs
-- which commands failed most recently in a given date window
-- which commands have apply-oriented history vs preview-only history
+1. `docs/cli-workflows.md`
+2. `src/media_manager/core/state/history.py`
+3. `src/media_manager/cli_workflow.py`
+4. matching tests in `tests/test_core_*history*` and `tests/test_cli_workflow_history*`
