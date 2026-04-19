@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
+from contextlib import redirect_stdout
 from pathlib import Path
 
 from . import cli_duplicates, cli_organize, cli_rename, cli_trip
@@ -34,6 +36,7 @@ from .core.workflows import (
     save_workflow_profile,
     validate_workflow_profile,
     write_workflow_profile_bundle,
+    WorkflowProfile,
 )
 
 
@@ -188,6 +191,13 @@ def build_parser() -> argparse.ArgumentParser:
     profile_bundle_compare_parser.add_argument("--fail-on-changes", action="store_true", help="Return exit code 1 when matching bundle entries changed, were added, or were removed.")
     profile_bundle_compare_parser.add_argument("--fail-on-empty", action="store_true", help="Return exit code 1 when no matching comparison entries are found.")
     profile_bundle_compare_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+    profile_bundle_run_parser = subparsers.add_parser("profile-bundle-run", help="Run all matching valid workflow profiles from a bundle JSON file.")
+    profile_bundle_run_parser.add_argument("path", type=Path, help="Path to the workflow profile bundle JSON file.")
+    _add_profile_bundle_arguments(profile_bundle_run_parser, include_summary_only=False)
+    profile_bundle_run_parser.add_argument("--continue-on-error", action="store_true", help="Keep running later matching bundle profiles even if one delegated workflow returns a non-zero exit code.")
+    profile_bundle_run_parser.add_argument("--fail-on-empty", action="store_true", help="Return exit code 1 when no matching bundle profiles are found.")
+    profile_bundle_run_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
     profile_run_dir_parser = subparsers.add_parser("profile-run-dir", help="Run all matching valid workflow profiles from a directory.")
     _add_profile_directory_arguments(profile_run_dir_parser, include_summary_only=False)
@@ -853,6 +863,191 @@ def _print_profile_audit(args: argparse.Namespace) -> int:
     return exit_code
 
 
+def _build_bundle_item_profile(item) -> WorkflowProfile | None:
+    payload = getattr(item, "profile_payload", None)
+    if not isinstance(payload, dict):
+        return None
+    raw_values = payload.get("values", {})
+    if not isinstance(raw_values, dict):
+        raw_values = {}
+    profile_name = str(payload.get("profile_name", "")).strip() or (getattr(item, "profile_name", None) or getattr(item, "title", "") or getattr(item, "name", ""))
+    preset_name = str(payload.get("preset", "")).strip() or str(getattr(item, "preset_name", "") or "")
+    return WorkflowProfile(
+        profile_name=profile_name or getattr(item, "name", "workflow-profile"),
+        preset_name=preset_name,
+        values=dict(raw_values),
+    )
+
+
+def _build_profile_bundle_run_payload(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
+    bundle = filter_workflow_profile_bundle(
+        load_workflow_profile_bundle(args.path),
+        workflow_name=args.workflow,
+        preset_name=args.preset,
+        only_valid=args.only_valid,
+        only_invalid=args.only_invalid,
+    )
+    records = list(bundle.profiles)
+    selected_summary = bundle.summary.to_dict()
+    payload: dict[str, object] = {
+        "bundle_path": str(args.path),
+        "workflow_filter": args.workflow,
+        "preset_filter": args.preset,
+        "continue_on_error": bool(args.continue_on_error),
+        "show_command": bool(args.show_command),
+        "fail_on_empty": bool(args.fail_on_empty),
+        "summary": {
+            "selected_count": selected_summary["profile_count"],
+            "valid_count": selected_summary["valid_count"],
+            "invalid_count": selected_summary["invalid_count"],
+            "workflow_summary": selected_summary["workflow_summary"],
+            "preset_summary": selected_summary["preset_summary"],
+            "problem_summary": selected_summary["problem_summary"],
+            "executed_count": 0,
+            "succeeded_count": 0,
+            "failed_count": 0,
+            "blocked_count": 0,
+            "stopped_after_error": False,
+            "exit_code_summary": {},
+        },
+        "runs": [],
+    }
+
+    if not records:
+        exit_code = 1 if args.fail_on_empty else 0
+        return exit_code, payload
+
+    invalid_records = [item for item in records if not getattr(item, "valid", False)]
+    if invalid_records:
+        payload["runs"] = [
+            {
+                **_profile_record_payload(item),
+                "delegated": False,
+                "exit_code": None,
+                "status": "invalid",
+            }
+            for item in invalid_records
+        ]
+        payload["summary"]["blocked_count"] = len(invalid_records)
+        return 1, payload
+
+    run_results: list[dict[str, object]] = []
+    exit_code_summary: dict[str, int] = {}
+    executed_count = 0
+    succeeded_count = 0
+    failed_count = 0
+    blocked_count = 0
+    stopped_after_error = False
+
+    for item in records:
+        profile = _build_bundle_item_profile(item)
+        run_payload = {
+            **_profile_record_payload(item),
+            "delegated": False,
+            "exit_code": None,
+            "status": "pending",
+        }
+
+        if profile is None:
+            run_payload["status"] = "invalid"
+            run_payload["problems"] = list(run_payload.get("problems", [])) + ["Bundle item does not contain a usable profile payload."]
+            run_results.append(run_payload)
+            blocked_count += 1
+            stopped_after_error = True
+            break
+
+        validation = validate_workflow_profile(profile)
+        run_payload["command_preview"] = validation.command_preview
+        run_payload["problems"] = list(validation.problems)
+
+        if not validation.valid or not validation.command_argv or validation.workflow_name is None:
+            run_payload["status"] = "invalid"
+            run_results.append(run_payload)
+            blocked_count += 1
+            stopped_after_error = True
+            break
+
+        if args.json:
+            captured_delegate_output = io.StringIO()
+            with redirect_stdout(captured_delegate_output):
+                delegated_exit_code = int(_run_delegated_workflow(validation.workflow_name, list(validation.command_argv[4:])))
+        else:
+            delegated_exit_code = int(_run_delegated_workflow(validation.workflow_name, list(validation.command_argv[4:])))
+        run_payload["delegated"] = True
+        run_payload["exit_code"] = delegated_exit_code
+        run_payload["status"] = "ok" if delegated_exit_code == 0 else "error"
+        run_results.append(run_payload)
+
+        executed_count += 1
+        exit_code_key = str(delegated_exit_code)
+        exit_code_summary[exit_code_key] = exit_code_summary.get(exit_code_key, 0) + 1
+        if delegated_exit_code == 0:
+            succeeded_count += 1
+        else:
+            failed_count += 1
+            if not args.continue_on_error:
+                stopped_after_error = True
+                break
+
+    payload["runs"] = run_results
+    payload["summary"]["executed_count"] = executed_count
+    payload["summary"]["succeeded_count"] = succeeded_count
+    payload["summary"]["failed_count"] = failed_count
+    payload["summary"]["blocked_count"] = blocked_count
+    payload["summary"]["stopped_after_error"] = stopped_after_error
+    payload["summary"]["exit_code_summary"] = dict(sorted(exit_code_summary.items()))
+
+    return (1 if failed_count > 0 or blocked_count > 0 else 0), payload
+
+
+def _print_profile_bundle_run(args: argparse.Namespace) -> int:
+    exit_code, payload = _build_profile_bundle_run_payload(args)
+    if args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return exit_code
+
+    summary = payload["summary"]
+    print(f"Workflow profile bundle run from {args.path}")
+    if args.workflow:
+        print(f"  Workflow filter: {args.workflow}")
+    if args.preset:
+        print(f"  Preset filter: {args.preset}")
+    print(f"  Selected profiles: {summary['selected_count']}")
+    print(f"  Valid: {summary['valid_count']}")
+    print(f"  Invalid: {summary['invalid_count']}")
+    print(f"  Executed: {summary['executed_count']}")
+    print(f"  Succeeded: {summary['succeeded_count']}")
+    print(f"  Failed: {summary['failed_count']}")
+    print(f"  Blocked: {summary['blocked_count']}")
+
+    if summary["workflow_summary"]:
+        workflow_text = ", ".join(f"{key}={value}" for key, value in summary["workflow_summary"].items())
+        print(f"  Workflows: {workflow_text}")
+    if summary["preset_summary"]:
+        preset_text = ", ".join(f"{key}={value}" for key, value in summary["preset_summary"].items())
+        print(f"  Presets: {preset_text}")
+    if summary["problem_summary"]:
+        problem_text = ", ".join(f"{key}={value}" for key, value in summary["problem_summary"].items())
+        print(f"  Problems: {problem_text}")
+
+    if not payload["runs"]:
+        print("  No matching bundle profiles found.")
+        return exit_code
+
+    for item in payload["runs"]:
+        title = item.get("profile_name") or item.get("title") or item.get("name")
+        print(f"  - [{item['status']}] {title} | workflow={item['workflow_name']} | preset={item['preset_name']}")
+        if item.get("profile_path"):
+            print(f"    {item['profile_path']}")
+        if args.show_command and item.get("command_preview"):
+            print(f"    Command: {item['command_preview']}")
+        if item.get("problems"):
+            print("    Problems:")
+            for problem in item["problems"]:
+                print(f"      - {problem}")
+    return exit_code
+
+
 def _build_profile_run_payload(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
     inventory = build_workflow_profile_inventory(
         args.profiles_dir,
@@ -929,7 +1124,12 @@ def _build_profile_run_payload(args: argparse.Namespace) -> tuple[int, dict[str,
             stopped_after_error = True
             break
 
-        delegated_exit_code = int(_run_delegated_workflow(validation.workflow_name, list(validation.command_argv[4:])))
+        if args.json:
+            captured_delegate_output = io.StringIO()
+            with redirect_stdout(captured_delegate_output):
+                delegated_exit_code = int(_run_delegated_workflow(validation.workflow_name, list(validation.command_argv[4:])))
+        else:
+            delegated_exit_code = int(_run_delegated_workflow(validation.workflow_name, list(validation.command_argv[4:])))
         run_payload["delegated"] = True
         run_payload["exit_code"] = delegated_exit_code
         run_payload["status"] = "ok" if delegated_exit_code == 0 else "error"
@@ -1574,6 +1774,7 @@ def main(argv: list[str] | None = None) -> int:
             "  media-manager workflow profile-bundle-audit bundles/profiles.json\n"
             "  media-manager workflow profile-bundle-merge bundles/merged.json bundles/one.json bundles/two.json\n"
             "  media-manager workflow profile-bundle-compare bundles/left.json bundles/right.json\n"
+            "  media-manager workflow profile-bundle-run bundles/profiles.json\n"
             "  media-manager workflow profile-run <PROFILE.json> --show-command\n"
             "  media-manager workflow profile-run-dir --profiles-dir <PROFILES_DIR> --only-valid\n"
             "  media-manager workflow history --path <RUNS_DIR>\n"
@@ -1627,6 +1828,8 @@ def main(argv: list[str] | None = None) -> int:
         return _print_profile_bundle_merge(args)
     if args.workflow_command == "profile-bundle-compare":
         return _print_profile_bundle_compare(args)
+    if args.workflow_command == "profile-bundle-run":
+        return _print_profile_bundle_run(args)
     if args.workflow_command == "profile-run":
         return _run_workflow_profile(args.path, args.show_command)
     if args.workflow_command == "profile-run-dir":

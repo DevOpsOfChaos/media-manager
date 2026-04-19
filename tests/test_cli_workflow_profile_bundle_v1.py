@@ -387,3 +387,107 @@ def test_cli_workflow_profile_bundle_sync_reports_conflict(tmp_path: Path, capsy
     payload = json.loads(captured.out)
     assert payload["conflict_count"] == 1
     assert payload["entries"][0]["status"] == "conflict"
+
+
+
+def test_cli_workflow_profile_bundle_run_executes_valid_profiles(tmp_path: Path, capsys, monkeypatch) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    _write_valid_trip_profile(profiles_dir / "trip.json")
+    bundle_path = tmp_path / "bundles" / "profiles.json"
+
+    main(["profile-bundle-write", str(bundle_path), "--profiles-dir", str(profiles_dir)])
+    _ = capsys.readouterr()
+
+    from media_manager.cli_workflow import DELEGATE_HANDLERS
+
+    captured_args: list[str] = []
+
+    def fake_trip_handler(args: list[str]) -> int:
+        captured_args.extend(args)
+        print("trip-handler-called")
+        return 0
+
+    monkeypatch.setitem(DELEGATE_HANDLERS, "trip", fake_trip_handler)
+
+    exit_code = main(["profile-bundle-run", str(bundle_path), "--show-command", "--json"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+    assert payload["summary"]["selected_count"] == 1
+    assert payload["summary"]["executed_count"] == 1
+    assert payload["summary"]["succeeded_count"] == 1
+    assert payload["runs"][0]["status"] == "ok"
+    assert payload["runs"][0]["delegated"] is True
+    assert "--label" in captured_args
+    assert "--link" in captured_args
+
+
+
+def test_cli_workflow_profile_bundle_run_blocks_invalid_profiles(tmp_path: Path, capsys) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    _write_invalid_duplicates_profile(profiles_dir / "bad.json")
+    bundle_path = tmp_path / "bundles" / "profiles.json"
+
+    main(["profile-bundle-write", str(bundle_path), "--profiles-dir", str(profiles_dir)])
+    _ = capsys.readouterr()
+
+    exit_code = main(["profile-bundle-run", str(bundle_path), "--json"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    payload = json.loads(captured.out)
+    assert payload["summary"]["blocked_count"] == 1
+    assert payload["runs"][0]["status"] == "invalid"
+
+
+
+def test_cli_workflow_profile_bundle_run_can_continue_on_error(tmp_path: Path, capsys, monkeypatch) -> None:
+    profiles_dir = tmp_path / "profiles"
+    profiles_dir.mkdir()
+    _write_valid_trip_profile(profiles_dir / "trip-one.json")
+    (profiles_dir / "trip-two.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "profile_name": "Italy trip copy",
+                "preset": "trip-copy-review",
+                "values": {
+                    "source": ["C:/Phone"],
+                    "target": "E:/Trips",
+                    "label": "Italy_2025",
+                    "start": "2025-08-01",
+                    "end": "2025-08-14",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    bundle_path = tmp_path / "bundles" / "profiles.json"
+
+    main(["profile-bundle-write", str(bundle_path), "--profiles-dir", str(profiles_dir)])
+    _ = capsys.readouterr()
+
+    from media_manager.cli_workflow import DELEGATE_HANDLERS
+
+    call_count = {"count": 0}
+
+    def fake_trip_handler(args: list[str]) -> int:
+        call_count["count"] += 1
+        print(f"trip-handler-{call_count['count']}")
+        return 1 if call_count["count"] == 1 else 0
+
+    monkeypatch.setitem(DELEGATE_HANDLERS, "trip", fake_trip_handler)
+
+    exit_code = main(["profile-bundle-run", str(bundle_path), "--continue-on-error", "--json"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    payload = json.loads(captured.out)
+    assert payload["summary"]["executed_count"] == 2
+    assert payload["summary"]["succeeded_count"] == 1
+    assert payload["summary"]["failed_count"] == 1
+    assert payload["summary"]["stopped_after_error"] is False
+    assert payload["summary"]["exit_code_summary"] == {"0": 1, "1": 1}
