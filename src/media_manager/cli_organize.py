@@ -54,6 +54,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Include hidden files and hidden folders.",
     )
     parser.add_argument(
+        "--include-associated-files",
+        action="store_true",
+        help="Group known sidecars and explicit sibling media pairs with the main media file.",
+    )
+    parser.add_argument(
         "--show-files",
         action="store_true",
         help="Print one line per plan or execution entry.",
@@ -122,14 +127,63 @@ def _execution_summaries(execution_result) -> dict[str, dict[str, int]]:
     }
 
 
+def _warning_payloads(entry) -> list[dict[str, object]]:
+    media_group = getattr(entry, "media_group", None)
+    if media_group is None:
+        return []
+    return [
+        {
+            "path": str(item.path),
+            "warning_code": item.warning_code,
+            "message": item.message,
+        }
+        for item in getattr(media_group, "association_warnings", ())
+    ]
+
+
+def _member_target_payloads(entry) -> list[dict[str, object]]:
+    media_group = getattr(entry, "media_group", None)
+    if media_group is not None:
+        role_by_path = {member.path: member.role for member in media_group.members}
+        ordered_paths = [member.path for member in media_group.members]
+    else:
+        role_by_path = {entry.source_path: "main"}
+        ordered_paths = [entry.source_path]
+
+    group_target_paths = getattr(entry, "group_target_paths", {entry.source_path: entry.target_path})
+
+    rows = []
+    for source_path in ordered_paths:
+        rows.append(
+            {
+                "source_path": str(source_path),
+                "target_path": None if group_target_paths.get(source_path) is None else str(group_target_paths[source_path]),
+                "role": role_by_path.get(source_path, "associated"),
+                "is_main_file": source_path == entry.source_path,
+            }
+        )
+    return rows
+
+
 def _build_payload(plan, execution_result) -> dict[str, object]:
+    include_associated_files = bool(getattr(plan.options, "include_associated_files", False))
+    media_group_count = int(getattr(plan, "media_group_count", len(getattr(plan, "entries", []))))
+    associated_file_count = int(getattr(plan, "associated_file_count", 0))
+    association_warning_count = int(getattr(plan, "association_warning_count", 0))
+    group_kind_summary = dict(sorted(getattr(plan, "group_kind_summary", {"single": media_group_count}).items()))
+
     payload = {
         "sources": [str(path) for path in plan.options.source_dirs],
         "target_root": str(plan.options.target_root),
         "pattern": plan.options.pattern,
         "operation_mode": plan.options.operation_mode,
+        "include_associated_files": include_associated_files,
         "missing_sources": [str(path) for path in plan.scan_summary.missing_sources],
         "media_file_count": plan.media_file_count,
+        "media_group_count": media_group_count,
+        "associated_file_count": associated_file_count,
+        "association_warning_count": association_warning_count,
+        "group_kind_summary": group_kind_summary,
         "planned_count": plan.planned_count,
         "skipped_count": plan.skipped_count,
         "conflict_count": plan.conflict_count,
@@ -149,6 +203,13 @@ def _build_payload(plan, execution_result) -> dict[str, object]:
                 "source_kind": item.resolution.source_kind if item.resolution else None,
                 "source_label": item.resolution.source_label if item.resolution else None,
                 "confidence": item.resolution.confidence if item.resolution else None,
+                "group_id": getattr(item, "group_id", None),
+                "group_kind": getattr(item, "group_kind", "single"),
+                "main_file": str(item.source_path),
+                "associated_files": [str(path) for path in getattr(item, "associated_paths", ())],
+                "associated_file_count": int(getattr(item, "associated_file_count", 0)),
+                "association_warnings": _warning_payloads(item),
+                "member_targets": _member_target_payloads(item),
             }
             for item in plan.entries
         ],
@@ -169,6 +230,23 @@ def _build_payload(plan, execution_result) -> dict[str, object]:
                     "target_path": str(item.target_path) if item.target_path else None,
                     "outcome": item.outcome,
                     "reason": item.reason,
+                    "group_id": getattr(item, "group_id", None),
+                    "group_kind": getattr(item, "group_kind", getattr(item.plan_entry, "group_kind", "single")),
+                    "main_file": str(item.plan_entry.source_path),
+                    "associated_files": [str(path) for path in getattr(item.plan_entry, "associated_paths", ())],
+                    "associated_file_count": int(getattr(item.plan_entry, "associated_file_count", 0)),
+                    "association_warnings": _warning_payloads(item.plan_entry),
+                    "member_results": [
+                        {
+                            "source_path": str(member.source_path),
+                            "target_path": None if member.target_path is None else str(member.target_path),
+                            "role": member.role,
+                            "is_main_file": member.is_main_file,
+                            "outcome": member.outcome,
+                            "reason": member.reason,
+                        }
+                        for member in getattr(item, "member_results", ())
+                    ],
                 }
                 for item in execution_result.entries
             ],
@@ -179,33 +257,44 @@ def _build_payload(plan, execution_result) -> dict[str, object]:
 def _build_journal_entries(execution_result) -> list[dict[str, object]]:
     entries: list[dict[str, object]] = []
     for item in execution_result.entries:
-        reversible = False
-        undo_action = None
-        undo_from_path = None
-        undo_to_path = None
+        associated_files = [str(path) for path in getattr(item.plan_entry, "associated_paths", ())]
+        warnings = _warning_payloads(item.plan_entry)
+        for member in getattr(item, "member_results", ()): 
+            reversible = False
+            undo_action = None
+            undo_from_path = None
+            undo_to_path = None
 
-        if item.outcome == "copied":
-            reversible = True
-            undo_action = "delete_target"
-            undo_from_path = str(item.target_path) if item.target_path is not None else None
-        elif item.outcome == "moved":
-            reversible = True
-            undo_action = "move_back"
-            undo_from_path = str(item.target_path) if item.target_path is not None else None
-            undo_to_path = str(item.source_path)
+            if member.outcome == "copied":
+                reversible = True
+                undo_action = "delete_target"
+                undo_from_path = str(member.target_path) if member.target_path is not None else None
+            elif member.outcome == "moved":
+                reversible = True
+                undo_action = "move_back"
+                undo_from_path = str(member.target_path) if member.target_path is not None else None
+                undo_to_path = str(member.source_path)
 
-        entries.append(
-            {
-                "source_path": str(item.source_path),
-                "target_path": None if item.target_path is None else str(item.target_path),
-                "outcome": item.outcome,
-                "reason": item.reason,
-                "reversible": reversible,
-                "undo_action": undo_action,
-                "undo_from_path": undo_from_path,
-                "undo_to_path": undo_to_path,
-            }
-        )
+            entries.append(
+                {
+                    "source_path": str(member.source_path),
+                    "target_path": None if member.target_path is None else str(member.target_path),
+                    "outcome": member.outcome,
+                    "reason": member.reason,
+                    "reversible": reversible,
+                    "undo_action": undo_action,
+                    "undo_from_path": undo_from_path,
+                    "undo_to_path": undo_to_path,
+                    "group_id": item.group_id,
+                    "group_kind": item.group_kind,
+                    "main_file": str(item.plan_entry.source_path),
+                    "associated_files": associated_files,
+                    "associated_file_count": item.plan_entry.associated_file_count,
+                    "association_warnings": warnings,
+                    "role": member.role,
+                    "is_main_file": member.is_main_file,
+                }
+            )
     return entries
 
 
@@ -231,6 +320,7 @@ def main(argv: list[str] | None = None) -> int:
             include_hidden=args.include_hidden,
             operation_mode=operation_mode,
             exiftool_path=args.exiftool_path,
+            include_associated_files=args.include_associated_files,
         )
     )
     execution_result = execute_organize_plan(plan) if args.apply else None
@@ -280,6 +370,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Sources: {len(plan.options.source_dirs)}")
     print(f"  Missing sources: {plan.missing_source_count}")
     print(f"  Media files scanned: {plan.media_file_count}")
+    if plan.options.include_associated_files:
+        print(f"  Media groups: {plan.media_group_count}")
+        print(f"  Associated files: {plan.associated_file_count}")
+        print(f"  Association warnings: {plan.association_warning_count}")
     print(f"  Planned: {plan.planned_count}")
     print(f"  Skipped: {plan.skipped_count}")
     print(f"  Conflicts: {plan.conflict_count}")
@@ -288,6 +382,8 @@ def main(argv: list[str] | None = None) -> int:
     _print_summary_block("\nReason summary", payload["reason_summary"])
     _print_summary_block("\nResolution sources", payload["resolution_source_summary"])
     _print_summary_block("\nConfidence summary", payload["confidence_summary"])
+    if plan.options.include_associated_files:
+        _print_summary_block("\nGroup kinds", payload["group_kind_summary"])
 
     if execution_result is not None:
         print("\nExecution")
@@ -311,15 +407,17 @@ def main(argv: list[str] | None = None) -> int:
         for item in plan.entries:
             target_text = str(item.target_path) if item.target_path else "-"
             resolved_text = item.resolution.resolved_value if item.resolution else "-"
+            extra = f" | group={item.group_kind} | associated={item.associated_file_count}" if item.group_kind else ""
             print(
                 f"  - [{item.status}] {item.source_path} -> {target_text} | "
-                f"date={resolved_text} | reason={item.reason}"
+                f"date={resolved_text} | reason={item.reason}{extra}"
             )
         if execution_result is not None:
             print("\nExecution entries:")
             for item in execution_result.entries:
                 target_text = str(item.target_path) if item.target_path else "-"
-                print(f"  - [{item.outcome}] {item.source_path} -> {target_text} | reason={item.reason}")
+                extra = f" | group={item.group_kind}" if item.group_kind else ""
+                print(f"  - [{item.outcome}] {item.source_path} -> {target_text} | reason={item.reason}{extra}")
 
     if args.run_log is not None:
         print(f"\nWrote run log: {args.run_log}")
