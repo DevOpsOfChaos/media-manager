@@ -6,12 +6,7 @@ import json
 from contextlib import redirect_stdout
 from pathlib import Path
 
-from . import cli_duplicates, cli_organize, cli_rename, cli_trip
-
-try:  # optional while older cumulative states are still present
-    from . import cli_cleanup
-except Exception:  # pragma: no cover - compatibility fallback
-    cli_cleanup = None
+from . import cli_cleanup, cli_duplicates, cli_organize, cli_rename, cli_trip
 
 from .core.state import (
     build_history_summary,
@@ -46,19 +41,13 @@ from .core.workflows import (
 )
 
 
-def _build_delegate_handlers() -> dict[str, object]:
-    handlers = {
-        "duplicates": cli_duplicates.main,
-        "organize": cli_organize.main,
-        "rename": cli_rename.main,
-        "trip": cli_trip.main,
-    }
-    if cli_cleanup is not None:
-        handlers["cleanup"] = cli_cleanup.main
-    return handlers
-
-
-DELEGATE_HANDLERS = _build_delegate_handlers()
+DELEGATE_HANDLERS = {
+    "cleanup": cli_cleanup.main,
+    "duplicates": cli_duplicates.main,
+    "organize": cli_organize.main,
+    "rename": cli_rename.main,
+    "trip": cli_trip.main,
+}
 
 
 def _get_profile_name_contains(args: argparse.Namespace) -> str | None:

@@ -1,29 +1,24 @@
 # Media Manager
 
-[![Tests](https://github.com/DevOpsOfChaos/media-manager/actions/workflows/tests.yml/badge.svg)](https://github.com/DevOpsOfChaos/media-manager/actions/workflows/tests.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
-[![License: MIT](https://img.shields.io/github/license/DevOpsOfChaos/media-manager)](LICENSE)
 
-Open-source media organization software for photos and videos.
+Open-source CLI-first media organization software for photos and videos.
 
-> **Project status:** active core/CLI build.
->
-> The repository is currently being shaped into a reliable media-management core with a practical CLI, review-safe workflows, reusable profiles, and a later GUI on top. The product direction is intentionally **core first, CLI first, Windows first, English first**.
+## What this repository is
 
-## Project language
+This repository is the active product baseline for **core-first media management on Windows**.
 
-English is the default language for:
+The current focus is:
 
-- repository documentation
-- issues and pull requests
-- application UI and runtime messages
-- JSON fields and CLI-facing output
-
-Additional localizations may be added later. German is a likely secondary language, but it is not the default.
+- inspect media metadata and date resolution
+- plan and apply organize / rename operations
+- review exact duplicates and similar-media candidates
+- capture run history, journals, and undo-oriented artifacts
+- compose repeatable workflows through presets, profiles, and bundles
 
 ## Product direction
 
-The repository is being built in this order:
+Development priority is:
 
 1. core foundation
 2. CLI commands and safe preview/apply flows
@@ -32,38 +27,28 @@ The repository is being built in this order:
 5. workflow helpers, reusable profiles, and profile bundles
 6. GUI later
 
-That order is deliberate.
-
-A polished interface does not matter if capture-date resolution, planning, conflict handling, duplicate review, and safety rules are still weak.
-
-## Current capability snapshot
-
-The current CLI-first product line centers on:
-
-- metadata/date inspection and date-resolution diagnostics
-- organize and rename planning/apply flows
-- exact duplicate review and similar-review helpers
-- workflow history, journaling, and undo-oriented reporting
-- guided workflow entry points such as cleanup and trip
-- reusable workflow presets and saved profiles
-- profile inventory, audit, batch execution, and bundle roundtrips
-
-The workflow/profile layer is no longer just scaffolding. It is becoming a real productivity layer over the core CLI commands.
-
 ## Core principles
 
 - **Safety first** — preview before destructive actions
 - **Idempotent behavior** — already compliant files should be skipped
-- **Traceable decisions** — the program should explain why it used a date, skipped a file, or planned a target path
-- **Core/UI separation** — the media engine must stay independent from the interface
-- **Windows first** — Windows is the primary target for the early stable milestones
-- **English first** — localization can be layered in later
+- **Traceable decisions** — date choice, skip reasons, and target paths should stay explainable
+- **Core/UI separation** — engine decisions belong in the core, not in a future GUI
+- **Windows first** — Windows is the primary target for current examples and workflows
+- **English first** — CLI output and JSON contracts stay English for now
+
+## Common commands
+
+```powershell
+media-manager inspect C:\Photos\IMG_0001.jpg
+media-manager organize --source C:\Inbox --target D:\Library --pattern yyyy\\yyyy-MM-dd
+media-manager rename --source C:\Inbox --template "{date}_{original_name}"
+media-manager duplicates C:\Photos D:\Phone --json
+media-manager cleanup --source C:\Photos --source D:\Phone --target E:\Library --apply
+media-manager trip --source C:\Photos --target E:\Trips --label Italy --start 2025-06-01 --end 2025-06-14
+media-manager undo --path .\runs\2026-04-18-execution-journal.json --apply
+```
 
 ## Workflow layer
-
-The workflow CLI now covers more than just “run one workflow”.
-
-Examples:
 
 ```powershell
 media-manager workflow presets
@@ -76,24 +61,15 @@ media-manager workflow profile-bundle-run .\bundles\profiles.json --only-valid
 media-manager workflow profile-bundle-sync .\bundles\profiles.json --target-dir .\profiles-restored --apply
 ```
 
-See also:
+## Workflow history
 
-- [Workflow CLI guide](docs/cli-workflows.md)
-- [Workflow profiles and bundles](docs/workflow-profiles-and-bundles.md)
-- [Current development status](docs/status.md)
-
-## Legacy notice
-
-The repository still contains older implementation directions that are no longer the architectural target.
-
-Examples include earlier GUI-heavy and desktop-first iterations. They may still contain useful code or ideas, but they should be treated as reference material while the new core-first structure is established.
-
-See:
-
-- `docs/transition/legacy-reset.md`
-- `legacy/README.md`
-- `docs/architecture.md`
-- `docs/roadmap.md`
+```powershell
+media-manager workflow history --path .\runs
+media-manager workflow history --path .\runs --command organize --only-failed --record-type run_log
+media-manager workflow history-latest-by-command --path .\runs --summary-only
+media-manager workflow history-summary-by-command --path .\runs --summary-only
+media-manager workflow last --path .\runs --command cleanup --only-successful
+```
 
 ## Requirements
 
@@ -109,19 +85,8 @@ Run tests:
 pytest -q
 ```
 
-See also:
+## Scope statement
 
-- [Roadmap](docs/roadmap.md)
-- [Architecture notes](docs/architecture.md)
-- [Workflow CLI guide](docs/cli-workflows.md)
-- [Workflow profiles and bundles](docs/workflow-profiles-and-bundles.md)
-- [Current status](docs/status.md)
-- [Contributing guide](CONTRIBUTING.md)
-- [Security policy](SECURITY.md)
-- [Support](SUPPORT.md)
+This is not yet a finished consumer-facing media manager.
 
-## Honest scope statement
-
-This is not yet a finished public media manager.
-
-It is a serious CLI/core-first rebuild aimed at becoming a trustworthy media-management product rather than a UI-first prototype with fragile internals.
+It is a serious CLI/core-first codebase aimed at becoming a trustworthy media-management product with safer execution, clearer reporting, and repeatable workflow operations.

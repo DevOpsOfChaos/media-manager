@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "media-manager"
 version = "0.6.0"
-description = "Core-first media manager foundation for organizing photos and videos"
+description = "CLI-first media manager core for organizing photos and videos"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
@@ -29,40 +29,27 @@ dependencies = [
   "Pillow>=10.0",
 ]
 
-[project.urls]
-Homepage = "https://github.com/DevOpsOfChaos/media-manager"
-Repository = "https://github.com/DevOpsOfChaos/media-manager"
-Issues = "https://github.com/DevOpsOfChaos/media-manager/issues"
-Changelog = "https://github.com/DevOpsOfChaos/media-manager/blob/main/CHANGELOG.md"
-
 [project.optional-dependencies]
-gui = [
-  "PySide6>=6.7",
-]
 dev = [
   "pytest>=8.0",
 ]
 
 [project.scripts]
 media-manager = "media_manager.cli:main"
-media-manager-gui = "media_manager.cli_gui:main"
-media-manager-organize = "media_manager.cli_organize:main"
+media-manager-cleanup = "media_manager.cli_cleanup:main"
 media-manager-duplicates = "media_manager.cli_duplicates:main"
+media-manager-inspect = "media_manager.cli_inspect:main"
+media-manager-organize = "media_manager.cli_organize:main"
 media-manager-rename = "media_manager.cli_rename:main"
-media-manager-qml = "media_manager.qml_app:main"
+media-manager-trip = "media_manager.cli_trip:main"
+media-manager-undo = "media_manager.cli_undo:main"
+media-manager-workflow = "media_manager.cli_workflow:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-data]
-media_manager = [
-  "qml/*.qml",
-  "qml/components/*.qml",
-  "qml/assets/*.svg",
-]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

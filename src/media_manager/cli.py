@@ -3,39 +3,28 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import cli_duplicates, cli_gui, cli_inspect, cli_organize, cli_rename, cli_scan, cli_trip, cli_undo
+from . import (
+    cli_cleanup,
+    cli_duplicates,
+    cli_inspect,
+    cli_organize,
+    cli_rename,
+    cli_trip,
+    cli_undo,
+    cli_workflow,
+)
 
-try:  # optional when older cumulative states are still present
-    from . import cli_cleanup
-except Exception:  # pragma: no cover - compatibility fallback
-    cli_cleanup = None
-
-try:  # optional while the workflow shell is being introduced incrementally
-    from . import cli_workflow
-except Exception:  # pragma: no cover - compatibility fallback
-    cli_workflow = None
-
-try:  # optional while the GUI shell scaffold is being introduced incrementally
-    from . import cli_shell
-except Exception:  # pragma: no cover - compatibility fallback
-    cli_shell = None
 
 COMMAND_HANDLERS = {
+    "cleanup": cli_cleanup.main,
     "duplicates": cli_duplicates.main,
-    "gui": cli_gui.main,
     "inspect": cli_inspect.main,
     "organize": cli_organize.main,
     "rename": cli_rename.main,
-    "scan": cli_scan.main,
     "trip": cli_trip.main,
     "undo": cli_undo.main,
+    "workflow": cli_workflow.main,
 }
-if cli_cleanup is not None:
-    COMMAND_HANDLERS["cleanup"] = cli_cleanup.main
-if cli_workflow is not None:
-    COMMAND_HANDLERS["workflow"] = cli_workflow.main
-if cli_shell is not None:
-    COMMAND_HANDLERS["shell"] = cli_shell.main
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -43,16 +32,14 @@ def build_parser() -> argparse.ArgumentParser:
         prog="media-manager",
         description=(
             "Core-first media manager CLI. "
-            "Legacy GUI entry points remain available only when started explicitly."
+            "Desktop UI entry points were removed from the active repository baseline."
         ),
     )
     parser.add_argument(
         "command",
         nargs="?",
         choices=sorted(COMMAND_HANDLERS.keys()),
-        help=(
-            "Command to run. Use 'gui' only if you explicitly want to open the legacy desktop UI."
-        ),
+        help="Command to run.",
     )
     parser.add_argument("args", nargs=argparse.REMAINDER)
     return parser
@@ -66,10 +53,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         print(
             "\nNo command provided.\n"
-            "The old default GUI launch behavior has been removed during the repository reset.\n"
-            "Run an explicit CLI command such as 'scan', 'inspect', 'organize', 'rename', 'trip', "
-            "'duplicates', 'undo', 'workflow', or 'shell'.\n"
-            "Use 'media-manager gui' only if you intentionally want the legacy GUI."
+            "Run an explicit CLI command such as 'inspect', 'organize', 'rename', 'trip', "
+            "'duplicates', 'undo', 'cleanup', or 'workflow'."
         )
         return 0
 
