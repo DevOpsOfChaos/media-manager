@@ -39,6 +39,42 @@ def test_cli_organize_json_output(monkeypatch, capsys, tmp_path: Path) -> None:
     payload = json.loads(captured.out)
     assert payload["planned_count"] == 1
     assert payload["entries"][0]["status"] == "planned"
+    assert payload["media_group_count"] == 0
+
+
+def test_cli_organize_include_associated_files_groups_sidecar_in_json(monkeypatch, capsys, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "photo.jpg").write_bytes(b"jpg")
+    (source / "photo.xmp").write_text("xmp", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "media_manager.core.organizer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+
+    code = main(
+        [
+            "--source",
+            str(source),
+            "--target",
+            str(tmp_path / "target"),
+            "--include-associated-files",
+            "--json",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert code == 0
+    payload = json.loads(captured.out)
+    assert payload["media_group_count"] == 1
+    assert payload["associated_file_count"] == 1
+    assert payload["group_kind_summary"] == {"sidecar": 1}
+    assert payload["planned_count"] == 1
+    assert payload["entries"][0]["group_kind"] == "sidecar"
+    assert payload["entries"][0]["associated_file_count"] == 1
+    assert sorted(payload["entries"][0]["associated_files"]) == [str(source / "photo.xmp")]
+    assert len(payload["entries"][0]["member_targets"]) == 2
 
 
 def test_cli_organize_apply_reports_execution_json(monkeypatch, capsys, tmp_path: Path) -> None:
@@ -59,6 +95,54 @@ def test_cli_organize_apply_reports_execution_json(monkeypatch, capsys, tmp_path
     assert payload["execution"]["executed_count"] == 1
     assert payload["execution"]["copied_count"] == 1
     assert payload["execution"]["entries"][0]["outcome"] == "copied"
+
+
+def test_cli_organize_apply_with_associated_files_copies_sidecar_and_journals_each_member(monkeypatch, capsys, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    photo = source / "photo.jpg"
+    sidecar = source / "photo.xmp"
+    photo.write_bytes(b"jpg")
+    sidecar.write_text("xmp", encoding="utf-8")
+    target = tmp_path / "target"
+    journal_path = tmp_path / "journals" / "organize-execution.json"
+
+    monkeypatch.setattr(
+        "media_manager.core.organizer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+
+    code = main(
+        [
+            "--source",
+            str(source),
+            "--target",
+            str(target),
+            "--include-associated-files",
+            "--apply",
+            "--json",
+            "--journal",
+            str(journal_path),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert code == 0
+    payload = json.loads(captured.out)
+    assert payload["execution"]["executed_count"] == 1
+    entry = payload["execution"]["entries"][0]
+    assert entry["group_kind"] == "sidecar"
+    assert len(entry["member_results"]) == 2
+    assert (target / "2024" / "2024-08-10" / "photo.jpg").exists()
+    assert (target / "2024" / "2024-08-10" / "photo.xmp").exists()
+
+    journal = json.loads(journal_path.read_text(encoding="utf-8"))
+    assert journal["command_name"] == "organize"
+    assert journal["apply_requested"] is True
+    assert len(journal["entries"]) == 2
+    assert all(item["group_kind"] == "sidecar" for item in journal["entries"])
+    assert all(item["undo_action"] == "delete_target" for item in journal["entries"])
+    assert sorted(item["source_path"] for item in journal["entries"]) == [str(photo), str(sidecar)]
 
 
 def test_cli_organize_writes_run_log(monkeypatch, capsys, tmp_path: Path) -> None:

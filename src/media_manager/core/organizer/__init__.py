@@ -5,6 +5,7 @@ from .models import (
     OrganizeDryRun,
     OrganizeExecutionEntry,
     OrganizeExecutionResult,
+    OrganizeMemberExecution,
     OrganizePlanEntry,
     OrganizePlannerOptions,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "OrganizeDryRun",
     "OrganizeExecutionEntry",
     "OrganizeExecutionResult",
+    "OrganizeMemberExecution",
     "OrganizePlanEntry",
     "OrganizePlannerOptions",
     "build_organize_dry_run",
