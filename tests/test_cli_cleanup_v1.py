@@ -50,6 +50,36 @@ def test_cli_cleanup_json_output_contains_sections(monkeypatch, tmp_path: Path, 
     assert "rename" in payload
 
 
+def test_cli_cleanup_include_associated_files_adds_media_group_summary(monkeypatch, tmp_path: Path, capsys) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+    (source / "photo.jpg").write_bytes(b"jpg")
+    (source / "photo.xmp").write_text("xmp", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "media_manager.core.organizer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+    monkeypatch.setattr(
+        "media_manager.core.renamer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+
+    exit_code = main(["--source", str(source), "--target", str(target), "--include-associated-files", "--json"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+    assert payload["include_associated_files"] is True
+    assert payload["media_group_count"] == 1
+    assert payload["associated_file_count"] == 1
+    assert payload["group_kind_summary"] == {"sidecar": 1}
+    assert payload["organize"]["media_group_count"] == 1
+    assert payload["rename"]["media_group_count"] == 1
+
+
 def test_cli_cleanup_can_apply_organize_and_emit_execution_json(monkeypatch, tmp_path: Path, capsys) -> None:
     source = tmp_path / "source"
     target = tmp_path / "target"
@@ -112,6 +142,45 @@ def test_cli_cleanup_can_apply_rename_and_write_journal(monkeypatch, tmp_path: P
     assert payload["execution"]["journal_path"] == str(journal_path)
     journal = json.loads(journal_path.read_text(encoding="utf-8"))
     assert journal["command_name"] == "cleanup-rename"
+
+
+def test_cli_cleanup_apply_rename_with_associated_files_reports_grouped_execution(monkeypatch, tmp_path: Path, capsys) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+    (source / "IMG_0001.JPG").write_bytes(b"jpg")
+    (source / "IMG_0001.xmp").write_text("xmp", encoding="utf-8")
+    journal_path = tmp_path / "journals" / "cleanup-rename.json"
+
+    monkeypatch.setattr(
+        "media_manager.core.organizer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+    monkeypatch.setattr(
+        "media_manager.core.renamer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+
+    exit_code = main([
+        "--source", str(source),
+        "--target", str(target),
+        "--include-associated-files",
+        "--apply-rename",
+        "--journal", str(journal_path),
+        "--json",
+    ])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+    entry = payload["execution"]["entries"][0]
+    assert entry["group_kind"] == "sidecar"
+    assert entry["associated_file_count"] == 1
+    assert len(entry["member_results"]) == 2
+    journal = json.loads(journal_path.read_text(encoding="utf-8"))
+    assert journal["entry_count"] == 2
+    assert journal["reversible_entry_count"] == 2
 
 
 def test_cli_cleanup_rejects_journal_without_apply(tmp_path: Path) -> None:

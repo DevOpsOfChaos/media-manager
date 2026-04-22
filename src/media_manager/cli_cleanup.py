@@ -52,6 +52,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--non-recursive", action="store_true", help="Only scan the top level of each source folder.")
     parser.add_argument("--include-hidden", action="store_true", help="Include hidden files and hidden folders.")
+    parser.add_argument(
+        "--include-associated-files",
+        action="store_true",
+        help="Group safe known associated files such as sidecars during embedded organize and rename planning.",
+    )
     parser.add_argument("--show-files", action="store_true", help="Print detailed workflow section entries.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
     parser.add_argument("--run-log", type=Path, help="Optional JSON run-log path for this cleanup workflow command.")
@@ -72,6 +77,53 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _warning_payloads(obj) -> list[dict[str, object]]:
+    warnings = getattr(obj, "association_warnings", ()) or ()
+    payloads: list[dict[str, object]] = []
+    for item in warnings:
+        payloads.append(
+            {
+                "path": str(item.path),
+                "warning_code": item.warning_code,
+                "message": item.message,
+            }
+        )
+    return payloads
+
+
+def _member_target_payloads(obj) -> list[dict[str, object]]:
+    members = getattr(obj, "member_targets", ()) or ()
+    payloads: list[dict[str, object]] = []
+    for item in members:
+        payloads.append(
+            {
+                "source_path": str(item.source_path),
+                "target_path": str(item.target_path),
+                "role": getattr(item, "role", None),
+                "is_main_file": bool(getattr(item, "is_main_file", getattr(item, "role", None) == "main")),
+            }
+        )
+    return payloads
+
+
+def _member_result_payloads(entry) -> list[dict[str, object]]:
+    results = getattr(entry, "member_results", ()) or ()
+    payloads: list[dict[str, object]] = []
+    for item in results:
+        payloads.append(
+            {
+                "source_path": str(item.source_path),
+                "target_path": None if item.target_path is None else str(item.target_path),
+                "status": item.status,
+                "reason": item.reason,
+                "action": item.action,
+                "role": getattr(item, "role", None),
+                "is_main_file": bool(getattr(item, "is_main_file", getattr(item, "role", None) == "main")),
+            }
+        )
+    return payloads
+
+
 def _build_payload(report, execution_report: CleanupExecutionReport | None) -> dict[str, object]:
     payload = {
         "sources": [str(path) for path in report.options.source_dirs],
@@ -80,6 +132,11 @@ def _build_payload(report, execution_report: CleanupExecutionReport | None) -> d
         "rename_template": report.options.rename_template,
         "duplicate_policy": report.options.duplicate_policy,
         "duplicate_mode": report.options.duplicate_mode,
+        "include_associated_files": bool(getattr(report.options, "include_associated_files", False)),
+        "media_group_count": int(getattr(report, "media_group_count", len(report.organize_plan.entries))),
+        "associated_file_count": int(getattr(report, "associated_file_count", 0)),
+        "association_warning_count": int(getattr(report, "association_warning_count", 0)),
+        "group_kind_summary": dict(sorted(getattr(report, "group_kind_summary", {"single": len(report.organize_plan.entries)}).items())),
         "scan": {
             "missing_sources": [str(path) for path in report.scan_summary.missing_sources],
             "media_file_count": report.media_file_count,
@@ -102,12 +159,20 @@ def _build_payload(report, execution_report: CleanupExecutionReport | None) -> d
             "skipped_count": report.organize_plan.skipped_count,
             "conflict_count": report.organize_plan.conflict_count,
             "error_count": report.organize_plan.error_count,
+            "media_group_count": int(getattr(report.organize_plan, "media_group_count", len(report.organize_plan.entries))),
+            "associated_file_count": int(getattr(report.organize_plan, "associated_file_count", 0)),
+            "association_warning_count": int(getattr(report.organize_plan, "association_warning_count", 0)),
+            "group_kind_summary": dict(sorted(getattr(report.organize_plan, "group_kind_summary", {"single": len(report.organize_plan.entries)}).items())),
         },
         "rename": {
             "planned_count": report.rename_dry_run.planned_count,
             "skipped_count": report.rename_dry_run.skipped_count,
             "conflict_count": report.rename_dry_run.conflict_count,
             "error_count": report.rename_dry_run.error_count,
+            "media_group_count": int(getattr(report.rename_dry_run, "media_group_count", len(report.rename_dry_run.entries))),
+            "associated_file_count": int(getattr(report.rename_dry_run, "associated_file_count", 0)),
+            "association_warning_count": int(getattr(report.rename_dry_run, "association_warning_count", 0)),
+            "group_kind_summary": dict(sorted(getattr(report.rename_dry_run, "group_kind_summary", {"single": len(report.rename_dry_run.entries)}).items())),
         },
     }
     if execution_report is not None:
@@ -127,6 +192,13 @@ def _build_payload(report, execution_report: CleanupExecutionReport | None) -> d
                         "target_path": None if item.target_path is None else str(item.target_path),
                         "outcome": item.outcome,
                         "reason": item.reason,
+                        "group_id": getattr(item, "group_id", getattr(getattr(item, "plan_entry", None), "group_id", None)),
+                        "group_kind": getattr(item, "group_kind", getattr(getattr(item, "plan_entry", None), "group_kind", None)),
+                        "main_file": str(getattr(getattr(item, "plan_entry", None), "source_path", item.source_path)),
+                        "associated_files": [str(path) for path in getattr(getattr(item, "plan_entry", None), "associated_paths", ())],
+                        "associated_file_count": int(getattr(getattr(item, "plan_entry", None), "associated_file_count", 0)),
+                        "association_warnings": _warning_payloads(getattr(item, "plan_entry", None)),
+                        "member_results": _member_result_payloads(item),
                     }
                     for item in execution_report.organize_result.entries
                 ],
@@ -146,6 +218,13 @@ def _build_payload(report, execution_report: CleanupExecutionReport | None) -> d
                         "status": item.status,
                         "reason": item.reason,
                         "action": item.action,
+                        "group_id": getattr(item, "group_id", getattr(getattr(item, "plan_entry", None), "group_id", None)),
+                        "group_kind": getattr(item, "group_kind", getattr(getattr(item, "plan_entry", None), "group_kind", None)),
+                        "main_file": str(getattr(getattr(item, "plan_entry", None), "source_path", item.source_path)),
+                        "associated_files": [str(path) for path in getattr(getattr(item, "plan_entry", None), "associated_paths", ())],
+                        "associated_file_count": int(getattr(getattr(item, "plan_entry", None), "associated_file_count", 0)),
+                        "association_warnings": _warning_payloads(getattr(item, "plan_entry", None)),
+                        "member_results": _member_result_payloads(item),
                     }
                     for item in execution_report.rename_result.entries
                 ],
@@ -210,6 +289,7 @@ def main(argv: list[str] | None = None) -> int:
             duplicate_policy=args.duplicate_policy,
             duplicate_mode=args.duplicate_mode,
             exiftool_path=args.exiftool_path,
+            include_associated_files=args.include_associated_files,
         )
     )
 
@@ -244,6 +324,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Sources: {len(report.options.source_dirs)}")
     print(f"  Missing sources: {report.missing_source_count}")
     print(f"  Media files: {report.media_file_count}")
+    print(f"  Media groups: {getattr(report, 'media_group_count', len(report.organize_plan.entries))}")
+    print(f"  Associated files: {getattr(report, 'associated_file_count', 0)}")
     print("\nDuplicates")
     print(f"  Exact groups: {len(report.duplicate_scan_result.exact_groups)}")
     print(f"  Duplicate files: {report.duplicate_scan_result.exact_duplicate_files}")

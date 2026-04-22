@@ -45,6 +45,7 @@ class CleanupWorkflowOptions:
     duplicate_policy: CleanupDuplicatePolicy | None = None
     duplicate_mode: str = "copy"
     exiftool_path: Path | None = None
+    include_associated_files: bool = False
 
 
 @dataclass(slots=True)
@@ -67,6 +68,25 @@ class CleanupWorkflowReport:
     @property
     def decisions_count(self) -> int:
         return len(self.duplicate_workflow.decisions)
+
+    @property
+    def media_group_count(self) -> int:
+        return int(getattr(self.organize_plan, "media_group_count", len(self.organize_plan.entries)))
+
+    @property
+    def associated_file_count(self) -> int:
+        return int(getattr(self.organize_plan, "associated_file_count", 0))
+
+    @property
+    def association_warning_count(self) -> int:
+        return int(getattr(self.organize_plan, "association_warning_count", 0))
+
+    @property
+    def group_kind_summary(self) -> dict[str, int]:
+        summary = getattr(self.organize_plan, "group_kind_summary", None)
+        if summary is None:
+            return {"single": len(self.organize_plan.entries)}
+        return dict(sorted(summary.items()))
 
     @property
     def has_errors(self) -> bool:
@@ -136,6 +156,7 @@ def build_cleanup_workflow_report(options: CleanupWorkflowOptions) -> CleanupWor
             follow_symlinks=options.follow_symlinks,
             operation_mode="copy",
             exiftool_path=options.exiftool_path,
+            include_associated_files=options.include_associated_files,
         )
     )
 
@@ -147,6 +168,7 @@ def build_cleanup_workflow_report(options: CleanupWorkflowOptions) -> CleanupWor
             include_hidden=options.include_hidden,
             follow_symlinks=options.follow_symlinks,
             exiftool_path=options.exiftool_path,
+            include_associated_files=options.include_associated_files,
         )
     )
 
@@ -164,6 +186,7 @@ def _build_organize_journal_entries(result: OrganizeExecutionResult) -> list[dic
     entries: list[dict[str, object]] = []
     for item in result.entries:
         target_path = item.target_path
+        plan_entry = getattr(item, "plan_entry", None)
         entry = {
             "source_path": str(item.source_path),
             "target_path": None if target_path is None else str(target_path),
@@ -173,6 +196,10 @@ def _build_organize_journal_entries(result: OrganizeExecutionResult) -> list[dic
             "undo_action": None,
             "undo_source_path": None,
             "undo_target_path": None,
+            "group_id": getattr(plan_entry, "group_id", None),
+            "group_kind": getattr(plan_entry, "group_kind", None),
+            "main_file": None if plan_entry is None else str(plan_entry.source_path),
+            "associated_files": [] if plan_entry is None else [str(path) for path in getattr(plan_entry, "associated_paths", ())],
         }
         if item.outcome == "copied" and target_path is not None:
             entry["undo_action"] = "delete_target"
@@ -188,6 +215,29 @@ def _build_organize_journal_entries(result: OrganizeExecutionResult) -> list[dic
 def _build_rename_journal_entries(result: RenameExecutionResult) -> list[dict[str, object]]:
     entries: list[dict[str, object]] = []
     for item in result.entries:
+        plan_entry = getattr(item, "plan_entry", None)
+        member_results = getattr(item, "member_results", ()) or ()
+        if member_results:
+            for member in member_results:
+                reversible = member.action == "renamed" and member.target_path is not None
+                entries.append(
+                    {
+                        "source_path": str(member.source_path),
+                        "target_path": None if member.target_path is None else str(member.target_path),
+                        "action": member.action,
+                        "reason": member.reason,
+                        "reversible": reversible,
+                        "undo_action": "rename_back" if reversible else None,
+                        "undo_source_path": str(member.target_path) if reversible and member.target_path is not None else None,
+                        "undo_target_path": str(member.source_path) if reversible else None,
+                        "group_id": getattr(plan_entry, "group_id", None),
+                        "group_kind": getattr(plan_entry, "group_kind", None),
+                        "main_file": None if plan_entry is None else str(plan_entry.source_path),
+                        "associated_files": [] if plan_entry is None else [str(path) for path in getattr(plan_entry, "associated_paths", ())],
+                    }
+                )
+            continue
+
         entry = {
             "source_path": str(item.source_path),
             "target_path": None if item.target_path is None else str(item.target_path),
@@ -197,6 +247,10 @@ def _build_rename_journal_entries(result: RenameExecutionResult) -> list[dict[st
             "undo_action": None,
             "undo_source_path": None,
             "undo_target_path": None,
+            "group_id": getattr(plan_entry, "group_id", None),
+            "group_kind": getattr(plan_entry, "group_kind", None),
+            "main_file": None if plan_entry is None else str(plan_entry.source_path),
+            "associated_files": [] if plan_entry is None else [str(path) for path in getattr(plan_entry, "associated_paths", ())],
         }
         if item.action == "renamed" and item.target_path is not None:
             entry["undo_action"] = "rename_back"
