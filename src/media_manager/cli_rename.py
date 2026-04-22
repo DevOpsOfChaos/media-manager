@@ -43,6 +43,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Include hidden files and hidden folders.",
     )
     parser.add_argument(
+        "--include-associated-files",
+        action="store_true",
+        help="Include known associated files such as XMP or AAE siblings in rename planning.",
+    )
+    parser.add_argument(
         "--show-files",
         action="store_true",
         help="Print individual rename entries in addition to the summary.",
@@ -88,6 +93,40 @@ def _count_by_label(values: list[str]) -> dict[str, int]:
     return dict(sorted(summary.items()))
 
 
+def _warning_payloads(item) -> list[dict[str, object]]:
+    if item is None:
+        return []
+    warnings = getattr(item, "association_warnings", ()) or ()
+    payloads: list[dict[str, object]] = []
+    for warning in warnings:
+        payloads.append(
+            {
+                "path": str(warning.path),
+                "warning_code": warning.warning_code,
+                "message": warning.message,
+            }
+        )
+    return payloads
+
+
+def _member_result_payloads(entry) -> list[dict[str, object]]:
+    results = getattr(entry, "member_results", ()) or ()
+    payloads: list[dict[str, object]] = []
+    for item in results:
+        payloads.append(
+            {
+                "source_path": str(item.source_path),
+                "target_path": None if item.target_path is None else str(item.target_path),
+                "status": item.status,
+                "reason": item.reason,
+                "action": item.action,
+                "role": getattr(item, "role", None),
+                "is_main_file": bool(getattr(item, "is_main_file", getattr(item, "role", None) == "main")),
+            }
+        )
+    return payloads
+
+
 def _dry_run_summaries(dry_run) -> dict[str, dict[str, int]]:
     statuses: list[str] = []
     reasons: list[str] = []
@@ -122,8 +161,13 @@ def _build_json_payload(dry_run, execution_result) -> dict[str, object]:
     payload = {
         "template": dry_run.options.template,
         "sources": [str(path) for path in dry_run.options.source_dirs],
+        "include_associated_files": bool(getattr(dry_run.options, "include_associated_files", False)),
         "missing_sources": [str(path) for path in dry_run.scan_summary.missing_sources],
         "media_file_count": dry_run.media_file_count,
+        "media_group_count": int(getattr(dry_run, "media_group_count", len(dry_run.entries))),
+        "associated_file_count": int(getattr(dry_run, "associated_file_count", 0)),
+        "association_warning_count": int(getattr(dry_run, "association_warning_count", 0)),
+        "group_kind_summary": dict(sorted(getattr(dry_run, "group_kind_summary", {"single": len(dry_run.entries)}).items())),
         "planned_count": dry_run.planned_count,
         "skipped_count": dry_run.skipped_count,
         "conflict_count": dry_run.conflict_count,
@@ -140,6 +184,20 @@ def _build_json_payload(dry_run, execution_result) -> dict[str, object]:
                 "source_kind": None if item.resolution is None else item.resolution.source_kind,
                 "source_label": None if item.resolution is None else item.resolution.source_label,
                 "confidence": None if item.resolution is None else item.resolution.confidence,
+                "group_id": getattr(item, "group_id", None),
+                "group_kind": getattr(item, "group_kind", "single"),
+                "main_file": str(item.source_path),
+                "associated_files": [str(path) for path in getattr(item, "associated_paths", ())],
+                "associated_file_count": int(getattr(item, "associated_file_count", 0)),
+                "association_warnings": _warning_payloads(item),
+                "member_targets": [
+                    {
+                        "source_path": str(member.source_path),
+                        "target_path": str(member.target_path),
+                        "role": getattr(member, "role", None),
+                    }
+                    for member in (getattr(item, "member_targets", ()) or ())
+                ],
             }
             for item in dry_run.entries
         ],
@@ -161,6 +219,13 @@ def _build_json_payload(dry_run, execution_result) -> dict[str, object]:
                     "status": entry.status,
                     "reason": entry.reason,
                     "action": entry.action,
+                    "group_id": getattr(entry, "group_id", getattr(getattr(entry, "plan_entry", None), "group_id", None)),
+                    "group_kind": getattr(entry, "group_kind", getattr(getattr(entry, "plan_entry", None), "group_kind", None)),
+                    "main_file": str(getattr(getattr(entry, "plan_entry", None), "source_path", entry.source_path)),
+                    "associated_files": [str(path) for path in getattr(getattr(entry, "plan_entry", None), "associated_paths", ())],
+                    "associated_file_count": int(getattr(getattr(entry, "plan_entry", None), "associated_file_count", 0)),
+                    "association_warnings": _warning_payloads(getattr(entry, "plan_entry", None)),
+                    "member_results": _member_result_payloads(entry),
                 }
                 for entry in execution_result.entries
             ],
@@ -171,16 +236,37 @@ def _build_json_payload(dry_run, execution_result) -> dict[str, object]:
 def _build_journal_entries(execution_result) -> list[dict[str, object]]:
     entries: list[dict[str, object]] = []
     for entry in execution_result.entries:
-        reversible = False
-        undo_action = None
-        undo_from_path = None
-        undo_to_path = None
+        plan_entry = getattr(entry, "plan_entry", None)
+        member_results = getattr(entry, "member_results", ()) or ()
 
-        if entry.action == "renamed":
-            reversible = True
-            undo_action = "rename_back"
-            undo_from_path = str(entry.target_path) if entry.target_path is not None else None
-            undo_to_path = str(entry.source_path)
+        if member_results:
+            for member in member_results:
+                reversible = member.action == "renamed"
+                undo_action = "rename_back" if reversible else None
+                undo_from_path = str(member.target_path) if reversible and member.target_path is not None else None
+                undo_to_path = str(member.source_path) if reversible else None
+                entries.append(
+                    {
+                        "source_path": str(member.source_path),
+                        "target_path": None if member.target_path is None else str(member.target_path),
+                        "outcome": member.action,
+                        "reason": member.reason,
+                        "reversible": reversible,
+                        "undo_action": undo_action,
+                        "undo_from_path": undo_from_path,
+                        "undo_to_path": undo_to_path,
+                        "group_id": getattr(plan_entry, "group_id", None),
+                        "group_kind": getattr(plan_entry, "group_kind", None),
+                        "main_file": None if plan_entry is None else str(plan_entry.source_path),
+                        "associated_files": [] if plan_entry is None else [str(path) for path in getattr(plan_entry, "associated_paths", ())],
+                    }
+                )
+            continue
+
+        reversible = entry.action == "renamed"
+        undo_action = "rename_back" if reversible else None
+        undo_from_path = str(entry.target_path) if reversible and entry.target_path is not None else None
+        undo_to_path = str(entry.source_path) if reversible else None
 
         entries.append(
             {
@@ -192,6 +278,10 @@ def _build_journal_entries(execution_result) -> list[dict[str, object]]:
                 "undo_action": undo_action,
                 "undo_from_path": undo_from_path,
                 "undo_to_path": undo_to_path,
+                "group_id": getattr(plan_entry, "group_id", None),
+                "group_kind": getattr(plan_entry, "group_kind", None),
+                "main_file": None if plan_entry is None else str(plan_entry.source_path),
+                "associated_files": [] if plan_entry is None else [str(path) for path in getattr(plan_entry, "associated_paths", ())],
             }
         )
     return entries
@@ -223,6 +313,7 @@ def main(argv: list[str] | None = None) -> int:
             recursive=not args.non_recursive,
             include_hidden=args.include_hidden,
             exiftool_path=args.exiftool_path,
+            include_associated_files=args.include_associated_files,
         )
     )
     execution_result = execute_rename_dry_run(dry_run, apply=args.apply)
@@ -289,9 +380,7 @@ def main(argv: list[str] | None = None) -> int:
         print("\nRename entries:")
         for entry in execution_result.entries:
             target_display = "-" if entry.target_path is None else str(entry.target_path)
-            print(
-                f"  - [{entry.status}] {entry.source_path} -> {target_display} | {entry.reason}"
-            )
+            print(f"  - [{entry.status}] {entry.source_path} -> {target_display} | {entry.reason}")
 
     if args.run_log is not None:
         print(f"\nWrote run log: {args.run_log}")
