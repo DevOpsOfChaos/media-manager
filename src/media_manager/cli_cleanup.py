@@ -110,13 +110,16 @@ def _member_result_payloads(entry) -> list[dict[str, object]]:
     results = getattr(entry, "member_results", ()) or ()
     payloads: list[dict[str, object]] = []
     for item in results:
+        outcome = getattr(item, "outcome", None)
+        status = getattr(item, "status", outcome)
+        action = getattr(item, "action", outcome)
         payloads.append(
             {
                 "source_path": str(item.source_path),
                 "target_path": None if item.target_path is None else str(item.target_path),
-                "status": item.status,
+                "status": status,
                 "reason": item.reason,
-                "action": item.action,
+                "action": action,
                 "role": getattr(item, "role", None),
                 "is_main_file": bool(getattr(item, "is_main_file", getattr(item, "role", None) == "main")),
             }
