@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Rename planner and executor for the rebuilt core."""
 
 from .executor import execute_rename_dry_run
@@ -5,6 +7,8 @@ from .models import (
     RenameDryRun,
     RenameExecutionEntry,
     RenameExecutionResult,
+    RenameMemberExecutionResult,
+    RenameMemberTarget,
     RenamePlanEntry,
     RenamePlannerOptions,
 )
@@ -15,6 +19,8 @@ __all__ = [
     "RenameDryRun",
     "RenameExecutionEntry",
     "RenameExecutionResult",
+    "RenameMemberExecutionResult",
+    "RenameMemberTarget",
     "RenamePlanEntry",
     "RenamePlannerOptions",
     "build_rename_dry_run",

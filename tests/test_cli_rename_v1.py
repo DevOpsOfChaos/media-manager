@@ -41,6 +41,30 @@ def test_cli_rename_json_output_contains_summary(monkeypatch, tmp_path: Path, ca
     assert payload["planned_count"] == 1
 
 
+def test_cli_rename_include_associated_files_groups_sidecar_in_json(monkeypatch, tmp_path: Path, capsys) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "IMG_0001.JPG").write_bytes(b"jpg")
+    (source / "IMG_0001.xmp").write_text("xmp", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "media_manager.core.renamer.planner.resolve_capture_datetime",
+        lambda path, exiftool_path=None: _resolution(path),
+    )
+
+    exit_code = main(["--source", str(source), "--include-associated-files", "--json"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+    assert payload["media_group_count"] == 1
+    assert payload["associated_file_count"] == 1
+    assert payload["group_kind_summary"] == {"sidecar": 1}
+    assert payload["entries"][0]["group_kind"] == "sidecar"
+    assert payload["entries"][0]["associated_file_count"] == 1
+    assert payload["entries"][0]["associated_files"] == [str(source / "IMG_0001.xmp")]
+
+
 def test_cli_rename_apply_reports_rename_execution(monkeypatch, tmp_path: Path, capsys) -> None:
     source = tmp_path / "source"
     source.mkdir()
@@ -59,6 +83,56 @@ def test_cli_rename_apply_reports_rename_execution(monkeypatch, tmp_path: Path, 
     assert payload["execution"]["apply_requested"] is True
     assert payload["execution"]["renamed_count"] == 1
     assert payload["execution"]["entries"][0]["action"] == "renamed"
+
+
+def test_cli_rename_apply_with_associated_files_renames_sidecar_and_journals_each_member(monkeypatch, tmp_path: Path, capsys) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    photo = source / "IMG_0001.JPG"
+    sidecar = source / "IMG_0001.xmp"
+    photo.write_bytes(b"jpg")
+    sidecar.write_text("xmp", encoding="utf-8")
+    journal_path = tmp_path / "journals" / "rename-execution.json"
+
+    monkeypatch.setattr(
+        "media_manager.core.renamer.planner.resolve_capture_datetime",
+        lambda path, exiftool_path=None: _resolution(path),
+    )
+
+    exit_code = main(
+        [
+            "--source",
+            str(source),
+            "--include-associated-files",
+            "--apply",
+            "--json",
+            "--journal",
+            str(journal_path),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+    assert payload["execution"]["renamed_count"] == 1
+    entry = payload["execution"]["entries"][0]
+    assert entry["group_kind"] == "sidecar"
+    assert entry["associated_file_count"] == 1
+    assert len(entry["member_results"]) == 2
+    assert {item["action"] for item in entry["member_results"]} == {"renamed"}
+
+    journal = json.loads(journal_path.read_text(encoding="utf-8"))
+    assert journal["command_name"] == "rename"
+    assert journal["apply_requested"] is True
+    assert journal["entry_count"] == 2
+    assert journal["reversible_entry_count"] == 2
+    assert {item["outcome"] for item in journal["entries"]} == {"renamed"}
+    assert {Path(item["source_path"]).name for item in journal["entries"]} == {"IMG_0001.JPG", "IMG_0001.xmp"}
+
+    renamed_photo = next(item for item in entry["member_results"] if item["is_main_file"] is True)
+    renamed_sidecar = next(item for item in entry["member_results"] if item["is_main_file"] is False)
+    assert Path(renamed_photo["target_path"]).exists()
+    assert Path(renamed_sidecar["target_path"]).exists()
 
 
 def test_cli_rename_writes_run_log(monkeypatch, tmp_path: Path, capsys) -> None:

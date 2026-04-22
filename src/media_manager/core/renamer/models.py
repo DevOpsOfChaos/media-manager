@@ -16,6 +16,14 @@ class RenamePlannerOptions:
     include_hidden: bool = False
     follow_symlinks: bool = False
     exiftool_path: Path | None = None
+    include_associated_files: bool = False
+
+
+@dataclass(slots=True, frozen=True)
+class RenameMemberTarget:
+    source_path: Path
+    target_path: Path
+    role: str = "main"
 
 
 @dataclass(slots=True)
@@ -26,6 +34,11 @@ class RenamePlanEntry:
     reason: str
     rendered_name: str | None = None
     target_path: Path | None = None
+    group_id: str | None = None
+    group_kind: str = "single"
+    associated_paths: tuple[Path, ...] = ()
+    association_warnings: tuple[object, ...] = ()
+    member_targets: tuple[RenameMemberTarget, ...] = ()
 
     @property
     def source_path(self) -> Path:
@@ -35,12 +48,20 @@ class RenamePlanEntry:
     def source_root(self) -> Path:
         return self.scanned_file.source_root
 
+    @property
+    def associated_file_count(self) -> int:
+        return len(self.associated_paths)
+
 
 @dataclass(slots=True)
 class RenameDryRun:
     options: RenamePlannerOptions
     scan_summary: ScanSummary
     entries: list[RenamePlanEntry] = field(default_factory=list)
+    media_group_count: int = 0
+    associated_file_count: int = 0
+    association_warning_count: int = 0
+    group_kind_summary: dict[str, int] = field(default_factory=dict)
 
     @property
     def planned_count(self) -> int:
@@ -83,6 +104,16 @@ class RenameDryRun:
         return dict(Counter(item.resolution.confidence for item in self.entries if item.resolution is not None))
 
 
+@dataclass(slots=True, frozen=True)
+class RenameMemberExecutionResult:
+    source_path: Path
+    target_path: Path | None
+    status: str
+    reason: str
+    action: str
+    role: str = "main"
+
+
 @dataclass(slots=True)
 class RenameExecutionEntry:
     source_path: Path
@@ -90,6 +121,16 @@ class RenameExecutionEntry:
     status: str
     reason: str
     action: str
+    plan_entry: RenamePlanEntry | None = None
+    member_results: tuple[RenameMemberExecutionResult, ...] = ()
+
+    @property
+    def group_id(self) -> str | None:
+        return None if self.plan_entry is None else self.plan_entry.group_id
+
+    @property
+    def group_kind(self) -> str | None:
+        return None if self.plan_entry is None else self.plan_entry.group_kind
 
 
 @dataclass(slots=True)
