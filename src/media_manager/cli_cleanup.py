@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import argparse
@@ -159,26 +160,6 @@ def _leftover_payload(result) -> dict[str, object]:
     }
 
 
-def _review_payload(report) -> dict[str, object]:
-    candidates = getattr(report, "review_candidates", ()) or ()
-    return {
-        "candidate_count": int(getattr(report, "review_candidate_count", len(candidates))),
-        "section_summary": dict(sorted(getattr(report, "review_section_summary", {}).items())),
-        "reason_summary": dict(sorted(getattr(report, "review_reason_summary", {}).items())),
-        "candidates": [
-            {
-                "section": item.section,
-                "path": str(item.path),
-                "source_path": None if item.source_path is None else str(item.source_path),
-                "candidate_kind": item.candidate_kind,
-                "reason": item.reason,
-                "warning_code": item.warning_code,
-            }
-            for item in candidates
-        ],
-    }
-
-
 def _build_payload(report, execution_report: CleanupExecutionReport | None) -> dict[str, object]:
     payload = {
         "sources": [str(path) for path in report.options.source_dirs],
@@ -196,7 +177,11 @@ def _build_payload(report, execution_report: CleanupExecutionReport | None) -> d
         "group_kind_summary": dict(
             sorted(getattr(report, "group_kind_summary", {"single": len(report.organize_plan.entries)}).items())
         ),
-        "review": _review_payload(report),
+        "review": {
+            "candidate_count": int(getattr(report, "review_candidate_count", 0)),
+            "section_summary": dict(sorted(getattr(report, "review_section_summary", {}).items())),
+            "reason_summary": dict(sorted(getattr(report, "review_reason_summary", {}).items())),
+        },
         "scan": {
             "missing_sources": [str(path) for path in report.scan_summary.missing_sources],
             "media_file_count": report.media_file_count,
@@ -318,11 +303,6 @@ def _print_detailed_sections(report, execution_report: CleanupExecutionReport | 
         for entry in report.rename_dry_run.entries:
             target_text = str(entry.target_path) if entry.target_path else "-"
             print(f"  - [{entry.status}] {entry.source_path} -> {target_text} | {entry.reason}")
-
-    if getattr(report, "review_candidate_count", 0):
-        print("\nReview candidates:")
-        for item in getattr(report, "review_candidates", ()):
-            print(f"  - [{item.section}:{item.candidate_kind}] {item.path} | {item.reason}")
 
     if execution_report is not None:
         print("\nExecution entries:")

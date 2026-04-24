@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from collections import Counter
@@ -88,14 +89,35 @@ class CleanupLeftoverResult:
         return len(self.errors)
 
 
-@dataclass(slots=True, frozen=True)
-class CleanupReviewCandidate:
-    section: str
-    path: Path
-    reason: str
-    candidate_kind: str
-    source_path: Path | None = None
-    warning_code: str | None = None
+def _entry_review_reasons(entry) -> tuple[str, ...]:
+    reasons: list[str] = []
+    if int(getattr(entry, "association_warning_count", 0)) > 0:
+        reasons.append("association_warning")
+    else:
+        warnings = getattr(entry, "association_warnings", ()) or ()
+        if warnings:
+            reasons.append("association_warning")
+
+    status = getattr(entry, "status", None)
+    outcome = getattr(entry, "outcome", None)
+    action = getattr(entry, "action", None)
+    markers = {status, outcome, action}
+    if "conflict" in markers:
+        reasons.append("conflict")
+    if "error" in markers:
+        reasons.append("error")
+    return tuple(reasons)
+
+
+def _iter_review_candidates(report: "CleanupWorkflowReport"):
+    for entry in report.organize_plan.entries:
+        reasons = _entry_review_reasons(entry)
+        if reasons:
+            yield "organize", entry, reasons
+    for entry in report.rename_dry_run.entries:
+        reasons = _entry_review_reasons(entry)
+        if reasons:
+            yield "rename", entry, reasons
 
 
 @dataclass(slots=True)
@@ -142,69 +164,21 @@ class CleanupWorkflowReport:
         return {"single": len(self.organize_plan.entries)}
 
     @property
-    def review_candidates(self) -> list[CleanupReviewCandidate]:
-        candidates: list[CleanupReviewCandidate] = []
-
-        for entry in self.organize_plan.entries:
-            warnings = tuple(getattr(entry, "association_warnings", ()) or ())
-            for warning in warnings:
-                candidates.append(
-                    CleanupReviewCandidate(
-                        section="organize",
-                        path=warning.path,
-                        source_path=entry.source_path,
-                        reason=warning.message,
-                        candidate_kind="association_warning",
-                        warning_code=warning.warning_code,
-                    )
-                )
-            if entry.status in {"conflict", "error"}:
-                candidates.append(
-                    CleanupReviewCandidate(
-                        section="organize",
-                        path=entry.source_path,
-                        source_path=entry.source_path,
-                        reason=entry.reason,
-                        candidate_kind=entry.status,
-                    )
-                )
-
-        # Do not duplicate association warnings from rename here; they mirror the same
-        # source-side ambiguity already represented in organize. Conflicts/errors remain
-        # section-specific and therefore useful as separate review candidates.
-        for entry in self.rename_dry_run.entries:
-            if entry.status in {"conflict", "error"}:
-                candidates.append(
-                    CleanupReviewCandidate(
-                        section="rename",
-                        path=entry.source_path,
-                        source_path=entry.source_path,
-                        reason=entry.reason,
-                        candidate_kind=entry.status,
-                    )
-                )
-
-        candidates.sort(
-            key=lambda item: (
-                item.section,
-                item.candidate_kind,
-                os.path.normcase(str(item.path)),
-                "" if item.warning_code is None else item.warning_code,
-            )
-        )
-        return candidates
-
-    @property
     def review_candidate_count(self) -> int:
-        return len(self.review_candidates)
+        return sum(1 for _ in _iter_review_candidates(self))
 
     @property
     def review_section_summary(self) -> dict[str, int]:
-        return dict(sorted(Counter(item.section for item in self.review_candidates).items()))
+        counter = Counter(section for section, _, _ in _iter_review_candidates(self))
+        return dict(sorted(counter.items()))
 
     @property
     def review_reason_summary(self) -> dict[str, int]:
-        return dict(sorted(Counter(item.candidate_kind for item in self.review_candidates).items()))
+        counter: Counter[str] = Counter()
+        for _, _, reasons in _iter_review_candidates(self):
+            for reason in reasons:
+                counter[reason] += 1
+        return dict(sorted(counter.items()))
 
     @property
     def has_errors(self) -> bool:
