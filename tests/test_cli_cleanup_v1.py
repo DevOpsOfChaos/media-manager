@@ -50,36 +50,6 @@ def test_cli_cleanup_json_output_contains_sections(monkeypatch, tmp_path: Path, 
     assert "rename" in payload
 
 
-def test_cli_cleanup_include_associated_files_adds_media_group_summary(monkeypatch, tmp_path: Path, capsys) -> None:
-    source = tmp_path / "source"
-    target = tmp_path / "target"
-    source.mkdir()
-    target.mkdir()
-    (source / "photo.jpg").write_bytes(b"jpg")
-    (source / "photo.xmp").write_text("xmp", encoding="utf-8")
-
-    monkeypatch.setattr(
-        "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
-    )
-    monkeypatch.setattr(
-        "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
-    )
-
-    exit_code = main(["--source", str(source), "--target", str(target), "--include-associated-files", "--json"])
-    captured = capsys.readouterr()
-
-    assert exit_code == 0
-    payload = json.loads(captured.out)
-    assert payload["include_associated_files"] is True
-    assert payload["media_group_count"] == 1
-    assert payload["associated_file_count"] == 1
-    assert payload["group_kind_summary"] == {"sidecar": 1}
-    assert payload["organize"]["media_group_count"] == 1
-    assert payload["rename"]["media_group_count"] == 1
-
-
 def test_cli_cleanup_can_apply_organize_and_emit_execution_json(monkeypatch, tmp_path: Path, capsys) -> None:
     source = tmp_path / "source"
     target = tmp_path / "target"
@@ -144,14 +114,16 @@ def test_cli_cleanup_can_apply_rename_and_write_journal(monkeypatch, tmp_path: P
     assert journal["command_name"] == "cleanup-rename"
 
 
-def test_cli_cleanup_apply_rename_with_associated_files_reports_grouped_execution(monkeypatch, tmp_path: Path, capsys) -> None:
+def test_cli_cleanup_apply_organize_can_consolidate_leftovers(monkeypatch, tmp_path: Path, capsys) -> None:
     source = tmp_path / "source"
+    nested = source / "nested"
     target = tmp_path / "target"
     source.mkdir()
+    nested.mkdir()
     target.mkdir()
-    (source / "IMG_0001.JPG").write_bytes(b"jpg")
-    (source / "IMG_0001.xmp").write_text("xmp", encoding="utf-8")
-    journal_path = tmp_path / "journals" / "cleanup-rename.json"
+    (nested / "photo.jpg").write_bytes(b"jpg")
+    (nested / "notes.txt").write_text("note", encoding="utf-8")
+    journal_path = tmp_path / "journals" / "cleanup-organize.json"
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
@@ -165,8 +137,8 @@ def test_cli_cleanup_apply_rename_with_associated_files_reports_grouped_executio
     exit_code = main([
         "--source", str(source),
         "--target", str(target),
-        "--include-associated-files",
-        "--apply-rename",
+        "--apply-organize",
+        "--leftover-mode", "consolidate",
         "--journal", str(journal_path),
         "--json",
     ])
@@ -174,13 +146,35 @@ def test_cli_cleanup_apply_rename_with_associated_files_reports_grouped_executio
 
     assert exit_code == 0
     payload = json.loads(captured.out)
-    entry = payload["execution"]["entries"][0]
-    assert entry["group_kind"] == "sidecar"
-    assert entry["associated_file_count"] == 1
-    assert len(entry["member_results"]) == 2
+    assert payload["execution"]["apply_step"] == "organize"
+    assert payload["execution"]["leftover"]["file_count"] == 2
+    assert payload["execution"]["leftover"]["removed_empty_directory_count"] == 1
+    assert (source / "_remaining_files" / "photo.jpg").exists()
+    assert (source / "_remaining_files" / "notes.txt").exists()
+    assert not nested.exists()
+
     journal = json.loads(journal_path.read_text(encoding="utf-8"))
-    assert journal["entry_count"] == 2
-    assert journal["reversible_entry_count"] == 2
+    assert journal["command_name"] == "cleanup-organize"
+    assert journal["entry_count"] == 3
+    assert journal["reversible_entry_count"] == 3
+
+
+def test_cli_cleanup_rejects_leftover_mode_without_apply_organize(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+
+    try:
+        main([
+            "--source", str(source),
+            "--target", str(target),
+            "--leftover-mode", "consolidate",
+        ])
+    except SystemExit as exc:
+        assert exc.code == 2
+    else:  # pragma: no cover
+        raise AssertionError("Expected argparse to reject leftover consolidation without --apply-organize.")
 
 
 def test_cli_cleanup_rejects_journal_without_apply(tmp_path: Path) -> None:

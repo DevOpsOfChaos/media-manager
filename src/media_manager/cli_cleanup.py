@@ -57,6 +57,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Group safe known associated files such as sidecars during embedded organize and rename planning.",
     )
+    parser.add_argument(
+        "--leftover-mode",
+        choices=["off", "consolidate"],
+        default="off",
+        help="Optional cleanup of source leftovers after apply-organize. Default: off.",
+    )
+    parser.add_argument(
+        "--leftover-dir-name",
+        default="_remaining_files",
+        help="Directory name used for consolidated leftovers under each source root.",
+    )
     parser.add_argument("--show-files", action="store_true", help="Print detailed workflow section entries.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
     parser.add_argument("--run-log", type=Path, help="Optional JSON run-log path for this cleanup workflow command.")
@@ -110,9 +121,8 @@ def _member_result_payloads(entry) -> list[dict[str, object]]:
     results = getattr(entry, "member_results", ()) or ()
     payloads: list[dict[str, object]] = []
     for item in results:
-        outcome = getattr(item, "outcome", None)
-        status = getattr(item, "status", outcome)
-        action = getattr(item, "action", outcome)
+        status = getattr(item, "status", getattr(item, "outcome", None))
+        action = getattr(item, "action", getattr(item, "outcome", None))
         payloads.append(
             {
                 "source_path": str(item.source_path),
@@ -127,6 +137,28 @@ def _member_result_payloads(entry) -> list[dict[str, object]]:
     return payloads
 
 
+def _leftover_payload(result) -> dict[str, object]:
+    return {
+        "requested": bool(getattr(result, "requested", False)),
+        "mode": getattr(result, "mode", "off"),
+        "directory_name": getattr(result, "directory_name", "_remaining_files"),
+        "file_count": int(getattr(result, "file_count", 0)),
+        "removed_empty_directory_count": int(getattr(result, "removed_empty_directory_count", 0)),
+        "conflict_count": int(getattr(result, "conflict_count", 0)),
+        "error_count": int(getattr(result, "error_count", 0)),
+        "entries": [
+            {
+                "source_root": str(item.source_root),
+                "source_path": str(item.source_path),
+                "target_path": str(item.target_path),
+                "conflict_resolved": bool(getattr(item, "conflict_resolved", False)),
+            }
+            for item in (getattr(result, "entries", ()) or ())
+        ],
+        "removed_empty_directories": [str(path) for path in (getattr(result, "removed_empty_directories", ()) or ())],
+    }
+
+
 def _build_payload(report, execution_report: CleanupExecutionReport | None) -> dict[str, object]:
     payload = {
         "sources": [str(path) for path in report.options.source_dirs],
@@ -136,10 +168,14 @@ def _build_payload(report, execution_report: CleanupExecutionReport | None) -> d
         "duplicate_policy": report.options.duplicate_policy,
         "duplicate_mode": report.options.duplicate_mode,
         "include_associated_files": bool(getattr(report.options, "include_associated_files", False)),
+        "leftover_mode": getattr(report.options, "leftover_mode", "off"),
+        "leftover_dir_name": getattr(report.options, "leftover_dir_name", "_remaining_files"),
         "media_group_count": int(getattr(report, "media_group_count", len(report.organize_plan.entries))),
         "associated_file_count": int(getattr(report, "associated_file_count", 0)),
         "association_warning_count": int(getattr(report, "association_warning_count", 0)),
-        "group_kind_summary": dict(sorted(getattr(report, "group_kind_summary", {"single": len(report.organize_plan.entries)}).items())),
+        "group_kind_summary": dict(
+            sorted(getattr(report, "group_kind_summary", {"single": len(report.organize_plan.entries)}).items())
+        ),
         "scan": {
             "missing_sources": [str(path) for path in report.scan_summary.missing_sources],
             "media_file_count": report.media_file_count,
@@ -165,7 +201,9 @@ def _build_payload(report, execution_report: CleanupExecutionReport | None) -> d
             "media_group_count": int(getattr(report.organize_plan, "media_group_count", len(report.organize_plan.entries))),
             "associated_file_count": int(getattr(report.organize_plan, "associated_file_count", 0)),
             "association_warning_count": int(getattr(report.organize_plan, "association_warning_count", 0)),
-            "group_kind_summary": dict(sorted(getattr(report.organize_plan, "group_kind_summary", {"single": len(report.organize_plan.entries)}).items())),
+            "group_kind_summary": dict(
+                sorted(getattr(report.organize_plan, "group_kind_summary", {"single": len(report.organize_plan.entries)}).items())
+            ),
         },
         "rename": {
             "planned_count": report.rename_dry_run.planned_count,
@@ -175,12 +213,14 @@ def _build_payload(report, execution_report: CleanupExecutionReport | None) -> d
             "media_group_count": int(getattr(report.rename_dry_run, "media_group_count", len(report.rename_dry_run.entries))),
             "associated_file_count": int(getattr(report.rename_dry_run, "associated_file_count", 0)),
             "association_warning_count": int(getattr(report.rename_dry_run, "association_warning_count", 0)),
-            "group_kind_summary": dict(sorted(getattr(report.rename_dry_run, "group_kind_summary", {"single": len(report.rename_dry_run.entries)}).items())),
+            "group_kind_summary": dict(
+                sorted(getattr(report.rename_dry_run, "group_kind_summary", {"single": len(report.rename_dry_run.entries)}).items())
+            ),
         },
     }
     if execution_report is not None:
         if execution_report.apply_step == "organize" and execution_report.organize_result is not None:
-            payload["execution"] = {
+            execution_payload = {
                 "apply_step": "organize",
                 "journal_path": None if execution_report.journal_path is None else str(execution_report.journal_path),
                 "executed_count": execution_report.organize_result.executed_count,
@@ -206,6 +246,9 @@ def _build_payload(report, execution_report: CleanupExecutionReport | None) -> d
                     for item in execution_report.organize_result.entries
                 ],
             }
+            if execution_report.leftover_result is not None:
+                execution_payload["leftover"] = _leftover_payload(execution_report.leftover_result)
+            payload["execution"] = execution_payload
         elif execution_report.apply_step == "rename" and execution_report.rename_result is not None:
             payload["execution"] = {
                 "apply_step": "rename",
@@ -261,6 +304,10 @@ def _print_detailed_sections(report, execution_report: CleanupExecutionReport | 
             for entry in execution_report.organize_result.entries:
                 target_text = str(entry.target_path) if entry.target_path else "-"
                 print(f"  - [{entry.outcome}] {entry.source_path} -> {target_text} | {entry.reason}")
+            if execution_report.leftover_result is not None:
+                print("\nLeftover consolidation entries:")
+                for item in execution_report.leftover_result.entries:
+                    print(f"  - [moved] {item.source_path} -> {item.target_path}")
         elif execution_report.apply_step == "rename" and execution_report.rename_result is not None:
             for entry in execution_report.rename_result.entries:
                 target_text = str(entry.target_path) if entry.target_path else "-"
@@ -280,6 +327,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.journal is not None and not (args.apply_organize or args.apply_rename):
         parser.error("--journal requires either --apply-organize or --apply-rename.")
+    if args.leftover_mode != "off" and not args.apply_organize:
+        parser.error("--leftover-mode currently requires --apply-organize.")
 
     report = build_cleanup_workflow_report(
         CleanupWorkflowOptions(
@@ -293,6 +342,8 @@ def main(argv: list[str] | None = None) -> int:
             duplicate_mode=args.duplicate_mode,
             exiftool_path=args.exiftool_path,
             include_associated_files=args.include_associated_files,
+            leftover_mode=args.leftover_mode,
+            leftover_dir_name=args.leftover_dir_name,
         )
     )
 
@@ -357,6 +408,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  Skipped: {execution_report.organize_result.skipped_count}")
             print(f"  Conflicts: {execution_report.organize_result.conflict_count}")
             print(f"  Errors: {execution_report.organize_result.error_count}")
+            if execution_report.leftover_result is not None:
+                print(f"  Leftover files moved: {execution_report.leftover_result.file_count}")
+                print(f"  Empty directories removed: {execution_report.leftover_result.removed_empty_directory_count}")
+                print(f"  Leftover conflicts resolved: {execution_report.leftover_result.conflict_count}")
         elif execution_report.apply_step == "rename" and execution_report.rename_result is not None:
             print(f"  Renamed: {execution_report.rename_result.renamed_count}")
             print(f"  Skipped: {execution_report.rename_result.skipped_count}")

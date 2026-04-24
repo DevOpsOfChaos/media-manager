@@ -98,6 +98,49 @@ def test_execute_cleanup_workflow_can_apply_organize_and_write_journal(monkeypat
     assert payload["reversible_entry_count"] == 1
 
 
+def test_execute_cleanup_workflow_can_consolidate_leftovers_after_apply_organize(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    nested = source / "nested"
+    target = tmp_path / "target"
+    source.mkdir()
+    nested.mkdir()
+    target.mkdir()
+    (nested / "photo.jpg").write_bytes(b"jpg")
+    (nested / "notes.txt").write_text("note", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "media_manager.core.organizer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+    monkeypatch.setattr(
+        "media_manager.core.renamer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+
+    report = build_cleanup_workflow_report(
+        CleanupWorkflowOptions(
+            source_dirs=(source,),
+            target_root=target,
+            leftover_mode="consolidate",
+        )
+    )
+    journal_path = tmp_path / "journals" / "cleanup-organize-leftovers.json"
+    execution = execute_cleanup_workflow(report, apply_step="organize", journal_path=journal_path)
+
+    assert execution.apply_step == "organize"
+    assert execution.leftover_result is not None
+    assert execution.leftover_result.file_count == 2
+    assert execution.leftover_result.removed_empty_directory_count == 1
+    assert (source / "_remaining_files" / "photo.jpg").exists()
+    assert (source / "_remaining_files" / "notes.txt").exists()
+    assert not nested.exists()
+
+    payload = json.loads(journal_path.read_text(encoding="utf-8"))
+    assert payload["command_name"] == "cleanup-organize"
+    assert payload["entry_count"] == 3
+    assert payload["reversible_entry_count"] == 3
+
+
 def test_execute_cleanup_workflow_can_apply_rename_and_write_journal(monkeypatch, tmp_path: Path) -> None:
     source = tmp_path / "source"
     target = tmp_path / "target"
