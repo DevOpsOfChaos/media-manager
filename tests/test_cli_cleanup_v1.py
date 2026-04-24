@@ -48,6 +48,8 @@ def test_cli_cleanup_json_output_contains_sections(monkeypatch, tmp_path: Path, 
     assert "duplicates" in payload
     assert "organize" in payload
     assert "rename" in payload
+    assert "review" in payload
+    assert payload["review"]["candidate_count"] == 0
 
 
 def test_cli_cleanup_can_apply_organize_and_emit_execution_json(monkeypatch, tmp_path: Path, capsys) -> None:
@@ -78,6 +80,39 @@ def test_cli_cleanup_can_apply_organize_and_emit_execution_json(monkeypatch, tmp
     payload = json.loads(captured.out)
     assert payload["execution"]["apply_step"] == "organize"
     assert payload["execution"]["copied_count"] == 1
+
+
+def test_cli_cleanup_json_reports_review_candidates_from_association_warnings(monkeypatch, tmp_path: Path, capsys) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+    (source / "IMG_0001.JPG").write_bytes(b"jpg")
+    (source / "IMG_0001.MOV").write_bytes(b"mov")
+    (source / "IMG_0001.MP4").write_bytes(b"mp4")
+
+    monkeypatch.setattr(
+        "media_manager.core.organizer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+    monkeypatch.setattr(
+        "media_manager.core.renamer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+
+    exit_code = main([
+        "--source", str(source),
+        "--target", str(target),
+        "--include-associated-files",
+        "--json",
+    ])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+    assert payload["review"]["candidate_count"] == 6
+    assert payload["review"]["section_summary"] == {"organize": 3, "rename": 3}
+    assert payload["review"]["reason_summary"] == {"association_warning": 6}
 
 
 def test_cli_cleanup_can_apply_rename_and_write_journal(monkeypatch, tmp_path: Path, capsys) -> None:

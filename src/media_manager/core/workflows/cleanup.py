@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
@@ -87,6 +88,16 @@ class CleanupLeftoverResult:
         return len(self.errors)
 
 
+@dataclass(slots=True, frozen=True)
+class CleanupReviewCandidate:
+    section: str
+    path: Path
+    reason: str
+    candidate_kind: str
+    source_path: Path | None = None
+    warning_code: str | None = None
+
+
 @dataclass(slots=True)
 class CleanupWorkflowReport:
     options: CleanupWorkflowOptions
@@ -129,6 +140,71 @@ class CleanupWorkflowReport:
         if summary or not self.organize_plan.entries:
             return dict(sorted(summary.items()))
         return {"single": len(self.organize_plan.entries)}
+
+    @property
+    def review_candidates(self) -> list[CleanupReviewCandidate]:
+        candidates: list[CleanupReviewCandidate] = []
+
+        for entry in self.organize_plan.entries:
+            warnings = tuple(getattr(entry, "association_warnings", ()) or ())
+            for warning in warnings:
+                candidates.append(
+                    CleanupReviewCandidate(
+                        section="organize",
+                        path=warning.path,
+                        source_path=entry.source_path,
+                        reason=warning.message,
+                        candidate_kind="association_warning",
+                        warning_code=warning.warning_code,
+                    )
+                )
+            if entry.status in {"conflict", "error"}:
+                candidates.append(
+                    CleanupReviewCandidate(
+                        section="organize",
+                        path=entry.source_path,
+                        source_path=entry.source_path,
+                        reason=entry.reason,
+                        candidate_kind=entry.status,
+                    )
+                )
+
+        # Do not duplicate association warnings from rename here; they mirror the same
+        # source-side ambiguity already represented in organize. Conflicts/errors remain
+        # section-specific and therefore useful as separate review candidates.
+        for entry in self.rename_dry_run.entries:
+            if entry.status in {"conflict", "error"}:
+                candidates.append(
+                    CleanupReviewCandidate(
+                        section="rename",
+                        path=entry.source_path,
+                        source_path=entry.source_path,
+                        reason=entry.reason,
+                        candidate_kind=entry.status,
+                    )
+                )
+
+        candidates.sort(
+            key=lambda item: (
+                item.section,
+                item.candidate_kind,
+                os.path.normcase(str(item.path)),
+                "" if item.warning_code is None else item.warning_code,
+            )
+        )
+        return candidates
+
+    @property
+    def review_candidate_count(self) -> int:
+        return len(self.review_candidates)
+
+    @property
+    def review_section_summary(self) -> dict[str, int]:
+        return dict(sorted(Counter(item.section for item in self.review_candidates).items()))
+
+    @property
+    def review_reason_summary(self) -> dict[str, int]:
+        return dict(sorted(Counter(item.candidate_kind for item in self.review_candidates).items()))
 
     @property
     def has_errors(self) -> bool:

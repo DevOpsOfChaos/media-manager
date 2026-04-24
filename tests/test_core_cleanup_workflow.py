@@ -67,6 +67,37 @@ def test_build_cleanup_workflow_report_combines_sections(monkeypatch, tmp_path: 
     assert report.has_errors is False
 
 
+def test_build_cleanup_workflow_report_collects_review_candidates_from_association_warnings(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+    (source / "IMG_0001.JPG").write_bytes(b"jpg")
+    (source / "IMG_0001.MOV").write_bytes(b"mov")
+    (source / "IMG_0001.MP4").write_bytes(b"mp4")
+
+    monkeypatch.setattr(
+        "media_manager.core.organizer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+    monkeypatch.setattr(
+        "media_manager.core.renamer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None: _resolution(file_path),
+    )
+
+    report = build_cleanup_workflow_report(
+        CleanupWorkflowOptions(
+            source_dirs=(source,),
+            target_root=target,
+            include_associated_files=True,
+        )
+    )
+
+    assert report.review_candidate_count == 6
+    assert report.review_section_summary == {"organize": 3, "rename": 3}
+    assert report.review_reason_summary == {"association_warning": 6}
+
+
 def test_execute_cleanup_workflow_can_apply_organize_and_write_journal(monkeypatch, tmp_path: Path) -> None:
     source = tmp_path / "source"
     target = tmp_path / "target"
