@@ -17,6 +17,11 @@ from .core.people_recognition import (
     scan_people,
     write_people_catalog,
 )
+from .core.people_review_workflow import (
+    apply_people_review_workflow,
+    build_people_review_workflow,
+    write_people_review_workflow,
+)
 from .core.report_export import write_json_report
 
 
@@ -40,6 +45,27 @@ def build_parser() -> argparse.ArgumentParser:
     scan_parser.add_argument("--review-json", type=Path, help="Write compact review payload for unknown faces.")
     scan_parser.add_argument("--include-encodings", action="store_true", help="Include face encodings in the report. Sensitive biometric metadata; keep private. Only meaningful for embedding-capable backends.")
     scan_parser.add_argument("--require-backend", action="store_true", help="Return exit code 1 when the requested people backend is unavailable.")
+
+    review_export_parser = subparsers.add_parser(
+        "review-export",
+        help="Create an editable grouped people review workflow from a people scan report.",
+    )
+    review_export_parser.add_argument("--report-json", type=Path, required=True, help="People scan report JSON. Use a report created with --include-encodings when you plan to apply the workflow.")
+    review_export_parser.add_argument("--out", type=Path, required=True, help="Output people review workflow JSON path.")
+    review_export_parser.add_argument("--group-limit", type=int, help="Optional maximum number of groups to include.")
+    review_export_parser.add_argument("--face-limit-per-group", type=int, help="Optional maximum number of face references per group.")
+    review_export_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    review_apply_parser = subparsers.add_parser(
+        "review-apply",
+        help="Apply a reviewed people workflow to a local people catalog.",
+    )
+    review_apply_parser.add_argument("--catalog", type=Path, required=True, help="People catalog JSON path to read/update.")
+    review_apply_parser.add_argument("--workflow-json", type=Path, required=True, help="Reviewed workflow JSON created by review-export.")
+    review_apply_parser.add_argument("--report-json", type=Path, required=True, help="Original people scan report JSON with encodings.")
+    review_apply_parser.add_argument("--out-catalog", type=Path, help="Optional output catalog path. Defaults to updating --catalog.")
+    review_apply_parser.add_argument("--dry-run", action="store_true", help="Validate and summarize without writing catalog changes.")
+    review_apply_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
 
     backend_parser = subparsers.add_parser("backend", help="Check local people backend availability and capabilities.")
     backend_parser.add_argument("--backend", choices=BACKEND_CHOICES, default=DEFAULT_BACKEND, help="Backend to inspect. Default: auto.")
@@ -70,6 +96,13 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _read_json_object(path: Path) -> dict[str, object]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Expected JSON object in {path}")
+    return payload
+
+
 def _print_scan_text(payload: dict[str, object]) -> None:
     summary = payload.get("summary", {})
     capabilities = payload.get("capabilities", {})
@@ -86,6 +119,28 @@ def _print_scan_text(payload: dict[str, object]) -> None:
         print(f"  Matched faces: {summary.get('matched_faces', 0)}")
         print(f"  Unknown faces: {summary.get('unknown_faces', 0)}")
         print(f"  Unknown clusters: {summary.get('unknown_cluster_count', 0)}")
+    print(f"  Next action: {payload.get('next_action')}")
+
+
+def _print_review_export_text(payload: dict[str, object], out_path: Path) -> None:
+    print("People review workflow")
+    print(f"  Output: {out_path}")
+    print(f"  Groups: {payload.get('group_count', 0)}")
+    print(f"  Encoding records in source report: {payload.get('encoding_count_in_source_report', 0)}")
+    print("  Next action: Edit the workflow JSON, set apply_group/name/person choices, then run review-apply.")
+
+
+def _print_review_apply_text(payload: dict[str, object]) -> None:
+    summary = payload.get("summary", {})
+    print("People review apply")
+    print(f"  Status: {payload.get('status')}")
+    print(f"  Catalog: {payload.get('catalog_path')}")
+    print(f"  Dry run: {payload.get('dry_run')}")
+    if isinstance(summary, dict):
+        print(f"  Groups applied: {summary.get('groups_applied', 0)}")
+        print(f"  Persons created: {summary.get('persons_created', 0)}")
+        print(f"  Embeddings added: {summary.get('embeddings_added', 0)}")
+        print(f"  Problems: {summary.get('problem_count', 0)}")
     print(f"  Next action: {payload.get('next_action')}")
 
 
@@ -182,6 +237,43 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(f"Renamed person: {person.person_id} | {person.name}")
         return 0
+
+    if command == "review-export":
+        try:
+            report_payload = _read_json_object(args.report_json)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        payload = build_people_review_workflow(
+            report_payload,
+            group_limit=args.group_limit,
+            face_limit_per_group=args.face_limit_per_group,
+        )
+        write_people_review_workflow(args.out, payload)
+        if args.json:
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+        else:
+            _print_review_export_text(payload, args.out)
+        return 0
+
+    if command == "review-apply":
+        try:
+            workflow_payload = _read_json_object(args.workflow_json)
+            report_payload = _read_json_object(args.report_json)
+            result = apply_people_review_workflow(
+                catalog_path=args.catalog,
+                workflow_payload=workflow_payload,
+                report_payload=report_payload,
+                output_catalog_path=args.out_catalog,
+                dry_run=args.dry_run,
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        payload = result.to_dict()
+        if args.json:
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+        else:
+            _print_review_apply_text(payload)
+        return 0 if payload["status"] == "ok" else 1
 
     if command == "scan":
         media_extensions = frozenset(args.include_extension) if args.include_extension else None

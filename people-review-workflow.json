@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "workflow": "people_review",
+  "review_status": "needs_user_review",
+  "source_report_summary": {
+    "scanned_files": 0,
+    "image_files": 0,
+    "processed_files": 0,
+    "skipped_filtered_files": 0,
+    "skipped_unsupported_files": 0,
+    "face_count": 0,
+    "matched_faces": 0,
+    "unknown_faces": 0,
+    "unknown_cluster_count": 0,
+    "catalog_person_count": 0,
+    "error_count": 0
+  },
+  "requires_report_with_encodings_for_apply": true,
+  "encoding_count_in_source_report": 0,
+  "group_count": 0,
+  "truncated": false,
+  "instructions": [
+    "Run people scan with --include-encodings when you want to apply this workflow to the catalog.",
+    "For each group that should teach the catalog, set apply_group to true.",
+    "Set selected_name for a new person, or selected_person_id for an existing person.",
+    "Set include to false on faces that do not belong to the selected person.",
+    "Keep workflow files and reports private because they can contain sensitive biometric metadata."
+  ],
+  "groups": [],
+  "privacy_notice": "This workflow can reveal who appears in which local files. When paired with a report that includes encodings, it references sensitive biometric metadata."
+}
