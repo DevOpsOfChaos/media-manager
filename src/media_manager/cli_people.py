@@ -17,16 +17,21 @@ from .core.people_recognition import (
     scan_people,
     write_people_catalog,
 )
-from .core.people_review_ui import (
-    build_people_review_workspace,
-    build_people_review_workspace_summary_text,
-)
+from .core.people_review_assets import build_people_review_assets, write_people_review_asset_manifest
+from .core.people_review_ui import build_people_review_workspace, build_people_review_workspace_summary_text
 from .core.people_review_workflow import (
     apply_people_review_workflow,
     build_people_review_workflow,
     write_people_review_workflow,
 )
 from .core.report_export import write_json_report
+
+
+def _read_json_object(path: Path) -> dict[str, object]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Expected a JSON object in {path}")
+    return payload
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -76,38 +81,42 @@ def build_parser() -> argparse.ArgumentParser:
     rename_parser.add_argument("--name", required=True, help="New display name.")
     rename_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
 
-    review_export_parser = subparsers.add_parser("review-export", help="Build an editable people review workflow from a people scan report.")
-    review_export_parser.add_argument("--report-json", type=Path, required=True, help="People scan report JSON, ideally created with --include-encodings before applying.")
-    review_export_parser.add_argument("--out", type=Path, required=True, help="Workflow JSON path to write.")
-    review_export_parser.add_argument("--group-limit", type=int, help="Optional maximum number of groups to export.")
-    review_export_parser.add_argument("--face-limit-per-group", type=int, help="Optional maximum number of faces per group.")
-    review_export_parser.add_argument("--json", action="store_true", help="Print the workflow JSON after writing it.")
+    review_export = subparsers.add_parser("review-export", help="Build an editable people review workflow from a people scan report.")
+    review_export.add_argument("--report-json", type=Path, required=True, help="People scan report JSON, ideally created with --include-encodings before apply.")
+    review_export.add_argument("--out", type=Path, required=True, help="Output people review workflow JSON path.")
+    review_export.add_argument("--group-limit", type=int, help="Optional maximum number of groups to export.")
+    review_export.add_argument("--face-limit-per-group", type=int, help="Optional maximum number of faces per group.")
+    review_export.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
 
-    review_apply_parser = subparsers.add_parser("review-apply", help="Apply a reviewed people workflow to a local people catalog.")
-    review_apply_parser.add_argument("--catalog", type=Path, required=True, help="People catalog JSON path to read/update.")
-    review_apply_parser.add_argument("--workflow-json", type=Path, required=True, help="Reviewed workflow JSON file.")
-    review_apply_parser.add_argument("--report-json", type=Path, required=True, help="Original people scan report JSON with encodings.")
-    review_apply_parser.add_argument("--out-catalog", type=Path, help="Optional output catalog path. Defaults to updating --catalog.")
-    review_apply_parser.add_argument("--dry-run", action="store_true", help="Validate and summarize without writing catalog changes.")
-    review_apply_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+    review_apply = subparsers.add_parser("review-apply", help="Apply a reviewed people workflow to a local people catalog.")
+    review_apply.add_argument("--catalog", type=Path, required=True, help="People catalog JSON path to update.")
+    review_apply.add_argument("--workflow-json", type=Path, required=True, help="Edited people review workflow JSON.")
+    review_apply.add_argument("--report-json", type=Path, required=True, help="Original people scan report JSON containing face encodings.")
+    review_apply.add_argument("--out-catalog", type=Path, help="Optional output catalog path. Defaults to updating --catalog.")
+    review_apply.add_argument("--dry-run", action="store_true", help="Validate and summarize without writing the catalog.")
+    review_apply.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
 
-    review_state_parser = subparsers.add_parser("review-state", help="Build a GUI-facing people review workspace JSON from a report and optional workflow.")
-    review_state_parser.add_argument("--report-json", type=Path, required=True, help="People scan report JSON.")
-    review_state_parser.add_argument("--workflow-json", type=Path, help="Optional reviewed workflow JSON file. If omitted, a draft workflow is built from the report.")
-    review_state_parser.add_argument("--out", type=Path, help="Optional output path for the generated people review workspace JSON.")
-    review_state_parser.add_argument("--group-limit", type=int, help="Optional maximum number of groups to include.")
-    review_state_parser.add_argument("--face-limit-per-group", type=int, help="Optional maximum number of face cards per group.")
-    review_state_parser.add_argument("--include-encodings", action="store_true", help="Include face encodings in the workspace JSON. Sensitive biometric metadata; keep private.")
-    review_state_parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+    review_state = subparsers.add_parser("review-state", help="Build a GUI-ready people review workspace from report/workflow JSON.")
+    review_state.add_argument("--report-json", type=Path, required=True, help="People scan report JSON.")
+    review_state.add_argument("--workflow-json", type=Path, help="Optional edited people review workflow JSON. If omitted, one is built from the report.")
+    review_state.add_argument("--group-limit", type=int, help="Optional maximum number of groups to include.")
+    review_state.add_argument("--face-limit-per-group", type=int, help="Optional maximum number of faces per group.")
+    review_state.add_argument("--include-encodings", action="store_true", help="Include encodings in the workspace JSON. Sensitive biometric metadata; keep private.")
+    review_state.add_argument("--out", type=Path, help="Optional output workspace JSON path.")
+    review_state.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    review_assets = subparsers.add_parser("review-assets", help="Build local face crop assets for a GUI people review workspace.")
+    review_assets.add_argument("--report-json", type=Path, required=True, help="People scan report JSON.")
+    review_assets.add_argument("--workflow-json", type=Path, help="Optional people review workflow JSON. If provided, only referenced faces are exported.")
+    review_assets.add_argument("--asset-dir", type=Path, required=True, help="Directory where face crop assets should be written.")
+    review_assets.add_argument("--out", type=Path, help="Output asset manifest JSON path. Defaults to <asset-dir>/people_review_assets.json.")
+    review_assets.add_argument("--crop-padding", type=float, default=0.25, help="Face crop padding ratio. Default: 0.25.")
+    review_assets.add_argument("--thumbnail-size", type=int, default=256, help="Maximum crop image size. Default: 256.")
+    review_assets.add_argument("--quality", type=int, default=90, help="JPEG quality from 1 to 100. Default: 90.")
+    review_assets.add_argument("--no-overwrite", action="store_true", help="Do not overwrite existing crop files.")
+    review_assets.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
 
     return parser
-
-
-def _read_json_object(path: Path) -> dict[str, object]:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected a JSON object in {path}")
-    return value
 
 
 def _print_scan_text(payload: dict[str, object]) -> None:
@@ -139,18 +148,36 @@ def _catalog_summary(catalog_path: Path, catalog) -> dict[str, object]:
     }
 
 
+def _print_review_export_text(payload: dict[str, object], out_path: Path) -> None:
+    print("People review workflow")
+    print(f"  Output: {out_path}")
+    print(f"  Groups: {payload.get('group_count', 0)}")
+    print(f"  Encodings in source report: {payload.get('encoding_count_in_source_report', 0)}")
+    print("  Next action: Edit group names/include flags, then run people review-apply.")
+
+
 def _print_review_apply_text(payload: dict[str, object]) -> None:
     summary = payload.get("summary", {})
     print("People review apply")
     print(f"  Status: {payload.get('status')}")
-    print(f"  Catalog: {payload.get('catalog_path')}")
     if isinstance(summary, dict):
         print(f"  Groups applied: {summary.get('groups_applied', 0)}")
         print(f"  Persons created: {summary.get('persons_created', 0)}")
-        print(f"  Persons updated: {summary.get('persons_updated', 0)}")
         print(f"  Embeddings added: {summary.get('embeddings_added', 0)}")
         print(f"  Problems: {summary.get('problem_count', 0)}")
     print(f"  Next action: {payload.get('next_action')}")
+
+
+def _print_assets_text(payload: dict[str, object]) -> None:
+    summary = payload.get("summary", {})
+    print("People review assets")
+    print(f"  Asset dir: {payload.get('asset_dir')}")
+    if isinstance(summary, dict):
+        print(f"  Assets: {summary.get('asset_count', 0)}")
+        print(f"  Generated: {summary.get('generated_count', 0)}")
+        print(f"  Existing: {summary.get('existing_count', 0)}")
+        print(f"  Errors: {summary.get('error_count', 0)}")
+    print("  Next action: Open the asset manifest from the future GUI review page.")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -271,20 +298,18 @@ def main(argv: list[str] | None = None) -> int:
     if command == "review-export":
         try:
             report_payload = _read_json_object(args.report_json)
-            workflow_payload = build_people_review_workflow(
-                report_payload,
-                group_limit=args.group_limit,
-                face_limit_per_group=args.face_limit_per_group,
-            )
-            write_people_review_workflow(args.out, workflow_payload)
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             parser.error(str(exc))
+        payload = build_people_review_workflow(
+            report_payload,
+            group_limit=args.group_limit,
+            face_limit_per_group=args.face_limit_per_group,
+        )
+        write_people_review_workflow(args.out, payload)
         if args.json:
-            print(json.dumps(workflow_payload, indent=2, ensure_ascii=False))
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
         else:
-            print(f"Wrote people review workflow: {args.out}")
-            print(f"  Groups: {workflow_payload.get('group_count', 0)}")
-            print(f"  Requires report encodings for apply: {workflow_payload.get('requires_report_with_encodings_for_apply')}")
+            _print_review_export_text(payload, args.out)
         return 0
 
     if command == "review-apply":
@@ -311,24 +336,45 @@ def main(argv: list[str] | None = None) -> int:
         try:
             report_payload = _read_json_object(args.report_json)
             workflow_payload = _read_json_object(args.workflow_json) if args.workflow_json is not None else None
-            payload = build_people_review_workspace(
-                report_payload=report_payload,
-                workflow_payload=workflow_payload,
-                group_limit=args.group_limit,
-                face_limit_per_group=args.face_limit_per_group,
-                include_encodings=args.include_encodings,
-            )
-            if args.out is not None:
-                write_json_report(args.out, payload)
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             parser.error(str(exc))
+        payload = build_people_review_workspace(
+            report_payload=report_payload,
+            workflow_payload=workflow_payload,
+            group_limit=args.group_limit,
+            face_limit_per_group=args.face_limit_per_group,
+            include_encodings=args.include_encodings,
+        )
+        if args.out is not None:
+            write_json_report(args.out, payload)
         if args.json:
             print(json.dumps(payload, indent=2, ensure_ascii=False))
         else:
             print(build_people_review_workspace_summary_text(payload))
-            if args.out is not None:
-                print(f"  Workspace: {args.out}")
         return 0
+
+    if command == "review-assets":
+        try:
+            report_payload = _read_json_object(args.report_json)
+            workflow_payload = _read_json_object(args.workflow_json) if args.workflow_json is not None else None
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        payload = build_people_review_assets(
+            report_payload=report_payload,
+            workflow_payload=workflow_payload,
+            asset_dir=args.asset_dir,
+            crop_padding_ratio=args.crop_padding,
+            thumbnail_size=args.thumbnail_size,
+            quality=args.quality,
+            overwrite=not args.no_overwrite,
+        )
+        manifest_path = args.out or (args.asset_dir / "people_review_assets.json")
+        write_people_review_asset_manifest(manifest_path, payload)
+        if args.json:
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+        else:
+            _print_assets_text(payload)
+        return 0 if payload.get("summary", {}).get("error_count", 0) == 0 else 1
 
     parser.error(f"Unsupported people command: {command}")
     return 2
