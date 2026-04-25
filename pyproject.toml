@@ -33,6 +33,15 @@ dependencies = [
 dev = [
   "pytest>=8.0",
 ]
+people = [
+  "opencv-python>=4.9",
+]
+people-opencv = [
+  "opencv-python>=4.9",
+]
+people-face-recognition = [
+  "face-recognition>=1.3.0",
+]
 
 [project.scripts]
 media-manager = "media_manager.cli:main"
@@ -42,6 +51,7 @@ media-manager-duplicates = "media_manager.cli_duplicates:main"
 media-manager-doctor = "media_manager.cli_doctor:main"
 media-manager-inspect = "media_manager.cli_inspect:main"
 media-manager-organize = "media_manager.cli_organize:main"
+media-manager-people = "media_manager.cli_people:main"
 media-manager-rename = "media_manager.cli_rename:main"
 media-manager-runs = "media_manager.cli_runs:main"
 media-manager-trip = "media_manager.cli_trip:main"

@@ -10,6 +10,7 @@ from . import (
     cli_doctor,
     cli_inspect,
     cli_organize,
+    cli_people,
     cli_rename,
     cli_runs,
     cli_trip,
@@ -25,6 +26,7 @@ COMMAND_HANDLERS = {
     "doctor": cli_doctor.main,
     "inspect": cli_inspect.main,
     "organize": cli_organize.main,
+    "people": cli_people.main,
     "rename": cli_rename.main,
     "runs": cli_runs.main,
     "trip": cli_trip.main,
@@ -60,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "\nNo command provided.\n"
             "Run an explicit CLI command such as 'inspect', 'organize', 'rename', 'trip', "
-            "'duplicates', 'doctor', 'runs', 'app', 'undo', 'cleanup', or 'workflow'."
+            "'duplicates', 'doctor', 'people', 'runs', 'app', 'undo', 'cleanup', or 'workflow'."
         )
         return 0
 
