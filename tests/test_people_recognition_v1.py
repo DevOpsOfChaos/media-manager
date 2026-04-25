@@ -7,6 +7,7 @@ import pytest
 
 from media_manager.cli_people import main as people_main
 from media_manager.core.people_recognition import (
+    FaceBox,
     PeopleCatalog,
     PeopleScanConfig,
     add_embedding_to_person,
@@ -42,6 +43,7 @@ def test_people_scan_without_backend_is_safe(monkeypatch: pytest.MonkeyPatch, tm
     source.mkdir()
     (source / "photo.jpg").write_bytes(b"not really an image")
 
+    monkeypatch.setattr("media_manager.core.people_recognition._load_dlib_backend", lambda: None)
     monkeypatch.setattr("media_manager.core.people_recognition._load_backend", lambda: None)
     monkeypatch.setattr("media_manager.core.people_recognition._load_opencv_backend", lambda: None)
     result = scan_people(PeopleScanConfig(source_dirs=[source]))
@@ -52,7 +54,23 @@ def test_people_scan_without_backend_is_safe(monkeypatch: pytest.MonkeyPatch, tm
     assert result.face_count == 0
 
 
+def test_people_backend_auto_prefers_dlib_over_opencv(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("media_manager.core.people_recognition._load_dlib_backend", lambda: {"backend": "dlib"})
+    monkeypatch.setattr("media_manager.core.people_recognition._load_backend", lambda: None)
+    monkeypatch.setattr("media_manager.core.people_recognition._load_opencv_backend", lambda: {"cv2": object(), "classifier": object()})
+
+    status = inspect_people_backend("auto")
+
+    assert status.available is True
+    assert status.selected_backend == "dlib"
+    assert status.dlib_available is True
+    assert status.detection_available is True
+    assert status.matching_available is True
+    assert status.unknown_grouping_available is True
+
+
 def test_people_backend_auto_can_fallback_to_opencv(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("media_manager.core.people_recognition._load_dlib_backend", lambda: None)
     monkeypatch.setattr("media_manager.core.people_recognition._load_backend", lambda: None)
     monkeypatch.setattr("media_manager.core.people_recognition._load_opencv_backend", lambda: {"cv2": object(), "classifier": object()})
 
@@ -62,6 +80,47 @@ def test_people_backend_auto_can_fallback_to_opencv(monkeypatch: pytest.MonkeyPa
     assert status.selected_backend == "opencv"
     assert status.detection_available is True
     assert status.matching_available is False
+
+
+def test_people_backend_legacy_face_recognition_request_uses_dlib_when_available(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("media_manager.core.people_recognition._load_dlib_backend", lambda: {"backend": "dlib"})
+    monkeypatch.setattr("media_manager.core.people_recognition._load_backend", lambda: None)
+    monkeypatch.setattr("media_manager.core.people_recognition._load_opencv_backend", lambda: None)
+
+    status = inspect_people_backend("face-recognition")
+
+    assert status.available is True
+    assert status.selected_backend == "dlib"
+    assert status.matching_available is True
+
+
+def test_people_scan_dlib_backend_matches_catalog_person(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    image_path = source / "photo.jpg"
+    image_path.write_bytes(b"fake image bytes")
+    catalog_path = tmp_path / "people.json"
+    catalog = PeopleCatalog()
+    person = add_person_to_catalog(catalog, name="Jane Doe")
+    add_embedding_to_person(catalog, person_id=person.person_id, encoding=[0.1, 0.2, 0.3], source_path="known.jpg")
+    write_people_catalog(catalog_path, catalog)
+
+    monkeypatch.setattr("media_manager.core.people_recognition._load_dlib_backend", lambda: {"backend": "dlib"})
+    monkeypatch.setattr("media_manager.core.people_recognition._load_backend", lambda: None)
+    monkeypatch.setattr("media_manager.core.people_recognition._load_opencv_backend", lambda: None)
+    monkeypatch.setattr(
+        "media_manager.core.people_recognition._detect_faces_with_dlib",
+        lambda path, backend: [(FaceBox(top=1, right=20, bottom=30, left=2), (0.1, 0.2, 0.31))],
+    )
+
+    result = scan_people(PeopleScanConfig(source_dirs=[source], catalog_path=catalog_path, backend="dlib", tolerance=0.05))
+
+    assert result.status == "ok"
+    assert result.backend == "dlib"
+    assert result.face_count == 1
+    assert result.matched_faces == 1
+    assert result.detections[0].match is not None
+    assert result.detections[0].match.person_id == person.person_id
 
 
 def test_people_review_payload_lists_unknown_faces() -> None:
@@ -100,6 +159,7 @@ def test_people_cli_catalog_commands(tmp_path: Path, capsys: pytest.CaptureFixtu
 
 
 def test_people_cli_backend_json_reports_capabilities(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr("media_manager.core.people_recognition._load_dlib_backend", lambda: None)
     monkeypatch.setattr("media_manager.core.people_recognition._load_backend", lambda: None)
     monkeypatch.setattr("media_manager.core.people_recognition._load_opencv_backend", lambda: {"cv2": object(), "classifier": object()})
 
@@ -107,5 +167,6 @@ def test_people_cli_backend_json_reports_capabilities(monkeypatch: pytest.Monkey
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["selected_backend"] == "opencv"
+    assert payload["dlib_available"] is False
     assert payload["capabilities"]["face_detection"] is True
     assert payload["capabilities"]["named_person_matching"] is False

@@ -16,7 +16,8 @@ from media_manager.sorter import iter_media_files
 SCHEMA_VERSION = 1
 DEFAULT_TOLERANCE = 0.6
 DEFAULT_BACKEND = "auto"
-BACKEND_CHOICES = ("auto", "face-recognition", "opencv")
+STRONG_BACKEND = "dlib"
+BACKEND_CHOICES = ("auto", "dlib", "face-recognition", "opencv")
 SUPPORTED_FACE_IMAGE_EXTENSIONS = frozenset(list_supported_similar_image_extensions())
 
 
@@ -35,6 +36,15 @@ class FaceBox:
     @classmethod
     def from_xywh(cls, *, x: int, y: int, width: int, height: int) -> "FaceBox":
         return cls(top=y, right=x + width, bottom=y + height, left=x)
+
+    @classmethod
+    def from_dlib_rect(cls, value: object) -> "FaceBox":
+        return cls(
+            top=int(value.top()),
+            right=int(value.right()),
+            bottom=int(value.bottom()),
+            left=int(value.left()),
+        )
 
     def to_dict(self) -> dict[str, int]:
         return {"top": self.top, "right": self.right, "bottom": self.bottom, "left": self.left}
@@ -154,6 +164,7 @@ class PeopleScanConfig:
 class BackendStatus:
     selected_backend: str | None
     available: bool
+    dlib_available: bool
     face_recognition_available: bool
     opencv_available: bool
     detection_available: bool
@@ -161,16 +172,28 @@ class BackendStatus:
     unknown_grouping_available: bool
     next_action: str
 
+    @property
+    def strong_backend_available(self) -> bool:
+        return self.dlib_available or self.face_recognition_available
+
     def to_dict(self) -> dict[str, object]:
         return {
             "selected_backend": self.selected_backend,
             "available": self.available,
+            "dlib_available": self.dlib_available,
             "face_recognition_available": self.face_recognition_available,
             "opencv_available": self.opencv_available,
+            "strong_backend_available": self.strong_backend_available,
             "capabilities": {
                 "face_detection": self.detection_available,
                 "named_person_matching": self.matching_available,
                 "unknown_face_grouping": self.unknown_grouping_available,
+            },
+            "install_guidance": {
+                "recommended_windows_extra": "people",
+                "strong_backend_extra": "people-dlib",
+                "opencv_only_extra": "people-opencv",
+                "legacy_alias_extra": "people-face-recognition",
             },
             "next_action": self.next_action,
         }
@@ -182,6 +205,7 @@ class PeopleScanResult:
     backend: str | None = None
     backend_requested: str = DEFAULT_BACKEND
     backend_available: bool = False
+    dlib_available: bool = False
     face_recognition_available: bool = False
     opencv_available: bool = False
     detection_available: bool = False
@@ -208,8 +232,10 @@ class PeopleScanResult:
             "backend": self.backend,
             "backend_requested": self.backend_requested,
             "backend_available": self.backend_available,
+            "dlib_available": self.dlib_available,
             "face_recognition_available": self.face_recognition_available,
             "opencv_available": self.opencv_available,
+            "strong_backend_available": self.dlib_available or self.face_recognition_available,
             "capabilities": {
                 "face_detection": self.detection_available,
                 "named_person_matching": self.matching_available,
@@ -240,16 +266,52 @@ def _now_utc() -> str:
 
 
 def _load_backend():
-    """Return the optional face_recognition backend.
+    """Return the legacy optional face_recognition package backend.
 
-    Kept for compatibility with earlier tests and callers. This backend provides
-    both face detection and comparable 128-dimensional embeddings for matching.
+    Kept for compatibility with earlier tests and callers. The preferred strong
+    backend is now the direct dlib backend because the face_recognition package
+    often forces a dlib source build on Windows.
     """
     try:  # pragma: no cover - optional runtime dependency
         import face_recognition  # type: ignore
     except Exception:
         return None
     return face_recognition
+
+
+def _load_dlib_backend():
+    """Return a direct dlib backend using packaged face-recognition model files.
+
+    On Windows this is intended to be installed through the dlib-bin wheel, not
+    by compiling dlib from source. It provides detection plus 128-dimensional
+    embeddings for local named-person matching.
+    """
+    try:  # pragma: no cover - optional runtime dependency
+        import dlib  # type: ignore
+        import face_recognition_models  # type: ignore
+        import numpy as np  # type: ignore
+        from PIL import Image  # type: ignore
+    except Exception:
+        return None
+
+    try:  # pragma: no cover - optional runtime/model dependent
+        pose_model_path = face_recognition_models.pose_predictor_five_point_model_location()
+    except AttributeError:  # pragma: no cover - older model package fallback
+        pose_model_path = face_recognition_models.pose_predictor_model_location()
+
+    try:  # pragma: no cover - optional runtime/model dependent
+        return {
+            "dlib": dlib,
+            "np": np,
+            "Image": Image,
+            "detector": dlib.get_frontal_face_detector(),
+            "shape_predictor": dlib.shape_predictor(pose_model_path),
+            "face_encoder": dlib.face_recognition_model_v1(face_recognition_models.face_recognition_model_location()),
+            "pose_model_path": str(pose_model_path),
+            "face_model_path": str(face_recognition_models.face_recognition_model_location()),
+        }
+    except Exception:
+        return None
 
 
 def _load_opencv_backend():
@@ -266,7 +328,11 @@ def _load_opencv_backend():
 
 def _validate_backend_name(backend: str) -> str:
     normalized = str(backend or DEFAULT_BACKEND).strip().lower().replace("_", "-")
-    if normalized == "face_recognition":
+    if normalized in {"dlib-bin", "dlibbin"}:
+        normalized = "dlib"
+    if normalized == "face-recognition-models":
+        normalized = "dlib"
+    if normalized == "face-recognition" or normalized == "face-recognition-package":
         normalized = "face-recognition"
     if normalized not in BACKEND_CHOICES:
         raise ValueError(f"Unsupported people recognition backend: {backend}")
@@ -275,15 +341,21 @@ def _validate_backend_name(backend: str) -> str:
 
 def inspect_people_backend(preferred_backend: str = DEFAULT_BACKEND) -> BackendStatus:
     preferred = _validate_backend_name(preferred_backend)
+    dlib_backend = _load_dlib_backend()
     face_backend = _load_backend()
     opencv_backend = _load_opencv_backend()
+    dlib_available = dlib_backend is not None
     face_available = face_backend is not None
     opencv_available = opencv_backend is not None
 
     selected: str | None = None
     matching_available = False
     grouping_available = False
-    if preferred in {"auto", "face-recognition"} and face_available:
+    if preferred in {"auto", "dlib", "face-recognition"} and dlib_available:
+        selected = "dlib"
+        matching_available = True
+        grouping_available = True
+    elif preferred in {"auto", "face-recognition"} and face_available:
         selected = "face-recognition"
         matching_available = True
         grouping_available = True
@@ -291,23 +363,29 @@ def inspect_people_backend(preferred_backend: str = DEFAULT_BACKEND) -> BackendS
         selected = "opencv"
     available = selected is not None
 
-    if selected == "face-recognition":
-        next_action = "Full local face detection, unknown grouping, and named-person matching are available."
+    if selected == "dlib":
+        next_action = "Best local backend is available: dlib wheel backend with face embeddings and named-person matching."
+    elif selected == "face-recognition":
+        next_action = "Legacy face_recognition backend is available with face embeddings and named-person matching."
     elif selected == "opencv":
         next_action = (
             "OpenCV face detection is available. Named-person matching is disabled; "
-            "use the face-recognition backend if you need recognition against a person catalog."
+            "install the people-dlib extra for the stronger local recognition backend."
         )
-    elif preferred == "face-recognition":
-        next_action = "The face-recognition backend is not installed or could not be loaded."
+    elif preferred in {"dlib", "face-recognition"}:
+        next_action = (
+            "The strong people backend is not installed or could not be loaded. "
+            "On Windows, run: python -m pip install -e .[people-dlib]"
+        )
     elif preferred == "opencv":
-        next_action = "The OpenCV backend is not installed or could not be loaded."
+        next_action = "The OpenCV backend is not installed or could not be loaded. Run: python -m pip install -e .[people-opencv]"
     else:
-        next_action = "Install a people backend: opencv-python for detection, or face_recognition for named-person matching."
+        next_action = "Install a people backend. Recommended on Windows: python -m pip install -e .[people]"
 
     return BackendStatus(
         selected_backend=selected,
         available=available,
+        dlib_available=dlib_available,
         face_recognition_available=face_available,
         opencv_available=opencv_available,
         detection_available=available,
@@ -328,6 +406,7 @@ def _source_root_for_path(path: Path, source_dirs: list[Path]) -> Path | None:
         except ValueError:
             continue
         return source_dir
+    return None
 
 
 def _coerce_float_tuple(values: Iterable[object]) -> tuple[float, ...]:
@@ -534,6 +613,22 @@ def _detect_faces_with_face_recognition(path: Path, backend) -> list[tuple[FaceB
     return records
 
 
+def _load_image_array_for_dlib(path: Path, backend):
+    with backend["Image"].open(path) as handle:
+        return backend["np"].array(handle.convert("RGB"))
+
+
+def _detect_faces_with_dlib(path: Path, backend) -> list[tuple[FaceBox, tuple[float, ...]]]:
+    image = _load_image_array_for_dlib(path, backend)
+    rectangles = backend["detector"](image, 1)
+    records: list[tuple[FaceBox, tuple[float, ...]]] = []
+    for rectangle in rectangles:
+        shape = backend["shape_predictor"](image, rectangle)
+        descriptor = backend["face_encoder"].compute_face_descriptor(image, shape)
+        records.append((FaceBox.from_dlib_rect(rectangle), tuple(float(value) for value in descriptor)))
+    return records
+
+
 def _detect_faces_with_opencv(path: Path, backend) -> list[tuple[FaceBox, tuple[float, ...]]]:
     cv2 = backend["cv2"]
     classifier = backend["classifier"]
@@ -550,6 +645,12 @@ def _detect_faces_with_opencv(path: Path, backend) -> list[tuple[FaceBox, tuple[
 
 def _selected_backend(preferred_backend: str):
     preferred = _validate_backend_name(preferred_backend)
+    if preferred in {"auto", "dlib", "face-recognition"}:
+        backend = _load_dlib_backend()
+        if backend is not None:
+            return "dlib", backend
+        if preferred == "dlib":
+            return None, None
     if preferred in {"auto", "face-recognition"}:
         backend = _load_backend()
         if backend is not None:
@@ -579,6 +680,7 @@ def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
     result.scanned_files = len(media_files)
 
     backend_status = inspect_people_backend(requested_backend)
+    result.dlib_available = backend_status.dlib_available
     result.face_recognition_available = backend_status.face_recognition_available
     result.opencv_available = backend_status.opencv_available
     result.backend_available = backend_status.available
@@ -614,7 +716,9 @@ def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
     detections: list[DetectedFace] = []
     for path in image_files:
         try:
-            if selected_name == "face-recognition":
+            if selected_name == "dlib":
+                faces = _detect_faces_with_dlib(path, backend)
+            elif selected_name == "face-recognition":
                 faces = _detect_faces_with_face_recognition(path, backend)
             else:
                 faces = _detect_faces_with_opencv(path, backend)
@@ -645,7 +749,7 @@ def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
     if selected_name == "opencv":
         result.next_action = (
             "Review detected faces. OpenCV detects faces locally, but named-person matching requires "
-            "the optional face-recognition backend."
+            "the optional people-dlib backend."
         )
     return result
 
@@ -688,6 +792,7 @@ __all__ = [
     "PeopleScanConfig",
     "PeopleScanResult",
     "SCHEMA_VERSION",
+    "STRONG_BACKEND",
     "add_embedding_to_person",
     "add_person_to_catalog",
     "backend_available",

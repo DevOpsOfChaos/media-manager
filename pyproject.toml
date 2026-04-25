@@ -35,12 +35,24 @@ dev = [
 ]
 people = [
   "opencv-python>=4.9",
+  "numpy>=1.26",
+  "face-recognition-models>=0.3.0",
+  "dlib-bin>=20.0.1; platform_system == 'Windows' and (platform_machine == 'AMD64' or platform_machine == 'x86_64')",
 ]
 people-opencv = [
   "opencv-python>=4.9",
 ]
+people-dlib = [
+  "numpy>=1.26",
+  "face-recognition-models>=0.3.0",
+  "dlib-bin>=20.0.1; platform_system == 'Windows' and (platform_machine == 'AMD64' or platform_machine == 'x86_64')",
+  "dlib>=19.24; platform_system != 'Windows'",
+]
 people-face-recognition = [
-  "face-recognition>=1.3.0",
+  "numpy>=1.26",
+  "face-recognition-models>=0.3.0",
+  "dlib-bin>=20.0.1; platform_system == 'Windows' and (platform_machine == 'AMD64' or platform_machine == 'x86_64')",
+  "dlib>=19.24; platform_system != 'Windows'",
 ]
 
 [project.scripts]
