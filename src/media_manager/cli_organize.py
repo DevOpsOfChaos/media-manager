@@ -10,6 +10,9 @@ from .core.organizer import (
     build_organize_dry_run,
     execute_organize_plan,
 )
+from .core.outcome_report import build_execution_outcome_report, build_plan_outcome_report
+from .core.review_report import build_review_export
+from .core.report_export import build_review_file_payload, write_json_report
 from .core.state import write_command_run_log, write_execution_journal, write_history_artifacts
 
 
@@ -59,6 +62,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Group known sidecars and explicit sibling media pairs with the main media file.",
     )
     parser.add_argument(
+        "--conflict-policy",
+        choices=["conflict", "skip"],
+        default="conflict",
+        help="How to handle existing target paths. Default: conflict.",
+    )
+    parser.add_argument(
+        "--include-pattern",
+        dest="include_patterns",
+        action="append",
+        default=[],
+        help="Only include files whose name, relative path, or path matches this pattern. Repeat to add patterns.",
+    )
+    parser.add_argument(
+        "--exclude-pattern",
+        dest="exclude_patterns",
+        action="append",
+        default=[],
+        help="Exclude files whose name, relative path, or path matches this pattern. Repeat to add patterns.",
+    )
+    parser.add_argument(
         "--show-files",
         action="store_true",
         help="Print one line per plan or execution entry.",
@@ -67,6 +90,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Print machine-readable JSON output.",
+    )
+    parser.add_argument(
+        "--report-json",
+        type=Path,
+        help="Optional path where the full JSON report is written without requiring --json stdout.",
+    )
+    parser.add_argument(
+        "--review-json",
+        type=Path,
+        help="Optional path where a compact review-focused JSON report is written.",
     )
     parser.add_argument(
         "--run-log",
@@ -172,14 +205,20 @@ def _build_payload(plan, execution_result) -> dict[str, object]:
     association_warning_count = int(getattr(plan, "association_warning_count", 0))
     group_kind_summary = dict(sorted(getattr(plan, "group_kind_summary", {"single": media_group_count}).items()))
 
+    plan_summaries = _plan_summaries(plan)
+    review_export = build_review_export({"organize": plan.entries})
     payload = {
         "sources": [str(path) for path in plan.options.source_dirs],
         "target_root": str(plan.options.target_root),
         "pattern": plan.options.pattern,
         "operation_mode": plan.options.operation_mode,
+        "conflict_policy": getattr(plan.options, "conflict_policy", "conflict"),
+        "include_patterns": list(getattr(plan.options, "include_patterns", ())),
+        "exclude_patterns": list(getattr(plan.options, "exclude_patterns", ())),
         "include_associated_files": include_associated_files,
         "missing_sources": [str(path) for path in plan.scan_summary.missing_sources],
         "media_file_count": plan.media_file_count,
+        "skipped_filtered_files": int(getattr(plan.scan_summary, "skipped_filtered_files", 0)),
         "media_group_count": media_group_count,
         "associated_file_count": associated_file_count,
         "association_warning_count": association_warning_count,
@@ -188,7 +227,19 @@ def _build_payload(plan, execution_result) -> dict[str, object]:
         "skipped_count": plan.skipped_count,
         "conflict_count": plan.conflict_count,
         "error_count": plan.error_count,
-        **_plan_summaries(plan),
+        **plan_summaries,
+        "review": review_export,
+        "outcome_report": build_plan_outcome_report(
+            command_name="organize",
+            conflict_policy=getattr(plan.options, "conflict_policy", "conflict"),
+            planned_count=plan.planned_count,
+            skipped_count=plan.skipped_count,
+            conflict_count=plan.conflict_count,
+            error_count=plan.error_count,
+            missing_source_count=getattr(plan, "missing_source_count", len(getattr(plan.scan_summary, "missing_sources", ()))),
+            status_summary=plan_summaries["status_summary"],
+            reason_summary=plan_summaries["reason_summary"],
+        ),
         "entries": [
             {
                 "source_root": str(item.source_root),
@@ -215,6 +266,7 @@ def _build_payload(plan, execution_result) -> dict[str, object]:
         ],
     }
     if execution_result is not None:
+        execution_summaries = _execution_summaries(execution_result)
         payload["execution"] = {
             "processed_count": execution_result.processed_count,
             "executed_count": execution_result.executed_count,
@@ -223,7 +275,18 @@ def _build_payload(plan, execution_result) -> dict[str, object]:
             "skipped_count": execution_result.skipped_count,
             "conflict_count": execution_result.conflict_count,
             "error_count": execution_result.error_count,
-            **_execution_summaries(execution_result),
+            **execution_summaries,
+            "outcome_report": build_execution_outcome_report(
+                command_name="organize",
+                apply_requested=True,
+                processed_count=execution_result.processed_count,
+                executed_count=execution_result.executed_count,
+                skipped_count=execution_result.skipped_count,
+                conflict_count=execution_result.conflict_count,
+                error_count=execution_result.error_count,
+                status_summary=execution_result.outcome_summary,
+                reason_summary=execution_summaries["reason_summary"],
+            ),
             "entries": [
                 {
                     "source_path": str(item.source_path),
@@ -321,6 +384,9 @@ def main(argv: list[str] | None = None) -> int:
             operation_mode=operation_mode,
             exiftool_path=args.exiftool_path,
             include_associated_files=args.include_associated_files,
+            conflict_policy=args.conflict_policy,
+            include_patterns=tuple(args.include_patterns),
+            exclude_patterns=tuple(args.exclude_patterns),
         )
     )
     execution_result = execute_organize_plan(plan) if args.apply else None
@@ -342,6 +408,11 @@ def main(argv: list[str] | None = None) -> int:
             exit_code=exit_code,
             payload=payload,
         )
+
+    if args.report_json is not None:
+        write_json_report(args.report_json, payload)
+    if args.review_json is not None:
+        write_json_report(args.review_json, build_review_file_payload("organize", payload))
 
     if args.apply and args.journal is not None and execution_result is not None:
         write_execution_journal(
@@ -378,6 +449,14 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Skipped: {plan.skipped_count}")
     print(f"  Conflicts: {plan.conflict_count}")
     print(f"  Errors: {plan.error_count}")
+    outcome_report = payload["outcome_report"]
+    print("\nOutcome report")
+    print(f"  Status: {outcome_report['status']}")
+    print(f"  Next action: {outcome_report['next_action']}")
+    if payload.get("review", {}).get("candidate_count", 0):
+        print("\nReview")
+        print(f"  Candidates: {payload['review']['candidate_count']}")
+        print(f"  Reasons: {payload['review']['reason_summary']}")
     _print_summary_block("\nStatus summary", payload["status_summary"])
     _print_summary_block("\nReason summary", payload["reason_summary"])
     _print_summary_block("\nResolution sources", payload["resolution_source_summary"])
@@ -394,6 +473,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Conflicts: {execution_result.conflict_count}")
         print(f"  Errors: {execution_result.error_count}")
         execution = payload["execution"]
+        execution_outcome = execution["outcome_report"]
+        print(f"  Outcome status: {execution_outcome['status']}")
+        print(f"  Next action: {execution_outcome['next_action']}")
         _print_summary_block("\nExecution outcomes", execution["outcome_summary"])
         _print_summary_block("\nExecution reasons", execution["reason_summary"])
 
@@ -421,6 +503,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.run_log is not None:
         print(f"\nWrote run log: {args.run_log}")
+    if args.report_json is not None:
+        print(f"Wrote JSON report: {args.report_json}")
+    if args.review_json is not None:
+        print(f"Wrote review JSON: {args.review_json}")
     if args.apply and args.journal is not None and execution_result is not None:
         print(f"Wrote execution journal: {args.journal}")
     if history_artifacts is not None:

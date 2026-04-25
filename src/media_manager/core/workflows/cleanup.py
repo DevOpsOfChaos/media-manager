@@ -51,6 +51,9 @@ class CleanupWorkflowOptions:
     duplicate_mode: str = "copy"
     exiftool_path: Path | None = None
     include_associated_files: bool = False
+    conflict_policy: str = "conflict"
+    include_patterns: tuple[str, ...] = ()
+    exclude_patterns: tuple[str, ...] = ()
     leftover_mode: CleanupLeftoverMode = "off"
     leftover_dir_name: str = "_remaining_files"
 
@@ -230,6 +233,8 @@ def build_cleanup_workflow_report(options: CleanupWorkflowOptions) -> CleanupWor
         raise ValueError("Cleanup duplicate mode must be one of: copy, move, delete.")
     if options.leftover_mode not in {"off", "consolidate"}:
         raise ValueError("Cleanup leftover mode must be one of: off, consolidate.")
+    if options.conflict_policy not in {"conflict", "skip"}:
+        raise ValueError("Cleanup conflict policy must be one of: conflict, skip.")
     _validate_leftover_dir_name(options.leftover_dir_name)
 
     scan_summary = scan_media_sources(
@@ -238,10 +243,18 @@ def build_cleanup_workflow_report(options: CleanupWorkflowOptions) -> CleanupWor
             recursive=options.recursive,
             include_hidden=options.include_hidden,
             follow_symlinks=options.follow_symlinks,
+            include_patterns=options.include_patterns,
+            exclude_patterns=options.exclude_patterns,
         )
     )
 
-    duplicate_scan_result = scan_exact_duplicates(DuplicateScanConfig(source_dirs=list(options.source_dirs)))
+    duplicate_scan_result = scan_exact_duplicates(
+        DuplicateScanConfig(
+            source_dirs=list(options.source_dirs),
+            include_patterns=options.include_patterns,
+            exclude_patterns=options.exclude_patterns,
+        )
+    )
     duplicate_decisions: dict[str, str] = {}
     if options.duplicate_policy is not None:
         duplicate_decisions = build_duplicate_decisions(
@@ -268,6 +281,9 @@ def build_cleanup_workflow_report(options: CleanupWorkflowOptions) -> CleanupWor
             operation_mode="copy",
             exiftool_path=options.exiftool_path,
             include_associated_files=options.include_associated_files,
+            conflict_policy=options.conflict_policy,
+            include_patterns=options.include_patterns,
+            exclude_patterns=options.exclude_patterns,
         )
     )
 
@@ -280,6 +296,9 @@ def build_cleanup_workflow_report(options: CleanupWorkflowOptions) -> CleanupWor
             follow_symlinks=options.follow_symlinks,
             exiftool_path=options.exiftool_path,
             include_associated_files=options.include_associated_files,
+            conflict_policy=options.conflict_policy,
+            include_patterns=options.include_patterns,
+            exclude_patterns=options.exclude_patterns,
         )
     )
 

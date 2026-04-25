@@ -5,6 +5,7 @@ from pathlib import Path
 
 from media_manager.core.date_resolver import resolve_capture_datetime
 from media_manager.core.media_groups import build_media_groups, summarize_media_groups
+from media_manager.core.path_filters import path_is_included_by_patterns
 from media_manager.core.scanner import ScanOptions, scan_media_sources
 from media_manager.core.scanner.models import ScannedFile
 
@@ -32,7 +33,11 @@ def _build_scanned_file(path: Path, source_root: Path) -> ScannedFile:
     )
 
 
-def _augment_with_sidecar_siblings(files: list[ScannedFile]) -> list[ScannedFile]:
+def _augment_with_sidecar_siblings(
+    files: list[ScannedFile],
+    *,
+    exclude_patterns: tuple[str, ...] = (),
+) -> list[ScannedFile]:
     augmented: list[ScannedFile] = list(files)
     seen = {_normalized_path_key(item.path) for item in files}
     for scanned_file in list(files):
@@ -42,6 +47,13 @@ def _augment_with_sidecar_siblings(files: list[ScannedFile]) -> list[ScannedFile
             candidate = parent / f"{stem}{ext}"
             key = _normalized_path_key(candidate)
             if key in seen or not candidate.exists() or not candidate.is_file():
+                continue
+            if exclude_patterns and not path_is_included_by_patterns(
+                candidate,
+                include_patterns=(),
+                exclude_patterns=exclude_patterns,
+                source_root=scanned_file.source_root,
+            ):
                 continue
             seen.add(key)
             augmented.append(_build_scanned_file(candidate, scanned_file.source_root))
@@ -77,8 +89,12 @@ def _single_plan_entry(options: RenamePlannerOptions, scanned_file: ScannedFile,
         status = "skipped"
         reason = "source file already matches the planned rename target"
     elif target_path.exists():
-        status = "conflict"
-        reason = "target file name already exists in the source directory"
+        if options.conflict_policy == "skip":
+            status = "skipped"
+            reason = "target file name already exists in the source directory; skipped by conflict policy"
+        else:
+            status = "conflict"
+            reason = "target file name already exists in the source directory"
     else:
         status = "planned"
         reason = "ready for rename execution"
@@ -146,8 +162,12 @@ def _group_plan_entry(options: RenamePlannerOptions, group, scanned_index: dict[
             None,
         )
         if conflict_target is not None:
-            status = "conflict"
-            reason = "target file name already exists in the source directory"
+            if options.conflict_policy == "skip":
+                status = "skipped"
+                reason = "target file name already exists in the source directory; skipped by conflict policy"
+            else:
+                status = "conflict"
+                reason = "target file name already exists in the source directory"
         else:
             status = "planned"
             reason = "ready for rename execution"
@@ -174,15 +194,23 @@ def build_rename_dry_run(options: RenamePlannerOptions) -> RenameDryRun:
             recursive=options.recursive,
             include_hidden=options.include_hidden,
             follow_symlinks=options.follow_symlinks,
+            include_patterns=options.include_patterns,
+            exclude_patterns=options.exclude_patterns,
         )
     )
+    if options.conflict_policy not in {"conflict", "skip"}:
+        raise ValueError("Rename conflict policy must be one of: conflict, skip.")
+
     dry_run = RenameDryRun(options=options, scan_summary=scan_summary)
 
     if not options.include_associated_files:
         for index, scanned_file in enumerate(scan_summary.files, start=1):
             dry_run.entries.append(_single_plan_entry(options, scanned_file, index=index))
     else:
-        augmented_files = _augment_with_sidecar_siblings(list(scan_summary.files))
+        augmented_files = _augment_with_sidecar_siblings(
+            list(scan_summary.files),
+            exclude_patterns=options.exclude_patterns,
+        )
         groups = build_media_groups(augmented_files)
         summary = summarize_media_groups(groups)
         dry_run.media_group_count = summary.group_count

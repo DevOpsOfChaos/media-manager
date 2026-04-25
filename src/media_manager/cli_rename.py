@@ -5,6 +5,9 @@ import json
 from pathlib import Path
 
 from .core.renamer import RenamePlannerOptions, build_rename_dry_run, execute_rename_dry_run
+from .core.outcome_report import build_execution_outcome_report, build_plan_outcome_report
+from .core.review_report import build_review_export
+from .core.report_export import build_review_file_payload, write_json_report
 from .core.state import write_command_run_log, write_execution_journal, write_history_artifacts
 
 DEFAULT_RENAME_TEMPLATE = "{date:%Y-%m-%d_%H-%M-%S}_{stem}"
@@ -48,6 +51,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Include known associated files such as XMP or AAE siblings in rename planning.",
     )
     parser.add_argument(
+        "--conflict-policy",
+        choices=["conflict", "skip"],
+        default="conflict",
+        help="How to handle existing target paths. Default: conflict.",
+    )
+    parser.add_argument(
+        "--include-pattern",
+        dest="include_patterns",
+        action="append",
+        default=[],
+        help="Only include files whose name, relative path, or path matches this pattern. Repeat to add patterns.",
+    )
+    parser.add_argument(
+        "--exclude-pattern",
+        dest="exclude_patterns",
+        action="append",
+        default=[],
+        help="Exclude files whose name, relative path, or path matches this pattern. Repeat to add patterns.",
+    )
+    parser.add_argument(
         "--show-files",
         action="store_true",
         help="Print individual rename entries in addition to the summary.",
@@ -56,6 +79,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Print machine-readable JSON output.",
+    )
+    parser.add_argument(
+        "--report-json",
+        type=Path,
+        help="Optional path where the full JSON report is written without requiring --json stdout.",
+    )
+    parser.add_argument(
+        "--review-json",
+        type=Path,
+        help="Optional path where a compact review-focused JSON report is written.",
     )
     parser.add_argument(
         "--run-log",
@@ -158,12 +191,18 @@ def _execution_summaries(execution_result) -> dict[str, dict[str, int]]:
 
 
 def _build_json_payload(dry_run, execution_result) -> dict[str, object]:
+    dry_run_summaries = _dry_run_summaries(dry_run)
+    review_export = build_review_export({"rename": dry_run.entries})
     payload = {
         "template": dry_run.options.template,
         "sources": [str(path) for path in dry_run.options.source_dirs],
         "include_associated_files": bool(getattr(dry_run.options, "include_associated_files", False)),
+        "conflict_policy": getattr(dry_run.options, "conflict_policy", "conflict"),
+        "include_patterns": list(getattr(dry_run.options, "include_patterns", ())),
+        "exclude_patterns": list(getattr(dry_run.options, "exclude_patterns", ())),
         "missing_sources": [str(path) for path in dry_run.scan_summary.missing_sources],
         "media_file_count": dry_run.media_file_count,
+        "skipped_filtered_files": int(getattr(dry_run.scan_summary, "skipped_filtered_files", 0)),
         "media_group_count": int(getattr(dry_run, "media_group_count", len(dry_run.entries))),
         "associated_file_count": int(getattr(dry_run, "associated_file_count", 0)),
         "association_warning_count": int(getattr(dry_run, "association_warning_count", 0)),
@@ -172,7 +211,19 @@ def _build_json_payload(dry_run, execution_result) -> dict[str, object]:
         "skipped_count": dry_run.skipped_count,
         "conflict_count": dry_run.conflict_count,
         "error_count": dry_run.error_count,
-        **_dry_run_summaries(dry_run),
+        **dry_run_summaries,
+        "review": review_export,
+        "outcome_report": build_plan_outcome_report(
+            command_name="rename",
+            conflict_policy=getattr(dry_run.options, "conflict_policy", "conflict"),
+            planned_count=dry_run.planned_count,
+            skipped_count=dry_run.skipped_count,
+            conflict_count=dry_run.conflict_count,
+            error_count=dry_run.error_count,
+            missing_source_count=getattr(dry_run, "missing_source_count", len(getattr(dry_run.scan_summary, "missing_sources", ()))),
+            status_summary=dry_run_summaries["status_summary"],
+            reason_summary=dry_run_summaries["reason_summary"],
+        ),
         "entries": [
             {
                 "source_path": str(item.source_path),
@@ -203,6 +254,7 @@ def _build_json_payload(dry_run, execution_result) -> dict[str, object]:
         ],
     }
     if execution_result is not None:
+        execution_summaries = _execution_summaries(execution_result)
         payload["execution"] = {
             "apply_requested": execution_result.apply_requested,
             "processed_count": execution_result.processed_count,
@@ -211,7 +263,20 @@ def _build_json_payload(dry_run, execution_result) -> dict[str, object]:
             "skipped_count": execution_result.skipped_count,
             "conflict_count": execution_result.conflict_count,
             "error_count": execution_result.error_count,
-            **_execution_summaries(execution_result),
+            **execution_summaries,
+            "outcome_report": build_execution_outcome_report(
+                command_name="rename",
+                apply_requested=execution_result.apply_requested,
+                processed_count=execution_result.processed_count,
+                executed_count=execution_result.renamed_count,
+                preview_count=execution_result.preview_count,
+                skipped_count=execution_result.skipped_count,
+                conflict_count=execution_result.conflict_count,
+                error_count=execution_result.error_count,
+                status_summary=execution_summaries["status_summary"],
+                action_summary=execution_summaries["action_summary"],
+                reason_summary=execution_summaries["reason_summary"],
+            ),
             "entries": [
                 {
                     "source_path": str(entry.source_path),
@@ -314,6 +379,9 @@ def main(argv: list[str] | None = None) -> int:
             include_hidden=args.include_hidden,
             exiftool_path=args.exiftool_path,
             include_associated_files=args.include_associated_files,
+            conflict_policy=args.conflict_policy,
+            include_patterns=tuple(args.include_patterns),
+            exclude_patterns=tuple(args.exclude_patterns),
         )
     )
     execution_result = execute_rename_dry_run(dry_run, apply=args.apply)
@@ -331,6 +399,11 @@ def main(argv: list[str] | None = None) -> int:
             exit_code=exit_code,
             payload=payload,
         )
+
+    if args.report_json is not None:
+        write_json_report(args.report_json, payload)
+    if args.review_json is not None:
+        write_json_report(args.review_json, build_review_file_payload("rename", payload))
 
     if args.apply and args.journal is not None:
         write_execution_journal(
@@ -364,6 +437,14 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Skipped: {dry_run.skipped_count}")
     print(f"  Conflicts: {dry_run.conflict_count}")
     print(f"  Errors: {dry_run.error_count}")
+    outcome_report = payload["outcome_report"]
+    print("\nOutcome report")
+    print(f"  Status: {outcome_report['status']}")
+    print(f"  Next action: {outcome_report['next_action']}")
+    if payload.get("review", {}).get("candidate_count", 0):
+        print("\nReview")
+        print(f"  Candidates: {payload['review']['candidate_count']}")
+        print(f"  Reasons: {payload['review']['reason_summary']}")
     _print_summary_block("\nStatus summary", payload["status_summary"])
     _print_summary_block("\nReason summary", payload["reason_summary"])
     _print_summary_block("\nResolution sources", payload["resolution_source_summary"])
@@ -372,6 +453,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.apply:
         print(f"  Renamed: {execution_result.renamed_count}")
         execution = payload["execution"]
+        execution_outcome = execution["outcome_report"]
+        print(f"  Outcome status: {execution_outcome['status']}")
+        print(f"  Next action: {execution_outcome['next_action']}")
         _print_summary_block("\nExecution statuses", execution["status_summary"])
         _print_summary_block("\nExecution actions", execution["action_summary"])
         _print_summary_block("\nExecution reasons", execution["reason_summary"])
@@ -384,6 +468,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.run_log is not None:
         print(f"\nWrote run log: {args.run_log}")
+    if args.report_json is not None:
+        print(f"Wrote JSON report: {args.report_json}")
+    if args.review_json is not None:
+        print(f"Wrote review JSON: {args.review_json}")
     if args.apply and args.journal is not None:
         print(f"Wrote execution journal: {args.journal}")
     if history_artifacts is not None:

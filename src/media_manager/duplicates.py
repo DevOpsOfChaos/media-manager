@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .core.path_filters import path_is_included_by_patterns
 from .sorter import iter_media_files
 
 ProgressCallback = Callable[[str], None]
@@ -16,6 +17,8 @@ class DuplicateScanConfig:
     source_dirs: list[Path]
     sample_size: int = 64 * 1024
     hash_chunk_size: int = 1024 * 1024
+    include_patterns: tuple[str, ...] = ()
+    exclude_patterns: tuple[str, ...] = ()
 
 
 @dataclass(slots=True)
@@ -43,6 +46,7 @@ class DuplicateScanResult:
     sample_errors: int = 0
     hash_errors: int = 0
     compare_errors: int = 0
+    skipped_filtered_files: int = 0
 
 
 def _emit_progress(progress_callback: ProgressCallback | None, message: str) -> None:
@@ -166,6 +170,34 @@ def _build_exact_group(paths: list[Path], file_size: int, sample_digest: str, fu
     )
 
 
+def _source_root_for_path(path: Path, source_dirs: list[Path]) -> Path | None:
+    for source_dir in sorted(source_dirs, key=lambda item: len(str(item)), reverse=True):
+        try:
+            path.relative_to(source_dir)
+        except ValueError:
+            continue
+        return source_dir
+    return None
+
+
+def _apply_duplicate_path_filters(paths: list[Path], config: DuplicateScanConfig, result: DuplicateScanResult) -> list[Path]:
+    if not config.include_patterns and not config.exclude_patterns:
+        return paths
+    filtered: list[Path] = []
+    for path in paths:
+        source_root = _source_root_for_path(path, config.source_dirs)
+        if path_is_included_by_patterns(
+            path,
+            include_patterns=config.include_patterns,
+            exclude_patterns=config.exclude_patterns,
+            source_root=source_root,
+        ):
+            filtered.append(path)
+        else:
+            result.skipped_filtered_files += 1
+    return filtered
+
+
 def scan_exact_duplicates(
     config: DuplicateScanConfig,
     progress_callback: ProgressCallback | None = None,
@@ -173,7 +205,7 @@ def scan_exact_duplicates(
     result = DuplicateScanResult()
 
     _emit_progress(progress_callback, "Scanning source folders for media files ...")
-    media_files = iter_media_files(config.source_dirs)
+    media_files = _apply_duplicate_path_filters(iter_media_files(config.source_dirs), config, result)
     result.scanned_files = len(media_files)
     _emit_progress(progress_callback, f"Found {result.scanned_files} media file(s).")
 

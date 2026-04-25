@@ -11,6 +11,8 @@ class ScanOptions:
     include_hidden: bool = False
     follow_symlinks: bool = False
     media_extensions: frozenset[str] | None = None
+    include_patterns: tuple[str, ...] = ()
+    exclude_patterns: tuple[str, ...] = ()
 
 
 @dataclass(slots=True, frozen=True)
@@ -29,6 +31,7 @@ class ScanSummary:
     missing_sources: list[Path] = field(default_factory=list)
     skipped_hidden_paths: int = 0
     skipped_non_media_files: int = 0
+    skipped_filtered_files: int = 0
 
     @property
     def source_count(self) -> int:

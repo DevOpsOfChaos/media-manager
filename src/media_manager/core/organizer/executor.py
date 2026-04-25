@@ -46,7 +46,7 @@ def _member_results_for_nonexecuted_entry(entry, *, outcome: str, reason: str) -
     ]
 
 
-def _evaluate_apply_state(entry) -> tuple[str, str]:
+def _evaluate_apply_state(entry, *, conflict_policy: str = "conflict") -> tuple[str, str]:
     specs = _build_member_specs(entry)
 
     if any(target_path is None for _, target_path, _, _ in specs):
@@ -71,11 +71,15 @@ def _evaluate_apply_state(entry) -> tuple[str, str]:
         if files_have_identical_content(source_path, target_path):
             identical_count += 1
         else:
+            if conflict_policy == "skip":
+                return "skipped", "target path already exists at apply time; skipped by conflict policy"
             return "conflict", "target path already exists at apply time"
 
     if existing_count:
         if identical_count == len(specs):
             return "skipped", "target already exists with identical file content at apply time"
+        if conflict_policy == "skip":
+            return "skipped", "one or more target paths already exist at apply time; skipped by conflict policy"
         return "conflict", "one or more target paths already exist at apply time"
 
     return "planned", "ready for organize execution"
@@ -134,7 +138,7 @@ def execute_organize_plan(plan: OrganizeDryRun) -> OrganizeExecutionResult:
             )
             continue
 
-        current_status, current_reason = _evaluate_apply_state(entry)
+        current_status, current_reason = _evaluate_apply_state(entry, conflict_policy=plan.options.conflict_policy)
         if current_status != "planned":
             result.entries.append(
                 OrganizeExecutionEntry(

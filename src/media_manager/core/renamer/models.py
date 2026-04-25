@@ -8,6 +8,9 @@ from media_manager.core.date_resolver import DateResolution
 from media_manager.core.scanner import ScanSummary, ScannedFile
 
 
+RenameConflictPolicy = str
+
+
 @dataclass(slots=True, frozen=True)
 class RenamePlannerOptions:
     source_dirs: tuple[Path, ...]
@@ -17,6 +20,9 @@ class RenamePlannerOptions:
     follow_symlinks: bool = False
     exiftool_path: Path | None = None
     include_associated_files: bool = False
+    conflict_policy: RenameConflictPolicy = "conflict"
+    include_patterns: tuple[str, ...] = ()
+    exclude_patterns: tuple[str, ...] = ()
 
 
 @dataclass(slots=True, frozen=True)

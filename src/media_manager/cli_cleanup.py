@@ -6,6 +6,9 @@ import json
 from pathlib import Path
 
 from .core.organizer import DEFAULT_ORGANIZE_PATTERN
+from .core.outcome_report import build_cleanup_outcome_report, build_execution_outcome_report
+from .core.review_report import build_review_export
+from .core.report_export import build_review_file_payload, write_json_report
 from .core.state import write_command_run_log
 from .core.workflows import (
     DEFAULT_CLEANUP_RENAME_TEMPLATE,
@@ -59,6 +62,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Group safe known associated files such as sidecars during embedded organize and rename planning.",
     )
     parser.add_argument(
+        "--conflict-policy",
+        choices=["conflict", "skip"],
+        default="conflict",
+        help="How embedded organize and rename plans handle existing target paths. Default: conflict.",
+    )
+    parser.add_argument(
+        "--include-pattern",
+        dest="include_patterns",
+        action="append",
+        default=[],
+        help="Only include files whose name, relative path, or path matches this pattern. Repeat to add patterns.",
+    )
+    parser.add_argument(
+        "--exclude-pattern",
+        dest="exclude_patterns",
+        action="append",
+        default=[],
+        help="Exclude files whose name, relative path, or path matches this pattern. Repeat to add patterns.",
+    )
+    parser.add_argument(
         "--leftover-mode",
         choices=["off", "consolidate"],
         default="off",
@@ -71,6 +94,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--show-files", action="store_true", help="Print detailed workflow section entries.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+    parser.add_argument(
+        "--report-json",
+        type=Path,
+        help="Optional path where the full JSON report is written without requiring --json stdout.",
+    )
+    parser.add_argument(
+        "--review-json",
+        type=Path,
+        help="Optional path where a compact review-focused JSON report is written.",
+    )
     parser.add_argument("--run-log", type=Path, help="Optional JSON run-log path for this cleanup workflow command.")
     parser.add_argument(
         "--journal",
@@ -161,6 +194,7 @@ def _leftover_payload(result) -> dict[str, object]:
 
 
 def _build_payload(report, execution_report: CleanupExecutionReport | None) -> dict[str, object]:
+    review_export = build_review_export({"organize": report.organize_plan.entries, "rename": report.rename_dry_run.entries})
     payload = {
         "sources": [str(path) for path in report.options.source_dirs],
         "target_root": str(report.options.target_root),
@@ -169,6 +203,9 @@ def _build_payload(report, execution_report: CleanupExecutionReport | None) -> d
         "duplicate_policy": report.options.duplicate_policy,
         "duplicate_mode": report.options.duplicate_mode,
         "include_associated_files": bool(getattr(report.options, "include_associated_files", False)),
+        "conflict_policy": getattr(report.options, "conflict_policy", "conflict"),
+        "include_patterns": list(getattr(report.options, "include_patterns", ())),
+        "exclude_patterns": list(getattr(report.options, "exclude_patterns", ())),
         "leftover_mode": getattr(report.options, "leftover_mode", "off"),
         "leftover_dir_name": getattr(report.options, "leftover_dir_name", "_remaining_files"),
         "media_group_count": int(getattr(report, "media_group_count", len(report.organize_plan.entries))),
@@ -181,12 +218,31 @@ def _build_payload(report, execution_report: CleanupExecutionReport | None) -> d
             "candidate_count": int(getattr(report, "review_candidate_count", 0)),
             "section_summary": dict(sorted(getattr(report, "review_section_summary", {}).items())),
             "reason_summary": dict(sorted(getattr(report, "review_reason_summary", {}).items())),
+            "candidate_limit": review_export["candidate_limit"],
+            "truncated": review_export["truncated"],
+            "candidates": review_export["candidates"],
         },
+        "outcome_report": build_cleanup_outcome_report(
+            conflict_policy=getattr(report.options, "conflict_policy", "conflict"),
+            missing_source_count=report.missing_source_count,
+            duplicate_error_count=report.duplicate_scan_result.errors,
+            duplicate_unresolved_groups=report.duplicate_workflow.cleanup_plan.unresolved_groups,
+            organize_planned_count=report.organize_plan.planned_count,
+            organize_skipped_count=report.organize_plan.skipped_count,
+            organize_conflict_count=report.organize_plan.conflict_count,
+            organize_error_count=report.organize_plan.error_count,
+            rename_planned_count=report.rename_dry_run.planned_count,
+            rename_skipped_count=report.rename_dry_run.skipped_count,
+            rename_conflict_count=report.rename_dry_run.conflict_count,
+            rename_error_count=report.rename_dry_run.error_count,
+            review_candidate_count=int(getattr(report, "review_candidate_count", 0)),
+        ),
         "scan": {
             "missing_sources": [str(path) for path in report.scan_summary.missing_sources],
             "media_file_count": report.media_file_count,
             "skipped_hidden_paths": report.scan_summary.skipped_hidden_paths,
             "skipped_non_media_files": report.scan_summary.skipped_non_media_files,
+            "skipped_filtered_files": int(getattr(report.scan_summary, "skipped_filtered_files", 0)),
         },
         "duplicates": {
             "exact_groups": len(report.duplicate_scan_result.exact_groups),
@@ -198,6 +254,7 @@ def _build_payload(report, execution_report: CleanupExecutionReport | None) -> d
             "unresolved_groups": report.duplicate_workflow.cleanup_plan.unresolved_groups,
             "planned_removals": len(report.duplicate_workflow.cleanup_plan.planned_removals),
             "estimated_reclaimable_bytes": report.duplicate_workflow.cleanup_plan.estimated_reclaimable_bytes,
+            "skipped_filtered_files": int(getattr(report.duplicate_scan_result, "skipped_filtered_files", 0)),
         },
         "organize": {
             "planned_count": report.organize_plan.planned_count,
@@ -235,6 +292,17 @@ def _build_payload(report, execution_report: CleanupExecutionReport | None) -> d
                 "skipped_count": execution_report.organize_result.skipped_count,
                 "conflict_count": execution_report.organize_result.conflict_count,
                 "error_count": execution_report.organize_result.error_count,
+                "outcome_report": build_execution_outcome_report(
+                    command_name="cleanup-organize",
+                    apply_requested=True,
+                    processed_count=execution_report.organize_result.processed_count,
+                    executed_count=execution_report.organize_result.executed_count,
+                    skipped_count=execution_report.organize_result.skipped_count,
+                    conflict_count=execution_report.organize_result.conflict_count,
+                    error_count=execution_report.organize_result.error_count,
+                    status_summary=execution_report.organize_result.outcome_summary,
+                    reason_summary=execution_report.organize_result.reason_summary,
+                ),
                 "entries": [
                     {
                         "source_path": str(item.source_path),
@@ -263,6 +331,18 @@ def _build_payload(report, execution_report: CleanupExecutionReport | None) -> d
                 "skipped_count": execution_report.rename_result.skipped_count,
                 "conflict_count": execution_report.rename_result.conflict_count,
                 "error_count": execution_report.rename_result.error_count,
+                "outcome_report": build_execution_outcome_report(
+                    command_name="cleanup-rename",
+                    apply_requested=True,
+                    processed_count=execution_report.rename_result.processed_count,
+                    executed_count=execution_report.rename_result.renamed_count,
+                    skipped_count=execution_report.rename_result.skipped_count,
+                    conflict_count=execution_report.rename_result.conflict_count,
+                    error_count=execution_report.rename_result.error_count,
+                    status_summary=execution_report.rename_result.status_summary,
+                    action_summary=execution_report.rename_result.action_summary,
+                    reason_summary=execution_report.rename_result.reason_summary,
+                ),
                 "entries": [
                     {
                         "source_path": str(item.source_path),
@@ -281,6 +361,23 @@ def _build_payload(report, execution_report: CleanupExecutionReport | None) -> d
                     for item in execution_report.rename_result.entries
                 ],
             }
+    if execution_report is not None and "execution" in payload:
+        payload["outcome_report"] = build_cleanup_outcome_report(
+            conflict_policy=getattr(report.options, "conflict_policy", "conflict"),
+            missing_source_count=report.missing_source_count,
+            duplicate_error_count=report.duplicate_scan_result.errors,
+            duplicate_unresolved_groups=report.duplicate_workflow.cleanup_plan.unresolved_groups,
+            organize_planned_count=report.organize_plan.planned_count,
+            organize_skipped_count=report.organize_plan.skipped_count,
+            organize_conflict_count=report.organize_plan.conflict_count,
+            organize_error_count=report.organize_plan.error_count,
+            rename_planned_count=report.rename_dry_run.planned_count,
+            rename_skipped_count=report.rename_dry_run.skipped_count,
+            rename_conflict_count=report.rename_dry_run.conflict_count,
+            rename_error_count=report.rename_dry_run.error_count,
+            review_candidate_count=int(getattr(report, "review_candidate_count", 0)),
+            execution_status=str(payload["execution"]["outcome_report"]["status"]),
+        )
     return payload
 
 
@@ -348,6 +445,9 @@ def main(argv: list[str] | None = None) -> int:
             duplicate_mode=args.duplicate_mode,
             exiftool_path=args.exiftool_path,
             include_associated_files=args.include_associated_files,
+            conflict_policy=args.conflict_policy,
+            include_patterns=tuple(args.include_patterns),
+            exclude_patterns=tuple(args.exclude_patterns),
             leftover_mode=args.leftover_mode,
             leftover_dir_name=args.leftover_dir_name,
         )
@@ -376,6 +476,11 @@ def main(argv: list[str] | None = None) -> int:
             payload=payload,
         )
 
+    if args.report_json is not None:
+        write_json_report(args.report_json, payload)
+    if args.review_json is not None:
+        write_json_report(args.review_json, build_review_file_payload("cleanup", payload))
+
     if args.json:
         print(json.dumps(payload, indent=2, ensure_ascii=False))
         return exit_code
@@ -387,6 +492,15 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Media groups: {getattr(report, 'media_group_count', len(report.organize_plan.entries))}")
     print(f"  Associated files: {getattr(report, 'associated_file_count', 0)}")
     print(f"  Review candidates: {getattr(report, 'review_candidate_count', 0)}")
+    outcome_report = payload["outcome_report"]
+    print("\nOutcome report")
+    print(f"  Status: {outcome_report['status']}")
+    print(f"  Next action: {outcome_report['next_action']}")
+    if payload.get("review", {}).get("candidate_count", 0):
+        print("\nReview")
+        print(f"  Candidates: {payload['review']['candidate_count']}")
+        print(f"  Sections: {payload['review']['section_summary']}")
+        print(f"  Reasons: {payload['review']['reason_summary']}")
     print("\nDuplicates")
     print(f"  Exact groups: {len(report.duplicate_scan_result.exact_groups)}")
     print(f"  Duplicate files: {report.duplicate_scan_result.exact_duplicate_files}")
@@ -419,11 +533,17 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  Leftover files moved: {execution_report.leftover_result.file_count}")
                 print(f"  Empty directories removed: {execution_report.leftover_result.removed_empty_directory_count}")
                 print(f"  Leftover conflicts resolved: {execution_report.leftover_result.conflict_count}")
+            execution_outcome = payload["execution"]["outcome_report"]
+            print(f"  Outcome status: {execution_outcome['status']}")
+            print(f"  Next action: {execution_outcome['next_action']}")
         elif execution_report.apply_step == "rename" and execution_report.rename_result is not None:
             print(f"  Renamed: {execution_report.rename_result.renamed_count}")
             print(f"  Skipped: {execution_report.rename_result.skipped_count}")
             print(f"  Conflicts: {execution_report.rename_result.conflict_count}")
             print(f"  Errors: {execution_report.rename_result.error_count}")
+            execution_outcome = payload["execution"]["outcome_report"]
+            print(f"  Outcome status: {execution_outcome['status']}")
+            print(f"  Next action: {execution_outcome['next_action']}")
         if execution_report.journal_path is not None:
             print(f"  Journal: {execution_report.journal_path}")
 
@@ -432,5 +552,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.run_log is not None:
         print(f"\nWrote run log: {args.run_log}")
+    if args.report_json is not None:
+        print(f"Wrote JSON report: {args.report_json}")
+    if args.review_json is not None:
+        print(f"Wrote review JSON: {args.review_json}")
 
     return exit_code

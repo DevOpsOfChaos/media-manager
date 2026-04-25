@@ -38,6 +38,7 @@ dev = [
 media-manager = "media_manager.cli:main"
 media-manager-cleanup = "media_manager.cli_cleanup:main"
 media-manager-duplicates = "media_manager.cli_duplicates:main"
+media-manager-doctor = "media_manager.cli_doctor:main"
 media-manager-inspect = "media_manager.cli_inspect:main"
 media-manager-organize = "media_manager.cli_organize:main"
 media-manager-rename = "media_manager.cli_rename:main"

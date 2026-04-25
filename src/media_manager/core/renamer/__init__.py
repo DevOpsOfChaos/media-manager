@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .executor import execute_rename_dry_run
 from .models import (
+    RenameConflictPolicy,
     RenameDryRun,
     RenameExecutionEntry,
     RenameExecutionResult,
@@ -16,6 +17,7 @@ from .planner import build_rename_dry_run
 from .templates import render_rename_filename, sanitize_filename
 
 __all__ = [
+    "RenameConflictPolicy",
     "RenameDryRun",
     "RenameExecutionEntry",
     "RenameExecutionResult",

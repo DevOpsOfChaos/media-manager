@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from media_manager.constants import MEDIA_EXTENSIONS
+from media_manager.core.path_filters import path_is_included_by_patterns
 
 from .models import ScanOptions, ScanSummary, ScannedFile
 
@@ -77,6 +78,15 @@ def scan_media_sources(options: ScanOptions) -> ScanSummary:
             extension = candidate.suffix.lower()
             if extension not in media_extensions:
                 summary.skipped_non_media_files += 1
+                continue
+
+            if not path_is_included_by_patterns(
+                candidate,
+                include_patterns=options.include_patterns,
+                exclude_patterns=options.exclude_patterns,
+                source_root=source_root,
+            ):
+                summary.skipped_filtered_files += 1
                 continue
 
             relative_path = candidate.relative_to(source_root)

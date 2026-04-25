@@ -140,17 +140,30 @@ def execute_rename_dry_run(dry_run: RenameDryRun, *, apply: bool) -> RenameExecu
             None,
         )
         if conflicting_member is not None:
-            result.conflict_count += 1
-            result.entries.append(
-                RenameExecutionEntry(
-                    source_path=item.source_path,
-                    target_path=item.target_path,
-                    status="conflict",
-                    reason="target file name already exists at apply time",
-                    action="conflict",
-                    plan_entry=item,
+            if dry_run.options.conflict_policy == "skip":
+                result.skipped_count += 1
+                result.entries.append(
+                    RenameExecutionEntry(
+                        source_path=item.source_path,
+                        target_path=item.target_path,
+                        status="skipped",
+                        reason="target file name already exists at apply time; skipped by conflict policy",
+                        action="skip",
+                        plan_entry=item,
+                    )
                 )
-            )
+            else:
+                result.conflict_count += 1
+                result.entries.append(
+                    RenameExecutionEntry(
+                        source_path=item.source_path,
+                        target_path=item.target_path,
+                        status="conflict",
+                        reason="target file name already exists at apply time",
+                        action="conflict",
+                        plan_entry=item,
+                    )
+                )
             continue
 
         completed = []

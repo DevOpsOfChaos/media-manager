@@ -43,10 +43,21 @@ media-manager inspect C:\Photos\IMG_0001.jpg
 media-manager organize --source C:\Inbox --target D:\Library --pattern yyyy\\yyyy-MM-dd
 media-manager rename --source C:\Inbox --template "{date}_{original_name}"
 media-manager duplicates C:\Photos D:\Phone --json
+media-manager doctor --command cleanup --source C:\Photos --source D:\Phone --target E:\Library
 media-manager cleanup --source C:\Photos --source D:\Phone --target E:\Library --apply
 media-manager trip --source C:\Photos --target E:\Trips --label Italy --start 2025-06-01 --end 2025-06-14
 media-manager undo --path .\runs\2026-04-18-execution-journal.json --apply
 ```
+
+## Diagnostics
+
+```powershell
+media-manager doctor --command organize --source C:\Inbox --target D:\Library
+media-manager doctor --command cleanup --source C:\Photos --target E:\Library --include-pattern "*.jpg" --exclude-pattern "*edited*"
+media-manager doctor --source C:\Inbox --report-json .\reports\doctor.json
+```
+
+The doctor command validates paths, export destinations, include/exclude filters, and common workflow inputs without moving, copying, renaming, or deleting files.
 
 ## Workflow layer
 
