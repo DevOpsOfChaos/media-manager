@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import hashlib
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from .core.path_filters import path_is_included_by_patterns
+from .media_formats import media_kind_for_extension, normalize_extensions
 from .sorter import iter_media_files
 
 ProgressCallback = Callable[[str], None]
@@ -19,6 +20,7 @@ class DuplicateScanConfig:
     hash_chunk_size: int = 1024 * 1024
     include_patterns: tuple[str, ...] = ()
     exclude_patterns: tuple[str, ...] = ()
+    media_extensions: frozenset[str] | None = None
 
 
 @dataclass(slots=True)
@@ -29,6 +31,8 @@ class ExactDuplicateGroup:
     full_digest: str
     same_name: bool
     same_suffix: bool
+    extension_summary: dict[str, int] = field(default_factory=dict)
+    media_kind_summary: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -47,6 +51,13 @@ class DuplicateScanResult:
     hash_errors: int = 0
     compare_errors: int = 0
     skipped_filtered_files: int = 0
+    extension_summary: dict[str, int] = field(default_factory=dict)
+    media_kind_summary: dict[str, int] = field(default_factory=dict)
+    image_file_count: int = 0
+    raw_image_file_count: int = 0
+    video_file_count: int = 0
+    audio_file_count: int = 0
+    unknown_media_kind_count: int = 0
 
 
 def _emit_progress(progress_callback: ProgressCallback | None, message: str) -> None:
@@ -56,6 +67,24 @@ def _emit_progress(progress_callback: ProgressCallback | None, message: str) -> 
 
 def _normalized_sort_key(path: Path) -> str:
     return str(path).lower()
+
+
+def _extension_summary(paths: list[Path]) -> dict[str, int]:
+    return dict(sorted(Counter(path.suffix.lower() for path in paths).items()))
+
+
+def _media_kind_summary(paths: list[Path]) -> dict[str, int]:
+    return dict(sorted(Counter(media_kind_for_extension(path.suffix) for path in paths).items()))
+
+
+def _apply_scan_kind_summary(result: DuplicateScanResult, paths: list[Path]) -> None:
+    result.extension_summary = _extension_summary(paths)
+    result.media_kind_summary = _media_kind_summary(paths)
+    result.image_file_count = result.media_kind_summary.get("image", 0)
+    result.raw_image_file_count = result.media_kind_summary.get("raw-image", 0)
+    result.video_file_count = result.media_kind_summary.get("video", 0)
+    result.audio_file_count = result.media_kind_summary.get("audio", 0)
+    result.unknown_media_kind_count = result.media_kind_summary.get("unknown", 0)
 
 
 def _sample_offsets(file_size: int, sample_size: int) -> list[int]:
@@ -167,6 +196,8 @@ def _build_exact_group(paths: list[Path], file_size: int, sample_digest: str, fu
         full_digest=full_digest,
         same_name=all(path.name == first_name for path in ordered_paths),
         same_suffix=all(path.suffix.lower() == first_suffix for path in ordered_paths),
+        extension_summary=_extension_summary(ordered_paths),
+        media_kind_summary=_media_kind_summary(ordered_paths),
     )
 
 
@@ -205,9 +236,18 @@ def scan_exact_duplicates(
     result = DuplicateScanResult()
 
     _emit_progress(progress_callback, "Scanning source folders for media files ...")
-    media_files = _apply_duplicate_path_filters(iter_media_files(config.source_dirs), config, result)
+    media_extensions = None if config.media_extensions is None else normalize_extensions(config.media_extensions)
+    media_files = _apply_duplicate_path_filters(
+        iter_media_files(config.source_dirs, media_extensions=media_extensions),
+        config,
+        result,
+    )
     result.scanned_files = len(media_files)
-    _emit_progress(progress_callback, f"Found {result.scanned_files} media file(s).")
+    _apply_scan_kind_summary(result, media_files)
+    _emit_progress(
+        progress_callback,
+        f"Found {result.scanned_files} media file(s): images={result.image_file_count}, raw={result.raw_image_file_count}, videos={result.video_file_count}, audio={result.audio_file_count}.",
+    )
 
     if result.scanned_files == 0:
         _emit_progress(progress_callback, "No media files found.")

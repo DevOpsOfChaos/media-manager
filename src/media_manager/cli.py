@@ -4,12 +4,14 @@ import argparse
 import sys
 
 from . import (
+    cli_app,
     cli_cleanup,
     cli_duplicates,
     cli_doctor,
     cli_inspect,
     cli_organize,
     cli_rename,
+    cli_runs,
     cli_trip,
     cli_undo,
     cli_workflow,
@@ -17,12 +19,14 @@ from . import (
 
 
 COMMAND_HANDLERS = {
+    "app": cli_app.main,
     "cleanup": cli_cleanup.main,
     "duplicates": cli_duplicates.main,
     "doctor": cli_doctor.main,
     "inspect": cli_inspect.main,
     "organize": cli_organize.main,
     "rename": cli_rename.main,
+    "runs": cli_runs.main,
     "trip": cli_trip.main,
     "undo": cli_undo.main,
     "workflow": cli_workflow.main,
@@ -56,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "\nNo command provided.\n"
             "Run an explicit CLI command such as 'inspect', 'organize', 'rename', 'trip', "
-            "'duplicates', 'doctor', 'undo', 'cleanup', or 'workflow'."
+            "'duplicates', 'doctor', 'runs', 'app', 'undo', 'cleanup', or 'workflow'."
         )
         return 0
 

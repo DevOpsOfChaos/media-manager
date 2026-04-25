@@ -36,12 +36,14 @@ dev = [
 
 [project.scripts]
 media-manager = "media_manager.cli:main"
+media-manager-app = "media_manager.cli_app:main"
 media-manager-cleanup = "media_manager.cli_cleanup:main"
 media-manager-duplicates = "media_manager.cli_duplicates:main"
 media-manager-doctor = "media_manager.cli_doctor:main"
 media-manager-inspect = "media_manager.cli_inspect:main"
 media-manager-organize = "media_manager.cli_organize:main"
 media-manager-rename = "media_manager.cli_rename:main"
+media-manager-runs = "media_manager.cli_runs:main"
 media-manager-trip = "media_manager.cli_trip:main"
 media-manager-undo = "media_manager.cli_undo:main"
 media-manager-workflow = "media_manager.cli_workflow:main"

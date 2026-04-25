@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from .core.organizer import DEFAULT_ORGANIZE_PATTERN
 from .core.outcome_report import build_cleanup_outcome_report, build_execution_outcome_report
 from .core.review_report import build_review_export
+from .core.run_artifacts import write_run_artifacts
 from .core.report_export import build_review_file_payload, write_json_report
 from .core.state import write_command_run_log
 from .core.workflows import (
@@ -105,6 +107,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional path where a compact review-focused JSON report is written.",
     )
     parser.add_argument("--run-log", type=Path, help="Optional JSON run-log path for this cleanup workflow command.")
+    parser.add_argument(
+        "--run-dir",
+        type=Path,
+        help="Optional directory where a structured run folder is written with command.json, report.json, review.json, summary.txt, and optional journal.json.",
+    )
     parser.add_argument(
         "--journal",
         type=Path,
@@ -420,6 +427,7 @@ def _print_detailed_sections(report, execution_report: CleanupExecutionReport | 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    argv_for_artifacts = list(sys.argv[1:] if argv is None else argv)
 
     invalid_sources = [path for path in args.sources if not path.is_dir()]
     if invalid_sources:
@@ -467,6 +475,9 @@ def main(argv: list[str] | None = None) -> int:
     if execution_report is not None and execution_report.error_count > 0:
         exit_code = 1
 
+    run_artifacts = None
+    review_payload = build_review_file_payload("cleanup", payload)
+
     if args.run_log is not None:
         write_command_run_log(
             args.run_log,
@@ -479,7 +490,19 @@ def main(argv: list[str] | None = None) -> int:
     if args.report_json is not None:
         write_json_report(args.report_json, payload)
     if args.review_json is not None:
-        write_json_report(args.review_json, build_review_file_payload("cleanup", payload))
+        write_json_report(args.review_json, review_payload)
+
+    if args.run_dir is not None:
+        run_artifacts = write_run_artifacts(
+            args.run_dir,
+            command_name="cleanup",
+            argv=argv_for_artifacts,
+            apply_requested=apply_requested,
+            exit_code=exit_code,
+            payload=payload,
+            review_payload=review_payload,
+            journal_entries=None,
+        )
 
     if args.json:
         print(json.dumps(payload, indent=2, ensure_ascii=False))
@@ -556,5 +579,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Wrote JSON report: {args.report_json}")
     if args.review_json is not None:
         print(f"Wrote review JSON: {args.review_json}")
+    if run_artifacts is not None:
+        print(f"Wrote run artifacts: {run_artifacts['run_dir']}")
 
     return exit_code

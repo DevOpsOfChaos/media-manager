@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from .core.renamer import RenamePlannerOptions, build_rename_dry_run, execute_rename_dry_run
 from .core.outcome_report import build_execution_outcome_report, build_plan_outcome_report
 from .core.review_report import build_review_export
+from .core.run_artifacts import write_run_artifacts
 from .core.report_export import build_review_file_payload, write_json_report
 from .core.state import write_command_run_log, write_execution_journal, write_history_artifacts
 
@@ -104,6 +106,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--history-dir",
         type=Path,
         help="Optional directory where an auto-named run log and, for apply mode, execution journal are written.",
+    )
+    parser.add_argument(
+        "--run-dir",
+        type=Path,
+        help="Optional directory where a structured run folder is written with command.json, report.json, review.json, summary.txt, and optional journal.json.",
     )
     parser.add_argument(
         "--exiftool-path",
@@ -363,6 +370,7 @@ def _print_summary_block(title: str, summary: dict[str, int]) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    argv_for_artifacts = list(sys.argv[1:] if argv is None else argv)
 
     invalid_sources = [path for path in args.sources if not path.is_dir()]
     if invalid_sources:
@@ -390,6 +398,8 @@ def main(argv: list[str] | None = None) -> int:
 
     explicit_journal_entries = _build_journal_entries(execution_result) if args.apply else None
     history_artifacts = None
+    run_artifacts = None
+    review_payload = build_review_file_payload("rename", payload)
 
     if args.run_log is not None:
         write_command_run_log(
@@ -403,7 +413,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.report_json is not None:
         write_json_report(args.report_json, payload)
     if args.review_json is not None:
-        write_json_report(args.review_json, build_review_file_payload("rename", payload))
+        write_json_report(args.review_json, review_payload)
 
     if args.apply and args.journal is not None:
         write_execution_journal(
@@ -421,6 +431,18 @@ def main(argv: list[str] | None = None) -> int:
             apply_requested=args.apply,
             exit_code=exit_code,
             payload=payload,
+            journal_entries=explicit_journal_entries if args.apply else None,
+        )
+
+    if args.run_dir is not None:
+        run_artifacts = write_run_artifacts(
+            args.run_dir,
+            command_name="rename",
+            argv=argv_for_artifacts,
+            apply_requested=args.apply,
+            exit_code=exit_code,
+            payload=payload,
+            review_payload=review_payload,
             journal_entries=explicit_journal_entries if args.apply else None,
         )
 
@@ -478,5 +500,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Wrote history run log: {history_artifacts['run_log_path']}")
         if "execution_journal_path" in history_artifacts:
             print(f"Wrote history journal: {history_artifacts['execution_journal_path']}")
+    if run_artifacts is not None:
+        print(f"Wrote run artifacts: {run_artifacts['run_dir']}")
 
     return exit_code

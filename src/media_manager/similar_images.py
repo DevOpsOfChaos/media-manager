@@ -5,7 +5,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .media_formats import list_supported_similar_image_extensions
+from .core.path_filters import path_is_included_by_patterns
+from .media_formats import list_supported_similar_image_extensions, normalize_extensions
 from .sorter import iter_media_files
 
 try:  # pragma: no cover - optional dependency guard
@@ -22,6 +23,9 @@ class SimilarImageScanConfig:
     source_dirs: list[Path]
     hash_size: int = 8
     max_distance: int = 6
+    include_patterns: tuple[str, ...] = ()
+    exclude_patterns: tuple[str, ...] = ()
+    media_extensions: frozenset[str] | None = None
 
 
 @dataclass(slots=True, frozen=True)
@@ -50,6 +54,7 @@ class SimilarImageScanResult:
     similar_groups: list[SimilarImageGroup] = field(default_factory=list)
     errors: int = 0
     decode_errors: int = 0
+    skipped_filtered_files: int = 0
 
 
 def _emit_progress(progress_callback: ProgressCallback | None, message: str) -> None:
@@ -59,6 +64,16 @@ def _emit_progress(progress_callback: ProgressCallback | None, message: str) -> 
 
 def _normalized_sort_key(path: Path) -> str:
     return str(path).lower()
+
+
+def _source_root_for_path(path: Path, source_dirs: list[Path]) -> Path | None:
+    for source_dir in sorted(source_dirs, key=lambda item: len(str(item)), reverse=True):
+        try:
+            path.relative_to(source_dir)
+        except ValueError:
+            continue
+        return source_dir
+    return None
 
 
 def _ensure_pillow() -> None:
@@ -108,10 +123,26 @@ def scan_similar_images(
         raise ValueError("hash_size must be greater than zero")
 
     result = SimilarImageScanResult()
-    media_files = iter_media_files(config.source_dirs)
+    requested_extensions = set(IMAGE_EXTENSIONS)
+    if config.media_extensions is not None:
+        requested_extensions = normalize_extensions(config.media_extensions) & set(IMAGE_EXTENSIONS)
+    media_files = iter_media_files(config.source_dirs, media_extensions=requested_extensions)
     result.scanned_files = len(media_files)
 
-    image_files = [path for path in media_files if path.suffix.lower() in IMAGE_EXTENSIONS]
+    image_files: list[Path] = []
+    for path in media_files:
+        if path.suffix.lower() not in IMAGE_EXTENSIONS:
+            continue
+        if path_is_included_by_patterns(
+            path,
+            include_patterns=config.include_patterns,
+            exclude_patterns=config.exclude_patterns,
+            source_root=_source_root_for_path(path, config.source_dirs),
+        ):
+            image_files.append(path)
+        else:
+            result.skipped_filtered_files += 1
+
     result.image_files = len(image_files)
     _emit_progress(
         progress_callback,
