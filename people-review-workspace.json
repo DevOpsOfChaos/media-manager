@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "workspace": "people_review_workspace",
+  "page_id": "people-review",
+  "command": "people",
+  "mode": "review",
+  "backend": "dlib",
+  "capabilities": {
+    "face_detection": true,
+    "named_person_matching": true,
+    "unknown_face_grouping": true
+  },
+  "source_report_summary": {
+    "scanned_files": 0,
+    "image_files": 0,
+    "processed_files": 0,
+    "skipped_filtered_files": 0,
+    "skipped_unsupported_files": 0,
+    "face_count": 0,
+    "matched_faces": 0,
+    "unknown_faces": 0,
+    "unknown_cluster_count": 0,
+    "catalog_person_count": 0,
+    "error_count": 0
+  },
+  "overview": {
+    "group_count": 0,
+    "face_count": 0,
+    "included_faces": 0,
+    "excluded_faces": 0,
+    "faces_with_encodings": 0,
+    "ready_group_count": 0,
+    "needs_name_group_count": 0,
+    "needs_review_group_count": 0,
+    "has_report_encodings": false,
+    "groups_truncated": false
+  },
+  "groups": [],
+  "suggested_actions": [
+    {
+      "id": "review_groups",
+      "label": "Review detected people groups",
+      "enabled": false,
+      "reason": "Open each group, confirm the name, and reject faces that belong to another person."
+    },
+    {
+      "id": "apply_review",
+      "label": "Apply reviewed people to catalog",
+      "enabled": false,
+      "reason": "Enabled when at least one group is ready and the report contains face encodings."
+    },
+    {
+      "id": "rerun_scan_with_encodings",
+      "label": "Rerun scan with encodings",
+      "enabled": false,
+      "reason": "review-apply needs a report produced with --include-encodings."
+    },
+    {
+      "id": "rerun_scan_after_apply",
+      "label": "Rerun scan after applying catalog changes",
+      "enabled": false,
+      "reason": "Verify that named-person matching improves after catalog training."
+    }
+  ],
+  "ui_contract": {
+    "group_list": "Render groups as a sidebar/list ordered by review status and group size.",
+    "face_cards": "Render each face as a local image card with crop box metadata and include/reject controls.",
+    "review_fields": [
+      "apply_group",
+      "selected_person_id",
+      "selected_name",
+      "faces[].include",
+      "faces[].note"
+    ],
+    "persistence": "Save reviewer decisions back to the workflow JSON, then call people review-apply."
+  },
+  "privacy_notice": "This workspace can reveal who appears in which local files. If encodings are included, the JSON contains sensitive biometric metadata and should stay local/private."
+}
