@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .core.path_filters import path_is_included_by_patterns
-from .media_formats import list_supported_similar_image_extensions, normalize_extensions
+from .media_formats import list_supported_media_extensions, list_supported_similar_image_extensions, normalize_extensions
 from .sorter import iter_media_files
 
 try:  # pragma: no cover - optional dependency guard
@@ -123,15 +123,19 @@ def scan_similar_images(
         raise ValueError("hash_size must be greater than zero")
 
     result = SimilarImageScanResult()
-    requested_extensions = set(IMAGE_EXTENSIONS)
+    scan_extensions = list_supported_media_extensions()
     if config.media_extensions is not None:
-        requested_extensions = normalize_extensions(config.media_extensions) & set(IMAGE_EXTENSIONS)
-    media_files = iter_media_files(config.source_dirs, media_extensions=requested_extensions)
+        scan_extensions = normalize_extensions(config.media_extensions) & scan_extensions
+    media_files = iter_media_files(config.source_dirs, media_extensions=scan_extensions)
     result.scanned_files = len(media_files)
+
+    similar_extensions = set(IMAGE_EXTENSIONS)
+    if config.media_extensions is not None:
+        similar_extensions &= normalize_extensions(config.media_extensions)
 
     image_files: list[Path] = []
     for path in media_files:
-        if path.suffix.lower() not in IMAGE_EXTENSIONS:
+        if path.suffix.lower() not in similar_extensions:
             continue
         if path_is_included_by_patterns(
             path,

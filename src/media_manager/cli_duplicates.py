@@ -343,16 +343,19 @@ def _build_decisions(result, args: argparse.Namespace) -> tuple[dict[str, str], 
     session_restore = None
     decision_import = None
 
-    if args.import_decisions is not None:
-        decision_import = load_duplicate_decision_file(args.import_decisions, result.exact_groups)
+    import_decisions_path = getattr(args, "import_decisions", None)
+    if import_decisions_path is not None:
+        decision_import = load_duplicate_decision_file(import_decisions_path, result.exact_groups)
         decisions.update(decision_import.decisions)
 
-    if args.load_session is not None:
-        session_restore = restore_duplicate_session(args.load_session, result.exact_groups)
+    load_session_path = getattr(args, "load_session", None)
+    if load_session_path is not None:
+        session_restore = restore_duplicate_session(load_session_path, result.exact_groups)
         decisions.update(session_restore.decisions)
 
-    if args.policy:
-        auto_decisions = build_duplicate_decisions(result.exact_groups, args.policy)
+    policy = getattr(args, "policy", None)
+    if policy:
+        auto_decisions = build_duplicate_decisions(result.exact_groups, policy)
         for group_id, keep_path in auto_decisions.items():
             decisions.setdefault(group_id, keep_path)
 
