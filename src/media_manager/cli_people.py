@@ -18,6 +18,7 @@ from .core.people_recognition import (
     write_people_catalog,
 )
 from .core.people_review_assets import build_people_review_assets, write_people_review_asset_manifest
+from .core.people_review_bundle import build_people_review_bundle_summary_text, write_people_review_bundle
 from .core.people_review_ui import build_people_review_workspace, build_people_review_workspace_summary_text
 from .core.people_review_workflow import (
     apply_people_review_workflow,
@@ -115,6 +116,19 @@ def build_parser() -> argparse.ArgumentParser:
     review_assets.add_argument("--quality", type=int, default=90, help="JPEG quality from 1 to 100. Default: 90.")
     review_assets.add_argument("--no-overwrite", action="store_true", help="Do not overwrite existing crop files.")
     review_assets.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    review_bundle = subparsers.add_parser("review-bundle", help="Build a complete GUI-ready people review bundle directory.")
+    review_bundle.add_argument("--report-json", type=Path, required=True, help="People scan report JSON.")
+    review_bundle.add_argument("--workflow-json", type=Path, help="Optional edited people review workflow JSON. If omitted, one is built from the report.")
+    review_bundle.add_argument("--bundle-dir", type=Path, required=True, help="Directory where the people review bundle should be written.")
+    review_bundle.add_argument("--catalog", type=Path, help="Optional people catalog path to reference in the bundle manifest.")
+    review_bundle.add_argument("--no-assets", action="store_true", help="Do not generate face crop assets.")
+    review_bundle.add_argument("--include-encodings-in-workspace", action="store_true", help="Also include encodings in workspace JSON. Sensitive biometric metadata; keep private.")
+    review_bundle.add_argument("--crop-padding", type=float, default=0.25, help="Face crop padding ratio. Default: 0.25.")
+    review_bundle.add_argument("--thumbnail-size", type=int, default=256, help="Maximum crop image size. Default: 256.")
+    review_bundle.add_argument("--quality", type=int, default=90, help="JPEG quality from 1 to 100. Default: 90.")
+    review_bundle.add_argument("--no-overwrite", action="store_true", help="Do not overwrite existing crop files.")
+    review_bundle.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
 
     return parser
 
@@ -374,7 +388,37 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(payload, indent=2, ensure_ascii=False))
         else:
             _print_assets_text(payload)
-        return 0 if payload.get("summary", {}).get("error_count", 0) == 0 else 1
+        summary = payload.get("summary", {})
+        error_count = summary.get("error_count", 0) if isinstance(summary, dict) else 0
+        return 0 if error_count == 0 else 1
+
+    if command == "review-bundle":
+        try:
+            report_payload = _read_json_object(args.report_json)
+            workflow_payload = _read_json_object(args.workflow_json) if args.workflow_json is not None else None
+            payload = write_people_review_bundle(
+                report_payload=report_payload,
+                workflow_payload=workflow_payload,
+                bundle_dir=args.bundle_dir,
+                source_report_path=args.report_json,
+                source_workflow_path=args.workflow_json,
+                catalog_path=args.catalog,
+                include_assets=not args.no_assets,
+                include_encodings_in_workspace=args.include_encodings_in_workspace,
+                crop_padding_ratio=args.crop_padding,
+                thumbnail_size=args.thumbnail_size,
+                quality=args.quality,
+                overwrite_assets=not args.no_overwrite,
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        if args.json:
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+        else:
+            print(build_people_review_bundle_summary_text(payload))
+        summary = payload.get("summary", {})
+        error_count = summary.get("asset_error_count", 0) if isinstance(summary, dict) else 0
+        return 0 if error_count == 0 else 1
 
     parser.error(f"Unsupported people command: {command}")
     return 2
