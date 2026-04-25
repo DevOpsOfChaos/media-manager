@@ -1,3 +1,4 @@
-"""Core package for media-manager."""
+"""Top-level package for media-manager."""
 
-__all__: list[str] = []
+__all__ = ["__version__"]
+__version__ = "0.6.0"

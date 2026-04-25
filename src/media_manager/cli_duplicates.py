@@ -338,7 +338,12 @@ def _print_supported_formats() -> None:
         similar = "yes" if item["similar_images"] else "no"
         print(f"    {item['extension']:>6} | {item['media_kind']:<9} | exact={exact:<3} | similar={similar:<3} | {item['notes']}")
 
-def _build_decisions(result, args: argparse.Namespace) -> tuple[dict[str, str], object | None, object | None]:
+def _build_decisions(
+    result,
+    args: argparse.Namespace,
+    *,
+    include_decision_import: bool = False,
+):
     decisions: dict[str, str] = {}
     session_restore = None
     decision_import = None
@@ -359,9 +364,9 @@ def _build_decisions(result, args: argparse.Namespace) -> tuple[dict[str, str], 
         for group_id, keep_path in auto_decisions.items():
             decisions.setdefault(group_id, keep_path)
 
-    return decisions, session_restore, decision_import
-
-
+    if include_decision_import:
+        return decisions, session_restore, decision_import
+    return decisions, session_restore
 def _session_restore_payload(session_restore) -> dict[str, object] | None:
     if session_restore is None:
         return None
@@ -826,7 +831,7 @@ def main(argv: list[str] | None = None) -> int:
         if emit_text and args.show_similar_review and similar_review.rows:
             _print_similar_review(similar_review)
 
-    decisions, session_restore, decision_import = _build_decisions(result, args)
+    decisions, session_restore, decision_import = _build_decisions(result, args, include_decision_import=True)
     bundle = build_duplicate_workflow_bundle(
         result.exact_groups,
         decisions,
