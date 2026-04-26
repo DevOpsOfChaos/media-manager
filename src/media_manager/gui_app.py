@@ -5,8 +5,10 @@ import json
 from pathlib import Path
 
 from .core.gui_i18n import SUPPORTED_LANGUAGES
+from .core.gui_settings_model import update_gui_settings, write_gui_settings
 from .core.gui_shell_model import build_gui_shell_model_from_paths, summarize_gui_shell_model
 from .core.gui_theme import SUPPORTED_THEMES
+from .core.gui_layout import SUPPORTED_DENSITIES
 from .gui_desktop_qt import MissingQtDependencyError, qt_install_guidance, run_qt_gui
 
 
@@ -21,8 +23,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--people-bundle-dir", type=Path, help="Optional people review bundle directory.")
     parser.add_argument("--home-state-json", type=Path, help="Optional prebuilt app home-state JSON.")
     parser.add_argument("--settings-json", type=Path, help="Optional GUI settings JSON.")
+    parser.add_argument("--write-settings-json", type=Path, help="Write normalized settings JSON and exit.")
     parser.add_argument("--language", choices=SUPPORTED_LANGUAGES, help="GUI language. Supported: en, de.")
     parser.add_argument("--theme", choices=SUPPORTED_THEMES, help="GUI theme. Default comes from settings or modern-dark.")
+    parser.add_argument("--density", choices=SUPPORTED_DENSITIES, help="GUI density. Default comes from settings or comfortable.")
     parser.add_argument("--json", action="store_true", help="Print the GUI shell model as JSON and do not open a window.")
     parser.add_argument("--summary", action="store_true", help="Print a compact GUI shell summary and do not open a window.")
     parser.add_argument("--no-window", action="store_true", help="Build the shell model without opening a GUI window.")
@@ -56,6 +60,24 @@ def main(argv: list[str] | None = None) -> int:
             language=args.language,
             theme=args.theme,
         )
+        if args.density:
+            settings = update_gui_settings(model.get("settings", {}), density=args.density)
+            model = build_gui_shell_model_from_paths(
+                profile_dir=args.profile_dir,
+                run_dir=args.run_dir,
+                people_bundle_dir=args.people_bundle_dir,
+                active_page_id=args.active_page,
+                home_state_json=args.home_state_json,
+                settings_json=args.settings_json,
+                language=args.language,
+                theme=args.theme,
+            )
+            model["settings"] = settings
+            model["layout"]["density"] = args.density
+        if args.write_settings_json:
+            write_gui_settings(args.write_settings_json, model.get("settings", {}))
+            print(f"Wrote GUI settings: {args.write_settings_json}")
+            return 0
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         parser.error(str(exc))
 

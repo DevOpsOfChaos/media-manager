@@ -6,16 +6,18 @@ from pathlib import Path
 from typing import Any
 
 from .app_services import build_app_home_state, read_json_object
+from .gui_accessibility import build_accessibility_contract
 from .gui_actions import build_page_actions
 from .gui_command_palette import build_command_palette
 from .gui_i18n import localize_navigation_item, normalize_language, translate
+from .gui_layout import build_layout_tokens
 from .gui_onboarding import build_onboarding_state
 from .gui_page_models import build_page_model
 from .gui_settings_model import load_gui_settings, normalize_gui_settings
 from .gui_theme import build_theme_payload, normalize_theme
 
-SHELL_SCHEMA_VERSION = "2.0"
-DEFAULT_WINDOW_SIZE = {"width": 1320, "height": 860}
+SHELL_SCHEMA_VERSION = "3.0"
+DEFAULT_WINDOW_SIZE = {"width": 1400, "height": 900}
 
 
 def _now_utc() -> str:
@@ -83,11 +85,13 @@ def build_gui_shell_model(
     normalized_settings = normalize_gui_settings(settings)
     lang = normalize_language(language or str(normalized_settings.get("language")))
     selected_theme = normalize_theme(theme or str(normalized_settings.get("theme")))
+    density = str(normalized_settings.get("density") or "comfortable")
     active = str(active_page_id or normalized_settings.get("start_page_id") or "dashboard")
     state = dict(home_state or build_app_home_state(active_page_id=active))
-    page_model = build_page_model(active, state, language=lang)
+    page_model = build_page_model(active, state, language=lang, density=density)
     navigation = _navigation_items(state, active_page_id=active, language=lang)
     status_text = state.get("suggested_next_step") or translate("status.ready", language=lang)
+    window_settings = _as_mapping(normalized_settings.get("window"))
     return {
         "schema_version": SHELL_SCHEMA_VERSION,
         "generated_at_utc": _now_utc(),
@@ -96,18 +100,26 @@ def build_gui_shell_model(
             "title": translate("app.title", language=lang, fallback=title),
             "subtitle": translate("app.subtitle", language=lang),
             "mode": "desktop_gui",
-            "stage": "modern_qt_shell_v1",
+            "stage": "modern_qt_shell_v2",
         },
-        "window": {**DEFAULT_WINDOW_SIZE, "title": title, "minimum_width": 1040, "minimum_height": 720},
+        "window": {
+            **DEFAULT_WINDOW_SIZE,
+            "title": title,
+            "minimum_width": 1100,
+            "minimum_height": 740,
+            **dict(window_settings),
+        },
         "language": lang,
         "theme": build_theme_payload(selected_theme),
+        "layout": build_layout_tokens(density),
+        "accessibility": build_accessibility_contract(language=lang),
         "settings": normalized_settings,
         "active_page_id": active,
         "navigation": navigation,
         "page": page_model,
         "page_actions": build_page_actions(page_model, language=lang),
         "command_palette": build_command_palette(language=lang, home_state=state),
-        "onboarding": build_onboarding_state(language=lang, dismissed=bool(normalized_settings.get("people_privacy_acknowledged"))),
+        "onboarding": build_onboarding_state(language=lang, dismissed=not bool(normalized_settings.get("show_onboarding", True)) or bool(normalized_settings.get("people_privacy_acknowledged"))),
         "home_state": state,
         "status_bar": {
             "text": status_text,
@@ -178,6 +190,7 @@ def summarize_gui_shell_model(model: Mapping[str, Any]) -> str:
             f"  Page title: {page.get('title')}",
             f"  Language: {model.get('language')}",
             f"  Theme: {_as_mapping(model.get('theme')).get('theme')}",
+            f"  Density: {_as_mapping(model.get('layout')).get('density')}",
             f"  Navigation items: {len(nav)}",
             f"  Modern Qt shell: {capabilities.get('qt_shell')}",
             f"  Status: {status.get('text')}",

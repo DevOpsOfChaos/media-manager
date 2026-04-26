@@ -2,15 +2,17 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-THEME_SCHEMA_VERSION = "1.0"
+THEME_SCHEMA_VERSION = "1.1"
 DEFAULT_THEME = "modern-dark"
 SUPPORTED_THEMES = ("modern-dark", "modern-light", "system")
 
 _THEME_TOKENS: dict[str, dict[str, str]] = {
     "modern-dark": {
-        "background": "#0f172a",
+        "background": "#0b1020",
+        "background_soft": "#10172a",
         "surface": "#111827",
         "surface_alt": "#1f2937",
+        "surface_elevated": "#172033",
         "text": "#f8fafc",
         "muted_text": "#94a3b8",
         "accent": "#38bdf8",
@@ -19,11 +21,14 @@ _THEME_TOKENS: dict[str, dict[str, str]] = {
         "warning": "#f59e0b",
         "danger": "#ef4444",
         "border": "#334155",
+        "shadow": "rgba(0,0,0,0.35)",
     },
     "modern-light": {
         "background": "#f8fafc",
+        "background_soft": "#eef2ff",
         "surface": "#ffffff",
         "surface_alt": "#eef2ff",
+        "surface_elevated": "#ffffff",
         "text": "#0f172a",
         "muted_text": "#475569",
         "accent": "#0284c7",
@@ -32,6 +37,7 @@ _THEME_TOKENS: dict[str, dict[str, str]] = {
         "warning": "#d97706",
         "danger": "#dc2626",
         "border": "#cbd5e1",
+        "shadow": "rgba(15,23,42,0.12)",
     },
 }
 
@@ -58,6 +64,12 @@ def build_theme_payload(theme: str | None = None) -> dict[str, object]:
         "resolved_theme": DEFAULT_THEME if normalized == "system" else normalized,
         "supported_themes": list(SUPPORTED_THEMES),
         "tokens": resolve_theme_tokens(normalized),
+        "typography": {
+            "font_family": "Segoe UI, Inter, Arial, sans-serif",
+            "base_size": 11,
+            "title_size": 24,
+            "hero_size": 30,
+        },
     }
 
 
@@ -74,14 +86,23 @@ QFrame#Sidebar {{
     background-color: {token['surface']};
     border-right: 1px solid {token['border']};
 }}
+QFrame#TopBar {{
+    background-color: {token['background_soft']};
+    border-bottom: 1px solid {token['border']};
+}}
 QLabel#AppTitle {{
     font-size: 20pt;
-    font-weight: 700;
+    font-weight: 800;
     color: {token['text']};
 }}
 QLabel#PageTitle {{
-    font-size: 22pt;
-    font-weight: 700;
+    font-size: 24pt;
+    font-weight: 800;
+    color: {token['text']};
+}}
+QLabel#HeroTitle {{
+    font-size: 30pt;
+    font-weight: 800;
     color: {token['text']};
 }}
 QLabel#Muted {{
@@ -97,23 +118,44 @@ QPushButton {{
 QPushButton:hover {{
     border-color: {token['accent']};
 }}
-QPushButton:checked {{
+QPushButton:checked, QPushButton#PrimaryButton {{
     background-color: {token['accent_strong']};
     border-color: {token['accent']};
     color: #ffffff;
 }}
-QFrame#Card {{
+QLineEdit {{
+    border: 1px solid {token['border']};
+    border-radius: 12px;
+    padding: 10px 12px;
     background-color: {token['surface']};
+    color: {token['text']};
+}}
+QFrame#Card, QFrame#HeroCard {{
+    background-color: {token['surface_elevated']};
     border: 1px solid {token['border']};
     border-radius: 18px;
+}}
+QFrame#HeroCard {{
+    background-color: {token['background_soft']};
+}}
+QTableWidget {{
+    background-color: {token['surface']};
+    alternate-background-color: {token['surface_alt']};
+    border: 1px solid {token['border']};
+    border-radius: 14px;
+    gridline-color: {token['border']};
+}}
+QHeaderView::section {{
+    background-color: {token['surface_alt']};
+    color: {token['text']};
+    padding: 8px;
+    border: none;
 }}
 QStatusBar {{
     background-color: {token['surface']};
     color: {token['muted_text']};
 }}
-QScrollArea {{
-    border: none;
-}}
+QScrollArea {{ border: none; }}
 """.strip()
 
 
