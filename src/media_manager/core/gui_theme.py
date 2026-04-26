@@ -57,10 +57,15 @@ def palette_for_theme(theme: str | None) -> dict[str, str]:
 def build_theme_payload(theme: str | None = None) -> dict[str, Any]:
     normalized = normalize_theme(theme)
     palette = palette_for_theme(normalized)
+    tokens = dict(palette)
     return {
         "schema_version": THEME_SCHEMA_VERSION,
         "theme": normalized,
+        # ``palette`` is the newer explicit name used by the Qt shell.
         "palette": palette,
+        # ``tokens`` is kept as a compatibility alias for earlier GUI model tests
+        # and callers that read theme colors generically.
+        "tokens": tokens,
         "radius": {"sm": 8, "md": 14, "lg": 20, "xl": 28},
         "spacing": {"xs": 6, "sm": 10, "md": 16, "lg": 24, "xl": 32},
         "typography": {"font_family": "Segoe UI", "title_size": 28, "body_size": 14, "caption_size": 12},
@@ -159,4 +164,12 @@ QStatusBar {{
 """
 
 
-__all__ = ["DEFAULT_THEME", "SUPPORTED_THEMES", "THEME_SCHEMA_VERSION", "build_qt_stylesheet", "build_theme_payload", "normalize_theme", "palette_for_theme"]
+__all__ = [
+    "DEFAULT_THEME",
+    "SUPPORTED_THEMES",
+    "THEME_SCHEMA_VERSION",
+    "build_qt_stylesheet",
+    "build_theme_payload",
+    "normalize_theme",
+    "palette_for_theme",
+]
