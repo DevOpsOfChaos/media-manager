@@ -58,6 +58,7 @@ people-face-recognition = [
 [project.scripts]
 media-manager = "media_manager.cli:main"
 media-manager-app = "media_manager.cli_app:main"
+media-manager-app-services = "media_manager.cli_app_services:main"
 media-manager-cleanup = "media_manager.cli_cleanup:main"
 media-manager-duplicates = "media_manager.cli_duplicates:main"
 media-manager-doctor = "media_manager.cli_doctor:main"
