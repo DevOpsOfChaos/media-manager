@@ -33,6 +33,12 @@ dependencies = [
 dev = [
   "pytest>=8.0",
 ]
+gui = [
+  "PySide6>=6.10",
+]
+gui-qt = [
+  "PySide6>=6.10",
+]
 people = [
   "opencv-python>=4.9",
   "numpy>=1.26",
