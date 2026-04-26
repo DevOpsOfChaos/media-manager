@@ -4,6 +4,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from .core.gui_page_models import build_page_model
 from .core.gui_theme import build_qt_stylesheet
 
 
@@ -45,6 +46,10 @@ def _list(value: object) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
+def _metric_text(metrics: Mapping[str, Any]) -> str:
+    return "   ".join(f"{key}: {value}" for key, value in metrics.items())
+
+
 def _add_label(layout, QtWidgets, text: str, *, object_name: str | None = None, word_wrap: bool = True):
     label = QtWidgets.QLabel(text)
     if object_name:
@@ -54,85 +59,127 @@ def _add_label(layout, QtWidgets, text: str, *, object_name: str | None = None, 
     return label
 
 
-def _build_card(QtWidgets, title: str, subtitle: str = "", metrics: Mapping[str, Any] | None = None, *, hero: bool = False):
+def _build_metric_card(QtWidgets, title: str, subtitle: str, metrics: Mapping[str, Any], *, actions: list[Any] | None = None):
     card = QtWidgets.QFrame()
-    card.setObjectName("HeroCard" if hero else "Card")
+    card.setObjectName("Card")
     layout = QtWidgets.QVBoxLayout(card)
-    layout.setContentsMargins(20, 20, 20, 20)
-    layout.setSpacing(10)
-    _add_label(layout, QtWidgets, title, object_name="HeroTitle" if hero else "PageTitle")
+    layout.setContentsMargins(18, 18, 18, 18)
+    layout.setSpacing(8)
+    _add_label(layout, QtWidgets, title, object_name="CardTitle")
     if subtitle:
         _add_label(layout, QtWidgets, subtitle, object_name="Muted")
-    for key, value in dict(metrics or {}).items():
-        _add_label(layout, QtWidgets, f"{key}: {value}", object_name="Muted")
+    if metrics:
+        _add_label(layout, QtWidgets, _metric_text(metrics), object_name="MetricText")
+    if actions:
+        row = QtWidgets.QHBoxLayout()
+        for raw in actions[:2]:
+            action = _mapping(raw)
+            button = QtWidgets.QPushButton(_text(action.get("label"), "Open"))
+            button.setProperty("secondary", True)
+            row.addWidget(button)
+        row.addStretch(1)
+        layout.addLayout(row)
     return card
 
 
-def _render_dashboard(QtWidgets, layout, page: Mapping[str, Any]) -> None:
+def _build_section_frame(QtWidgets, title: str, subtitle: str = ""):
+    frame = QtWidgets.QFrame()
+    frame.setObjectName("Section")
+    layout = QtWidgets.QVBoxLayout(frame)
+    layout.setContentsMargins(20, 20, 20, 20)
+    layout.setSpacing(12)
+    _add_label(layout, QtWidgets, title, object_name="SectionTitle")
+    if subtitle:
+        _add_label(layout, QtWidgets, subtitle, object_name="Muted")
+    return frame, layout
+
+
+def _render_dashboard(QtWidgets, layout, page: Mapping[str, Any]):
     hero = _mapping(page.get("hero"))
-    if hero:
-        layout.addWidget(_build_card(QtWidgets, _text(hero.get("title")), _text(hero.get("subtitle")), hero=True))
-    metrics = [item for item in _list(page.get("metric_tiles")) if isinstance(item, Mapping)]
+    frame, hero_layout = _build_section_frame(QtWidgets, _text(hero.get("title"), _text(page.get("title"))), _text(hero.get("subtitle"), _text(page.get("description"))))
+    metrics = _mapping(hero.get("metrics"))
     if metrics:
-        grid = QtWidgets.QGridLayout()
-        grid.setSpacing(14)
-        for index, metric in enumerate(metrics):
-            grid.addWidget(_build_card(QtWidgets, _text(metric.get("label")), _text(metric.get("helper")), {"value": metric.get("value")}), index // 3, index % 3)
-        layout.addLayout(grid)
-    cards = [item for item in _list(page.get("cards")) if isinstance(item, Mapping)]
-    if cards:
-        grid = QtWidgets.QGridLayout()
-        grid.setSpacing(14)
-        for index, card in enumerate(cards):
-            grid.addWidget(_build_card(QtWidgets, _text(card.get("title")), _text(card.get("subtitle")), _mapping(card.get("metrics"))), index // 2, index % 2)
-        layout.addLayout(grid)
+        _add_label(hero_layout, QtWidgets, _metric_text(metrics), object_name="MetricText")
+    layout.addWidget(frame)
+    grid = QtWidgets.QGridLayout()
+    grid.setSpacing(16)
+    for index, raw_card in enumerate(_list(page.get("cards"))):
+        card = _mapping(raw_card)
+        grid.addWidget(
+            _build_metric_card(QtWidgets, _text(card.get("title")), _text(card.get("subtitle")), _mapping(card.get("metrics")), actions=_list(card.get("actions"))),
+            index // 3,
+            index % 3,
+        )
+    layout.addLayout(grid)
 
 
-def _render_people_review(QtWidgets, layout, page: Mapping[str, Any]) -> None:
+def _render_people_review(QtWidgets, layout, page: Mapping[str, Any]):
     overview = _mapping(page.get("overview"))
-    layout.addWidget(_build_card(QtWidgets, _text(page.get("title")), _text(page.get("description")), overview, hero=True))
-    editor = _mapping(page.get("editor"))
-    groups = [item for item in _list(editor.get("groups")) if isinstance(item, Mapping)]
-    if not groups:
-        _add_label(layout, QtWidgets, _text(page.get("empty_state"), "Open a people review bundle."), object_name="Muted")
+    top, top_layout = _build_section_frame(QtWidgets, _text(page.get("title")), _text(page.get("description")))
+    _add_label(top_layout, QtWidgets, _metric_text(overview), object_name="MetricText")
+    layout.addWidget(top)
+    body = QtWidgets.QHBoxLayout()
+    groups_frame, groups_layout = _build_section_frame(QtWidgets, "Groups", _text(page.get("query")))
+    groups_frame.setMinimumWidth(360)
+    for raw_group in _list(page.get("groups"))[:50]:
+        group = _mapping(raw_group)
+        button = QtWidgets.QPushButton(f"{_text(group.get('display_label') or group.get('group_id'))}\n{group.get('status')} · faces={group.get('face_count', 0)}")
+        button.setProperty("groupButton", True)
+        groups_layout.addWidget(button)
+    if not _list(page.get("groups")):
+        empty = _mapping(page.get("empty_state"))
+        _add_label(groups_layout, QtWidgets, _text(empty.get("title"), "No people review bundle."), object_name="Muted")
+    detail = _mapping(page.get("detail"))
+    detail_frame, detail_layout = _build_section_frame(QtWidgets, _text(detail.get("title"), "Selection"), _text(detail.get("subtitle"), "Choose a group to inspect faces."))
+    for raw_face in _list(detail.get("faces"))[:24]:
+        face = _mapping(raw_face)
+        detail_layout.addWidget(_build_metric_card(QtWidgets, _text(face.get("face_id")), _text(face.get("path")), {"status": face.get("decision_status", "pending")}))
+    body.addWidget(groups_frame, 1)
+    body.addWidget(detail_frame, 2)
+    layout.addLayout(body)
+
+
+def _render_table(QtWidgets, layout, page: Mapping[str, Any]):
+    columns = [str(item) for item in _list(page.get("columns"))]
+    rows = [_mapping(row) for row in _list(page.get("rows"))]
+    if not rows:
+        empty = _mapping(page.get("empty_state"))
+        _add_label(layout, QtWidgets, _text(empty.get("title"), "No rows"), object_name="Muted")
+        _add_label(layout, QtWidgets, _text(empty.get("description")), object_name="Muted")
         return
-    split = QtWidgets.QSplitter()
-    group_list = QtWidgets.QListWidget()
-    detail = QtWidgets.QFrame()
-    detail.setObjectName("Card")
-    detail_layout = QtWidgets.QVBoxLayout(detail)
-    detail_layout.setContentsMargins(18, 18, 18, 18)
-    for group in groups[:250]:
-        group_list.addItem(f"{group.get('display_label')}  ·  {group.get('status')}  ·  {group.get('face_count')} faces")
-    selected = _mapping(editor.get("selected_group"))
-    if selected:
-        _add_label(detail_layout, QtWidgets, _text(selected.get("display_label") or selected.get("group_id")), object_name="PageTitle")
-        _add_label(detail_layout, QtWidgets, f"Status: {selected.get('status')}", object_name="Muted")
-        _add_label(detail_layout, QtWidgets, f"Faces: {selected.get('face_count', 0)} | Included: {selected.get('included_faces', 0)} | Excluded: {selected.get('excluded_faces', 0)}", object_name="Muted")
-    split.addWidget(group_list)
-    split.addWidget(detail)
-    split.setStretchFactor(0, 2)
-    split.setStretchFactor(1, 3)
-    layout.addWidget(split)
-
-
-def _render_table(QtWidgets, layout, page: Mapping[str, Any]) -> None:
-    table_model = _mapping(page.get("table")) or page
-    rows = [item for item in _list(table_model.get("rows")) if isinstance(item, Mapping)]
-    columns = [str(item) for item in _list(table_model.get("columns"))]
-    if not columns:
-        columns = ["id", "title", "status"]
-    table = QtWidgets.QTableWidget(max(0, len(rows)), len(columns))
+    table = QtWidgets.QTableWidget(len(rows), len(columns))
     table.setHorizontalHeaderLabels(columns)
     table.setAlternatingRowColors(True)
-    for row_index, raw_row in enumerate(rows):
-        row = _mapping(raw_row)
+    table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+    for row_index, row in enumerate(rows):
         for col_index, col_name in enumerate(columns):
-            table.setItem(row_index, col_index, QtWidgets.QTableWidgetItem(_text(row.get(col_name))))
+            value = row.get(col_name)
+            if isinstance(value, Mapping):
+                value = value.get("value") or value.get("path") or value.get("exists")
+            table.setItem(row_index, col_index, QtWidgets.QTableWidgetItem(_text(value)))
     table.horizontalHeader().setStretchLastSection(True)
+    table.verticalHeader().setVisible(False)
     layout.addWidget(table)
-    if not rows and table_model.get("empty_state"):
-        _add_label(layout, QtWidgets, _text(table_model.get("empty_state")), object_name="Muted")
+
+
+def _render_new_run(QtWidgets, layout, page: Mapping[str, Any]):
+    wizard = _mapping(page.get("wizard"))
+    frame, frame_layout = _build_section_frame(QtWidgets, "Guided workflow", "Preview first, review second, apply only after confirmation.")
+    for raw_step in _list(wizard.get("steps")):
+        step = _mapping(raw_step)
+        marker = "✓" if step.get("complete") else "•"
+        _add_label(frame_layout, QtWidgets, f"{marker} {_text(step.get('title'))}", object_name="MetricText")
+    layout.addWidget(frame)
+
+
+def _render_settings(QtWidgets, layout, page: Mapping[str, Any]):
+    for raw_section in _list(page.get("sections")):
+        section = _mapping(raw_section)
+        frame, section_layout = _build_section_frame(QtWidgets, _text(section.get("title")))
+        for raw_item in _list(section.get("items")):
+            item = _mapping(raw_item)
+            _add_label(section_layout, QtWidgets, f"{item.get('label')}: {item.get('value')}", object_name="MetricText")
+        layout.addWidget(frame)
 
 
 def _render_page_content(QtWidgets, page: Mapping[str, Any]):
@@ -140,22 +187,44 @@ def _render_page_content(QtWidgets, page: Mapping[str, Any]):
     layout = QtWidgets.QVBoxLayout(container)
     layout.setContentsMargins(30, 28, 30, 28)
     layout.setSpacing(18)
-    if page.get("kind") != "dashboard_page":
-        _add_label(layout, QtWidgets, _text(page.get("title"), "Media Manager"), object_name="PageTitle")
-        if page.get("description"):
-            _add_label(layout, QtWidgets, _text(page.get("description")), object_name="Muted")
+    _add_label(layout, QtWidgets, _text(page.get("title"), "Media Manager"), object_name="PageTitle")
+    if page.get("description"):
+        _add_label(layout, QtWidgets, _text(page.get("description")), object_name="Muted")
+
     kind = page.get("kind")
     if kind == "dashboard_page":
         _render_dashboard(QtWidgets, layout, page)
     elif kind == "people_review_page":
         _render_people_review(QtWidgets, layout, page)
-    elif kind == "table_page":
+    elif kind in {"table_page", "profiles_page"}:
         _render_table(QtWidgets, layout, page)
+    elif kind == "new_run_page":
+        _render_new_run(QtWidgets, layout, page)
+    elif kind == "settings_page":
+        _render_settings(QtWidgets, layout, page)
     else:
-        empty = page.get("empty_state") or "This view is ready for the next GUI iteration."
-        _add_label(layout, QtWidgets, _text(empty), object_name="Muted")
+        empty = _mapping(page.get("empty_state"))
+        _add_label(layout, QtWidgets, _text(empty.get("title"), "This view is ready for the next GUI iteration."), object_name="Muted")
+        _add_label(layout, QtWidgets, _text(empty.get("description")), object_name="Muted")
     layout.addStretch(1)
     return container
+
+
+def _rebuild_page(model: Mapping[str, Any], page_id: str) -> dict[str, Any]:
+    home_state = _mapping(model.get("home_state"))
+    language = _text(model.get("language"), "en")
+    density = _text(_mapping(model.get("layout")).get("density"), "comfortable")
+    page = build_page_model(page_id, home_state, language=language, density=density)
+    payload = dict(model)
+    payload["active_page_id"] = page_id
+    payload["page"] = page
+    nav = []
+    for raw in _list(model.get("navigation")):
+        item = dict(_mapping(raw))
+        item["active"] = item.get("id") == page_id
+        nav.append(item)
+    payload["navigation"] = nav
+    return payload
 
 
 def run_qt_gui(model: Mapping[str, Any]) -> int:  # pragma: no cover - GUI runtime
@@ -164,10 +233,12 @@ def run_qt_gui(model: Mapping[str, Any]) -> int:  # pragma: no cover - GUI runti
     theme = _mapping(model.get("theme"))
     app.setStyleSheet(build_qt_stylesheet(str(theme.get("theme") or "modern-dark")))
 
+    current_model: dict[str, Any] = dict(model)
     window = QtWidgets.QMainWindow()
     win = _mapping(model.get("window"))
     window.setWindowTitle(_text(win.get("title"), "Media Manager"))
-    window.resize(int(win.get("width", 1400)), int(win.get("height", 900)))
+    window.resize(int(win.get("width", 1440)), int(win.get("height", 940)))
+    window.setMinimumSize(int(win.get("minimum_width", 1180)), int(win.get("minimum_height", 760)))
     central = QtWidgets.QWidget()
     root = QtWidgets.QHBoxLayout(central)
     root.setContentsMargins(0, 0, 0, 0)
@@ -175,24 +246,44 @@ def run_qt_gui(model: Mapping[str, Any]) -> int:  # pragma: no cover - GUI runti
 
     sidebar = QtWidgets.QFrame()
     sidebar.setObjectName("Sidebar")
-    sidebar.setFixedWidth(292)
+    sidebar.setFixedWidth(280)
     side_layout = QtWidgets.QVBoxLayout(sidebar)
-    side_layout.setContentsMargins(20, 24, 20, 18)
+    side_layout.setContentsMargins(20, 26, 20, 20)
     side_layout.setSpacing(12)
     app_info = _mapping(model.get("application"))
     _add_label(side_layout, QtWidgets, _text(app_info.get("title"), "Media Manager"), object_name="AppTitle")
     _add_label(side_layout, QtWidgets, _text(app_info.get("subtitle")), object_name="Muted")
+
+    scroll = QtWidgets.QScrollArea()
+    scroll.setWidgetResizable(True)
+
+    buttons: dict[str, Any] = {}
+
+    def switch_page(page_id: str) -> None:
+        nonlocal current_model
+        current_model = _rebuild_page(current_model, page_id)
+        for nav_id, button in buttons.items():
+            button.setChecked(nav_id == page_id)
+        scroll.setWidget(_render_page_content(QtWidgets, _mapping(current_model.get("page"))))
+        status = _mapping(current_model.get("status_bar"))
+        window.statusBar().showMessage(_text(status.get("text"), "Ready."))
+
     for item in _list(model.get("navigation")):
         nav = _mapping(item)
+        nav_id = _text(nav.get("id"))
         button = QtWidgets.QPushButton(_text(nav.get("label")))
         button.setCheckable(True)
         button.setChecked(bool(nav.get("active")))
         button.setEnabled(bool(nav.get("enabled", True)))
+        button.clicked.connect(lambda checked=False, page_id=nav_id: switch_page(page_id))
+        buttons[nav_id] = button
         side_layout.addWidget(button)
+    side_layout.addSpacing(16)
+    palette_label = QtWidgets.QLabel("Ctrl+K · Command palette")
+    palette_label.setObjectName("Muted")
+    side_layout.addWidget(palette_label)
     side_layout.addStretch(1)
 
-    scroll = QtWidgets.QScrollArea()
-    scroll.setWidgetResizable(True)
     scroll.setWidget(_render_page_content(QtWidgets, _mapping(model.get("page"))))
     root.addWidget(sidebar)
     root.addWidget(scroll, 1)

@@ -1,175 +1,162 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from typing import Any
 
 THEME_SCHEMA_VERSION = "1.1"
 DEFAULT_THEME = "modern-dark"
 SUPPORTED_THEMES = ("modern-dark", "modern-light", "system")
 
-_THEME_TOKENS: dict[str, dict[str, str]] = {
+_PALETTES = {
     "modern-dark": {
-        "background": "#0b1020",
-        "background_soft": "#10172a",
+        "background": "#0f172a",
         "surface": "#111827",
         "surface_alt": "#1f2937",
-        "surface_elevated": "#172033",
-        "text": "#f8fafc",
-        "muted_text": "#94a3b8",
-        "accent": "#38bdf8",
-        "accent_strong": "#0ea5e9",
-        "success": "#22c55e",
-        "warning": "#f59e0b",
-        "danger": "#ef4444",
+        "text": "#e5e7eb",
+        "muted": "#94a3b8",
+        "accent": "#60a5fa",
+        "accent_text": "#0f172a",
         "border": "#334155",
-        "shadow": "rgba(0,0,0,0.35)",
+        "success": "#34d399",
+        "warning": "#fbbf24",
+        "danger": "#fb7185",
     },
     "modern-light": {
         "background": "#f8fafc",
-        "background_soft": "#eef2ff",
         "surface": "#ffffff",
-        "surface_alt": "#eef2ff",
-        "surface_elevated": "#ffffff",
+        "surface_alt": "#e2e8f0",
         "text": "#0f172a",
-        "muted_text": "#475569",
-        "accent": "#0284c7",
-        "accent_strong": "#0369a1",
-        "success": "#16a34a",
-        "warning": "#d97706",
-        "danger": "#dc2626",
+        "muted": "#475569",
+        "accent": "#2563eb",
+        "accent_text": "#ffffff",
         "border": "#cbd5e1",
-        "shadow": "rgba(15,23,42,0.12)",
+        "success": "#059669",
+        "warning": "#d97706",
+        "danger": "#e11d48",
     },
 }
 
 
 def normalize_theme(theme: str | None) -> str:
     value = str(theme or DEFAULT_THEME).strip().lower().replace("_", "-")
-    if value in SUPPORTED_THEMES:
-        return value
-    return DEFAULT_THEME
+    if value == "dark":
+        return "modern-dark"
+    if value == "light":
+        return "modern-light"
+    if value not in SUPPORTED_THEMES:
+        return DEFAULT_THEME
+    return value
 
 
-def resolve_theme_tokens(theme: str | None = None) -> dict[str, str]:
+def palette_for_theme(theme: str | None) -> dict[str, str]:
     normalized = normalize_theme(theme)
     if normalized == "system":
         normalized = DEFAULT_THEME
-    return dict(_THEME_TOKENS[normalized])
+    return dict(_PALETTES[normalized])
 
 
-def build_theme_payload(theme: str | None = None) -> dict[str, object]:
+def build_theme_payload(theme: str | None = None) -> dict[str, Any]:
     normalized = normalize_theme(theme)
+    palette = palette_for_theme(normalized)
     return {
         "schema_version": THEME_SCHEMA_VERSION,
         "theme": normalized,
-        "resolved_theme": DEFAULT_THEME if normalized == "system" else normalized,
-        "supported_themes": list(SUPPORTED_THEMES),
-        "tokens": resolve_theme_tokens(normalized),
-        "typography": {
-            "font_family": "Segoe UI, Inter, Arial, sans-serif",
-            "base_size": 11,
-            "title_size": 24,
-            "hero_size": 30,
-        },
+        "palette": palette,
+        "radius": {"sm": 8, "md": 14, "lg": 20, "xl": 28},
+        "spacing": {"xs": 6, "sm": 10, "md": 16, "lg": 24, "xl": 32},
+        "typography": {"font_family": "Segoe UI", "title_size": 28, "body_size": 14, "caption_size": 12},
     }
 
 
 def build_qt_stylesheet(theme: str | None = None) -> str:
-    token = resolve_theme_tokens(theme)
+    palette = palette_for_theme(theme)
     return f"""
-QMainWindow, QWidget {{
-    background-color: {token['background']};
-    color: {token['text']};
-    font-family: Segoe UI, Inter, Arial, sans-serif;
-    font-size: 10.5pt;
+QWidget {{
+    background: {palette['background']};
+    color: {palette['text']};
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 14px;
 }}
-QFrame#Sidebar {{
-    background-color: {token['surface']};
-    border-right: 1px solid {token['border']};
-}}
-QFrame#TopBar {{
-    background-color: {token['background_soft']};
-    border-bottom: 1px solid {token['border']};
-}}
-QLabel#AppTitle {{
-    font-size: 20pt;
-    font-weight: 800;
-    color: {token['text']};
-}}
-QLabel#PageTitle {{
-    font-size: 24pt;
-    font-weight: 800;
-    color: {token['text']};
-}}
-QLabel#HeroTitle {{
-    font-size: 30pt;
-    font-weight: 800;
-    color: {token['text']};
-}}
-QLabel#Muted {{
-    color: {token['muted_text']};
-}}
-QPushButton {{
-    border: 1px solid {token['border']};
-    border-radius: 12px;
-    padding: 10px 14px;
-    background-color: {token['surface_alt']};
-    color: {token['text']};
-}}
-QPushButton:hover {{
-    border-color: {token['accent']};
-}}
-QPushButton:checked, QPushButton#PrimaryButton {{
-    background-color: {token['accent_strong']};
-    border-color: {token['accent']};
-    color: #ffffff;
-}}
-QLineEdit {{
-    border: 1px solid {token['border']};
-    border-radius: 12px;
-    padding: 10px 12px;
-    background-color: {token['surface']};
-    color: {token['text']};
-}}
-QFrame#Card, QFrame#HeroCard {{
-    background-color: {token['surface_elevated']};
-    border: 1px solid {token['border']};
-    border-radius: 18px;
-}}
-QFrame#HeroCard {{
-    background-color: {token['background_soft']};
-}}
-QTableWidget {{
-    background-color: {token['surface']};
-    alternate-background-color: {token['surface_alt']};
-    border: 1px solid {token['border']};
-    border-radius: 14px;
-    gridline-color: {token['border']};
-}}
-QHeaderView::section {{
-    background-color: {token['surface_alt']};
-    color: {token['text']};
-    padding: 8px;
+QMainWindow, QScrollArea {{
+    background: {palette['background']};
     border: none;
 }}
-QStatusBar {{
-    background-color: {token['surface']};
-    color: {token['muted_text']};
+QFrame#Sidebar {{
+    background: {palette['surface']};
+    border-right: 1px solid {palette['border']};
 }}
-QScrollArea {{ border: none; }}
-""".strip()
+QFrame#Card, QFrame#Section {{
+    background: {palette['surface']};
+    border: 1px solid {palette['border']};
+    border-radius: 18px;
+}}
+QLabel#AppTitle {{
+    font-size: 24px;
+    font-weight: 700;
+    color: {palette['text']};
+}}
+QLabel#PageTitle {{
+    font-size: 30px;
+    font-weight: 800;
+    color: {palette['text']};
+}}
+QLabel#SectionTitle {{
+    font-size: 20px;
+    font-weight: 700;
+    color: {palette['text']};
+}}
+QLabel#CardTitle {{
+    font-size: 17px;
+    font-weight: 700;
+    color: {palette['text']};
+}}
+QLabel#Muted {{
+    color: {palette['muted']};
+}}
+QLabel#MetricText {{
+    color: {palette['text']};
+    font-weight: 600;
+}}
+QPushButton {{
+    background: {palette['surface_alt']};
+    color: {palette['text']};
+    border: 1px solid {palette['border']};
+    border-radius: 12px;
+    padding: 10px 12px;
+    text-align: left;
+}}
+QPushButton:hover {{
+    border-color: {palette['accent']};
+}}
+QPushButton:checked {{
+    background: {palette['accent']};
+    color: {palette['accent_text']};
+    border-color: {palette['accent']};
+    font-weight: 700;
+}}
+QPushButton[groupButton="true"] {{
+    min-height: 56px;
+}}
+QTableWidget {{
+    background: {palette['surface']};
+    alternate-background-color: {palette['surface_alt']};
+    gridline-color: {palette['border']};
+    border: 1px solid {palette['border']};
+    border-radius: 14px;
+}}
+QHeaderView::section {{
+    background: {palette['surface_alt']};
+    color: {palette['text']};
+    padding: 8px;
+    border: none;
+    border-bottom: 1px solid {palette['border']};
+    font-weight: 700;
+}}
+QStatusBar {{
+    background: {palette['surface']};
+    color: {palette['muted']};
+    border-top: 1px solid {palette['border']};
+}}
+"""
 
 
-def merge_theme_into_model(model: Mapping[str, object], *, theme: str | None = None) -> dict[str, object]:
-    return {**dict(model), "theme": build_theme_payload(theme)}
-
-
-__all__ = [
-    "DEFAULT_THEME",
-    "SUPPORTED_THEMES",
-    "THEME_SCHEMA_VERSION",
-    "build_qt_stylesheet",
-    "build_theme_payload",
-    "merge_theme_into_model",
-    "normalize_theme",
-    "resolve_theme_tokens",
-]
+__all__ = ["DEFAULT_THEME", "SUPPORTED_THEMES", "THEME_SCHEMA_VERSION", "build_qt_stylesheet", "build_theme_payload", "normalize_theme", "palette_for_theme"]
