@@ -14,6 +14,7 @@ COMMAND_LABELS = {
     "duplicates": "Find duplicates",
     "doctor": "Validate setup",
     "runs": "Run history",
+    "people": "Review people",
 }
 
 
@@ -62,7 +63,7 @@ def _review(report_payload: Mapping[str, Any]) -> Mapping[str, Any]:
     return _as_mapping(report_payload.get("review"))
 
 
-def _candidate_count(report_payload: Mapping[str, Any]) -> int:
+def _candidate_count(report_payload: Mapping[str, Any], *, command_name: str = "") -> int:
     review = _review(report_payload)
     count = review.get("candidate_count")
     if isinstance(count, int):
@@ -70,13 +71,19 @@ def _candidate_count(report_payload: Mapping[str, Any]) -> int:
     candidates = review.get("candidates")
     if isinstance(candidates, list):
         return len(candidates)
+    if command_name == "people":
+        summary = _as_mapping(report_payload.get("summary"))
+        return _as_int(summary.get("unknown_faces"))
     return 0
 
 
 def _has_errors(report_payload: Mapping[str, Any]) -> bool:
     outcome = _outcome(report_payload)
-    status = outcome.get("status")
-    if status in {"blocked", "failed", "error"}:
+    status = outcome.get("status") or report_payload.get("status")
+    if status in {"blocked", "failed", "error", "backend_missing", "completed_with_errors"}:
+        return True
+    errors = report_payload.get("errors")
+    if isinstance(errors, list) and errors:
         return True
     for section_name in ("scan", "summary", "duplicates", "organize", "rename", "execution"):
         section = _as_mapping(report_payload.get(section_name))
@@ -97,9 +104,7 @@ def _has_conflicts(report_payload: Mapping[str, Any]) -> bool:
 
 
 def _has_apply_target(command_name: str, report_payload: Mapping[str, Any]) -> bool:
-    if command_name in {"organize", "rename"}:
-        return True
-    if command_name == "cleanup":
+    if command_name in {"organize", "rename", "cleanup"}:
         return True
     if command_name == "duplicates":
         dry_run = _as_mapping(report_payload.get("dry_run"))
@@ -121,6 +126,15 @@ def _extract_run_dir(command_payload: Mapping[str, Any] | None) -> str | None:
         if item == "--run-dir" and index + 1 < len(argv):
             return argv[index + 1]
         if item.startswith("--run-dir="):
+            return item.split("=", 1)[1]
+    return None
+
+
+def _arg_after(argv: list[str], flag: str) -> str | None:
+    for index, item in enumerate(argv):
+        if item == flag and index + 1 < len(argv):
+            return argv[index + 1]
+        if item.startswith(flag + "="):
             return item.split("=", 1)[1]
     return None
 
@@ -194,10 +208,93 @@ def _duplicate_decision_state(report_payload: Mapping[str, Any]) -> tuple[bool, 
     from_file = _as_int(summary.get("from_decision_file_count"))
     has_decisions = decided > 0 or from_file > 0
     if unresolved == 0:
-        # Some older reports only expose cleanup-plan counts.
         cleanup_plan = _as_mapping(_as_mapping(report_payload.get("duplicates")).get("cleanup_plan"))
         unresolved = _as_int(cleanup_plan.get("unresolved_groups"))
     return has_decisions, decided, unresolved
+
+
+def _people_actions(
+    *,
+    report_payload: Mapping[str, Any],
+    command_payload: Mapping[str, Any] | None,
+    candidate_count: int,
+    has_errors: bool,
+    run_id: str | None,
+) -> list[dict[str, Any]]:
+    base_argv = _base_cli_args("people", command_payload)
+    report_json = _arg_after(base_argv, "--report-json") or "people-report.json"
+    workflow_json = _arg_after(base_argv, "--workflow-json") or "people-review-workflow.json"
+    bundle_dir = _arg_after(base_argv, "--bundle-dir") or "people-review-bundle"
+    catalog = _arg_after(base_argv, "--catalog") or "people.json"
+    summary = _as_mapping(report_payload.get("summary"))
+    has_encodings = any(isinstance(item, Mapping) and isinstance(item.get("encoding"), list) and item.get("encoding") for item in _as_list(report_payload.get("detections")))
+    ready_unknown_faces = _as_int(summary.get("unknown_faces")) > 0 or candidate_count > 0
+    return [
+        _action(
+            "people_review_export",
+            "Create people review workflow",
+            description="Create an editable workflow JSON for grouping, naming, accepting, and rejecting detected faces.",
+            category="review",
+            enabled=not has_errors and ready_unknown_faces,
+            recommended=not has_errors and ready_unknown_faces,
+            command_preview=["media-manager", "people", "review-export", "--report-json", report_json, "--out", workflow_json],
+            blocked_reason=None if ready_unknown_faces else "No unknown faces were reported.",
+            ui_hint="people_review_workflow",
+        ),
+        _action(
+            "people_review_bundle",
+            "Build people review bundle",
+            description="Build a GUI-ready people review bundle with workspace JSON and face crop assets.",
+            category="review",
+            enabled=not has_errors,
+            recommended=not has_errors and ready_unknown_faces,
+            command_preview=["media-manager", "people", "review-bundle", "--report-json", report_json, "--workflow-json", workflow_json, "--bundle-dir", bundle_dir, "--catalog", catalog],
+            ui_hint="people_review_page",
+        ),
+        _action(
+            "people_review_session",
+            "Open people review session",
+            description="Use session controls to mark groups, reject wrong faces, split groups, and merge groups before applying.",
+            category="review",
+            enabled=True,
+            recommended=ready_unknown_faces,
+            command_preview=["media-manager-people-session", "summary", "--workflow-json", workflow_json],
+            ui_hint="interactive_people_review",
+        ),
+        _action(
+            "people_review_apply",
+            "Apply reviewed people to catalog",
+            description="Write confirmed reviewed face embeddings to the local people catalog.",
+            category="apply",
+            risk_level="sensitive",
+            enabled=has_encodings,
+            recommended=False,
+            requires_confirmation=True,
+            command_preview=["media-manager", "people", "review-apply", "--catalog", catalog, "--workflow-json", workflow_json, "--report-json", report_json],
+            blocked_reason=None if has_encodings else "review-apply needs a report created with --include-encodings.",
+            ui_hint="sensitive_apply",
+        ),
+        _action(
+            "people_rerun_scan_with_encodings",
+            "Rerun people scan with encodings",
+            description="Refresh the people scan and include face encodings needed for catalog training.",
+            category="run",
+            enabled=not has_encodings,
+            recommended=ready_unknown_faces and not has_encodings,
+            command_preview=[*base_argv, "--include-encodings"] if "--include-encodings" not in base_argv else base_argv,
+            ui_hint="refresh_people_scan",
+        ),
+        _action(
+            "people_backend_check",
+            "Check people backend",
+            description="Check whether the strong local dlib backend or OpenCV fallback is available.",
+            category="diagnostic",
+            enabled=True,
+            recommended=has_errors,
+            command_preview=["media-manager", "people", "backend"],
+            ui_hint="backend_health",
+        ),
+    ]
 
 
 def build_action_model_from_report(
@@ -207,16 +304,10 @@ def build_action_model_from_report(
     command_payload: Mapping[str, Any] | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
-    """Build GUI-friendly next-action metadata from a report payload.
-
-    The action model is intentionally advisory. It never executes work and avoids encoding
-    destructive behavior as enabled unless the underlying report already indicates that the
-    next step is safe and the user has reviewed risky areas.
-    """
     command_name = str(command_name)
     outcome = _outcome(report_payload)
-    candidate_count = _candidate_count(report_payload)
-    needs_review = _is_truthy(outcome.get("needs_review")) or candidate_count > 0
+    candidate_count = _candidate_count(report_payload, command_name=command_name)
+    needs_review = _is_truthy(outcome.get("needs_review")) or candidate_count > 0 or command_name == "people"
     safe_to_apply = _is_truthy(outcome.get("safe_to_apply"))
     has_errors = _has_errors(report_payload)
     has_conflicts = _has_conflicts(report_payload)
@@ -226,168 +317,32 @@ def build_action_model_from_report(
     preview_argv = _without_apply_flags(base_argv)
     actions: list[dict[str, Any]] = []
 
-    actions.append(
-        _action(
-            "open_report",
-            "Open full report",
-            description="Inspect the full machine-readable report for this run.",
-            category="inspect",
-            command_preview=["media-manager", "runs", "show", run_id or "<run-id>", "--artifact", "report"] if run_id else None,
-            ui_hint="primary_detail",
-        )
-    )
-    actions.append(
-        _action(
-            "open_plan_snapshot",
-            "Open plan snapshot",
-            description="Show the compact table/list snapshot for planned or reviewable entries.",
-            category="inspect",
-            enabled=True,
-            recommended=needs_review,
-            command_preview=["media-manager", "runs", "show", run_id or "<run-id>", "--artifact", "plan-snapshot"] if run_id else None,
-            ui_hint="table_view",
-        )
-    )
-    actions.append(
-        _action(
-            "open_review",
-            "Review candidates",
-            description="Inspect review candidates before applying changes.",
-            category="review",
-            enabled=candidate_count > 0,
-            recommended=candidate_count > 0,
-            command_preview=["media-manager", "runs", "show", run_id or "<run-id>", "--artifact", "review"] if run_id else None,
-            blocked_reason=None if candidate_count > 0 else "No review candidates were reported.",
-            ui_hint="review_queue",
-        )
-    )
+    actions.append(_action("open_report", "Open full report", description="Inspect the full machine-readable report for this run.", category="inspect", command_preview=["media-manager", "runs", "show", run_id or "<run-id>", "--artifact", "report"] if run_id else None, ui_hint="primary_detail"))
+    actions.append(_action("open_plan_snapshot", "Open plan snapshot", description="Show the compact table/list snapshot for planned or reviewable entries.", category="inspect", enabled=command_name != "people", recommended=needs_review and command_name != "people", command_preview=["media-manager", "runs", "show", run_id or "<run-id>", "--artifact", "plan-snapshot"] if run_id else None, ui_hint="table_view"))
+    actions.append(_action("open_review", "Review candidates", description="Inspect review candidates before applying changes.", category="review", enabled=candidate_count > 0, recommended=candidate_count > 0 and command_name != "people", command_preview=["media-manager", "runs", "show", run_id or "<run-id>", "--artifact", "review"] if run_id else None, blocked_reason=None if candidate_count > 0 else "No review candidates were reported.", ui_hint="review_queue"))
 
     if run_id and run_dir:
-        actions.append(
-            _action(
-                "validate_run_artifacts",
-                "Validate run artifacts",
-                description="Check whether the run folder still contains the expected GUI-facing files.",
-                category="diagnostic",
-                command_preview=["media-manager", "runs", "--run-dir", run_dir, "validate"],
-                ui_hint="health_check",
-            )
-        )
+        actions.append(_action("validate_run_artifacts", "Validate run artifacts", description="Check whether the run folder still contains the expected GUI-facing files.", category="diagnostic", command_preview=["media-manager", "runs", "--run-dir", run_dir, "validate"], ui_hint="health_check"))
 
-    actions.append(
-        _action(
-            "rerun_preview",
-            "Run preview again",
-            description="Re-run the same command in preview mode to refresh the report.",
-            category="run",
-            enabled=bool(preview_argv),
-            recommended=has_errors or has_conflicts,
-            command_preview=preview_argv,
-            ui_hint="refresh",
-        )
-    )
+    actions.append(_action("rerun_preview", "Run preview again", description="Re-run the same command in preview mode to refresh the report.", category="run", enabled=bool(preview_argv), recommended=has_errors or has_conflicts, command_preview=preview_argv, ui_hint="refresh"))
 
-    if command_name == "doctor":
-        actions.append(
-            _action(
-                "fix_diagnostics",
-                "Fix diagnostics and rerun",
-                description="Resolve reported input/output issues, then run the diagnostic again.",
-                category="diagnostic",
-                enabled=has_errors or needs_review,
-                recommended=has_errors or needs_review,
-                command_preview=preview_argv,
-                blocked_reason=None if (has_errors or needs_review) else "Doctor did not report blocking diagnostics.",
-                ui_hint="fix_inputs",
-            )
-        )
+    if command_name == "people":
+        actions.extend(_people_actions(report_payload=report_payload, command_payload=command_payload, candidate_count=candidate_count, has_errors=has_errors, run_id=run_id))
+    elif command_name == "doctor":
+        actions.append(_action("fix_diagnostics", "Fix diagnostics and rerun", description="Resolve reported input/output issues, then run the diagnostic again.", category="diagnostic", enabled=has_errors or needs_review, recommended=has_errors or needs_review, command_preview=preview_argv, blocked_reason=None if (has_errors or needs_review) else "Doctor did not report blocking diagnostics.", ui_hint="fix_inputs"))
     elif command_name == "duplicates":
-        has_decisions, decided_count, unresolved_count = _duplicate_decision_state(report_payload)
-        actions.append(
-            _action(
-                "export_duplicate_decisions",
-                "Export duplicate decisions",
-                description="Create an editable decision file so a reviewer can choose keep files before cleanup.",
-                category="review",
-                risk_level="safe",
-                enabled=True,
-                recommended=unresolved_count > 0 or needs_review,
-                command_preview=[*preview_argv, "--export-decisions", "duplicate-decisions.json"],
-                ui_hint="decision_file",
-            )
-        )
-        actions.append(
-            _action(
-                "import_duplicate_decisions_preview",
-                "Preview with reviewed decisions",
-                description="Import a reviewed decision file and preview the resulting duplicate cleanup plan.",
-                category="review",
-                risk_level="safe",
-                enabled=True,
-                recommended=not has_decisions,
-                command_preview=[*preview_argv, "--import-decisions", "duplicate-decisions.json", "--show-plan"],
-                ui_hint="decision_preview",
-            )
-        )
+        has_decisions, _decided_count, unresolved_count = _duplicate_decision_state(report_payload)
+        actions.append(_action("export_duplicate_decisions", "Export duplicate decisions", description="Create an editable decision file so a reviewer can choose keep files before cleanup.", category="review", risk_level="safe", enabled=True, recommended=unresolved_count > 0 or needs_review, command_preview=[*preview_argv, "--export-decisions", "duplicate-decisions.json"], ui_hint="decision_file"))
+        actions.append(_action("import_duplicate_decisions_preview", "Preview with reviewed decisions", description="Import a reviewed decision file and preview the resulting duplicate cleanup plan.", category="review", risk_level="safe", enabled=True, recommended=not has_decisions, command_preview=[*preview_argv, "--import-decisions", "duplicate-decisions.json", "--show-plan"], ui_hint="decision_preview"))
         apply_enabled = safe_to_apply and has_decisions and not has_errors and not has_conflicts and unresolved_count == 0
-        actions.append(
-            _action(
-                "apply_duplicate_cleanup",
-                "Apply duplicate cleanup",
-                description="Execute the duplicate cleanup plan after decisions have been reviewed.",
-                category="apply",
-                risk_level="destructive",
-                enabled=apply_enabled,
-                recommended=False,
-                requires_confirmation=True,
-                command_preview=[*preview_argv, "--import-decisions", "duplicate-decisions.json", "--mode", "delete", "--apply", "--yes"],
-                blocked_reason=None if apply_enabled else "Duplicate cleanup needs valid reviewed decisions and a clean preview before apply.",
-                ui_hint="danger_apply",
-            )
-        )
+        actions.append(_action("apply_duplicate_cleanup", "Apply duplicate cleanup", description="Execute the duplicate cleanup plan after decisions have been reviewed.", category="apply", risk_level="destructive", enabled=apply_enabled, recommended=False, requires_confirmation=True, command_preview=[*preview_argv, "--import-decisions", "duplicate-decisions.json", "--mode", "delete", "--apply", "--yes"], blocked_reason=None if apply_enabled else "Duplicate cleanup needs valid reviewed decisions and a clean preview before apply.", ui_hint="danger_apply"))
     elif command_name in {"organize", "rename", "cleanup"}:
         apply_enabled = _has_apply_target(command_name, report_payload) and safe_to_apply and not needs_review and not has_errors and not has_conflicts and not apply_requested
-        actions.append(
-            _action(
-                "apply_plan",
-                "Apply this plan",
-                description="Execute the planned filesystem changes after the preview is clean.",
-                category="apply",
-                risk_level="high" if command_name == "cleanup" else "medium",
-                enabled=apply_enabled,
-                recommended=apply_enabled,
-                requires_confirmation=True,
-                command_preview=_safe_apply_preview(command_name, preview_argv),
-                blocked_reason=None if apply_enabled else "Apply is available only for a clean preview with no review candidates, conflicts, or errors.",
-                ui_hint="apply_confirmation",
-            )
-        )
-        actions.append(
-            _action(
-                "run_doctor",
-                "Run diagnostics for this setup",
-                description="Validate paths, filters, output locations, and environment assumptions before applying.",
-                category="diagnostic",
-                risk_level="safe",
-                enabled=True,
-                recommended=has_errors or has_conflicts,
-                command_preview=["media-manager", "doctor", "--command", command_name],
-                ui_hint="preflight",
-            )
-        )
+        actions.append(_action("apply_plan", "Apply this plan", description="Execute the planned filesystem changes after the preview is clean.", category="apply", risk_level="high" if command_name == "cleanup" else "medium", enabled=apply_enabled, recommended=apply_enabled, requires_confirmation=True, command_preview=_safe_apply_preview(command_name, preview_argv), blocked_reason=None if apply_enabled else "Apply is available only for a clean preview with no review candidates, conflicts, or errors.", ui_hint="apply_confirmation"))
+        actions.append(_action("run_doctor", "Run diagnostics for this setup", description="Validate paths, filters, output locations, and environment assumptions before applying.", category="diagnostic", risk_level="safe", enabled=True, recommended=has_errors or has_conflicts, command_preview=["media-manager", "doctor", "--command", command_name], ui_hint="preflight"))
 
     next_action_id = None
-    preferred_order = [
-        "apply_plan",
-        "export_duplicate_decisions",
-        "import_duplicate_decisions_preview",
-        "open_review",
-        "open_plan_snapshot",
-        "fix_diagnostics",
-        "run_doctor",
-        "rerun_preview",
-        "open_report",
-    ]
+    preferred_order = ["people_review_bundle", "people_review_export", "people_review_session", "apply_plan", "export_duplicate_decisions", "import_duplicate_decisions_preview", "open_review", "open_plan_snapshot", "fix_diagnostics", "run_doctor", "people_backend_check", "rerun_preview", "open_report"]
     for action_id in preferred_order:
         match = next((item for item in actions if item.get("id") == action_id and item.get("enabled") and item.get("recommended")), None)
         if match is not None:
@@ -405,8 +360,8 @@ def build_action_model_from_report(
         "command": command_name,
         "command_label": COMMAND_LABELS.get(command_name, command_name.title()),
         "run_id": run_id,
-        "status": outcome.get("status"),
-        "next_action": outcome.get("next_action"),
+        "status": outcome.get("status", report_payload.get("status")),
+        "next_action": outcome.get("next_action", report_payload.get("next_action")),
         "next_action_id": next_action_id,
         "safe_to_apply": safe_to_apply,
         "needs_review": needs_review,

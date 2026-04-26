@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import json
 from pathlib import Path
 from typing import Any, Iterable
 
 APP_PROFILE_SCHEMA_VERSION = 1
 
-SUPPORTED_COMMANDS = {"organize", "rename", "duplicates", "cleanup", "doctor"}
+SUPPORTED_COMMANDS = {"organize", "rename", "duplicates", "cleanup", "doctor", "people"}
 
 
 @dataclass(slots=True, frozen=True)
@@ -59,7 +59,7 @@ def _normalize_profile_id(value: str) -> str:
 def _string_list(value: Any) -> list[str]:
     if value is None:
         return []
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, (list, tuple, set)):
         return [str(item) for item in value if str(item).strip()]
     text = str(value).strip()
     return [text] if text else []
@@ -99,6 +99,7 @@ def build_app_profile_payload(
 ) -> dict[str, Any]:
     normalized_command = str(command).strip().lower()
     normalized_id = _normalize_profile_id(profile_id or title or normalized_command)
+    recommended_view = "People review" if normalized_command == "people" else "New run"
     return {
         "schema_version": APP_PROFILE_SCHEMA_VERSION,
         "profile_id": normalized_id,
@@ -110,7 +111,7 @@ def build_app_profile_payload(
         "values": dict(values or {}),
         "gui": {
             "card_title": title.strip() or normalized_id,
-            "recommended_view": "New run",
+            "recommended_view": recommended_view,
             "show_in_dashboard": bool(favorite),
         },
     }
@@ -168,6 +169,21 @@ def _append_common(parts: list[str], values: dict[str, Any], *, target: bool = F
         _append_flag(parts, "--apply", values.get("apply"))
         _append_value(parts, "--journal", values.get("journal"))
     _append_value(parts, "--exiftool-path", values.get("exiftool_path"))
+
+
+def _append_people_scan(parts: list[str], values: dict[str, Any]) -> None:
+    _append_repeated(parts, "--source", _string_list(values.get("source_dirs", values.get("sources", values.get("source")))))
+    _append_value(parts, "--catalog", values.get("catalog"))
+    _append_value(parts, "--backend", values.get("backend"))
+    _append_value(parts, "--tolerance", values.get("tolerance"))
+    _append_repeated(parts, "--include-pattern", _string_list(values.get("include_patterns", values.get("include_pattern"))))
+    _append_repeated(parts, "--exclude-pattern", _string_list(values.get("exclude_patterns", values.get("exclude_pattern"))))
+    _append_repeated(parts, "--include-extension", _string_list(values.get("include_extensions", values.get("include_extension"))))
+    _append_value(parts, "--report-json", values.get("report_json"))
+    _append_value(parts, "--review-json", values.get("review_json"))
+    _append_flag(parts, "--include-encodings", values.get("include_encodings"))
+    _append_flag(parts, "--require-backend", values.get("require_backend"))
+    _append_flag(parts, "--json", values.get("json_output", values.get("json")))
 
 
 def build_app_profile_argv(profile: dict[str, Any]) -> list[str]:
@@ -243,6 +259,33 @@ def build_app_profile_argv(profile: dict[str, Any]) -> list[str]:
         _append_value(parts, "--max-scan-files", values.get("max_scan_files"))
         return parts
 
+    if command == "people":
+        people_mode = str(values.get("people_mode", values.get("mode", "scan"))).strip().lower().replace("_", "-")
+        if people_mode == "scan":
+            parts = ["media-manager", "people", "scan"]
+            _append_people_scan(parts, values)
+            return parts
+        if people_mode in {"review-bundle", "bundle"}:
+            parts = ["media-manager", "people", "review-bundle"]
+            _append_value(parts, "--report-json", values.get("report_json"))
+            _append_value(parts, "--workflow-json", values.get("workflow_json"))
+            _append_value(parts, "--bundle-dir", values.get("bundle_dir"))
+            _append_value(parts, "--catalog", values.get("catalog"))
+            _append_flag(parts, "--no-assets", values.get("no_assets"))
+            _append_flag(parts, "--include-encodings-in-workspace", values.get("include_encodings_in_workspace"))
+            _append_flag(parts, "--json", values.get("json_output", values.get("json")))
+            return parts
+        if people_mode in {"review-apply", "apply-review"}:
+            parts = ["media-manager", "people", "review-apply"]
+            _append_value(parts, "--catalog", values.get("catalog"))
+            _append_value(parts, "--workflow-json", values.get("workflow_json"))
+            _append_value(parts, "--report-json", values.get("report_json"))
+            _append_value(parts, "--out-catalog", values.get("out_catalog"))
+            _append_flag(parts, "--dry-run", values.get("dry_run"))
+            _append_flag(parts, "--json", values.get("json_output", values.get("json")))
+            return parts
+        return parts
+
     return parts
 
 
@@ -291,6 +334,22 @@ def validate_app_profile(profile: dict[str, Any]) -> AppProfileValidation:
         problems.append("Cleanup can apply organize or rename, not both in the same profile.")
     if command == "cleanup" and values.get("leftover_mode") == "consolidate" and not _bool_value(values.get("apply_organize")):
         problems.append("Leftover consolidation requires apply_organize.")
+
+    if command == "people":
+        people_mode = str(values.get("people_mode", values.get("mode", "scan"))).strip().lower().replace("_", "-")
+        if people_mode == "scan" and not source_values:
+            problems.append("At least one source directory is required for people scan profiles.")
+        if people_mode in {"review-bundle", "bundle"}:
+            if not str(values.get("report_json", "")).strip():
+                problems.append("people review-bundle profiles require report_json.")
+            if not str(values.get("bundle_dir", "")).strip():
+                problems.append("people review-bundle profiles require bundle_dir.")
+        if people_mode in {"review-apply", "apply-review"}:
+            for key in ("catalog", "workflow_json", "report_json"):
+                if not str(values.get(key, "")).strip():
+                    problems.append(f"people review-apply profiles require {key}.")
+        if _bool_value(values.get("include_encodings")):
+            warnings.append("People reports with encodings contain sensitive biometric metadata and should stay local/private.")
 
     argv: tuple[str, ...] = ()
     preview: str | None = None
@@ -350,16 +409,7 @@ def scan_app_profiles(profile_dir: str | Path) -> list[AppProfileRecord]:
                 )
             )
         except Exception:
-            records.append(
-                AppProfileRecord(
-                    path=path,
-                    profile_id=path.stem,
-                    title=path.stem,
-                    command="",
-                    valid=False,
-                    problem_count=1,
-                )
-            )
+            records.append(AppProfileRecord(path=path, profile_id=path.stem, title=path.stem, command="", valid=False, problem_count=1))
     return records
 
 
@@ -380,6 +430,7 @@ def summarize_app_profiles(records: Iterable[AppProfileRecord]) -> dict[str, Any
 
 __all__ = [
     "APP_PROFILE_SCHEMA_VERSION",
+    "SUPPORTED_COMMANDS",
     "AppProfileRecord",
     "AppProfileValidation",
     "build_app_profile_payload",
