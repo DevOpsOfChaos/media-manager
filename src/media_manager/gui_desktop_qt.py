@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from .core.gui_page_models import build_page_model
+from .core.gui_qt_desktop_integration_plan import build_qt_desktop_integration_plan, summarize_qt_desktop_integration_plan
 from .core.gui_theme import build_qt_stylesheet
 
 
@@ -32,6 +33,20 @@ def load_qt_modules():
 
 def shell_model_to_pretty_json(model: Mapping[str, Any]) -> str:
     return json.dumps(dict(model), indent=2, ensure_ascii=False)
+
+
+def build_qt_desktop_plan(model: Mapping[str, Any]) -> dict[str, object]:
+    """Build the headless desktop integration plan used by the Qt runtime."""
+
+    return build_qt_desktop_integration_plan(model)
+
+
+def qt_desktop_plan_to_pretty_json(model: Mapping[str, Any]) -> str:
+    return json.dumps(build_qt_desktop_plan(model), indent=2, ensure_ascii=False)
+
+
+def summarize_qt_desktop_plan(model: Mapping[str, Any]) -> str:
+    return summarize_qt_desktop_integration_plan(build_qt_desktop_plan(model))
 
 
 def _text(value: object, fallback: str = "") -> str:
@@ -296,8 +311,11 @@ def run_qt_gui(model: Mapping[str, Any]) -> int:  # pragma: no cover - GUI runti
 
 __all__ = [
     "MissingQtDependencyError",
+    "build_qt_desktop_plan",
     "load_qt_modules",
+    "qt_desktop_plan_to_pretty_json",
     "qt_install_guidance",
     "run_qt_gui",
     "shell_model_to_pretty_json",
+    "summarize_qt_desktop_plan",
 ]

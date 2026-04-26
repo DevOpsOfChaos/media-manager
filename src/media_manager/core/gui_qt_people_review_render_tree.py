@@ -115,7 +115,12 @@ def build_people_review_render_tree(page_plan: Mapping[str, Any]) -> dict[str, o
             "privacy_notice": privacy_notice,
         },
         children=section_nodes,
-        sensitive=any(bool(child.get("sensitive")) for child in section_nodes),
+        # The People Review page itself is sensitive even when the current
+        # plan has no visible face cards yet. The page may reference local
+        # face-crop assets, review bundles, or biometric catalog state later
+        # in the workflow, so downstream desktop/runtime plans must keep a
+        # local-only sensitive marker.
+        sensitive=True,
     )
     return {
         "schema_version": PEOPLE_REVIEW_RENDER_TREE_SCHEMA_VERSION,
