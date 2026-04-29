@@ -39,10 +39,6 @@ def _text(value: object, fallback: str = "") -> str:
     return text or fallback
 
 
-def _bool(value: object, fallback: bool = False) -> bool:
-    return bool(value) if value is not None else fallback
-
-
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -84,23 +80,10 @@ def _manifest_filenames(manifest: Mapping[str, Any]) -> list[str]:
 
 
 def _record_problem(problems: list[dict[str, object]], code: str, message: str, *, filename: str = "", severity: str = "error") -> None:
-    problems.append(
-        {
-            "code": code,
-            "message": message,
-            "filename": filename,
-            "severity": severity,
-        }
-    )
+    problems.append({"code": code, "message": message, "filename": filename, "severity": severity})
 
 
 def verify_qt_runtime_smoke_local_artifact_pack_dir(path: str | Path) -> dict[str, object]:
-    """Verify a generated local Runtime Smoke artifact pack without opening Qt.
-
-    The verifier only inspects the generated pack files. It does not dereference
-    evidence paths, does not inspect media, and does not import PySide6.
-    """
-
     target = Path(path)
     problems: list[dict[str, object]] = []
     warnings: list[dict[str, object]] = []
@@ -123,12 +106,7 @@ def verify_qt_runtime_smoke_local_artifact_pack_dir(path: str | Path) -> dict[st
     if exists and is_dir:
         manifest_path = target / "runtime-smoke-artifacts-manifest.json"
         if not manifest_path.is_file():
-            _record_problem(
-                problems,
-                "missing-manifest",
-                "runtime-smoke-artifacts-manifest.json is required for verification.",
-                filename="runtime-smoke-artifacts-manifest.json",
-            )
+            _record_problem(problems, "missing-manifest", "runtime-smoke-artifacts-manifest.json is required for verification.", filename="runtime-smoke-artifacts-manifest.json")
         else:
             payload, error = _json_payload(manifest_path)
             if error:
@@ -140,18 +118,11 @@ def verify_qt_runtime_smoke_local_artifact_pack_dir(path: str | Path) -> dict[st
 
         for filename in sorted(expected_filenames):
             file_path = target / filename
-            record: dict[str, object] = {
-                "filename": filename,
-                "exists": file_path.is_file(),
-                "byte_count": 0,
-                "sha256": "",
-                "json_kind": "",
-            }
+            record: dict[str, object] = {"filename": filename, "exists": file_path.is_file(), "byte_count": 0, "sha256": "", "json_kind": ""}
             if not file_path.is_file():
                 _record_problem(problems, "missing-file", f"{filename} is listed or required but missing.", filename=filename)
                 files.append(record)
                 continue
-
             try:
                 record["byte_count"] = file_path.stat().st_size
                 record["sha256"] = _sha256(file_path)
@@ -159,7 +130,6 @@ def verify_qt_runtime_smoke_local_artifact_pack_dir(path: str | Path) -> dict[st
                 _record_problem(problems, "file-read-error", f"{filename} could not be inspected: {exc}", filename=filename)
                 files.append(record)
                 continue
-
             if filename.endswith(".json"):
                 payload, error = _json_payload(file_path)
                 if error:
@@ -171,33 +141,18 @@ def verify_qt_runtime_smoke_local_artifact_pack_dir(path: str | Path) -> dict[st
                     record["json_kind"] = kind
                     expected_kind = _EXPECTED_JSON_KINDS.get(filename)
                     if expected_kind and kind != expected_kind:
-                        _record_problem(
-                            problems,
-                            "unexpected-kind",
-                            f"{filename} kind is {kind!r}, expected {expected_kind!r}.",
-                            filename=filename,
-                        )
+                        _record_problem(problems, "unexpected-kind", f"{filename} kind is {kind!r}, expected {expected_kind!r}.", filename=filename)
             files.append(record)
 
     if manifest:
         summary = _mapping(manifest.get("summary"))
         manifest_files = set(_manifest_filenames(manifest))
-        required_missing_from_manifest = sorted(set(_REQUIRED_FILENAMES) - {"runtime-smoke-artifacts-manifest.json"} - manifest_files)
-        for filename in required_missing_from_manifest:
-            _record_problem(
-                problems,
-                "manifest-missing-required-file",
-                f"{filename} is required but not listed in the manifest.",
-                filename=filename,
-            )
+        for filename in sorted(set(_REQUIRED_FILENAMES) - {"runtime-smoke-artifacts-manifest.json"} - manifest_files):
+            _record_problem(problems, "manifest-missing-required-file", f"{filename} is required but not listed in the manifest.", filename=filename)
         existing_count = sum(1 for item in files if item.get("exists"))
         manifest_count = int(summary.get("written_file_count") or summary.get("file_count") or 0)
         if manifest_count and manifest_count != existing_count:
-            _record_problem(
-                problems,
-                "file-count-mismatch",
-                f"Manifest file count is {manifest_count}, but {existing_count} artifact files were found.",
-            )
+            _record_problem(problems, "file-count-mismatch", f"Manifest file count is {manifest_count}, but {existing_count} artifact files were found.")
         capabilities = _mapping(manifest.get("capabilities"))
         if capabilities and capabilities.get("opens_window") is not False:
             _record_problem(problems, "manifest-opens-window", "Manifest must declare opens_window=False.")
@@ -213,27 +168,12 @@ def verify_qt_runtime_smoke_local_artifact_pack_dir(path: str | Path) -> dict[st
     if shareable_export is not None:
         privacy = _mapping(shareable_export.get("privacy"))
         if privacy.get("evidence_paths_redacted") is not True:
-            _record_problem(
-                problems,
-                "export-redaction-missing",
-                "Shareable export must declare evidence_paths_redacted=True.",
-                filename="runtime-smoke-shareable-export.json",
-            )
+            _record_problem(problems, "export-redaction-missing", "Shareable export must declare evidence_paths_redacted=True.", filename="runtime-smoke-shareable-export.json")
         if _contains_key(shareable_export, "evidence_path"):
-            _record_problem(
-                problems,
-                "export-evidence-path-leak",
-                "Shareable export must not contain raw evidence_path keys.",
-                filename="runtime-smoke-shareable-export.json",
-            )
+            _record_problem(problems, "export-evidence-path-leak", "Shareable export must not contain raw evidence_path keys.", filename="runtime-smoke-shareable-export.json")
         for key in ("contains_face_crops", "contains_embeddings", "contains_media_file_contents"):
             if privacy.get(key) not in (False, None):
-                _record_problem(
-                    problems,
-                    "export-sensitive-media-flag",
-                    f"Shareable export privacy flag {key} must be False.",
-                    filename="runtime-smoke-shareable-export.json",
-                )
+                _record_problem(problems, "export-sensitive-media-flag", f"Shareable export privacy flag {key} must be False.", filename="runtime-smoke-shareable-export.json")
 
     plan = json_payloads.get("runtime-smoke-plan.json")
     if plan is not None:
@@ -241,37 +181,17 @@ def verify_qt_runtime_smoke_local_artifact_pack_dir(path: str | Path) -> dict[st
         if capabilities.get("opens_window") is not False:
             _record_problem(problems, "plan-opens-window", "Guarded plan must declare opens_window=False.", filename="runtime-smoke-plan.json")
         if capabilities.get("executes_commands") is not False:
-            _record_problem(
-                problems,
-                "plan-executes-commands",
-                "Guarded plan must declare executes_commands=False.",
-                filename="runtime-smoke-plan.json",
-            )
+            _record_problem(problems, "plan-executes-commands", "Guarded plan must declare executes_commands=False.", filename="runtime-smoke-plan.json")
         if capabilities.get("requires_pyside6") is not False:
-            _record_problem(
-                problems,
-                "plan-requires-pyside6",
-                "Guarded plan must declare requires_pyside6=False.",
-                filename="runtime-smoke-plan.json",
-            )
+            _record_problem(problems, "plan-requires-pyside6", "Guarded plan must declare requires_pyside6=False.", filename="runtime-smoke-plan.json")
 
     result_report = json_payloads.get("runtime-smoke-result-payload-report.json")
     if result_report is not None:
         summary = _mapping(result_report.get("summary"))
         if summary.get("opens_window") is not False:
-            _record_problem(
-                problems,
-                "result-report-opens-window",
-                "Result payload report must declare opens_window=False.",
-                filename="runtime-smoke-result-payload-report.json",
-            )
+            _record_problem(problems, "result-report-opens-window", "Result payload report must declare opens_window=False.", filename="runtime-smoke-result-payload-report.json")
         if summary.get("executes_commands") is not False:
-            _record_problem(
-                problems,
-                "result-report-executes-commands",
-                "Result payload report must declare executes_commands=False.",
-                filename="runtime-smoke-result-payload-report.json",
-            )
+            _record_problem(problems, "result-report-executes-commands", "Result payload report must declare executes_commands=False.", filename="runtime-smoke-result-payload-report.json")
 
     ok = not any(item.get("severity") == "error" for item in problems)
     return {
@@ -287,9 +207,7 @@ def verify_qt_runtime_smoke_local_artifact_pack_dir(path: str | Path) -> dict[st
             "json_file_count": sum(1 for item in files if str(item.get("filename", "")).endswith(".json")),
             "problem_count": len(problems),
             "warning_count": len(warnings),
-            "privacy_redaction_ok": shareable_export is not None
-            and _mapping(shareable_export.get("privacy")).get("evidence_paths_redacted") is True
-            and not _contains_key(shareable_export, "evidence_path"),
+            "privacy_redaction_ok": shareable_export is not None and _mapping(shareable_export.get("privacy")).get("evidence_paths_redacted") is True and not _contains_key(shareable_export, "evidence_path"),
             "opens_window": False,
             "executes_commands": False,
             "local_only": True,
@@ -333,12 +251,6 @@ def write_qt_runtime_smoke_local_artifact_pack_verification_report(
     *,
     output_dir: str | Path | None = None,
 ) -> dict[str, object]:
-    """Verify an artifact pack and write local verification proof files.
-
-    The proof files are generated metadata only. They do not read evidence files,
-    do not contain media contents, and do not import Qt.
-    """
-
     report = verify_qt_runtime_smoke_local_artifact_pack_dir(path)
     target = Path(output_dir) if output_dir is not None else Path(path)
     if target.exists() and not target.is_dir():
@@ -359,8 +271,6 @@ def write_qt_runtime_smoke_local_artifact_pack_verification_report(
 
 
 def load_qt_runtime_smoke_local_artifact_pack_verification(path: str | Path) -> dict[str, object]:
-    """Alias for verifier symmetry with other local-file Runtime Smoke helpers."""
-
     return verify_qt_runtime_smoke_local_artifact_pack_dir(path)
 
 

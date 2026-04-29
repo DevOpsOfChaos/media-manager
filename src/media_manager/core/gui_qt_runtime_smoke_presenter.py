@@ -25,11 +25,8 @@ def build_qt_runtime_smoke_presenter(workbench: Mapping[str, Any]) -> dict[str, 
     summary = _mapping(workbench.get("summary"))
     sections = [section for section in _list(workbench.get("sections")) if isinstance(section, Mapping)]
     status = _text(workbench.get("status"), "pending")
-    severity = {
-        "ready": "success",
-        "blocked": "error",
-        "incomplete": "warning",
-    }.get(status, "info")
+    severity = {"ready": "success", "blocked": "error", "incomplete": "warning"}.get(status, "info")
+    ready_to_start = bool(summary.get("ready_to_start_manual_smoke") or summary.get("ready_for_manual_smoke"))
     return {
         "schema_version": QT_RUNTIME_SMOKE_PRESENTER_SCHEMA_VERSION,
         "kind": "qt_runtime_smoke_presenter",
@@ -39,49 +36,26 @@ def build_qt_runtime_smoke_presenter(workbench: Mapping[str, Any]) -> dict[str, 
         "status": status,
         "severity": severity,
         "recommended_next_step": workbench.get("recommended_next_step"),
-        "sections": [
-            {
-                "id": section.get("id"),
-                "title": section.get("title"),
-                "kind": section.get("kind"),
-                "item_count": len(_list(section.get("items"))),
-            }
-            for section in sections
-        ],
+        "sections": [{"id": section.get("id"), "title": section.get("title"), "kind": section.get("kind"), "item_count": len(_list(section.get("items")))} for section in sections],
         "metrics": {
             "section_count": int(summary.get("section_count") or 0),
             "card_count": int(summary.get("card_count") or 0),
             "badge_count": int(summary.get("badge_count") or 0),
             "history_entry_count": int(summary.get("history_entry_count") or 0),
             "ready_for_runtime_review": bool(summary.get("ready_for_runtime_review")),
+            "ready_for_manual_smoke": ready_to_start,
+            "ready_to_start_manual_smoke": ready_to_start,
+            "evidence_complete": bool(summary.get("evidence_complete")),
+            "ready_for_release_gate": bool(summary.get("ready_for_release_gate")),
             "requires_user_confirmation": bool(summary.get("requires_user_confirmation", True)),
         },
-        "capabilities": {
-            "requires_pyside6": False,
-            "opens_window": False,
-            "headless_testable": True,
-            "executes_commands": False,
-            "local_only": True,
-        },
+        "capabilities": {"requires_pyside6": False, "opens_window": False, "headless_testable": True, "executes_commands": False, "local_only": True},
     }
 
 
 def summarize_qt_runtime_smoke_presenter(presenter: Mapping[str, Any]) -> str:
     metrics = _mapping(presenter.get("metrics"))
-    return "\n".join(
-        [
-            "Qt runtime smoke presenter",
-            f"  Active page: {presenter.get('active_page_id')}",
-            f"  Status: {presenter.get('status')}",
-            f"  Severity: {presenter.get('severity')}",
-            f"  Sections: {metrics.get('section_count', 0)}",
-            f"  Ready: {metrics.get('ready_for_runtime_review')}",
-        ]
-    )
+    return "\n".join(["Qt runtime smoke presenter", f"  Active page: {presenter.get('active_page_id')}", f"  Status: {presenter.get('status')}", f"  Severity: {presenter.get('severity')}", f"  Sections: {metrics.get('section_count', 0)}", f"  Ready: {metrics.get('ready_for_runtime_review')}"])
 
 
-__all__ = [
-    "QT_RUNTIME_SMOKE_PRESENTER_SCHEMA_VERSION",
-    "build_qt_runtime_smoke_presenter",
-    "summarize_qt_runtime_smoke_presenter",
-]
+__all__ = ["QT_RUNTIME_SMOKE_PRESENTER_SCHEMA_VERSION", "build_qt_runtime_smoke_presenter", "summarize_qt_runtime_smoke_presenter"]

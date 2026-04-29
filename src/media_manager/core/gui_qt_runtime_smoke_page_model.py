@@ -24,6 +24,7 @@ def build_qt_runtime_smoke_page_model(
     table = build_qt_runtime_smoke_table_model(workbench)
     detail = build_qt_runtime_smoke_detail_panel(workbench)
     action_payload = _mapping(actions)
+    metrics = _mapping(presenter.get("metrics"))
     return {
         "schema_version": QT_RUNTIME_SMOKE_PAGE_MODEL_SCHEMA_VERSION,
         "kind": "qt_runtime_smoke_page_model",
@@ -43,8 +44,12 @@ def build_qt_runtime_smoke_page_model(
         "summary": {
             "row_count": _mapping(table.get("summary")).get("row_count", 0),
             "action_count": _mapping(action_payload.get("summary")).get("action_count", 0),
-            "ready_for_runtime_review": _mapping(presenter.get("metrics")).get("ready_for_runtime_review", False),
-            "requires_user_confirmation": _mapping(presenter.get("metrics")).get("requires_user_confirmation", True),
+            "ready_for_runtime_review": metrics.get("ready_for_runtime_review", False),
+            "ready_for_manual_smoke": metrics.get("ready_for_manual_smoke", False),
+            "ready_to_start_manual_smoke": metrics.get("ready_to_start_manual_smoke", False),
+            "evidence_complete": metrics.get("evidence_complete", False),
+            "ready_for_release_gate": metrics.get("ready_for_release_gate", False),
+            "requires_user_confirmation": metrics.get("requires_user_confirmation", True),
         },
         "capabilities": {
             "requires_pyside6": False,

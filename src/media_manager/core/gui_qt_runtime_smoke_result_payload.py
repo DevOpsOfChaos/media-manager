@@ -25,8 +25,6 @@ def _text(value: object, fallback: str = "") -> str:
 
 
 def _result_rows_from_payload(payload: object) -> Mapping[str, bool] | list[Mapping[str, Any]]:
-    """Extract manual runtime-smoke result rows from supported local JSON shapes."""
-
     if isinstance(payload, list):
         return [item for item in payload if isinstance(item, Mapping)]
     if isinstance(payload, Mapping):
@@ -45,12 +43,6 @@ def build_qt_runtime_smoke_result_payload_report(
     *,
     source_path: str = "",
 ) -> dict[str, object]:
-    """Normalize and validate manual Runtime Smoke results from a local payload.
-
-    The report does not read evidence files and never imports Qt. Evidence paths
-    are treated as user-provided local references only.
-    """
-
     rows = _result_rows_from_payload(payload)
     normalized = normalize_qt_runtime_smoke_results(rows)
     smoke_summary = summarize_qt_runtime_smoke_results(normalized)
@@ -90,8 +82,6 @@ def build_qt_runtime_smoke_result_payload_report(
 
 
 def load_qt_runtime_smoke_result_payload_file(path: str | Path) -> dict[str, object]:
-    """Load a local JSON result payload for headless Runtime Smoke validation."""
-
     source = Path(path)
     if not source.exists():
         raise FileNotFoundError(f"Runtime Smoke results file does not exist: {source}")
@@ -107,8 +97,6 @@ def load_qt_runtime_smoke_result_payload_file(path: str | Path) -> dict[str, obj
 
 
 def build_qt_runtime_smoke_result_collector_template(plan: Mapping[str, Any]) -> dict[str, object]:
-    """Build a JSON template that can be filled after a manual Qt smoke run."""
-
     start_bundle = _mapping(plan.get("start_bundle"))
     collector = _mapping(start_bundle.get("result_collector"))
     rows = [

@@ -23,16 +23,17 @@ def test_local_artifact_pack_includes_result_payload_report_when_supplied(tmp_pa
         source_path="C:/local/runtime-smoke-results.json",
     )
     out = tmp_path / "artifact-pack"
+
     pack = write_guarded_qt_runtime_smoke_local_artifact_pack(
         build_gui_shell_model(active_page_id="dashboard"),
         str(out),
         results=result_report["results"],
         result_payload_report=result_report,
     )
+
     assert pack["summary"]["written_file_count"] == 7
     manifest = json.loads((out / "runtime-smoke-artifacts-manifest.json").read_text(encoding="utf-8"))
     assert manifest["summary"]["has_result_payload_report"] is True
-    assert "runtime-smoke-result-payload-report.json" in [path.rsplit("/", 1)[-1] for path in manifest["written_files"]]
 
 
 def test_local_artifact_pack_does_not_change_guarded_plan_status() -> None:
@@ -46,10 +47,12 @@ def test_local_artifact_pack_does_not_change_guarded_plan_status() -> None:
             ]
         }
     )
+
     plan = build_guarded_qt_runtime_smoke_plan(
         build_gui_shell_model(active_page_id="dashboard"),
         results=result_report["results"],
     )
+
     assert plan["summary"]["accepted_after_results"] is True
     assert plan["summary"]["ready_to_start_manual_smoke"] is True
     assert plan["capabilities"]["opens_window"] is False

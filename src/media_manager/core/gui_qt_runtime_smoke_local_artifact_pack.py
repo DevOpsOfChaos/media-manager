@@ -22,11 +22,6 @@ def _list(value: object) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
-def _text(value: object, fallback: str = "") -> str:
-    text = str(value).strip() if value is not None else ""
-    return text or fallback
-
-
 def _json_text(payload: Mapping[str, Any]) -> str:
     return json.dumps(dict(payload), indent=2, ensure_ascii=False, sort_keys=True) + "\n"
 
@@ -41,8 +36,6 @@ def build_qt_runtime_smoke_local_summary_text(
     *,
     result_payload_report: Mapping[str, Any] | None = None,
 ) -> str:
-    """Build a compact local operator summary for the guarded Runtime Smoke plan."""
-
     summary = _mapping(plan.get("summary"))
     smoke_report = _mapping(plan.get("smoke_report"))
     smoke_summary = _mapping(smoke_report.get("summary"))
@@ -129,8 +122,6 @@ def build_qt_runtime_smoke_local_artifact_pack(
     *,
     result_payload_report: Mapping[str, Any] | None = None,
 ) -> dict[str, object]:
-    """Build a local Runtime Smoke handoff artifact pack without writing files."""
-
     smoke_report = _mapping(plan.get("smoke_report"))
     shareable_export = build_qt_runtime_smoke_export_bundle(smoke_report, include_results=True)
     result_template = build_qt_runtime_smoke_result_collector_template(plan)
@@ -260,8 +251,6 @@ def write_qt_runtime_smoke_local_artifact_pack(
     *,
     result_payload_report: Mapping[str, Any] | None = None,
 ) -> dict[str, object]:
-    """Write a local Runtime Smoke artifact pack and return its manifest pack."""
-
     target = Path(output_dir)
     if target.exists() and not target.is_dir():
         raise NotADirectoryError(f"Runtime Smoke artifact target is not a directory: {target}")

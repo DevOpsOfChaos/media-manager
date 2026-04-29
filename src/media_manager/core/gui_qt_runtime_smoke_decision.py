@@ -20,14 +20,15 @@ def _int(value: object, fallback: int = 0) -> int:
 def build_qt_runtime_smoke_decision(dashboard: Mapping[str, Any]) -> dict[str, object]:
     summary = _mapping(dashboard.get("summary"))
     blocked = _int(summary.get("blocked_badge_count"))
-    incomplete = _int(summary.get("incomplete_badge_count"))
     current_ready = bool(summary.get("current_ready"))
     if blocked:
         decision, action, severity = "blocked", "Fix failing runtime smoke checks before manual launch.", "error"
-    elif incomplete:
-        decision, action, severity = "needs_results", "Complete all required manual smoke checks.", "warning"
     elif current_ready:
-        decision, action, severity = "ready_for_manual_qt_smoke", "Manual Qt smoke attempt may be started by the user.", "success"
+        if bool(summary.get("evidence_complete")):
+            action = "Manual Qt smoke evidence is complete; release-gate review may continue."
+        else:
+            action = "Manual Qt smoke attempt may be started by the user; evidence is still pending until results are recorded."
+        decision, severity = "ready_for_manual_qt_smoke", "success"
     else:
         decision, action, severity = "pending", "Record a runtime smoke report before launch.", "info"
     return {

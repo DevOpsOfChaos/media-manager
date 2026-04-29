@@ -7,7 +7,17 @@ from typing import Any
 from .core.gui_page_models import build_page_model
 from .core.gui_qt_desktop_integration_plan import build_qt_desktop_integration_plan, summarize_qt_desktop_integration_plan
 from .core.gui_qt_guarded_runtime_smoke_integration import build_guarded_qt_runtime_smoke_integration
+from .core.gui_qt_runtime_smoke_artifact_verifier import (
+    summarize_qt_runtime_smoke_local_artifact_pack_verification,
+    verify_qt_runtime_smoke_local_artifact_pack_dir,
+    write_qt_runtime_smoke_local_artifact_pack_verification_report,
+)
 from .core.gui_qt_runtime_smoke_guarded_summary import summarize_guarded_qt_runtime_smoke_integration
+from .core.gui_qt_runtime_smoke_local_artifact_pack import (
+    build_qt_runtime_smoke_local_artifact_pack,
+    summarize_qt_runtime_smoke_local_artifact_pack,
+    write_qt_runtime_smoke_local_artifact_pack,
+)
 from .core.gui_qt_runtime_smoke_shell_model_adapter import apply_guarded_qt_runtime_smoke_to_shell_model
 from .core.gui_theme import build_qt_stylesheet
 
@@ -52,23 +62,127 @@ def summarize_qt_desktop_plan(model: Mapping[str, Any]) -> str:
     return summarize_qt_desktop_integration_plan(build_qt_desktop_plan(model))
 
 
-def build_guarded_qt_runtime_smoke_plan(model: Mapping[str, Any]) -> dict[str, object]:
+def build_guarded_qt_runtime_smoke_plan(
+    model: Mapping[str, Any],
+    *,
+    results: Mapping[str, bool] | list[Mapping[str, Any]] | None = None,
+    history_entries: list[Mapping[str, Any]] | None = None,
+    reviewer: str = "",
+) -> dict[str, object]:
     """Build the guarded Runtime Smoke integration plan without opening Qt."""
 
-    return build_guarded_qt_runtime_smoke_integration(model)
+    return build_guarded_qt_runtime_smoke_integration(
+        model,
+        results=results,
+        history_entries=history_entries,
+        reviewer=reviewer,
+    )
 
 
-def guarded_qt_runtime_smoke_plan_to_pretty_json(model: Mapping[str, Any]) -> str:
-    return json.dumps(build_guarded_qt_runtime_smoke_plan(model), indent=2, ensure_ascii=False)
+def guarded_qt_runtime_smoke_plan_to_pretty_json(
+    model: Mapping[str, Any],
+    *,
+    results: Mapping[str, bool] | list[Mapping[str, Any]] | None = None,
+    reviewer: str = "",
+) -> str:
+    return json.dumps(
+        build_guarded_qt_runtime_smoke_plan(model, results=results, reviewer=reviewer),
+        indent=2,
+        ensure_ascii=False,
+    )
 
 
-def summarize_guarded_qt_runtime_smoke_plan(model: Mapping[str, Any]) -> str:
-    return summarize_guarded_qt_runtime_smoke_integration(build_guarded_qt_runtime_smoke_plan(model))
+def summarize_guarded_qt_runtime_smoke_plan(
+    model: Mapping[str, Any],
+    *,
+    results: Mapping[str, bool] | list[Mapping[str, Any]] | None = None,
+    reviewer: str = "",
+) -> str:
+    return summarize_guarded_qt_runtime_smoke_integration(
+        build_guarded_qt_runtime_smoke_plan(model, results=results, reviewer=reviewer)
+    )
 
 
-def attach_guarded_qt_runtime_smoke_to_shell_model(model: Mapping[str, Any], *, activate: bool = False) -> dict[str, object]:
-    integration = build_guarded_qt_runtime_smoke_plan(model)
+def attach_guarded_qt_runtime_smoke_to_shell_model(
+    model: Mapping[str, Any],
+    *,
+    activate: bool = False,
+    results: Mapping[str, bool] | list[Mapping[str, Any]] | None = None,
+    reviewer: str = "",
+) -> dict[str, object]:
+    integration = build_guarded_qt_runtime_smoke_plan(model, results=results, reviewer=reviewer)
     return apply_guarded_qt_runtime_smoke_to_shell_model(model, integration, activate=activate)
+
+
+def build_guarded_qt_runtime_smoke_local_artifact_pack(
+    model: Mapping[str, Any],
+    *,
+    results: Mapping[str, bool] | list[Mapping[str, Any]] | None = None,
+    reviewer: str = "",
+    result_payload_report: Mapping[str, Any] | None = None,
+) -> dict[str, object]:
+    plan = build_guarded_qt_runtime_smoke_plan(model, results=results, reviewer=reviewer)
+    return build_qt_runtime_smoke_local_artifact_pack(plan, result_payload_report=result_payload_report)
+
+
+def summarize_guarded_qt_runtime_smoke_local_artifact_pack(
+    model: Mapping[str, Any],
+    *,
+    results: Mapping[str, bool] | list[Mapping[str, Any]] | None = None,
+    reviewer: str = "",
+    result_payload_report: Mapping[str, Any] | None = None,
+) -> str:
+    return summarize_qt_runtime_smoke_local_artifact_pack(
+        build_guarded_qt_runtime_smoke_local_artifact_pack(
+            model,
+            results=results,
+            reviewer=reviewer,
+            result_payload_report=result_payload_report,
+        )
+    )
+
+
+def write_guarded_qt_runtime_smoke_local_artifact_pack(
+    model: Mapping[str, Any],
+    output_dir: str,
+    *,
+    results: Mapping[str, bool] | list[Mapping[str, Any]] | None = None,
+    reviewer: str = "",
+    result_payload_report: Mapping[str, Any] | None = None,
+) -> dict[str, object]:
+    plan = build_guarded_qt_runtime_smoke_plan(model, results=results, reviewer=reviewer)
+    return write_qt_runtime_smoke_local_artifact_pack(
+        plan,
+        output_dir,
+        result_payload_report=result_payload_report,
+    )
+
+
+def verify_guarded_qt_runtime_smoke_local_artifact_pack(output_dir: str) -> dict[str, object]:
+    """Verify a local Runtime Smoke artifact pack without importing Qt."""
+
+    return verify_qt_runtime_smoke_local_artifact_pack_dir(output_dir)
+
+
+def summarize_guarded_qt_runtime_smoke_local_artifact_pack_verification(output_dir: str) -> str:
+    """Summarize local Runtime Smoke artifact-pack verification."""
+
+    return summarize_qt_runtime_smoke_local_artifact_pack_verification(
+        verify_guarded_qt_runtime_smoke_local_artifact_pack(output_dir)
+    )
+
+
+def write_guarded_qt_runtime_smoke_local_artifact_pack_verification_report(
+    output_dir: str,
+    *,
+    report_dir: str | None = None,
+) -> dict[str, object]:
+    """Write local verification proof files for a Runtime Smoke artifact pack."""
+
+    return write_qt_runtime_smoke_local_artifact_pack_verification_report(
+        output_dir,
+        output_dir=report_dir,
+    )
 
 
 def _text(value: object, fallback: str = "") -> str:

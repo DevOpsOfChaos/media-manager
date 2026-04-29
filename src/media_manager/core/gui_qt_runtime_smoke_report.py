@@ -13,6 +13,13 @@ def _mapping(value: object) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
+def _int(value: object, fallback: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
 def build_qt_runtime_smoke_report(
     handoff_manifest: Mapping[str, Any],
     launch_contract: Mapping[str, Any],
@@ -21,15 +28,28 @@ def build_qt_runtime_smoke_report(
     *,
     reviewer: str = "",
 ) -> dict[str, object]:
-    """Build the final manual-smoke report for the current Qt runtime handoff."""
+    """Build the final manual-smoke report for the current Qt runtime handoff.
+
+    Manual launch readiness is separate from manual evidence completeness:
+    a Qt page can be ready to start manual smoke before recorded evidence exists.
+    """
 
     session = build_qt_runtime_smoke_session(smoke_plan, results, reviewer=reviewer)
     audit = audit_qt_runtime_smoke_session(session)
     handoff_ready = bool(handoff_manifest.get("ready_for_manual_smoke"))
     launch_ready = bool(launch_contract.get("ready_for_launch_attempt"))
-    valid = handoff_ready and launch_ready and bool(audit.get("valid"))
+    ready_for_manual_smoke = handoff_ready and launch_ready
+    evidence_complete = bool(audit.get("valid"))
+    ready_for_release_gate = ready_for_manual_smoke and evidence_complete
+
     session_summary = _mapping(session.get("summary"))
     audit_summary = _mapping(audit.get("summary"))
+    problem_count = _int(audit.get("problem_count"))
+    incomplete_privacy_check_count = max(
+        0,
+        _int(audit_summary.get("privacy_check_count")) - _int(audit_summary.get("passed_privacy_check_count")),
+    )
+
     return {
         "schema_version": QT_RUNTIME_SMOKE_REPORT_SCHEMA_VERSION,
         "kind": "qt_runtime_smoke_report",
@@ -37,16 +57,29 @@ def build_qt_runtime_smoke_report(
         "reviewer": reviewer,
         "handoff_ready": handoff_ready,
         "launch_ready": launch_ready,
+        "ready_for_manual_smoke": ready_for_manual_smoke,
+        "ready_to_start_manual_smoke": ready_for_manual_smoke,
+        "evidence_complete": evidence_complete,
+        "ready_for_release_gate": ready_for_release_gate,
         "session": session,
         "audit": audit,
         "summary": {
             "check_count": session_summary.get("check_count", 0),
+            "required_check_count": session_summary.get("required_check_count", 0),
             "result_count": session_summary.get("result_count", 0),
-            "missing_required_count": audit_summary.get("missing_required_count", 0),
-            "failed_required_count": audit_summary.get("failed_required_count", 0),
-            "privacy_check_count": audit_summary.get("privacy_check_count", 0),
-            "problem_count": audit.get("problem_count", 0),
-            "ready_for_release_gate": valid,
+            "missing_required_count": _int(audit_summary.get("missing_required_count")),
+            "failed_required_count": _int(audit_summary.get("failed_required_count")),
+            "privacy_check_count": _int(audit_summary.get("privacy_check_count")),
+            "passed_privacy_check_count": _int(audit_summary.get("passed_privacy_check_count")),
+            "incomplete_privacy_check_count": incomplete_privacy_check_count,
+            "problem_count": problem_count,
+            "blocking_problem_count": 0 if ready_for_manual_smoke else problem_count,
+            "manual_launch_problem_count": 0 if ready_for_manual_smoke else problem_count,
+            "evidence_problem_count": problem_count,
+            "ready_for_manual_smoke": ready_for_manual_smoke,
+            "ready_to_start_manual_smoke": ready_for_manual_smoke,
+            "evidence_complete": evidence_complete,
+            "ready_for_release_gate": ready_for_release_gate,
         },
         "capabilities": {
             "requires_pyside6": False,
@@ -55,7 +88,6 @@ def build_qt_runtime_smoke_report(
             "executes_commands": False,
             "local_only": True,
         },
-        "ready_for_release_gate": valid,
     }
 
 
@@ -65,7 +97,9 @@ def summarize_qt_runtime_smoke_report(report: Mapping[str, Any]) -> str:
         [
             "Qt runtime smoke report",
             f"  Active page: {report.get('active_page_id')}",
-            f"  Ready for release gate: {report.get('ready_for_release_gate')}",
+            f"  Ready for manual smoke: {summary.get('ready_for_manual_smoke')}",
+            f"  Evidence complete: {summary.get('evidence_complete')}",
+            f"  Ready for release gate: {summary.get('ready_for_release_gate')}",
             f"  Checks: {summary.get('check_count', 0)}",
             f"  Results: {summary.get('result_count', 0)}",
             f"  Problems: {summary.get('problem_count', 0)}",
@@ -74,8 +108,4 @@ def summarize_qt_runtime_smoke_report(report: Mapping[str, Any]) -> str:
     )
 
 
-__all__ = [
-    "QT_RUNTIME_SMOKE_REPORT_SCHEMA_VERSION",
-    "build_qt_runtime_smoke_report",
-    "summarize_qt_runtime_smoke_report",
-]
+__all__ = ["QT_RUNTIME_SMOKE_REPORT_SCHEMA_VERSION", "build_qt_runtime_smoke_report", "summarize_qt_runtime_smoke_report"]

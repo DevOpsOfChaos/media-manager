@@ -20,7 +20,7 @@ def test_desktop_runtime_state_builds_full_ui_contract_without_qt_import() -> No
     assert state["visible_desktop_plan"]["kind"] == "qt_visible_desktop_plan"
     assert state["render_bridge"]["kind"] == "qt_render_bridge"
     assert state["view_orchestration"]["kind"] == "qt_view_orchestration_state"
-    assert state["app_service_view_models"]["summary"]["view_model_count"] == 6
+    assert state["app_service_view_models"]["summary"]["view_model_count"] == 7
     assert state["readiness"]["ready"] is True
     assert state["capabilities"]["requires_pyside6"] is False
     assert state["capabilities"]["opens_window"] is False
@@ -47,7 +47,7 @@ def test_desktop_runtime_state_summary_is_human_readable() -> None:
     summary = summarize_gui_desktop_runtime_state(state)
     assert "Media Manager desktop runtime state" in summary
     assert "Active page: profiles" in summary
-    assert "UI view models: 6" in summary
+    assert "UI view models: 7" in summary
     assert "Executes commands: False" in summary
 
 

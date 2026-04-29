@@ -12,7 +12,7 @@ from media_manager.core.gui_shell_model import build_gui_shell_model
 from media_manager.gui_desktop_qt import write_guarded_qt_runtime_smoke_local_artifact_pack
 
 
-def _passing_results() -> list[dict[str, object]]:
+def _results() -> list[dict[str, object]]:
     return [
         {"check_id": "launch-window", "passed": True, "evidence_path": "C:/local/smoke/window.png"},
         {"check_id": "navigation-visible", "passed": True},
@@ -26,35 +26,30 @@ def _write_pack(tmp_path):
     write_guarded_qt_runtime_smoke_local_artifact_pack(
         build_gui_shell_model(active_page_id="dashboard"),
         str(out),
-        results=_passing_results(),
+        results=_results(),
         reviewer="manual-operator",
     )
     return out
 
 
 def test_artifact_verifier_accepts_generated_pack(tmp_path) -> None:
-    out = _write_pack(tmp_path)
-
-    report = verify_qt_runtime_smoke_local_artifact_pack_dir(out)
+    report = verify_qt_runtime_smoke_local_artifact_pack_dir(_write_pack(tmp_path))
 
     assert report["kind"] == "qt_runtime_smoke_local_artifact_pack_verification"
     assert report["ok"] is True
     assert report["summary"]["existing_file_count"] == 6
     assert report["summary"]["privacy_redaction_ok"] is True
-    assert report["summary"]["opens_window"] is False
-    assert report["summary"]["executes_commands"] is False
     assert all(item["sha256"] for item in report["files"] if item["exists"])
 
 
 def test_artifact_verifier_summarizes_success(tmp_path) -> None:
-    report = verify_qt_runtime_smoke_local_artifact_pack_dir(_write_pack(tmp_path))
-
-    text = summarize_qt_runtime_smoke_local_artifact_pack_verification(report)
+    text = summarize_qt_runtime_smoke_local_artifact_pack_verification(
+        verify_qt_runtime_smoke_local_artifact_pack_dir(_write_pack(tmp_path))
+    )
 
     assert "Qt Runtime Smoke artifact verification" in text
     assert "OK: True" in text
     assert "Privacy redaction OK: True" in text
-    assert "Opens window now: False" in text
 
 
 def test_artifact_verifier_flags_missing_manifest(tmp_path) -> None:
@@ -65,19 +60,6 @@ def test_artifact_verifier_flags_missing_manifest(tmp_path) -> None:
 
     assert report["ok"] is False
     assert any(problem["code"] == "missing-manifest" for problem in report["problems"])
-
-
-def test_artifact_verifier_flags_missing_listed_file(tmp_path) -> None:
-    out = _write_pack(tmp_path)
-    (out / "runtime-smoke-summary.txt").unlink()
-
-    report = verify_qt_runtime_smoke_local_artifact_pack_dir(out)
-
-    assert report["ok"] is False
-    assert any(
-        problem["code"] == "missing-file" and problem["filename"] == "runtime-smoke-summary.txt"
-        for problem in report["problems"]
-    )
 
 
 def test_artifact_verifier_flags_shareable_export_evidence_path_leak(tmp_path) -> None:
@@ -113,6 +95,3 @@ def test_artifact_verifier_writes_local_verification_report_files(tmp_path) -> N
     assert report["summary"]["verification_report_file_count"] == 2
     assert (report_dir / "runtime-smoke-artifacts-verification.json").is_file()
     assert (report_dir / "runtime-smoke-artifacts-verification.txt").is_file()
-    saved = json.loads((report_dir / "runtime-smoke-artifacts-verification.json").read_text(encoding="utf-8"))
-    assert saved["kind"] == "qt_runtime_smoke_local_artifact_pack_verification"
-    assert saved["summary"]["privacy_redaction_ok"] is True

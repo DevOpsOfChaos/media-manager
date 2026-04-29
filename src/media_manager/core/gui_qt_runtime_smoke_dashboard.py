@@ -32,8 +32,11 @@ def build_qt_runtime_smoke_dashboard(*, current_report: Mapping[str, Any] | None
     artifact_badge = build_qt_runtime_smoke_status_badge({"summary": {"ready_for_release_gate": True, "problem_count": artifact_summary.get("sensitive_media_count", 0)}}, label="Artifacts")
     status_strip = build_qt_runtime_smoke_status_strip([current_badge, trend_badge, artifact_badge])
     strip_summary = _mapping(status_strip.get("summary"))
+    ready_for_manual_smoke = bool(report_summary.get("ready_to_start_manual_smoke") or report_summary.get("ready_for_manual_smoke") or report.get("ready_to_start_manual_smoke") or report.get("ready_for_manual_smoke"))
+    evidence_complete = bool(report_summary.get("evidence_complete") or report.get("evidence_complete"))
+    ready_for_release_gate = bool(report_summary.get("ready_for_release_gate") or report.get("ready_for_release_gate"))
     cards = [
-        {"id": "current-report", "title": "Current runtime smoke", "metric": "ready" if current_badge["ready"] else current_badge["state"], "details": {"check_count": _int(report_summary.get("check_count")), "result_count": _int(report_summary.get("result_count")), "problem_count": _int(report_summary.get("problem_count")), "privacy_check_count": _int(report_summary.get("privacy_check_count"))}},
+        {"id": "current-report", "title": "Current runtime smoke", "metric": "ready" if current_badge["ready"] else current_badge["state"], "details": {"check_count": _int(report_summary.get("check_count")), "result_count": _int(report_summary.get("result_count")), "problem_count": _int(report_summary.get("problem_count")), "privacy_check_count": _int(report_summary.get("privacy_check_count")), "ready_for_manual_smoke": ready_for_manual_smoke, "ready_to_start_manual_smoke": ready_for_manual_smoke, "evidence_complete": evidence_complete}},
         {"id": "history", "title": "Smoke history", "metric": trend_summary.get("direction"), "details": dict(trend_summary)},
         {"id": "artifacts", "title": "Local artifacts", "metric": artifact_summary.get("artifact_count", 0), "details": {"artifact_count": _int(artifact_summary.get("artifact_count")), "metadata_only_count": _int(artifact_summary.get("metadata_only_count")), "sensitive_media_count": _int(artifact_summary.get("sensitive_media_count")), "all_local_only": bool(artifact_summary.get("all_local_only", True))}},
     ]
@@ -46,7 +49,7 @@ def build_qt_runtime_smoke_dashboard(*, current_report: Mapping[str, Any] | None
         "status_strip": status_strip,
         "trend": trend,
         "cards": cards,
-        "summary": {"card_count": len(cards), "current_ready": bool(current_badge["ready"]), "blocked_badge_count": blocked, "incomplete_badge_count": strip_summary.get("incomplete_count", 0), "history_entry_count": trend_summary.get("entry_count", 0), "artifact_count": artifact_summary.get("artifact_count", 0), "ready_for_runtime_review": ready},
+        "summary": {"card_count": len(cards), "current_ready": bool(current_badge["ready"]), "blocked_badge_count": blocked, "incomplete_badge_count": strip_summary.get("incomplete_count", 0), "history_entry_count": trend_summary.get("entry_count", 0), "artifact_count": artifact_summary.get("artifact_count", 0), "ready_for_runtime_review": ready, "ready_for_manual_smoke": ready_for_manual_smoke, "ready_to_start_manual_smoke": ready_for_manual_smoke, "evidence_complete": evidence_complete, "ready_for_release_gate": ready_for_release_gate},
         "capabilities": {"requires_pyside6": False, "opens_window": False, "headless_testable": True, "executes_commands": False, "local_only": True},
         "ready_for_runtime_review": ready,
     }

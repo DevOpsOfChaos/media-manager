@@ -11,7 +11,7 @@ from media_manager.gui_desktop_qt import (
 )
 
 
-def _passing_results() -> list[dict[str, object]]:
+def _results() -> list[dict[str, object]]:
     return [
         {"check_id": "launch-window", "passed": True, "evidence_path": "C:/local/smoke/window.png"},
         {"check_id": "navigation-visible", "passed": True},
@@ -26,7 +26,7 @@ def test_desktop_wrapper_verifies_local_artifact_pack_without_qt(tmp_path) -> No
     write_guarded_qt_runtime_smoke_local_artifact_pack(
         build_gui_shell_model(active_page_id="dashboard"),
         str(out),
-        results=_passing_results(),
+        results=_results(),
     )
 
     report = verify_guarded_qt_runtime_smoke_local_artifact_pack(str(out))
@@ -41,7 +41,7 @@ def test_desktop_wrapper_summarizes_local_artifact_pack_verification(tmp_path) -
     write_guarded_qt_runtime_smoke_local_artifact_pack(
         build_gui_shell_model(active_page_id="dashboard"),
         str(out),
-        results=_passing_results(),
+        results=_results(),
     )
 
     text = summarize_guarded_qt_runtime_smoke_local_artifact_pack_verification(str(out))
@@ -57,7 +57,7 @@ def test_desktop_wrapper_writes_verification_report_files(tmp_path) -> None:
     write_guarded_qt_runtime_smoke_local_artifact_pack(
         build_gui_shell_model(active_page_id="dashboard"),
         str(out),
-        results=_passing_results(),
+        results=_results(),
     )
 
     report = write_guarded_qt_runtime_smoke_local_artifact_pack_verification_report(

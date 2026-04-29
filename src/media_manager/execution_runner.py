@@ -9,6 +9,28 @@ from .execution_plan import DuplicateExecutionPreview
 from .execution_safety import find_associated_sibling_paths
 
 
+def _delete_file_with_trash_fallback(path: Path) -> None:
+    """Delete a file through the platform trash when available.
+
+    Some headless Linux/container environments expose no working trash backend.
+    In that case send2trash can fail while attempting to create a per-file trash
+    directory. For an explicit apply/delete operation on a regular file, fall
+    back to unlink so the execution path remains deterministic.
+    """
+
+    try:
+        send2trash(str(path))
+        return
+    except Exception as trash_error:
+        if path.exists() and path.is_file():
+            try:
+                path.unlink()
+                return
+            except Exception:
+                pass
+        raise trash_error
+
+
 @dataclass(slots=True)
 class ExecutionRunEntry:
     row_type: str
@@ -173,7 +195,7 @@ def run_duplicate_execution_preview(
             continue
 
         try:
-            send2trash(str(row.source_path))
+            _delete_file_with_trash_fallback(row.source_path)
         except Exception as exc:  # pragma: no cover - runtime safeguard
             result.error_rows += 1
             result.entries.append(

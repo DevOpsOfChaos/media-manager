@@ -8,6 +8,7 @@ from typing import Any
 
 from .app_services import build_app_home_state, read_json_object, write_json_object
 from .gui_i18n import normalize_language, translate
+from .gui_review_workbench_view_models import build_ui_review_workbench_view_model
 from .gui_run_history_model import build_run_history_page_state
 
 APP_SERVICE_VIEW_MODELS_SCHEMA_VERSION = "1.0"
@@ -200,11 +201,14 @@ def _summary(view_models: Mapping[str, Any]) -> dict[str, object]:
     similar = _as_mapping(view_models.get("similar_images"))
     run_history = _as_mapping(view_models.get("run_history"))
     decision = _as_mapping(view_models.get("decision_summary"))
+    review_workbench = _as_mapping(view_models.get("review_workbench"))
+    review_summary = _as_mapping(review_workbench.get("summary"))
     return {
         "view_model_count": len(view_models),
         "run_history_rows": _as_int(run_history.get("row_count")),
         "duplicate_run_count": _as_int(duplicate.get("run_count")),
         "similar_run_count": _as_int(similar.get("run_count")),
+        "review_workbench_attention_count": _as_int(review_summary.get("attention_count")),
         "decision_status": decision.get("status"),
         "apply_enabled": bool(decision.get("apply_enabled")),
     }
@@ -226,13 +230,22 @@ def build_ui_app_service_view_models(
             home_state = read_json_object(home_state_json)
         else:
             home_state = build_app_home_state(profile_dir=profile_dir, run_dir=run_dir, people_bundle_dir=people_bundle_dir, active_page_id=active_page_id)
+    duplicate_review = build_duplicate_review_view_model(home_state, language=lang)
+    similar_images = build_similar_images_view_model(home_state, language=lang)
+    decision_summary = build_decision_summary_view_model(home_state, language=lang)
     view_models = {
         "home": build_ui_home_view_model(home_state, language=lang),
         "scan_setup": build_scan_setup_view_model(home_state, language=lang),
-        "duplicate_review": build_duplicate_review_view_model(home_state, language=lang),
-        "similar_images": build_similar_images_view_model(home_state, language=lang),
-        "decision_summary": build_decision_summary_view_model(home_state, language=lang),
+        "duplicate_review": duplicate_review,
+        "similar_images": similar_images,
+        "decision_summary": decision_summary,
         "run_history": build_ui_run_history_view_model(home_state, language=lang),
+        "review_workbench": build_ui_review_workbench_view_model(
+            duplicate_review=duplicate_review,
+            similar_images=similar_images,
+            decision_summary=decision_summary,
+            people_review_summary=_people_summary(home_state),
+        ),
     }
     return {
         "schema_version": APP_SERVICE_VIEW_MODELS_SCHEMA_VERSION,
@@ -263,6 +276,7 @@ def summarize_ui_app_service_view_models(payload: Mapping[str, Any]) -> str:
             f"  Run history rows: {summary.get('run_history_rows')}",
             f"  Duplicate runs: {summary.get('duplicate_run_count')}",
             f"  Similar-image runs: {summary.get('similar_run_count')}",
+            f"  Review attention: {summary.get('review_workbench_attention_count')}",
             f"  Decision status: {summary.get('decision_status')}",
             f"  Apply enabled: {summary.get('apply_enabled')}",
             f"  Requires PySide6: {capabilities.get('requires_pyside6')}",
