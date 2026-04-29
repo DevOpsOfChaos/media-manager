@@ -11,6 +11,16 @@ from .core.app_services import (
     write_report_service_bundle,
 )
 from .core.app_startup import build_app_startup_state
+from .core.gui_app_service_view_models import (
+    build_ui_app_service_view_models,
+    summarize_ui_app_service_view_models,
+    write_ui_app_service_view_models,
+)
+from .core.gui_desktop_runtime_state import (
+    build_gui_desktop_runtime_state,
+    summarize_gui_desktop_runtime_state,
+    write_gui_desktop_runtime_state,
+)
 from .core.gui_command_plan import (
     build_open_people_bundle_plan,
     build_people_review_apply_command_plan,
@@ -55,6 +65,32 @@ def build_parser() -> argparse.ArgumentParser:
     startup.add_argument("--active-page", help="Override active GUI page id.")
     startup.add_argument("--out", type=Path, help="Optional output JSON path.")
     startup.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    desktop = subparsers.add_parser("desktop-runtime", help="Build the headless desktop runtime state consumed by the future Qt UI.")
+    desktop.add_argument("--profile-dir", type=Path, help="Directory containing app profile JSON files.")
+    desktop.add_argument("--run-dir", type=Path, help="Run artifact root directory.")
+    desktop.add_argument("--people-bundle-dir", type=Path, help="Optional people review bundle directory.")
+    desktop.add_argument("--home-state-json", type=Path, help="Optional prebuilt app home-state JSON.")
+    desktop.add_argument("--settings-json", type=Path, help="Optional GUI settings JSON.")
+    desktop.add_argument("--view-state-json", type=Path, help="Optional GUI view-state JSON.")
+    desktop.add_argument("--active-page", default="dashboard", help="Active GUI page id. Default: dashboard.")
+    desktop.add_argument("--language", choices=["en", "de"], help="GUI language. Supported: en, de.")
+    desktop.add_argument("--theme", help="GUI theme. Default comes from settings or modern-dark.")
+    desktop.add_argument("--density", choices=["compact", "comfortable", "spacious"], help="GUI density.")
+    desktop.add_argument("--out-dir", type=Path, help="Optional directory for split desktop-runtime JSON files.")
+    desktop.add_argument("--out", type=Path, help="Optional output JSON path.")
+    desktop.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    view_models = subparsers.add_parser("ui-view-models", help="Build product UI app-service view models for future Qt pages.")
+    view_models.add_argument("--profile-dir", type=Path, help="Directory containing app profile JSON files.")
+    view_models.add_argument("--run-dir", type=Path, help="Run artifact root directory.")
+    view_models.add_argument("--people-bundle-dir", type=Path, help="Optional people review bundle directory.")
+    view_models.add_argument("--home-state-json", type=Path, help="Optional prebuilt app home-state JSON.")
+    view_models.add_argument("--active-page", default="dashboard", help="Active GUI page id. Default: dashboard.")
+    view_models.add_argument("--language", choices=["en", "de"], help="GUI language. Supported: en, de.")
+    view_models.add_argument("--out-dir", type=Path, help="Optional directory for split view-model JSON files.")
+    view_models.add_argument("--out", type=Path, help="Optional output JSON path.")
+    view_models.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
 
     report = subparsers.add_parser("report-bundle", help="Build ui_state, plan_snapshot, and action_model for one report.")
     report.add_argument("--command", required=True, help="Command name for the report.")
@@ -212,6 +248,20 @@ def _print_command_plan_text(payload: dict[str, object]) -> None:
     print(f"  Command: {payload.get('command_preview')}")
 
 
+def _print_desktop_runtime_text(payload: dict[str, object]) -> None:
+    print(summarize_gui_desktop_runtime_state(payload))
+    if payload.get("output_dir"):
+        print(f"  Output dir: {payload.get('output_dir')}")
+        print(f"  Written files: {payload.get('written_file_count')}")
+
+
+def _print_ui_view_models_text(payload: dict[str, object]) -> None:
+    print(summarize_ui_app_service_view_models(payload))
+    if payload.get("output_dir"):
+        print(f"  Output dir: {payload.get('output_dir')}")
+        print(f"  Written files: {payload.get('written_file_count')}")
+
+
 def _emit(payload: dict[str, object], *, out: Path | None, json_output: bool, text_printer) -> None:
     if out is not None:
         write_json_object(out, payload)
@@ -250,6 +300,66 @@ def main(argv: list[str] | None = None) -> int:
             active_page_id=args.active_page,
         )
         _emit(payload, out=args.out, json_output=args.json, text_printer=_print_home_text)
+        return 0
+
+    if command == "desktop-runtime":
+        try:
+            if args.out_dir is not None:
+                payload = write_gui_desktop_runtime_state(
+                    args.out_dir,
+                    profile_dir=args.profile_dir,
+                    run_dir=args.run_dir,
+                    people_bundle_dir=args.people_bundle_dir,
+                    active_page_id=args.active_page,
+                    home_state_json=args.home_state_json,
+                    settings_json=args.settings_json,
+                    view_state_json=args.view_state_json,
+                    language=args.language,
+                    theme=args.theme,
+                    density=args.density,
+                )
+            else:
+                payload = build_gui_desktop_runtime_state(
+                    profile_dir=args.profile_dir,
+                    run_dir=args.run_dir,
+                    people_bundle_dir=args.people_bundle_dir,
+                    active_page_id=args.active_page,
+                    home_state_json=args.home_state_json,
+                    settings_json=args.settings_json,
+                    view_state_json=args.view_state_json,
+                    language=args.language,
+                    theme=args.theme,
+                    density=args.density,
+                )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        _emit(payload, out=args.out, json_output=args.json, text_printer=_print_desktop_runtime_text)
+        return 0 if payload.get("readiness", {}).get("ready") else 2
+
+    if command == "ui-view-models":
+        try:
+            if args.out_dir is not None:
+                payload = write_ui_app_service_view_models(
+                    args.out_dir,
+                    profile_dir=args.profile_dir,
+                    run_dir=args.run_dir,
+                    people_bundle_dir=args.people_bundle_dir,
+                    active_page_id=args.active_page,
+                    home_state_json=args.home_state_json,
+                    language=args.language,
+                )
+            else:
+                payload = build_ui_app_service_view_models(
+                    profile_dir=args.profile_dir,
+                    run_dir=args.run_dir,
+                    people_bundle_dir=args.people_bundle_dir,
+                    active_page_id=args.active_page,
+                    home_state_json=args.home_state_json,
+                    language=args.language,
+                )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        _emit(payload, out=args.out, json_output=args.json, text_printer=_print_ui_view_models_text)
         return 0
 
     if command == "report-bundle":

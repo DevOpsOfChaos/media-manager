@@ -4,6 +4,16 @@ import argparse
 import json
 from pathlib import Path
 
+from .core.gui_app_service_view_models import (
+    build_ui_app_service_view_models,
+    summarize_ui_app_service_view_models,
+    write_ui_app_service_view_models,
+)
+from .core.gui_desktop_runtime_state import (
+    build_gui_desktop_runtime_state,
+    summarize_gui_desktop_runtime_state,
+    write_gui_desktop_runtime_state,
+)
 from .core.gui_i18n import SUPPORTED_LANGUAGES
 from .core.gui_shell_model import build_gui_shell_model_from_paths, summarize_gui_shell_model
 from .core.gui_theme import SUPPORTED_THEMES
@@ -38,6 +48,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", help="Print the GUI shell model as JSON and do not open a window.")
     parser.add_argument("--summary", action="store_true", help="Print a compact GUI shell summary and do not open a window.")
     parser.add_argument("--no-window", action="store_true", help="Build the shell model without opening a GUI window.")
+    parser.add_argument("--desktop-runtime-json", action="store_true", help="Print the headless desktop runtime state consumed by the future Qt UI and do not open a window.")
+    parser.add_argument("--desktop-runtime-summary", action="store_true", help="Print a compact desktop runtime readiness summary and do not open a window.")
+    parser.add_argument("--desktop-runtime-out-dir", type=Path, help="Write split desktop runtime JSON files to this directory and do not open a window.")
+    parser.add_argument("--ui-view-models-json", action="store_true", help="Print product UI app-service view models as JSON and do not open a window.")
+    parser.add_argument("--ui-view-models-summary", action="store_true", help="Print a compact product UI app-service view-model summary and do not open a window.")
+    parser.add_argument("--ui-view-models-out-dir", type=Path, help="Write split product UI app-service view-model JSON files to this directory and do not open a window.")
     parser.add_argument("--runtime-smoke-json", action="store_true", help="Print the guarded Runtime Smoke integration as JSON and do not open a window.")
     parser.add_argument("--runtime-smoke-summary", action="store_true", help="Print a guarded Runtime Smoke summary and do not open a window.")
     parser.add_argument("--check-backend", action="store_true", help="Check whether the modern Qt backend can be imported.")
@@ -83,6 +99,82 @@ def main(argv: list[str] | None = None) -> int:
     if runtime_smoke_active:
         model = attach_guarded_qt_runtime_smoke_to_shell_model(model, activate=True)
 
+    if args.ui_view_models_out_dir:
+        try:
+            payload = write_ui_app_service_view_models(
+                args.ui_view_models_out_dir,
+                profile_dir=args.profile_dir,
+                run_dir=args.run_dir,
+                people_bundle_dir=args.people_bundle_dir,
+                active_page_id=args.active_page,
+                home_state_json=args.home_state_json,
+                language=args.language,
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        print(summarize_ui_app_service_view_models(payload))
+        print(f"  Output dir: {payload['output_dir']}")
+        print(f"  Written files: {payload['written_file_count']}")
+        return 0
+    if args.ui_view_models_json or args.ui_view_models_summary:
+        try:
+            payload = build_ui_app_service_view_models(
+                profile_dir=args.profile_dir,
+                run_dir=args.run_dir,
+                people_bundle_dir=args.people_bundle_dir,
+                active_page_id=args.active_page,
+                home_state_json=args.home_state_json,
+                language=args.language,
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        if args.ui_view_models_json:
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+        else:
+            print(summarize_ui_app_service_view_models(payload))
+        return 0
+    if args.desktop_runtime_out_dir:
+        try:
+            payload = write_gui_desktop_runtime_state(
+                args.desktop_runtime_out_dir,
+                profile_dir=args.profile_dir,
+                run_dir=args.run_dir,
+                people_bundle_dir=args.people_bundle_dir,
+                active_page_id=args.active_page,
+                home_state_json=args.home_state_json,
+                settings_json=args.settings_json,
+                view_state_json=args.view_state_json,
+                language=args.language,
+                theme=args.theme,
+                density=args.density,
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        print(summarize_gui_desktop_runtime_state(payload))
+        print(f"  Output dir: {payload['output_dir']}")
+        print(f"  Written files: {payload['written_file_count']}")
+        return 0 if payload.get("readiness", {}).get("ready") else 2
+    if args.desktop_runtime_json or args.desktop_runtime_summary:
+        try:
+            payload = build_gui_desktop_runtime_state(
+                profile_dir=args.profile_dir,
+                run_dir=args.run_dir,
+                people_bundle_dir=args.people_bundle_dir,
+                active_page_id=args.active_page,
+                home_state_json=args.home_state_json,
+                settings_json=args.settings_json,
+                view_state_json=args.view_state_json,
+                language=args.language,
+                theme=args.theme,
+                density=args.density,
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        if args.desktop_runtime_json:
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+        else:
+            print(summarize_gui_desktop_runtime_state(payload))
+        return 0 if payload.get("readiness", {}).get("ready") else 2
     if args.runtime_smoke_json:
         print(guarded_qt_runtime_smoke_plan_to_pretty_json(model))
         return 0
