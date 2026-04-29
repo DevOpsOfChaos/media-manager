@@ -26,6 +26,7 @@ def normalize_page_id(page_id: str | None) -> str:
         "runs": "run-history",
         "history": "run-history",
         "doctor": "settings",
+        "settings-doctor": "settings",
     }
     return aliases.get(value, value or "dashboard")
 

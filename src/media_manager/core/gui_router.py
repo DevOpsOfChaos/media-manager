@@ -19,6 +19,7 @@ def normalize_route(page_id: object) -> str:
         "new": "new-run",
         "new run": "new-run",
         "doctor": "settings",
+        "settings-doctor": "settings",
     }.get(text, text or "dashboard")
 
 

@@ -275,7 +275,8 @@ def build_new_run_page_model(home_state: Mapping[str, Any], *, language: str = "
 
 
 def build_page_model(page_id: str, home_state: Mapping[str, Any], *, language: str = "en", density: str = "comfortable", query: str = "", selected_group_id: str | None = None) -> dict[str, object]:
-    normalized = str(page_id or "dashboard").strip().lower()
+    normalized = str(page_id or "dashboard").strip().lower().replace("_", "-")
+    normalized = {"settings-doctor": "settings", "doctor": "settings", "runs": "run-history", "history": "run-history", "people": "people-review", "new run": "new-run"}.get(normalized, normalized)
     if normalized == "dashboard":
         page = build_dashboard_page_model(home_state, language=language, density=density)
         page["layout"] = page.get("layout_variant", "hero_card_grid_activity")
