@@ -6,6 +6,9 @@ from typing import Any
 
 from .core.gui_page_models import build_page_model
 from .core.gui_qt_desktop_integration_plan import build_qt_desktop_integration_plan, summarize_qt_desktop_integration_plan
+from .core.gui_qt_guarded_runtime_smoke_integration import build_guarded_qt_runtime_smoke_integration
+from .core.gui_qt_runtime_smoke_guarded_summary import summarize_guarded_qt_runtime_smoke_integration
+from .core.gui_qt_runtime_smoke_shell_model_adapter import apply_guarded_qt_runtime_smoke_to_shell_model
 from .core.gui_theme import build_qt_stylesheet
 
 
@@ -47,6 +50,25 @@ def qt_desktop_plan_to_pretty_json(model: Mapping[str, Any]) -> str:
 
 def summarize_qt_desktop_plan(model: Mapping[str, Any]) -> str:
     return summarize_qt_desktop_integration_plan(build_qt_desktop_plan(model))
+
+
+def build_guarded_qt_runtime_smoke_plan(model: Mapping[str, Any]) -> dict[str, object]:
+    """Build the guarded Runtime Smoke integration plan without opening Qt."""
+
+    return build_guarded_qt_runtime_smoke_integration(model)
+
+
+def guarded_qt_runtime_smoke_plan_to_pretty_json(model: Mapping[str, Any]) -> str:
+    return json.dumps(build_guarded_qt_runtime_smoke_plan(model), indent=2, ensure_ascii=False)
+
+
+def summarize_guarded_qt_runtime_smoke_plan(model: Mapping[str, Any]) -> str:
+    return summarize_guarded_qt_runtime_smoke_integration(build_guarded_qt_runtime_smoke_plan(model))
+
+
+def attach_guarded_qt_runtime_smoke_to_shell_model(model: Mapping[str, Any], *, activate: bool = False) -> dict[str, object]:
+    integration = build_guarded_qt_runtime_smoke_plan(model)
+    return apply_guarded_qt_runtime_smoke_to_shell_model(model, integration, activate=activate)
 
 
 def _text(value: object, fallback: str = "") -> str:
@@ -197,6 +219,89 @@ def _render_settings(QtWidgets, layout, page: Mapping[str, Any]):
         layout.addWidget(frame)
 
 
+def _render_runtime_smoke(QtWidgets, layout, page: Mapping[str, Any]):
+    presenter = _mapping(page.get("presenter"))
+    metrics = _mapping(presenter.get("metrics"))
+    status_frame, status_layout = _build_section_frame(
+        QtWidgets,
+        _text(page.get("title"), "Runtime Smoke"),
+        _text(page.get("subtitle") or presenter.get("subtitle"), "Review guarded Qt runtime readiness."),
+    )
+    _add_label(
+        status_layout,
+        QtWidgets,
+        _metric_text(
+            {
+                "status": presenter.get("status"),
+                "severity": presenter.get("severity"),
+                "ready": metrics.get("ready_for_runtime_review"),
+                "requires_confirmation": metrics.get("requires_user_confirmation"),
+            }
+        ),
+        object_name="MetricText",
+    )
+    layout.addWidget(status_frame)
+
+    table = _mapping(page.get("table"))
+    rows = [row for row in _list(table.get("rows")) if isinstance(row, Mapping)]
+    table_frame, table_layout = _build_section_frame(QtWidgets, "Runtime Smoke checks", "Metadata-only checks; no command executes from this page.")
+    if rows:
+        widget = QtWidgets.QTableWidget(len(rows), 4)
+        widget.setHorizontalHeaderLabels(["Area", "Status", "Problems", "Ready"])
+        widget.setAlternatingRowColors(True)
+        widget.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        for row_index, row in enumerate(rows):
+            values = [
+                row.get("label") or row.get("id"),
+                row.get("status") or row.get("state"),
+                row.get("problem_count", 0),
+                row.get("ready"),
+            ]
+            for col_index, value in enumerate(values):
+                widget.setItem(row_index, col_index, QtWidgets.QTableWidgetItem(_text(value)))
+        widget.horizontalHeader().setStretchLastSection(True)
+        widget.verticalHeader().setVisible(False)
+        table_layout.addWidget(widget)
+    else:
+        _add_label(table_layout, QtWidgets, "No runtime smoke rows available yet.", object_name="Muted")
+    layout.addWidget(table_frame)
+
+    detail = _mapping(page.get("detail"))
+    detail_frame, detail_layout = _build_section_frame(QtWidgets, "Guardrails", _text(detail.get("recommended_next_step")))
+    privacy = _mapping(detail.get("privacy"))
+    _add_label(
+        detail_layout,
+        QtWidgets,
+        _metric_text(
+            {
+                "local_only": privacy.get("local_only", True),
+                "network_required": privacy.get("network_required", False),
+                "opens_window": False,
+                "executes_commands": False,
+            }
+        ),
+        object_name="MetricText",
+    )
+    layout.addWidget(detail_frame)
+
+    actions = [action for action in _list(page.get("actions")) if isinstance(action, Mapping)]
+    if actions:
+        actions_frame, actions_layout = _build_section_frame(QtWidgets, "Deferred actions", "Buttons describe guarded intents only.")
+        row = QtWidgets.QHBoxLayout()
+        for raw_action in actions[:4]:
+            action = _mapping(raw_action)
+            label = _text(action.get("label"), _text(action.get("id"), "Action"))
+            if action.get("requires_confirmation"):
+                label = f"{label}…"
+            button = QtWidgets.QPushButton(label)
+            button.setEnabled(bool(action.get("enabled", True)))
+            button.setProperty("secondary", True)
+            row.addWidget(button)
+        row.addStretch(1)
+        actions_layout.addLayout(row)
+        layout.addWidget(actions_frame)
+
+
 def _render_page_content(QtWidgets, page: Mapping[str, Any]):
     container = QtWidgets.QWidget()
     layout = QtWidgets.QVBoxLayout(container)
@@ -217,6 +322,8 @@ def _render_page_content(QtWidgets, page: Mapping[str, Any]):
         _render_new_run(QtWidgets, layout, page)
     elif kind == "settings_page":
         _render_settings(QtWidgets, layout, page)
+    elif kind == "qt_runtime_smoke_page_model":
+        _render_runtime_smoke(QtWidgets, layout, page)
     else:
         empty = _mapping(page.get("empty_state"))
         _add_label(layout, QtWidgets, _text(empty.get("title"), "This view is ready for the next GUI iteration."), object_name="Muted")
@@ -226,6 +333,8 @@ def _render_page_content(QtWidgets, page: Mapping[str, Any]):
 
 
 def _rebuild_page(model: Mapping[str, Any], page_id: str) -> dict[str, Any]:
+    if page_id == "runtime-smoke":
+        return dict(attach_guarded_qt_runtime_smoke_to_shell_model(model, activate=True))
     home_state = _mapping(model.get("home_state"))
     language = _text(model.get("language"), "en")
     density = _text(_mapping(model.get("layout")).get("density"), "comfortable")
@@ -248,9 +357,10 @@ def run_qt_gui(model: Mapping[str, Any]) -> int:  # pragma: no cover - GUI runti
     theme = _mapping(model.get("theme"))
     app.setStyleSheet(build_qt_stylesheet(str(theme.get("theme") or "modern-dark")))
 
-    current_model: dict[str, Any] = dict(model)
+    activate_runtime_smoke = _text(model.get("active_page_id")) == "runtime-smoke"
+    current_model: dict[str, Any] = dict(attach_guarded_qt_runtime_smoke_to_shell_model(model, activate=activate_runtime_smoke))
     window = QtWidgets.QMainWindow()
-    win = _mapping(model.get("window"))
+    win = _mapping(current_model.get("window"))
     window.setWindowTitle(_text(win.get("title"), "Media Manager"))
     window.resize(int(win.get("width", 1440)), int(win.get("height", 940)))
     window.setMinimumSize(int(win.get("minimum_width", 1180)), int(win.get("minimum_height", 760)))
@@ -265,7 +375,7 @@ def run_qt_gui(model: Mapping[str, Any]) -> int:  # pragma: no cover - GUI runti
     side_layout = QtWidgets.QVBoxLayout(sidebar)
     side_layout.setContentsMargins(20, 26, 20, 20)
     side_layout.setSpacing(12)
-    app_info = _mapping(model.get("application"))
+    app_info = _mapping(current_model.get("application"))
     _add_label(side_layout, QtWidgets, _text(app_info.get("title"), "Media Manager"), object_name="AppTitle")
     _add_label(side_layout, QtWidgets, _text(app_info.get("subtitle")), object_name="Muted")
 
@@ -283,7 +393,7 @@ def run_qt_gui(model: Mapping[str, Any]) -> int:  # pragma: no cover - GUI runti
         status = _mapping(current_model.get("status_bar"))
         window.statusBar().showMessage(_text(status.get("text"), "Ready."))
 
-    for item in _list(model.get("navigation")):
+    for item in _list(current_model.get("navigation")):
         nav = _mapping(item)
         nav_id = _text(nav.get("id"))
         button = QtWidgets.QPushButton(_text(nav.get("label")))
@@ -299,11 +409,11 @@ def run_qt_gui(model: Mapping[str, Any]) -> int:  # pragma: no cover - GUI runti
     side_layout.addWidget(palette_label)
     side_layout.addStretch(1)
 
-    scroll.setWidget(_render_page_content(QtWidgets, _mapping(model.get("page"))))
+    scroll.setWidget(_render_page_content(QtWidgets, _mapping(current_model.get("page"))))
     root.addWidget(sidebar)
     root.addWidget(scroll, 1)
     window.setCentralWidget(central)
-    status = _mapping(model.get("status_bar"))
+    status = _mapping(current_model.get("status_bar"))
     window.statusBar().showMessage(_text(status.get("text"), "Ready."))
     window.show()
     return int(app.exec())
@@ -311,11 +421,15 @@ def run_qt_gui(model: Mapping[str, Any]) -> int:  # pragma: no cover - GUI runti
 
 __all__ = [
     "MissingQtDependencyError",
+    "attach_guarded_qt_runtime_smoke_to_shell_model",
+    "build_guarded_qt_runtime_smoke_plan",
     "build_qt_desktop_plan",
+    "guarded_qt_runtime_smoke_plan_to_pretty_json",
     "load_qt_modules",
     "qt_desktop_plan_to_pretty_json",
     "qt_install_guidance",
     "run_qt_gui",
     "shell_model_to_pretty_json",
+    "summarize_guarded_qt_runtime_smoke_plan",
     "summarize_qt_desktop_plan",
 ]

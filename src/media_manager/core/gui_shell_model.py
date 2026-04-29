@@ -112,7 +112,7 @@ def build_gui_shell_model(
     notifications = []
     if safety_center.get("warning_count"):
         notifications.append(build_notification("safety", "Safety notice", "Review safety notices before applying changes.", level="warning", action={"page_id": "settings"}))
-    return {
+    payload: dict[str, object] = {
         "schema_version": SHELL_SCHEMA_VERSION,
         "generated_at_utc": _now_utc(),
         "application": {
@@ -160,6 +160,12 @@ def build_gui_shell_model(
             "executes_commands": False,
         },
     }
+    if active == "runtime-smoke":
+        from .gui_qt_guarded_runtime_smoke_integration import build_guarded_qt_runtime_smoke_integration
+        from .gui_qt_runtime_smoke_shell_model_adapter import apply_guarded_qt_runtime_smoke_to_shell_model
+
+        payload = dict(apply_guarded_qt_runtime_smoke_to_shell_model(payload, build_guarded_qt_runtime_smoke_integration(payload), activate=True))
+    return payload
 
 
 def build_gui_shell_model_from_paths(

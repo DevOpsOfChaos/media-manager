@@ -7,7 +7,15 @@ from pathlib import Path
 from .core.gui_i18n import SUPPORTED_LANGUAGES
 from .core.gui_shell_model import build_gui_shell_model_from_paths, summarize_gui_shell_model
 from .core.gui_theme import SUPPORTED_THEMES
-from .gui_desktop_qt import MissingQtDependencyError, qt_install_guidance, run_qt_gui
+from .gui_desktop_qt import (
+    MissingQtDependencyError,
+    attach_guarded_qt_runtime_smoke_to_shell_model,
+    build_guarded_qt_runtime_smoke_plan,
+    guarded_qt_runtime_smoke_plan_to_pretty_json,
+    qt_install_guidance,
+    run_qt_gui,
+    summarize_guarded_qt_runtime_smoke_plan,
+)
 
 DENSITY_CHOICES = ("compact", "comfortable", "spacious")
 
@@ -30,6 +38,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", help="Print the GUI shell model as JSON and do not open a window.")
     parser.add_argument("--summary", action="store_true", help="Print a compact GUI shell summary and do not open a window.")
     parser.add_argument("--no-window", action="store_true", help="Build the shell model without opening a GUI window.")
+    parser.add_argument("--runtime-smoke-json", action="store_true", help="Print the guarded Runtime Smoke integration as JSON and do not open a window.")
+    parser.add_argument("--runtime-smoke-summary", action="store_true", help="Print a guarded Runtime Smoke summary and do not open a window.")
     parser.add_argument("--check-backend", action="store_true", help="Check whether the modern Qt backend can be imported.")
     return parser
 
@@ -69,11 +79,24 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         parser.error(str(exc))
 
+    runtime_smoke_active = str(args.active_page or "").strip().lower().replace("_", "-") == "runtime-smoke"
+    if runtime_smoke_active:
+        model = attach_guarded_qt_runtime_smoke_to_shell_model(model, activate=True)
+
+    if args.runtime_smoke_json:
+        print(guarded_qt_runtime_smoke_plan_to_pretty_json(model))
+        return 0
+    if args.runtime_smoke_summary:
+        print(summarize_guarded_qt_runtime_smoke_plan(model))
+        return 0
     if args.json:
         print(json.dumps(model, indent=2, ensure_ascii=False))
         return 0
     if args.summary or args.no_window:
-        print(summarize_gui_shell_model(model))
+        if runtime_smoke_active:
+            print(summarize_guarded_qt_runtime_smoke_plan(model))
+        else:
+            print(summarize_gui_shell_model(model))
         return 0
     try:
         return run_qt_gui(model)

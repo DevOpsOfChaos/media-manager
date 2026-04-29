@@ -42,6 +42,9 @@ def build_qt_runtime_smoke_visible_surface(page_model: Mapping[str, Any], *, den
             "label_count": accessibility_summary.get("label_count", 0),
             "ready_for_runtime_review": visible_summary.get("ready_for_runtime_review", False),
             "has_privacy_notice": accessibility_summary.get("has_privacy_notice", False),
+            "local_only": bool(visible_summary.get("local_only", True)),
+            "opens_window": False,
+            "executes_commands": False,
             "ready_for_qt_adapter": ready,
         },
         "capabilities": {
