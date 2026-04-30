@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-REVIEW_WORKBENCH_VIEW_MODEL_SCHEMA_VERSION = "1.1"
+REVIEW_WORKBENCH_VIEW_MODEL_SCHEMA_VERSION = "1.2"
 REVIEW_WORKBENCH_VIEW_MODEL_KIND = "ui_review_workbench_view_model"
 
 
@@ -174,6 +174,52 @@ def build_review_workbench_lanes(
     ]
 
 
+
+def build_review_workbench_lane_sort(*, mode: str = "attention_first") -> dict[str, object]:
+    normalized_mode = str(mode or "attention_first").strip().lower().replace("-", "_") or "attention_first"
+    if normalized_mode not in {"attention_first", "item_count", "title", "lane_id", "status"}:
+        normalized_mode = "attention_first"
+    return {
+        "kind": "ui_review_workbench_lane_sort",
+        "mode": normalized_mode,
+        "available_modes": ["attention_first", "item_count", "title", "lane_id", "status"],
+        "executes_commands": False,
+    }
+
+
+def sort_review_workbench_lanes(
+    lanes: list[Mapping[str, Any]],
+    *,
+    mode: str = "attention_first",
+) -> list[dict[str, object]]:
+    sort_model = build_review_workbench_lane_sort(mode=mode)
+    normalized_mode = str(sort_model["mode"])
+    lane_rows = [dict(lane) for lane in lanes]
+    if normalized_mode == "item_count":
+        return sorted(lane_rows, key=lambda lane: (-_as_int(lane.get("item_count")), str(lane.get("lane_id") or "")))
+    if normalized_mode == "title":
+        return sorted(lane_rows, key=lambda lane: (str(lane.get("title") or "").lower(), str(lane.get("lane_id") or "")))
+    if normalized_mode == "lane_id":
+        return sorted(lane_rows, key=lambda lane: str(lane.get("lane_id") or ""))
+    if normalized_mode == "status":
+        status_rank = {"needs_review": 0, "ready": 1, "empty": 2}
+        return sorted(
+            lane_rows,
+            key=lambda lane: (
+                status_rank.get(str(lane.get("status") or "empty"), 9),
+                -_as_int(lane.get("attention_count")),
+                str(lane.get("lane_id") or ""),
+            ),
+        )
+    return sorted(
+        lane_rows,
+        key=lambda lane: (
+            0 if _as_int(lane.get("attention_count")) > 0 else 1,
+            -_as_int(lane.get("attention_count")),
+            str(lane.get("lane_id") or ""),
+        ),
+    )
+
 def build_review_workbench_selection_options(lanes: list[Mapping[str, Any]]) -> list[dict[str, object]]:
     options: list[dict[str, object]] = []
     for lane in lanes:
@@ -249,6 +295,47 @@ def filter_review_workbench_lanes(
     return filtered
 
 
+def build_review_workbench_lane_detail(selected_lane: Mapping[str, Any] | None) -> dict[str, object]:
+    lane = _as_mapping(selected_lane)
+    lane_id = str(lane.get("lane_id") or "")
+    status = str(lane.get("status") or "empty")
+    item_count = _as_int(lane.get("item_count"))
+    attention_count = _as_int(lane.get("attention_count"))
+    page_id = str(lane.get("page_id") or "")
+    latest_run_path = str(lane.get("latest_run_path") or "")
+    has_attention = attention_count > 0
+    if not lane_id:
+        headline = "No review lane selected"
+        next_step = "Select a review lane before navigating."
+    elif has_attention:
+        headline = f"{lane.get('title') or lane_id} needs review"
+        next_step = "Open the lane and review the pending items before any apply step is enabled."
+    elif item_count > 0:
+        headline = f"{lane.get('title') or lane_id} is ready"
+        next_step = "Open the lane to inspect the latest run details."
+    else:
+        headline = f"{lane.get('title') or lane_id} is empty"
+        next_step = str(lane.get("empty_state") or "Run a preview workflow to populate this lane.")
+    return {
+        "kind": "ui_review_workbench_lane_detail",
+        "lane_id": lane_id or None,
+        "title": str(lane.get("title") or headline),
+        "headline": headline,
+        "description": str(lane.get("description") or ""),
+        "status": status,
+        "page_id": page_id or None,
+        "latest_run_path": latest_run_path,
+        "has_latest_run": bool(latest_run_path),
+        "item_count": item_count,
+        "attention_count": attention_count,
+        "has_attention": has_attention,
+        "recommended_next_step": next_step,
+        "primary_action": dict(_as_mapping(lane.get("primary_action"))) if lane else None,
+        "executes_commands": False,
+        "requires_pyside6": False,
+    }
+
+
 def build_ui_review_workbench_view_model(
     *,
     duplicate_review: Mapping[str, Any],
@@ -258,6 +345,7 @@ def build_ui_review_workbench_view_model(
     selected_lane_id: str | None = None,
     lane_status_filter: str = "all",
     lane_query: str = "",
+    lane_sort_mode: str = "attention_first",
 ) -> dict[str, object]:
     lanes = build_review_workbench_lanes(
         duplicate_review=duplicate_review,
@@ -273,11 +361,15 @@ def build_ui_review_workbench_view_model(
     available_lane_ids = [str(lane.get("lane_id") or "") for lane in lanes if lane.get("lane_id")]
     attention_lane_ids = [str(lane.get("lane_id") or "") for lane in lanes if _as_int(lane.get("attention_count")) > 0]
     selected_latest_run_path = str(selected_lane.get("latest_run_path") or "") if selected_lane else ""
+    selected_lane_detail = build_review_workbench_lane_detail(selected_lane)
     navigation_target_page_id = _navigation_target_page_id(selected_lane)
     toolbar = build_review_workbench_toolbar(selected_lane, lane_maps)
     lane_filter = build_review_workbench_lane_filter(lane_maps, status=lane_status_filter, query=lane_query)
     filtered_lanes = filter_review_workbench_lanes(lane_maps, status=lane_status_filter, query=lane_query)
     selection_options = build_review_workbench_selection_options(lane_maps)
+    lane_sort = build_review_workbench_lane_sort(mode=lane_sort_mode)
+    sorted_lanes = sort_review_workbench_lanes(lane_maps, mode=lane_sort_mode)
+    sorted_filtered_lanes = sort_review_workbench_lanes(filtered_lanes, mode=lane_sort_mode)
     return {
         "schema_version": REVIEW_WORKBENCH_VIEW_MODEL_SCHEMA_VERSION,
         "kind": REVIEW_WORKBENCH_VIEW_MODEL_KIND,
@@ -286,6 +378,7 @@ def build_ui_review_workbench_view_model(
         "active_lane_id": selected_lane.get("lane_id") if selected_lane else None,
         "selected_lane_id": selected_lane.get("lane_id") if selected_lane else None,
         "selected_lane": selected_lane_dict,
+        "selected_lane_detail": selected_lane_detail,
         "available_lane_ids": available_lane_ids,
         "attention_lane_ids": attention_lane_ids,
         "navigation_target_page_id": navigation_target_page_id or None,
@@ -293,7 +386,10 @@ def build_ui_review_workbench_view_model(
         "primary_action": dict(_as_mapping(selected_lane.get("primary_action"))) if selected_lane else None,
         "toolbar": toolbar,
         "lane_filter": lane_filter,
+        "lane_sort": lane_sort,
         "filtered_lanes": filtered_lanes,
+        "sorted_lanes": sorted_lanes,
+        "sorted_filtered_lanes": sorted_filtered_lanes,
         "selection_options": selection_options,
         "lanes": lanes,
         "summary": {
@@ -301,8 +397,12 @@ def build_ui_review_workbench_view_model(
             "item_count": item_count,
             "attention_count": attention_count,
             "attention_lane_count": len(attention_lane_ids),
+            "ready_lane_count": sum(1 for lane in lanes if str(lane.get("status") or "") == "ready"),
+            "empty_lane_count": sum(1 for lane in lanes if str(lane.get("status") or "") == "empty"),
             "filtered_lane_count": len(filtered_lanes),
+            "sorted_filtered_lane_count": len(sorted_filtered_lanes),
             "selection_option_count": len(selection_options),
+            "lane_sort_mode": str(lane_sort["mode"]),
             "selected_lane_id": selected_lane.get("lane_id") if selected_lane else None,
             "navigation_target_page_id": navigation_target_page_id or None,
             "blocked_apply_count": sum(1 for lane in lanes if lane.get("apply_enabled") is False and _as_int(lane.get("attention_count")) > 0),
@@ -322,10 +422,13 @@ def build_ui_review_workbench_view_model(
 __all__ = [
     "REVIEW_WORKBENCH_VIEW_MODEL_KIND",
     "REVIEW_WORKBENCH_VIEW_MODEL_SCHEMA_VERSION",
+    "build_review_workbench_lane_detail",
     "build_review_workbench_lane_filter",
+    "build_review_workbench_lane_sort",
     "build_review_workbench_lanes",
     "build_review_workbench_selection_options",
     "build_review_workbench_toolbar",
     "filter_review_workbench_lanes",
+    "sort_review_workbench_lanes",
     "build_ui_review_workbench_view_model",
 ]
