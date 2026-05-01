@@ -7,6 +7,56 @@ from pathlib import Path
 from typing import Any
 
 from .action_model import build_action_model_from_report
+from .app_contract_inventory import build_app_contract_inventory, write_app_contract_inventory
+from .gui_app_contract_bindings import build_gui_app_contract_bindings, write_gui_app_contract_bindings
+from .gui_review_workbench_service import (
+    build_gui_review_workbench_service_bundle,
+    write_gui_review_workbench_service_bundle,
+)
+from .gui_review_workbench_interactions import (
+    build_review_workbench_interaction_plan,
+    write_review_workbench_interaction_plan,
+)
+from .gui_review_workbench_callback_mounts import (
+    build_review_workbench_callback_mount_plan,
+    write_review_workbench_callback_mount_plan,
+)
+from .gui_review_workbench_apply_preview import (
+    build_review_workbench_apply_preview,
+    write_review_workbench_apply_preview,
+)
+from .gui_review_workbench_confirmation_dialog import (
+    build_review_workbench_confirmation_dialog_model,
+    write_review_workbench_confirmation_dialog_model,
+)
+from .gui_review_workbench_apply_executor_contract import (
+    build_review_workbench_apply_executor_contract,
+    write_review_workbench_apply_executor_contract,
+)
+from .gui_review_workbench_executor_handoff_panel import (
+    build_review_workbench_executor_handoff_panel,
+    write_review_workbench_executor_handoff_panel,
+)
+from .gui_review_workbench_stateful_rebuild import (
+    build_review_workbench_stateful_rebuild_bundle,
+    build_review_workbench_stateful_rebuild_loop_contract,
+    normalize_review_workbench_rebuild_intent,
+    write_review_workbench_stateful_rebuild_bundle,
+)
+from .gui_review_workbench_stateful_callbacks import (
+    build_review_workbench_stateful_callback_plan,
+    build_review_workbench_stateful_callback_response,
+    map_review_workbench_callback_intent_to_rebuild_intent,
+    write_review_workbench_stateful_callback_plan,
+)
+from .gui_qt_review_workbench_widget_bindings import (
+    build_qt_review_workbench_widget_binding_plan,
+    write_qt_review_workbench_widget_binding_plan,
+)
+from .gui_qt_review_workbench_widget_skeleton import (
+    build_qt_review_workbench_widget_skeleton,
+    write_qt_review_workbench_widget_skeleton,
+)
 from .app_manifest import build_app_manifest
 from .app_profiles import scan_app_profiles, summarize_app_profiles
 from .gui_page_contracts import build_gui_navigation_state, build_gui_page_catalog
@@ -233,11 +283,37 @@ def build_app_home_state(
 
 __all__ = [
     "SERVICE_SCHEMA_VERSION",
+    "build_app_contract_inventory",
     "build_app_home_state",
+    "build_gui_app_contract_bindings",
+    "build_gui_review_workbench_service_bundle",
+    "build_review_workbench_interaction_plan",
+    "build_review_workbench_callback_mount_plan",
+    "build_review_workbench_apply_preview",
+    "build_review_workbench_confirmation_dialog_model",
+    "build_review_workbench_apply_executor_contract",
+    "build_review_workbench_executor_handoff_panel",
+    "build_review_workbench_stateful_callback_plan",
+    "build_review_workbench_stateful_callback_response",
+    "map_review_workbench_callback_intent_to_rebuild_intent",
+    "write_review_workbench_stateful_callback_plan",
+    "build_qt_review_workbench_widget_binding_plan",
+    "build_qt_review_workbench_widget_skeleton",
     "build_report_service_bundle",
     "discover_run_summaries",
     "load_people_review_bundle_summary",
     "read_json_object",
+    "write_app_contract_inventory",
+    "write_gui_app_contract_bindings",
+    "write_gui_review_workbench_service_bundle",
+    "write_review_workbench_interaction_plan",
+    "write_review_workbench_callback_mount_plan",
+    "write_review_workbench_apply_preview",
+    "write_review_workbench_confirmation_dialog_model",
+    "write_review_workbench_apply_executor_contract",
+    "write_review_workbench_executor_handoff_panel",
+    "write_qt_review_workbench_widget_binding_plan",
+    "write_qt_review_workbench_widget_skeleton",
     "write_json_object",
     "write_report_service_bundle",
 ]

@@ -36,6 +36,8 @@ We will prioritize the following additions while the GUI layer is introduced in 
    - New features should expose service/application contracts before UI-specific behavior is added.
    - The CLI and GUI should both consume the same logic instead of becoming separate products.
    - GUI work should start with guarded review/workbench surfaces, not unrestricted destructive flows.
+   - The current GUI-facing contract inventory is available through `media-manager app-services contracts --json`. The GUI surface binding gate is available through `media-manager app-services contract-bindings --json`; new GUI work should keep both payloads green before adding UI-specific behavior.
+   - The Review Workbench page is now a real headless runtime target via `media-manager app-services review-workbench`, `media-manager app-services review-workbench-widget-bindings`, `media-manager app-services review-workbench-widget-skeleton`, `media-manager app-services review-workbench-interactions`, `media-manager app-services review-workbench-callback-mounts`, `media-manager app-services review-workbench-apply-preview`, `media-manager app-services review-workbench-confirmation-dialog`, `media-manager app-services review-workbench-apply-executor-contract`, `media-manager app-services review-workbench-apply-handoff-panel`, `media-manager app-services review-workbench-stateful-rebuild`, `media-manager app-services review-workbench-stateful-callbacks`, and `media-manager app-services desktop-runtime --active-page review-workbench`. The Qt desktop renderer now has a PySide6-lazy Review Workbench builder plus non-executing interaction intents and concrete callback mounts for filters, lane selection, row activation, refresh, reset, detail actions, and route requests. The visible confirmation/executor handoff panel is now wired as a display-only contract. The stateful rebuild loop now applies filter, selection, sort, paging, reset, and refresh intents and returns a replacement Review Workbench page-state bundle without enabling execution. Lazy Qt callbacks can now call that loop through a `stateful_rebuild_handler`, so the next GUI step is controlled in-place re-rendering of the Review Workbench page from returned `next_page_state`, not a parallel GUI-only state store or execution path.
 
 ## Important rule
 
@@ -44,7 +46,8 @@ For the next implementation blocks, we prefer this order:
 1. core/application logic
 2. result and journal model
 3. CLI flags and text/JSON output
-4. GUI/workbench surface backed by the same contracts
+4. GUI/workbench surface bound through `contract-bindings` and backed by the same contracts
+5. real Qt widgets consume the Review Workbench widget skeleton, interaction plan, callback mounts, stateful callback bridge, apply-preview command-plan contract, confirmation dialog, executor contract, and handoff panel without bypassing route intents or command plans
 
 ## Immediate next design task
 

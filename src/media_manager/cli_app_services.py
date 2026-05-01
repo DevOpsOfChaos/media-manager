@@ -5,12 +5,34 @@ import json
 from pathlib import Path
 
 from .core.app_services import (
+    build_app_contract_inventory,
+    build_gui_app_contract_bindings,
+    build_gui_review_workbench_service_bundle,
+    build_review_workbench_apply_executor_contract,
+    build_review_workbench_executor_handoff_panel,
+    build_review_workbench_stateful_rebuild_bundle,
+    build_review_workbench_stateful_callback_plan,
+    build_review_workbench_stateful_callback_response,
+    map_review_workbench_callback_intent_to_rebuild_intent,
+    normalize_review_workbench_rebuild_intent,
+    write_review_workbench_stateful_rebuild_bundle,
+    write_review_workbench_stateful_callback_plan,
     build_app_home_state,
     read_json_object,
     write_json_object,
     write_report_service_bundle,
+    write_gui_review_workbench_service_bundle,
+    write_review_workbench_interaction_plan,
+    write_review_workbench_callback_mount_plan,
+    write_review_workbench_apply_preview,
+    write_review_workbench_confirmation_dialog_model,
+    write_review_workbench_apply_executor_contract,
+    write_review_workbench_executor_handoff_panel,
+    write_qt_review_workbench_widget_binding_plan,
+    write_qt_review_workbench_widget_skeleton,
 )
 from .core.app_startup import build_app_startup_state
+from .core.gui_app_contract_bindings import summarize_gui_app_contract_bindings
 from .core.gui_app_service_view_models import (
     build_ui_app_service_view_models,
     summarize_ui_app_service_view_models,
@@ -105,6 +127,251 @@ def build_parser() -> argparse.ArgumentParser:
     pages.add_argument("--active-page", default="dashboard", help="Active GUI page id. Default: dashboard.")
     pages.add_argument("--out", type=Path, help="Optional output JSON path.")
     pages.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    contracts = subparsers.add_parser("contracts", help="Print GUI-facing app-service contract inventory.")
+    contracts.add_argument("--out", type=Path, help="Optional output JSON path.")
+    contracts.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    contract_bindings = subparsers.add_parser("contract-bindings", help="Validate GUI surface bindings for app-service contracts.")
+    contract_bindings.add_argument("--out", type=Path, help="Optional output JSON path.")
+    contract_bindings.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    review_workbench = subparsers.add_parser("review-workbench", help="Build a headless Qt-ready Review Workbench service bundle.")
+    review_workbench.add_argument("--duplicate-review-json", type=Path, help="Optional duplicate-review summary JSON.")
+    review_workbench.add_argument("--similar-images-json", type=Path, help="Optional similar-images summary JSON.")
+    review_workbench.add_argument("--decision-summary-json", type=Path, help="Optional decision-summary JSON.")
+    review_workbench.add_argument("--people-review-summary-json", type=Path, help="Optional people-review summary JSON.")
+    review_workbench.add_argument("--people-bundle-dir", type=Path, help="Optional people review bundle directory.")
+    review_workbench.add_argument("--reviewed-decision-plan-json", type=Path, help="Optional reviewed decision plan JSON for non-executing apply preview.")
+    review_workbench.add_argument("--selected-lane", help="Optional selected review lane id.")
+    review_workbench.add_argument("--lane-status", default="all", choices=["all", "needs_review", "ready", "empty"], help="Lane status filter. Default: all.")
+    review_workbench.add_argument("--lane-query", default="", help="Lane search query.")
+    review_workbench.add_argument("--lane-sort", default="attention_first", help="Lane sort mode. Default: attention_first.")
+    review_workbench.add_argument("--page", type=int, default=1, help="Table page. Default: 1.")
+    review_workbench.add_argument("--page-size", type=int, default=20, help="Table page size. Default: 20.")
+    review_workbench.add_argument("--out-dir", type=Path, help="Optional directory for split Review Workbench artifacts.")
+    review_workbench.add_argument("--out", type=Path, help="Optional output JSON path.")
+    review_workbench.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    widget_bindings = subparsers.add_parser(
+        "review-workbench-widget-bindings",
+        help="Build descriptor-only Qt widget bindings for the Review Workbench adapter package.",
+    )
+    widget_bindings.add_argument("--duplicate-review-json", type=Path, help="Optional duplicate-review summary JSON.")
+    widget_bindings.add_argument("--similar-images-json", type=Path, help="Optional similar-images summary JSON.")
+    widget_bindings.add_argument("--decision-summary-json", type=Path, help="Optional decision-summary JSON.")
+    widget_bindings.add_argument("--people-review-summary-json", type=Path, help="Optional people-review summary JSON.")
+    widget_bindings.add_argument("--people-bundle-dir", type=Path, help="Optional people review bundle directory.")
+    widget_bindings.add_argument("--selected-lane", help="Optional selected review lane id.")
+    widget_bindings.add_argument("--lane-status", default="all", choices=["all", "needs_review", "ready", "empty"], help="Lane status filter. Default: all.")
+    widget_bindings.add_argument("--lane-query", default="", help="Lane search query.")
+    widget_bindings.add_argument("--lane-sort", default="attention_first", help="Lane sort mode. Default: attention_first.")
+    widget_bindings.add_argument("--page", type=int, default=1, help="Table page. Default: 1.")
+    widget_bindings.add_argument("--page-size", type=int, default=20, help="Table page size. Default: 20.")
+    widget_bindings.add_argument("--out-dir", type=Path, help="Optional directory for the widget binding plan JSON.")
+    widget_bindings.add_argument("--out", type=Path, help="Optional output JSON path.")
+    widget_bindings.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    widget_skeleton = subparsers.add_parser(
+        "review-workbench-widget-skeleton",
+        help="Build the lazy PySide6 Review Workbench widget skeleton from the Qt binding plan.",
+    )
+    widget_skeleton.add_argument("--duplicate-review-json", type=Path, help="Optional duplicate-review summary JSON.")
+    widget_skeleton.add_argument("--similar-images-json", type=Path, help="Optional similar-images summary JSON.")
+    widget_skeleton.add_argument("--decision-summary-json", type=Path, help="Optional decision-summary JSON.")
+    widget_skeleton.add_argument("--people-review-summary-json", type=Path, help="Optional people-review summary JSON.")
+    widget_skeleton.add_argument("--people-bundle-dir", type=Path, help="Optional people review bundle directory.")
+    widget_skeleton.add_argument("--selected-lane", help="Optional selected review lane id.")
+    widget_skeleton.add_argument("--lane-status", default="all", choices=["all", "needs_review", "ready", "empty"], help="Lane status filter. Default: all.")
+    widget_skeleton.add_argument("--lane-query", default="", help="Lane search query.")
+    widget_skeleton.add_argument("--lane-sort", default="attention_first", help="Lane sort mode. Default: attention_first.")
+    widget_skeleton.add_argument("--page", type=int, default=1, help="Table page. Default: 1.")
+    widget_skeleton.add_argument("--page-size", type=int, default=20, help="Table page size. Default: 20.")
+    widget_skeleton.add_argument("--out-dir", type=Path, help="Optional directory for the widget skeleton JSON.")
+    widget_skeleton.add_argument("--out", type=Path, help="Optional output JSON path.")
+    widget_skeleton.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    interactions = subparsers.add_parser(
+        "review-workbench-interactions",
+        help="Build non-executing Qt signal and toolbar interaction intents for the Review Workbench.",
+    )
+    interactions.add_argument("--duplicate-review-json", type=Path, help="Optional duplicate-review summary JSON.")
+    interactions.add_argument("--similar-images-json", type=Path, help="Optional similar-images summary JSON.")
+    interactions.add_argument("--decision-summary-json", type=Path, help="Optional decision-summary JSON.")
+    interactions.add_argument("--people-review-summary-json", type=Path, help="Optional people-review summary JSON.")
+    interactions.add_argument("--people-bundle-dir", type=Path, help="Optional people review bundle directory.")
+    interactions.add_argument("--selected-lane", help="Optional selected review lane id.")
+    interactions.add_argument("--lane-status", default="all", choices=["all", "needs_review", "ready", "empty"], help="Lane status filter. Default: all.")
+    interactions.add_argument("--lane-query", default="", help="Lane search query.")
+    interactions.add_argument("--lane-sort", default="attention_first", help="Lane sort mode. Default: attention_first.")
+    interactions.add_argument("--page", type=int, default=1, help="Table page. Default: 1.")
+    interactions.add_argument("--page-size", type=int, default=20, help="Table page size. Default: 20.")
+    interactions.add_argument("--out-dir", type=Path, help="Optional directory for the interaction plan JSON.")
+    interactions.add_argument("--out", type=Path, help="Optional output JSON path.")
+    interactions.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    callback_mounts = subparsers.add_parser(
+        "review-workbench-callback-mounts",
+        help="Build concrete non-executing Qt signal callback mounts for the Review Workbench.",
+    )
+    callback_mounts.add_argument("--duplicate-review-json", type=Path, help="Optional duplicate-review summary JSON.")
+    callback_mounts.add_argument("--similar-images-json", type=Path, help="Optional similar-images summary JSON.")
+    callback_mounts.add_argument("--decision-summary-json", type=Path, help="Optional decision-summary JSON.")
+    callback_mounts.add_argument("--people-review-summary-json", type=Path, help="Optional people-review summary JSON.")
+    callback_mounts.add_argument("--people-bundle-dir", type=Path, help="Optional people review bundle directory.")
+    callback_mounts.add_argument("--selected-lane", help="Optional selected review lane id.")
+    callback_mounts.add_argument("--lane-status", default="all", choices=["all", "needs_review", "ready", "empty"], help="Lane status filter. Default: all.")
+    callback_mounts.add_argument("--lane-query", default="", help="Lane search query.")
+    callback_mounts.add_argument("--lane-sort", default="attention_first", help="Lane sort mode. Default: attention_first.")
+    callback_mounts.add_argument("--page", type=int, default=1, help="Table page. Default: 1.")
+    callback_mounts.add_argument("--page-size", type=int, default=20, help="Table page size. Default: 20.")
+    callback_mounts.add_argument("--out-dir", type=Path, help="Optional directory for the callback mount plan JSON.")
+    callback_mounts.add_argument("--out", type=Path, help="Optional output JSON path.")
+    callback_mounts.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    apply_preview = subparsers.add_parser(
+        "review-workbench-apply-preview",
+        help="Build a non-executing reviewed apply command-plan preview for the Review Workbench.",
+    )
+    apply_preview.add_argument("--duplicate-review-json", type=Path, help="Optional duplicate-review summary JSON.")
+    apply_preview.add_argument("--similar-images-json", type=Path, help="Optional similar-images summary JSON.")
+    apply_preview.add_argument("--decision-summary-json", type=Path, help="Optional decision-summary JSON.")
+    apply_preview.add_argument("--people-review-summary-json", type=Path, help="Optional people-review summary JSON.")
+    apply_preview.add_argument("--people-bundle-dir", type=Path, help="Optional people review bundle directory.")
+    apply_preview.add_argument("--reviewed-decision-plan-json", type=Path, help="Optional reviewed decision plan JSON.")
+    apply_preview.add_argument("--selected-lane", help="Optional selected review lane id.")
+    apply_preview.add_argument("--lane-status", default="all", choices=["all", "needs_review", "ready", "empty"], help="Lane status filter. Default: all.")
+    apply_preview.add_argument("--lane-query", default="", help="Lane search query.")
+    apply_preview.add_argument("--lane-sort", default="attention_first", help="Lane sort mode. Default: attention_first.")
+    apply_preview.add_argument("--page", type=int, default=1, help="Table page. Default: 1.")
+    apply_preview.add_argument("--page-size", type=int, default=20, help="Table page size. Default: 20.")
+    apply_preview.add_argument("--out-dir", type=Path, help="Optional directory for the apply preview JSON bundle.")
+    apply_preview.add_argument("--out", type=Path, help="Optional output JSON path.")
+    apply_preview.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    confirmation_dialog = subparsers.add_parser(
+        "review-workbench-confirmation-dialog",
+        help="Build a guarded non-executing confirmation dialog model for the Review Workbench apply preview.",
+    )
+    confirmation_dialog.add_argument("--duplicate-review-json", type=Path, help="Optional duplicate-review summary JSON.")
+    confirmation_dialog.add_argument("--similar-images-json", type=Path, help="Optional similar-images summary JSON.")
+    confirmation_dialog.add_argument("--decision-summary-json", type=Path, help="Optional decision-summary JSON.")
+    confirmation_dialog.add_argument("--people-review-summary-json", type=Path, help="Optional people-review summary JSON.")
+    confirmation_dialog.add_argument("--people-bundle-dir", type=Path, help="Optional people review bundle directory.")
+    confirmation_dialog.add_argument("--reviewed-decision-plan-json", type=Path, help="Optional reviewed decision plan JSON.")
+    confirmation_dialog.add_argument("--selected-lane", help="Optional selected review lane id.")
+    confirmation_dialog.add_argument("--lane-status", default="all", choices=["all", "needs_review", "ready", "empty"], help="Lane status filter. Default: all.")
+    confirmation_dialog.add_argument("--lane-query", default="", help="Lane search query.")
+    confirmation_dialog.add_argument("--lane-sort", default="attention_first", help="Lane sort mode. Default: attention_first.")
+    confirmation_dialog.add_argument("--page", type=int, default=1, help="Table page. Default: 1.")
+    confirmation_dialog.add_argument("--page-size", type=int, default=20, help="Table page size. Default: 20.")
+    confirmation_dialog.add_argument("--out-dir", type=Path, help="Optional directory for the confirmation dialog JSON bundle.")
+    confirmation_dialog.add_argument("--out", type=Path, help="Optional output JSON path.")
+    confirmation_dialog.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    apply_executor = subparsers.add_parser(
+        "review-workbench-apply-executor-contract",
+        help="Build a disabled-by-default dry-run executor contract for the Review Workbench confirmation dialog.",
+    )
+    apply_executor.add_argument("--duplicate-review-json", type=Path, help="Optional duplicate-review summary JSON.")
+    apply_executor.add_argument("--similar-images-json", type=Path, help="Optional similar-images summary JSON.")
+    apply_executor.add_argument("--decision-summary-json", type=Path, help="Optional decision-summary JSON.")
+    apply_executor.add_argument("--people-review-summary-json", type=Path, help="Optional people-review summary JSON.")
+    apply_executor.add_argument("--people-bundle-dir", type=Path, help="Optional people review bundle directory.")
+    apply_executor.add_argument("--reviewed-decision-plan-json", type=Path, help="Optional reviewed decision plan JSON.")
+    apply_executor.add_argument("--typed-confirmation", help="Optional typed confirmation phrase for preflight evaluation. Never persisted as an execution approval.")
+    apply_executor.add_argument("--executor-enabled", action="store_true", help="Probe the refusal path; this contract still never executes commands.")
+    apply_executor.add_argument("--selected-lane", help="Optional selected review lane id.")
+    apply_executor.add_argument("--lane-status", default="all", choices=["all", "needs_review", "ready", "empty"], help="Lane status filter. Default: all.")
+    apply_executor.add_argument("--lane-query", default="", help="Lane search query.")
+    apply_executor.add_argument("--lane-sort", default="attention_first", help="Lane sort mode. Default: attention_first.")
+    apply_executor.add_argument("--page", type=int, default=1, help="Table page. Default: 1.")
+    apply_executor.add_argument("--page-size", type=int, default=20, help="Table page size. Default: 20.")
+    apply_executor.add_argument("--out-dir", type=Path, help="Optional directory for the apply executor contract JSON bundle.")
+    apply_executor.add_argument("--out", type=Path, help="Optional output JSON path.")
+    apply_executor.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+
+    apply_handoff = subparsers.add_parser(
+        "review-workbench-apply-handoff-panel",
+        help="Build a display-only confirmation/executor handoff panel for the Review Workbench.",
+    )
+    apply_handoff.add_argument("--duplicate-review-json", type=Path, help="Optional duplicate-review summary JSON.")
+    apply_handoff.add_argument("--similar-images-json", type=Path, help="Optional similar-images summary JSON.")
+    apply_handoff.add_argument("--decision-summary-json", type=Path, help="Optional decision-summary JSON.")
+    apply_handoff.add_argument("--people-review-summary-json", type=Path, help="Optional people-review summary JSON.")
+    apply_handoff.add_argument("--people-bundle-dir", type=Path, help="Optional people review bundle directory.")
+    apply_handoff.add_argument("--reviewed-decision-plan-json", type=Path, help="Optional reviewed decision plan JSON.")
+    apply_handoff.add_argument("--typed-confirmation", help="Optional typed confirmation phrase for handoff preview. Never persisted as approval.")
+    apply_handoff.add_argument("--executor-enabled", action="store_true", help="Probe the refusal path; the handoff still never executes commands.")
+    apply_handoff.add_argument("--selected-lane", help="Optional selected review lane id.")
+    apply_handoff.add_argument("--lane-status", default="all", choices=["all", "needs_review", "ready", "empty"], help="Lane status filter. Default: all.")
+    apply_handoff.add_argument("--lane-query", default="", help="Lane search query.")
+    apply_handoff.add_argument("--lane-sort", default="attention_first", help="Lane sort mode. Default: attention_first.")
+    apply_handoff.add_argument("--page", type=int, default=1, help="Table page. Default: 1.")
+    apply_handoff.add_argument("--page-size", type=int, default=20, help="Table page size. Default: 20.")
+    apply_handoff.add_argument("--out-dir", type=Path, help="Optional directory for the handoff panel JSON bundle.")
+    apply_handoff.add_argument("--out", type=Path, help="Optional output JSON path.")
+    apply_handoff.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    stateful_rebuild = subparsers.add_parser(
+        "review-workbench-stateful-rebuild",
+        help="Apply one non-executing Review Workbench UI intent and rebuild the next page-state bundle.",
+    )
+    stateful_rebuild.add_argument("--duplicate-review-json", type=Path, help="Optional duplicate-review summary JSON.")
+    stateful_rebuild.add_argument("--similar-images-json", type=Path, help="Optional similar-images summary JSON.")
+    stateful_rebuild.add_argument("--decision-summary-json", type=Path, help="Optional decision-summary JSON.")
+    stateful_rebuild.add_argument("--people-review-summary-json", type=Path, help="Optional people-review summary JSON.")
+    stateful_rebuild.add_argument("--people-bundle-dir", type=Path, help="Optional people review bundle directory.")
+    stateful_rebuild.add_argument("--reviewed-decision-plan-json", type=Path, help="Optional reviewed decision plan JSON.")
+    stateful_rebuild.add_argument("--intent-json", type=Path, help="Optional Review Workbench update intent JSON.")
+    stateful_rebuild.add_argument(
+        "--intent-action",
+        default="refresh_view",
+        choices=["select_lane", "set_filter", "set_query", "set_sort", "set_page", "set_page_size", "reset_view", "refresh_view", "open_selected_lane", "disabled_apply"],
+        help="Intent action to reduce before rebuilding. Default: refresh_view.",
+    )
+    stateful_rebuild.add_argument("--intent-lane", help="Lane id for a select_lane intent.")
+    stateful_rebuild.add_argument("--intent-status", choices=["all", "needs_review", "ready", "empty"], help="Status for a set_filter intent.")
+    stateful_rebuild.add_argument("--intent-query", help="Query for a set_query intent.")
+    stateful_rebuild.add_argument("--intent-sort", help="Sort mode for a set_sort intent.")
+    stateful_rebuild.add_argument("--intent-page", type=int, help="Page for a set_page intent.")
+    stateful_rebuild.add_argument("--intent-page-size", type=int, help="Page size for a set_page_size intent.")
+    stateful_rebuild.add_argument("--selected-lane", help="Initial selected review lane id.")
+    stateful_rebuild.add_argument("--lane-status", default="all", choices=["all", "needs_review", "ready", "empty"], help="Initial lane status filter. Default: all.")
+    stateful_rebuild.add_argument("--lane-query", default="", help="Initial lane search query.")
+    stateful_rebuild.add_argument("--lane-sort", default="attention_first", help="Initial lane sort mode. Default: attention_first.")
+    stateful_rebuild.add_argument("--page", type=int, default=1, help="Initial table page. Default: 1.")
+    stateful_rebuild.add_argument("--page-size", type=int, default=20, help="Initial table page size. Default: 20.")
+    stateful_rebuild.add_argument("--out-dir", type=Path, help="Optional directory for the stateful rebuild JSON bundle.")
+    stateful_rebuild.add_argument("--out", type=Path, help="Optional output JSON path.")
+    stateful_rebuild.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
+
+    stateful_callbacks = subparsers.add_parser(
+        "review-workbench-stateful-callbacks",
+        help="Build or run the non-executing Qt callback-to-stateful-rebuild bridge for the Review Workbench.",
+    )
+    stateful_callbacks.add_argument("--duplicate-review-json", type=Path, help="Optional duplicate-review summary JSON.")
+    stateful_callbacks.add_argument("--similar-images-json", type=Path, help="Optional similar-images summary JSON.")
+    stateful_callbacks.add_argument("--decision-summary-json", type=Path, help="Optional decision-summary JSON.")
+    stateful_callbacks.add_argument("--people-review-summary-json", type=Path, help="Optional people-review summary JSON.")
+    stateful_callbacks.add_argument("--people-bundle-dir", type=Path, help="Optional people review bundle directory.")
+    stateful_callbacks.add_argument("--reviewed-decision-plan-json", type=Path, help="Optional reviewed decision plan JSON.")
+    stateful_callbacks.add_argument("--callback-intent-json", type=Path, help="Optional callback intent JSON. If omitted, the command returns the callback plan.")
+    stateful_callbacks.add_argument("--callback-kind", help="Callback intent kind, for example filter_query_changed or lane_selected.")
+    stateful_callbacks.add_argument("--callback-lane", help="Lane id for lane callback intents.")
+    stateful_callbacks.add_argument("--callback-status", choices=["all", "needs_review", "ready", "empty"], help="Status for filter_status_changed.")
+    stateful_callbacks.add_argument("--callback-query", help="Query for filter_query_changed.")
+    stateful_callbacks.add_argument("--callback-sort", help="Sort mode for sort_mode_changed.")
+    stateful_callbacks.add_argument("--selected-lane", help="Initial selected review lane id.")
+    stateful_callbacks.add_argument("--lane-status", default="all", choices=["all", "needs_review", "ready", "empty"], help="Initial lane status filter. Default: all.")
+    stateful_callbacks.add_argument("--lane-query", default="", help="Initial lane search query.")
+    stateful_callbacks.add_argument("--lane-sort", default="attention_first", help="Initial lane sort mode. Default: attention_first.")
+    stateful_callbacks.add_argument("--page", type=int, default=1, help="Initial table page. Default: 1.")
+    stateful_callbacks.add_argument("--page-size", type=int, default=20, help="Initial table page size. Default: 20.")
+    stateful_callbacks.add_argument("--out-dir", type=Path, help="Optional directory for the stateful callback plan JSON bundle.")
+    stateful_callbacks.add_argument("--out", type=Path, help="Optional output JSON path.")
+    stateful_callbacks.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")
 
     workspace = subparsers.add_parser("workspace", help="Create, show, or update persisted GUI workspace state.")
     workspace_sub = workspace.add_subparsers(dest="workspace_command")
@@ -206,6 +473,23 @@ def _print_pages_text(payload: dict[str, object]) -> None:
                 print(f"  - {page.get('page_id')}: {page.get('title')}")
 
 
+def _print_contracts_text(payload: dict[str, object]) -> None:
+    summary = payload.get("summary", {})
+    print("GUI app-service contracts")
+    print(f"  Contracts: {payload.get('contract_count', 0)}")
+    if isinstance(summary, dict):
+        print(f"  Stable: {summary.get('stable_contract_count', 0)}")
+        print(f"  Draft: {summary.get('draft_contract_count', 0)}")
+        print(f"  Sensitive: {summary.get('sensitive_contract_count', 0)}")
+    for contract in payload.get("contracts", []):
+        if isinstance(contract, dict):
+            print(f"  - {contract.get('contract_id')}: {contract.get('title')}")
+
+
+def _print_contract_bindings_text(payload: dict[str, object]) -> None:
+    print(summarize_gui_app_contract_bindings(payload))
+
+
 def _print_preview_text(payload: dict[str, object]) -> None:
     summary = payload.get("summary", {})
     print("People review apply preview")
@@ -261,6 +545,216 @@ def _print_ui_view_models_text(payload: dict[str, object]) -> None:
         print(f"  Output dir: {payload.get('output_dir')}")
         print(f"  Written files: {payload.get('written_file_count')}")
 
+
+def _print_review_workbench_text(payload: dict[str, object]) -> None:
+    summary = payload.get("summary", {})
+    readiness = payload.get("readiness", {})
+    print("GUI Review Workbench service bundle")
+    if isinstance(summary, dict):
+        print(f"  Lanes: {summary.get('lane_count', 0)}")
+        print(f"  Needs review: {summary.get('attention_count', 0)}")
+        print(f"  Selected lane: {summary.get('selected_lane_id')}")
+        print(f"  Qt components: {summary.get('qt_component_count', 0)}")
+        print(f"  Qt widget bindings: {summary.get('qt_widget_binding_count', 0)}")
+    if isinstance(readiness, dict):
+        print(f"  Ready: {readiness.get('ready')}")
+        print(f"  Status: {readiness.get('status')}")
+    if payload.get("output_dir"):
+        print(f"  Output dir: {payload.get('output_dir')}")
+        print(f"  Written files: {payload.get('written_file_count')}")
+
+
+def _print_widget_bindings_text(payload: dict[str, object]) -> None:
+    summary = payload.get("summary", {})
+    readiness = payload.get("readiness", {})
+    print("GUI Review Workbench Qt widget bindings")
+    if isinstance(summary, dict):
+        print(f"  Widget bindings: {summary.get('widget_binding_count', 0)}")
+        print(f"  Model bindings: {summary.get('model_binding_count', 0)}")
+        print(f"  Action bindings: {summary.get('action_binding_count', 0)}")
+        print(f"  Sensitive widgets: {summary.get('sensitive_widget_count', 0)}")
+    if isinstance(readiness, dict):
+        print(f"  Ready: {readiness.get('ready')}")
+        print(f"  Status: {readiness.get('status')}")
+    if payload.get("output_dir"):
+        print(f"  Output dir: {payload.get('output_dir')}")
+        print(f"  Written files: {payload.get('written_file_count')}")
+
+
+def _print_widget_skeleton_text(payload: dict[str, object]) -> None:
+    summary = payload.get("summary", {})
+    readiness = payload.get("readiness", {})
+    print("GUI Review Workbench Qt widget skeleton")
+    if isinstance(summary, dict):
+        print(f"  Nodes: {summary.get('node_count', 0)}")
+        print(f"  Model mounts: {summary.get('model_mount_count', 0)}")
+        print(f"  Signal wires: {summary.get('signal_wire_count', 0)}")
+        print(f"  Route wires: {summary.get('route_wire_count', 0)}")
+    if isinstance(readiness, dict):
+        print(f"  Ready: {readiness.get('ready')}")
+        print(f"  Status: {readiness.get('status')}")
+    if payload.get("output_dir"):
+        print(f"  Output dir: {payload.get('output_dir')}")
+        print(f"  Written files: {payload.get('written_file_count')}")
+
+
+
+
+def _print_interactions_text(payload: dict[str, object]) -> None:
+    summary = payload.get("summary", {})
+    readiness = payload.get("readiness", {})
+    print("GUI Review Workbench interactions")
+    if isinstance(summary, dict):
+        print(f"  Intents: {summary.get('intent_count', 0)}")
+        print(f"  Signal bindings: {summary.get('signal_binding_count', 0)}")
+        print(f"  Toolbar bindings: {summary.get('toolbar_binding_count', 0)}")
+        print(f"  Route previews: {summary.get('route_preview_count', 0)}")
+    if isinstance(readiness, dict):
+        print(f"  Ready: {readiness.get('ready')}")
+        print(f"  Status: {readiness.get('status')}")
+    if payload.get("output_dir"):
+        print(f"  Output dir: {payload.get('output_dir')}")
+        print(f"  Written files: {payload.get('written_file_count')}")
+
+
+def _print_callback_mounts_text(payload: dict[str, object]) -> None:
+    summary = payload.get("summary", {})
+    readiness = payload.get("readiness", {})
+    print("GUI Review Workbench callback mounts")
+    if isinstance(summary, dict):
+        print(f"  Callback mounts: {summary.get('callback_mount_count', 0)}")
+        print(f"  Widget callbacks: {summary.get('widget_callback_mount_count', 0)}")
+        print(f"  Toolbar callbacks: {summary.get('toolbar_callback_mount_count', 0)}")
+        print(f"  Enabled callbacks: {summary.get('enabled_callback_mount_count', 0)}")
+        print(f"  Route-deferred callbacks: {summary.get('route_deferred_callback_count', 0)}")
+    if isinstance(readiness, dict):
+        print(f"  Ready: {readiness.get('ready')}")
+        print(f"  Status: {readiness.get('status')}")
+    if payload.get("output_dir"):
+        print(f"  Output dir: {payload.get('output_dir')}")
+        print(f"  Written files: {payload.get('written_file_count')}")
+
+
+def _print_apply_preview_text(payload: dict[str, object]) -> None:
+    summary = payload.get("summary", {})
+    readiness = payload.get("readiness", {})
+    print("GUI Review Workbench apply preview")
+    if isinstance(summary, dict):
+        print(f"  Selected lane: {summary.get('selected_lane_id')}")
+        print(f"  Reviewed decisions: {summary.get('reviewed_decision_count', 0)}")
+        print(f"  Candidate commands: {summary.get('candidate_command_count', 0)}")
+        print(f"  Preview ready: {summary.get('preview_ready')}")
+        print(f"  Apply enabled: {summary.get('apply_enabled')}")
+    if isinstance(readiness, dict):
+        print(f"  Ready: {readiness.get('ready')}")
+        print(f"  Status: {readiness.get('status')}")
+    if payload.get("output_dir"):
+        print(f"  Output dir: {payload.get('output_dir')}")
+        print(f"  Written files: {payload.get('written_file_count')}")
+
+
+def _print_confirmation_dialog_text(payload: dict[str, object]) -> None:
+    summary = payload.get("summary", {})
+    readiness = payload.get("readiness", {})
+    confirmation = payload.get("confirmation", {})
+    print("GUI Review Workbench confirmation dialog")
+    if isinstance(summary, dict):
+        print(f"  Selected lane: {summary.get('selected_lane_id')}")
+        print(f"  Risk level: {summary.get('risk_level')}")
+        print(f"  Candidate commands: {summary.get('candidate_command_count', 0)}")
+        print(f"  Required checks: {summary.get('required_satisfied_count', 0)}/{summary.get('required_check_count', 0)}")
+        print(f"  Apply enabled: {summary.get('apply_enabled')}")
+    if isinstance(confirmation, dict):
+        print(f"  Confirmation phrase: {confirmation.get('phrase')}")
+    if isinstance(readiness, dict):
+        print(f"  Ready: {readiness.get('ready')}")
+        print(f"  Status: {readiness.get('status')}")
+    if payload.get("output_dir"):
+        print(f"  Output dir: {payload.get('output_dir')}")
+        print(f"  Written files: {payload.get('written_file_count')}")
+
+
+def _print_apply_executor_contract_text(payload: dict[str, object]) -> None:
+    summary = payload.get("summary", {})
+    readiness = payload.get("readiness", {})
+    gate = payload.get("confirmation_gate", {})
+    print("GUI Review Workbench apply executor contract")
+    if isinstance(summary, dict):
+        print(f"  Selected lane: {summary.get('selected_lane_id')}")
+        print(f"  Status: {summary.get('status')}")
+        print(f"  Candidate commands: {summary.get('candidate_command_count', 0)}")
+        print(f"  Typed confirmation matches: {summary.get('typed_confirmation_matches')}")
+        print(f"  Execution enabled: {summary.get('execution_enabled')}")
+    if isinstance(gate, dict):
+        print(f"  Required phrase: {gate.get('phrase')}")
+    if isinstance(readiness, dict):
+        print(f"  Ready for future executor: {readiness.get('ready')}")
+        print(f"  Status: {readiness.get('status')}")
+    if payload.get("output_dir"):
+        print(f"  Output dir: {payload.get('output_dir')}")
+        print(f"  Written files: {payload.get('written_file_count')}")
+
+
+
+def _print_apply_handoff_panel_text(payload: dict[str, object]) -> None:
+    summary = payload.get("summary", {})
+    readiness = payload.get("readiness", {})
+    print("GUI Review Workbench apply handoff panel")
+    if isinstance(summary, dict):
+        print(f"  Selected lane: {summary.get('selected_lane_id')}")
+        print(f"  Status: {summary.get('status')}")
+        print(f"  Executor status: {summary.get('executor_status')}")
+        print(f"  Sections: {summary.get('section_count', 0)}")
+        print(f"  Dry-run commands: {summary.get('dry_run_command_count', 0)}")
+        print(f"  Failed preflight checks: {summary.get('preflight_failed_check_count', 0)}")
+        print(f"  Execution enabled: {summary.get('execution_enabled')}")
+    if isinstance(readiness, dict):
+        print(f"  Ready/renderable: {readiness.get('ready')}")
+        print(f"  Status: {readiness.get('status')}")
+    if payload.get("output_dir"):
+        print(f"  Output dir: {payload.get('output_dir')}")
+        print(f"  Written files: {payload.get('written_file_count')}")
+
+
+def _print_stateful_rebuild_text(payload: dict[str, object]) -> None:
+    summary = payload.get("summary", {})
+    readiness = payload.get("readiness", {})
+    transition = payload.get("transition", {})
+    print("GUI Review Workbench stateful rebuild")
+    if isinstance(summary, dict):
+        print(f"  Intent action: {summary.get('intent_action')}")
+        print(f"  Changed: {summary.get('changed')}")
+        print(f"  Selected lane: {summary.get('selected_lane_id')}")
+        print(f"  Table rows: {summary.get('table_row_count', 0)}")
+        print(f"  Apply preview: {summary.get('apply_preview_status')}")
+        print(f"  Confirmation dialog: {summary.get('confirmation_dialog_status')}")
+        print(f"  Executes commands: {summary.get('executes_commands')}")
+    if isinstance(transition, dict):
+        print(f"  Rebuild required: {transition.get('rebuild_required')}")
+    if isinstance(readiness, dict):
+        print(f"  Ready: {readiness.get('ready')}")
+        print(f"  Status: {readiness.get('status')}")
+    if payload.get("output_dir"):
+        print(f"  Output dir: {payload.get('output_dir')}")
+        print(f"  Written files: {payload.get('written_file_count')}")
+
+def _print_stateful_callbacks_text(payload: dict[str, object]) -> None:
+    summary = payload.get("summary", {})
+    readiness = payload.get("readiness", {})
+    print("GUI Review Workbench stateful callbacks")
+    if isinstance(summary, dict):
+        print(f"  Callback kind: {summary.get('callback_intent_kind')}")
+        print(f"  Rebuild action: {summary.get('rebuild_action')}")
+        print(f"  Rebuild callbacks: {summary.get('page_rebuild_callback_count', 0)}")
+        print(f"  Changed: {summary.get('changed')}")
+        print(f"  Selected lane: {summary.get('selected_lane_id')}")
+        print(f"  Executes commands: {summary.get('executes_commands')}")
+    if isinstance(readiness, dict):
+        print(f"  Ready: {readiness.get('ready')}")
+        print(f"  Status: {readiness.get('status')}")
+    if payload.get("output_dir"):
+        print(f"  Output dir: {payload.get('output_dir')}")
+        print(f"  Written files: {payload.get('written_file_count')}")
 
 def _emit(payload: dict[str, object], *, out: Path | None, json_output: bool, text_printer) -> None:
     if out is not None:
@@ -383,6 +877,441 @@ def main(argv: list[str] | None = None) -> int:
         payload = {"catalog": build_gui_page_catalog(), "navigation": build_gui_navigation_state(args.active_page)}
         _emit(payload, out=args.out, json_output=args.json, text_printer=_print_pages_text)
         return 0
+
+    if command == "contracts":
+        payload = build_app_contract_inventory()
+        _emit(payload, out=args.out, json_output=args.json, text_printer=_print_contracts_text)
+        return 0
+
+    if command == "contract-bindings":
+        payload = build_gui_app_contract_bindings()
+        _emit(payload, out=args.out, json_output=args.json, text_printer=_print_contract_bindings_text)
+        return 0 if payload.get("readiness", {}).get("ready") else 2
+
+    if command == "review-workbench":
+        try:
+            duplicate_review = read_json_object(args.duplicate_review_json) if args.duplicate_review_json is not None else None
+            similar_images = read_json_object(args.similar_images_json) if args.similar_images_json is not None else None
+            decision_summary = read_json_object(args.decision_summary_json) if args.decision_summary_json is not None else None
+            people_review_summary = read_json_object(args.people_review_summary_json) if args.people_review_summary_json is not None else None
+            reviewed_decision_plan = read_json_object(args.reviewed_decision_plan_json) if args.reviewed_decision_plan_json is not None else None
+            kwargs = {
+                "duplicate_review": duplicate_review,
+                "similar_images": similar_images,
+                "decision_summary": decision_summary,
+                "people_review_summary": people_review_summary,
+                "people_bundle_dir": args.people_bundle_dir,
+                "reviewed_decision_plan": reviewed_decision_plan,
+                "selected_lane_id": args.selected_lane,
+                "lane_status_filter": args.lane_status,
+                "lane_query": args.lane_query,
+                "lane_sort_mode": args.lane_sort,
+                "page": args.page,
+                "page_size": args.page_size,
+            }
+            if args.out_dir is not None:
+                payload = write_gui_review_workbench_service_bundle(args.out_dir, **kwargs)
+            else:
+                payload = build_gui_review_workbench_service_bundle(**kwargs)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        _emit(payload, out=args.out, json_output=args.json, text_printer=_print_review_workbench_text)
+        return 0 if payload.get("readiness", {}).get("ready") else 2
+
+    if command == "review-workbench-widget-bindings":
+        try:
+            duplicate_review = read_json_object(args.duplicate_review_json) if args.duplicate_review_json is not None else None
+            similar_images = read_json_object(args.similar_images_json) if args.similar_images_json is not None else None
+            decision_summary = read_json_object(args.decision_summary_json) if args.decision_summary_json is not None else None
+            people_review_summary = read_json_object(args.people_review_summary_json) if args.people_review_summary_json is not None else None
+            service = build_gui_review_workbench_service_bundle(
+                duplicate_review=duplicate_review,
+                similar_images=similar_images,
+                decision_summary=decision_summary,
+                people_review_summary=people_review_summary,
+                people_bundle_dir=args.people_bundle_dir,
+                selected_lane_id=args.selected_lane,
+                lane_status_filter=args.lane_status,
+                lane_query=args.lane_query,
+                lane_sort_mode=args.lane_sort,
+                page=args.page,
+                page_size=args.page_size,
+            )
+            if args.out_dir is not None:
+                payload = write_qt_review_workbench_widget_binding_plan(args.out_dir, service["qt_adapter_package"])
+            else:
+                payload = dict(service["qt_widget_binding_plan"])
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        _emit(payload, out=args.out, json_output=args.json, text_printer=_print_widget_bindings_text)
+        return 0 if payload.get("readiness", {}).get("ready") else 2
+
+    if command == "review-workbench-widget-skeleton":
+        try:
+            duplicate_review = read_json_object(args.duplicate_review_json) if args.duplicate_review_json is not None else None
+            similar_images = read_json_object(args.similar_images_json) if args.similar_images_json is not None else None
+            decision_summary = read_json_object(args.decision_summary_json) if args.decision_summary_json is not None else None
+            people_review_summary = read_json_object(args.people_review_summary_json) if args.people_review_summary_json is not None else None
+            service = build_gui_review_workbench_service_bundle(
+                duplicate_review=duplicate_review,
+                similar_images=similar_images,
+                decision_summary=decision_summary,
+                people_review_summary=people_review_summary,
+                people_bundle_dir=args.people_bundle_dir,
+                selected_lane_id=args.selected_lane,
+                lane_status_filter=args.lane_status,
+                lane_query=args.lane_query,
+                lane_sort_mode=args.lane_sort,
+                page=args.page,
+                page_size=args.page_size,
+            )
+            if args.out_dir is not None:
+                payload = write_qt_review_workbench_widget_skeleton(args.out_dir, service["qt_widget_binding_plan"])
+            else:
+                payload = dict(service["qt_widget_skeleton"])
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        _emit(payload, out=args.out, json_output=args.json, text_printer=_print_widget_skeleton_text)
+        return 0 if payload.get("readiness", {}).get("ready") else 2
+
+
+    if command == "review-workbench-interactions":
+        try:
+            duplicate_review = read_json_object(args.duplicate_review_json) if args.duplicate_review_json is not None else None
+            similar_images = read_json_object(args.similar_images_json) if args.similar_images_json is not None else None
+            decision_summary = read_json_object(args.decision_summary_json) if args.decision_summary_json is not None else None
+            people_review_summary = read_json_object(args.people_review_summary_json) if args.people_review_summary_json is not None else None
+            service = build_gui_review_workbench_service_bundle(
+                duplicate_review=duplicate_review,
+                similar_images=similar_images,
+                decision_summary=decision_summary,
+                people_review_summary=people_review_summary,
+                people_bundle_dir=args.people_bundle_dir,
+                selected_lane_id=args.selected_lane,
+                lane_status_filter=args.lane_status,
+                lane_query=args.lane_query,
+                lane_sort_mode=args.lane_sort,
+                page=args.page,
+                page_size=args.page_size,
+            )
+            if args.out_dir is not None:
+                payload = write_review_workbench_interaction_plan(args.out_dir, service)
+            else:
+                payload = dict(service["interaction_plan"])
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        _emit(payload, out=args.out, json_output=args.json, text_printer=_print_interactions_text)
+        return 0 if payload.get("readiness", {}).get("ready") else 2
+
+    if command == "review-workbench-callback-mounts":
+        try:
+            duplicate_review = read_json_object(args.duplicate_review_json) if args.duplicate_review_json is not None else None
+            similar_images = read_json_object(args.similar_images_json) if args.similar_images_json is not None else None
+            decision_summary = read_json_object(args.decision_summary_json) if args.decision_summary_json is not None else None
+            people_review_summary = read_json_object(args.people_review_summary_json) if args.people_review_summary_json is not None else None
+            service = build_gui_review_workbench_service_bundle(
+                duplicate_review=duplicate_review,
+                similar_images=similar_images,
+                decision_summary=decision_summary,
+                people_review_summary=people_review_summary,
+                people_bundle_dir=args.people_bundle_dir,
+                selected_lane_id=args.selected_lane,
+                lane_status_filter=args.lane_status,
+                lane_query=args.lane_query,
+                lane_sort_mode=args.lane_sort,
+                page=args.page,
+                page_size=args.page_size,
+            )
+            if args.out_dir is not None:
+                payload = write_review_workbench_callback_mount_plan(args.out_dir, service)
+            else:
+                payload = dict(service["callback_mount_plan"])
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        _emit(payload, out=args.out, json_output=args.json, text_printer=_print_callback_mounts_text)
+        return 0 if payload.get("readiness", {}).get("ready") else 2
+
+    if command == "review-workbench-apply-preview":
+        try:
+            duplicate_review = read_json_object(args.duplicate_review_json) if args.duplicate_review_json is not None else None
+            similar_images = read_json_object(args.similar_images_json) if args.similar_images_json is not None else None
+            decision_summary = read_json_object(args.decision_summary_json) if args.decision_summary_json is not None else None
+            people_review_summary = read_json_object(args.people_review_summary_json) if args.people_review_summary_json is not None else None
+            reviewed_decision_plan = read_json_object(args.reviewed_decision_plan_json) if args.reviewed_decision_plan_json is not None else None
+            service = build_gui_review_workbench_service_bundle(
+                duplicate_review=duplicate_review,
+                similar_images=similar_images,
+                decision_summary=decision_summary,
+                people_review_summary=people_review_summary,
+                people_bundle_dir=args.people_bundle_dir,
+                reviewed_decision_plan=reviewed_decision_plan,
+                selected_lane_id=args.selected_lane,
+                lane_status_filter=args.lane_status,
+                lane_query=args.lane_query,
+                lane_sort_mode=args.lane_sort,
+                page=args.page,
+                page_size=args.page_size,
+            )
+            if args.out_dir is not None:
+                payload = write_review_workbench_apply_preview(args.out_dir, service, reviewed_decision_plan=reviewed_decision_plan)
+            else:
+                payload = dict(service["apply_preview"])
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        _emit(payload, out=args.out, json_output=args.json, text_printer=_print_apply_preview_text)
+        return 0 if payload.get("capabilities", {}).get("executes_commands") is False else 2
+
+    if command == "review-workbench-confirmation-dialog":
+        try:
+            duplicate_review = read_json_object(args.duplicate_review_json) if args.duplicate_review_json is not None else None
+            similar_images = read_json_object(args.similar_images_json) if args.similar_images_json is not None else None
+            decision_summary = read_json_object(args.decision_summary_json) if args.decision_summary_json is not None else None
+            people_review_summary = read_json_object(args.people_review_summary_json) if args.people_review_summary_json is not None else None
+            reviewed_decision_plan = read_json_object(args.reviewed_decision_plan_json) if args.reviewed_decision_plan_json is not None else None
+            service = build_gui_review_workbench_service_bundle(
+                duplicate_review=duplicate_review,
+                similar_images=similar_images,
+                decision_summary=decision_summary,
+                people_review_summary=people_review_summary,
+                people_bundle_dir=args.people_bundle_dir,
+                reviewed_decision_plan=reviewed_decision_plan,
+                selected_lane_id=args.selected_lane,
+                lane_status_filter=args.lane_status,
+                lane_query=args.lane_query,
+                lane_sort_mode=args.lane_sort,
+                page=args.page,
+                page_size=args.page_size,
+            )
+            if args.out_dir is not None:
+                payload = write_review_workbench_confirmation_dialog_model(args.out_dir, service["apply_preview"])
+            else:
+                payload = dict(service["confirmation_dialog"])
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        _emit(payload, out=args.out, json_output=args.json, text_printer=_print_confirmation_dialog_text)
+        return 0 if payload.get("capabilities", {}).get("executes_commands") is False else 2
+
+    if command == "review-workbench-apply-executor-contract":
+        try:
+            duplicate_review = read_json_object(args.duplicate_review_json) if args.duplicate_review_json is not None else None
+            similar_images = read_json_object(args.similar_images_json) if args.similar_images_json is not None else None
+            decision_summary = read_json_object(args.decision_summary_json) if args.decision_summary_json is not None else None
+            people_review_summary = read_json_object(args.people_review_summary_json) if args.people_review_summary_json is not None else None
+            reviewed_decision_plan = read_json_object(args.reviewed_decision_plan_json) if args.reviewed_decision_plan_json is not None else None
+            service = build_gui_review_workbench_service_bundle(
+                duplicate_review=duplicate_review,
+                similar_images=similar_images,
+                decision_summary=decision_summary,
+                people_review_summary=people_review_summary,
+                people_bundle_dir=args.people_bundle_dir,
+                reviewed_decision_plan=reviewed_decision_plan,
+                selected_lane_id=args.selected_lane,
+                lane_status_filter=args.lane_status,
+                lane_query=args.lane_query,
+                lane_sort_mode=args.lane_sort,
+                page=args.page,
+                page_size=args.page_size,
+            )
+            if args.out_dir is not None:
+                payload = write_review_workbench_apply_executor_contract(
+                    args.out_dir,
+                    service["confirmation_dialog"],
+                    typed_confirmation=args.typed_confirmation,
+                    executor_enabled=args.executor_enabled,
+                )
+            else:
+                payload = dict(service["apply_executor_contract"])
+                if args.typed_confirmation or args.executor_enabled:
+                    payload = build_review_workbench_apply_executor_contract(
+                        service["confirmation_dialog"],
+                        typed_confirmation=args.typed_confirmation,
+                        executor_enabled=args.executor_enabled,
+                    )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        _emit(payload, out=args.out, json_output=args.json, text_printer=_print_apply_executor_contract_text)
+        return 0 if payload.get("capabilities", {}).get("executes_commands") is False else 2
+
+
+    if command == "review-workbench-apply-handoff-panel":
+        try:
+            duplicate_review = read_json_object(args.duplicate_review_json) if args.duplicate_review_json is not None else None
+            similar_images = read_json_object(args.similar_images_json) if args.similar_images_json is not None else None
+            decision_summary = read_json_object(args.decision_summary_json) if args.decision_summary_json is not None else None
+            people_review_summary = read_json_object(args.people_review_summary_json) if args.people_review_summary_json is not None else None
+            reviewed_decision_plan = read_json_object(args.reviewed_decision_plan_json) if args.reviewed_decision_plan_json is not None else None
+            service = build_gui_review_workbench_service_bundle(
+                duplicate_review=duplicate_review,
+                similar_images=similar_images,
+                decision_summary=decision_summary,
+                people_review_summary=people_review_summary,
+                people_bundle_dir=args.people_bundle_dir,
+                reviewed_decision_plan=reviewed_decision_plan,
+                selected_lane_id=args.selected_lane,
+                lane_status_filter=args.lane_status,
+                lane_query=args.lane_query,
+                lane_sort_mode=args.lane_sort,
+                page=args.page,
+                page_size=args.page_size,
+            )
+            executor_contract = service["apply_executor_contract"]
+            if args.typed_confirmation or args.executor_enabled:
+                executor_contract = build_review_workbench_apply_executor_contract(
+                    service["confirmation_dialog"],
+                    typed_confirmation=args.typed_confirmation,
+                    executor_enabled=args.executor_enabled,
+                )
+            if args.out_dir is not None:
+                payload = write_review_workbench_executor_handoff_panel(
+                    args.out_dir,
+                    service["confirmation_dialog"],
+                    executor_contract,
+                )
+            else:
+                payload = build_review_workbench_executor_handoff_panel(service["confirmation_dialog"], executor_contract)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        _emit(payload, out=args.out, json_output=args.json, text_printer=_print_apply_handoff_panel_text)
+        return 0 if payload.get("capabilities", {}).get("executes_commands") is False else 2
+
+    if command == "review-workbench-stateful-rebuild":
+        try:
+            duplicate_review = read_json_object(args.duplicate_review_json) if args.duplicate_review_json is not None else None
+            similar_images = read_json_object(args.similar_images_json) if args.similar_images_json is not None else None
+            decision_summary = read_json_object(args.decision_summary_json) if args.decision_summary_json is not None else None
+            people_review_summary = read_json_object(args.people_review_summary_json) if args.people_review_summary_json is not None else None
+            reviewed_decision_plan = read_json_object(args.reviewed_decision_plan_json) if args.reviewed_decision_plan_json is not None else None
+            raw_intent = read_json_object(args.intent_json) if args.intent_json is not None else None
+            service = build_gui_review_workbench_service_bundle(
+                duplicate_review=duplicate_review,
+                similar_images=similar_images,
+                decision_summary=decision_summary,
+                people_review_summary=people_review_summary,
+                people_bundle_dir=args.people_bundle_dir,
+                reviewed_decision_plan=reviewed_decision_plan,
+                selected_lane_id=args.selected_lane,
+                lane_status_filter=args.lane_status,
+                lane_query=args.lane_query,
+                lane_sort_mode=args.lane_sort,
+                page=args.page,
+                page_size=args.page_size,
+            )
+            intent = normalize_review_workbench_rebuild_intent(
+                raw_intent,
+                action=args.intent_action,
+                lane_id=args.intent_lane,
+                status=args.intent_status,
+                query=args.intent_query,
+                sort_mode=args.intent_sort,
+                page=args.intent_page,
+                page_size=args.intent_page_size,
+            )
+            if args.out_dir is not None:
+                payload = write_review_workbench_stateful_rebuild_bundle(
+                    args.out_dir,
+                    service,
+                    intent,
+                    duplicate_review=duplicate_review,
+                    similar_images=similar_images,
+                    decision_summary=decision_summary,
+                    people_review_summary=people_review_summary,
+                    people_bundle_dir=args.people_bundle_dir,
+                    reviewed_decision_plan=reviewed_decision_plan,
+                )
+            else:
+                payload = build_review_workbench_stateful_rebuild_bundle(
+                    service,
+                    intent,
+                    duplicate_review=duplicate_review,
+                    similar_images=similar_images,
+                    decision_summary=decision_summary,
+                    people_review_summary=people_review_summary,
+                    people_bundle_dir=args.people_bundle_dir,
+                    reviewed_decision_plan=reviewed_decision_plan,
+                )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        _emit(payload, out=args.out, json_output=args.json, text_printer=_print_stateful_rebuild_text)
+        return 0 if payload.get("capabilities", {}).get("executes_commands") is False else 2
+
+    if command == "review-workbench-stateful-callbacks":
+        try:
+            duplicate_review = read_json_object(args.duplicate_review_json) if args.duplicate_review_json is not None else None
+            similar_images = read_json_object(args.similar_images_json) if args.similar_images_json is not None else None
+            decision_summary = read_json_object(args.decision_summary_json) if args.decision_summary_json is not None else None
+            people_review_summary = read_json_object(args.people_review_summary_json) if args.people_review_summary_json is not None else None
+            reviewed_decision_plan = read_json_object(args.reviewed_decision_plan_json) if args.reviewed_decision_plan_json is not None else None
+            raw_callback = read_json_object(args.callback_intent_json) if args.callback_intent_json is not None else None
+            service = build_gui_review_workbench_service_bundle(
+                duplicate_review=duplicate_review,
+                similar_images=similar_images,
+                decision_summary=decision_summary,
+                people_review_summary=people_review_summary,
+                people_bundle_dir=args.people_bundle_dir,
+                reviewed_decision_plan=reviewed_decision_plan,
+                selected_lane_id=args.selected_lane,
+                lane_status_filter=args.lane_status,
+                lane_query=args.lane_query,
+                lane_sort_mode=args.lane_sort,
+                page=args.page,
+                page_size=args.page_size,
+            )
+            callback_intent = raw_callback
+            if callback_intent is None and args.callback_kind:
+                callback_intent = {
+                    "kind": "ui_review_workbench_interaction_intent",
+                    "intent_kind": args.callback_kind,
+                    "lane_id": args.callback_lane,
+                    "status": args.callback_status,
+                    "query": args.callback_query or "",
+                    "sort_mode": args.callback_sort,
+                    "executes_commands": False,
+                    "executes_immediately": False,
+                }
+            if callback_intent is None:
+                if args.out_dir is not None:
+                    payload = write_review_workbench_stateful_callback_plan(args.out_dir, service)
+                else:
+                    payload = build_review_workbench_stateful_callback_plan(service)
+            else:
+                payload = build_review_workbench_stateful_callback_response(
+                    service,
+                    callback_intent,
+                    duplicate_review=duplicate_review,
+                    similar_images=similar_images,
+                    decision_summary=decision_summary,
+                    people_review_summary=people_review_summary,
+                    people_bundle_dir=args.people_bundle_dir,
+                    reviewed_decision_plan=reviewed_decision_plan,
+                )
+                if args.out_dir is not None:
+                    args.out_dir.mkdir(parents=True, exist_ok=True)
+                    write_json_object(args.out_dir / "review_workbench_stateful_callback_response.json", payload)
+                    write_json_object(args.out_dir / "review_workbench_stateful_callback_normalized_intent.json", payload.get("normalized_rebuild_intent", {}))
+                    write_json_object(args.out_dir / "review_workbench_stateful_callback_next_page_state.json", payload.get("next_page_state", {}))
+                    write_json_object(args.out_dir / "review_workbench_stateful_callback_rebuild_bundle.json", payload.get("rebuild_bundle", {}))
+                    readme = args.out_dir / "README.txt"
+                    readme.write_text(
+                        "Review Workbench stateful callback response\n"
+                        "Applies one non-executing Qt callback intent through the stateful rebuild loop and writes the next page-state payload.\n",
+                        encoding="utf-8",
+                    )
+                    payload = {
+                        **payload,
+                        "output_dir": str(args.out_dir),
+                        "written_files": [
+                            str(args.out_dir / "review_workbench_stateful_callback_response.json"),
+                            str(args.out_dir / "review_workbench_stateful_callback_normalized_intent.json"),
+                            str(args.out_dir / "review_workbench_stateful_callback_next_page_state.json"),
+                            str(args.out_dir / "review_workbench_stateful_callback_rebuild_bundle.json"),
+                            str(readme),
+                        ],
+                        "written_file_count": 5,
+                    }
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            parser.error(str(exc))
+        _emit(payload, out=args.out, json_output=args.json, text_printer=_print_stateful_callbacks_text)
+        return 0 if payload.get("capabilities", {}).get("executes_commands") is False else 2
 
     if command == "workspace":
         workspace_command = args.workspace_command or "show"

@@ -13,6 +13,7 @@ from .gui_people_review_model import build_people_review_card_grid, build_people
 from .gui_people_review_editor_model import build_people_review_editor_state
 from .gui_people_review_queue import build_people_review_queue
 from .gui_profile_editor_model import build_profile_form_schema, build_profile_list_state
+from .gui_review_workbench_service import build_gui_review_workbench_service_bundle
 from .gui_run_history_model import build_run_history_page_state
 from .gui_run_wizard_model import build_run_wizard_model
 from .gui_table_state import build_table_state
@@ -220,6 +221,56 @@ def build_people_review_page_model(home_state: Mapping[str, Any], *, asset_limit
     return load_people_review_page_model(bundle_dir, asset_limit=asset_limit, language=language, query=query, selected_group_id=selected_group_id, density=density)
 
 
+def build_review_workbench_page_model(home_state: Mapping[str, Any], *, language: str = "en", query: str = "", density: str = "comfortable") -> dict[str, object]:
+    people = _as_mapping(home_state.get("people_review")) if isinstance(home_state.get("people_review"), Mapping) else {}
+    bundle_dir = people.get("bundle_dir")
+    service = build_gui_review_workbench_service_bundle(
+        people_bundle_dir=bundle_dir if isinstance(bundle_dir, (str, Path)) else None,
+        lane_query=query,
+    )
+    adapter = _as_mapping(service.get("qt_adapter_package"))
+    widget_binding_plan = _as_mapping(service.get("qt_widget_binding_plan"))
+    widget_skeleton = _as_mapping(service.get("qt_widget_skeleton"))
+    interaction_plan = _as_mapping(service.get("interaction_plan"))
+    callback_mount_plan = _as_mapping(service.get("callback_mount_plan"))
+    apply_preview = _as_mapping(service.get("apply_preview"))
+    confirmation_dialog = _as_mapping(service.get("confirmation_dialog"))
+    apply_executor_contract = _as_mapping(service.get("apply_executor_contract"))
+    executor_handoff_panel = _as_mapping(service.get("executor_handoff_panel"))
+    stateful_rebuild_loop = _as_mapping(service.get("stateful_rebuild_loop"))
+    stateful_callback_plan = _as_mapping(service.get("stateful_callback_plan"))
+    summary = _as_mapping(service.get("summary"))
+    return {
+        "schema_version": PAGE_MODEL_SCHEMA_VERSION,
+        "page_id": "review-workbench",
+        "title": "Review Workbench",
+        "description": "One desktop page for duplicate, similar-image, people, and apply-readiness review queues.",
+        "kind": "review_workbench_page",
+        "layout": "review_workbench_table_detail",
+        "density": density,
+        "language": language,
+        "query": query,
+        "workbench_service": service,
+        "qt_adapter_package": adapter,
+        "qt_widget_binding_plan": widget_binding_plan,
+        "qt_widget_skeleton": widget_skeleton,
+        "interaction_plan": interaction_plan,
+        "callback_mount_plan": callback_mount_plan,
+        "apply_preview": apply_preview,
+        "confirmation_dialog": confirmation_dialog,
+        "apply_executor_contract": apply_executor_contract,
+        "executor_handoff_panel": executor_handoff_panel,
+        "stateful_rebuild_loop": stateful_rebuild_loop,
+        "stateful_callback_plan": stateful_callback_plan,
+        "view_model": _as_mapping(service.get("view_model")),
+        "table_model": _as_mapping(service.get("table_model")),
+        "action_plan": _as_mapping(service.get("action_plan")),
+        "summary": dict(summary),
+        "empty_state": build_empty_state("review-workbench", language=language) if summary.get("lane_count", 0) == 0 else None,
+        "validation": build_validation_panel(page_id="review-workbench", page_model={"summary": summary, "adapter": adapter}, language=language),
+    }
+
+
 def build_settings_page_model(home_state: Mapping[str, Any], *, language: str = "en", density: str = "comfortable") -> dict[str, object]:
     manifest = _as_mapping(home_state.get("manifest_summary"))
     return {
@@ -287,6 +338,8 @@ def build_page_model(page_id: str, home_state: Mapping[str, Any], *, language: s
         return build_profiles_page_model(home_state, language=language, query=query, density=density)
     if normalized in {"people-review", "people"}:
         return build_people_review_page_model(home_state, language=language, query=query, selected_group_id=selected_group_id, density=density)
+    if normalized == "review-workbench":
+        return build_review_workbench_page_model(home_state, language=language, query=query, density=density)
     if normalized in {"settings", "doctor"}:
         return build_settings_page_model(home_state, language=language, density=density)
     if normalized in {"new-run", "new run"}:
@@ -307,6 +360,7 @@ __all__ = [
     "build_page_model",
     "build_people_review_page_model",
     "build_profiles_page_model",
+    "build_review_workbench_page_model",
     "build_runs_page_model",
     "build_settings_page_model",
     "load_people_review_page_model",

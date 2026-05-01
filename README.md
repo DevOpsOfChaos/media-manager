@@ -149,9 +149,34 @@ The goal is that the UI can discover supported workflows and render run results 
 media-manager app manifest
 media-manager app manifest --json
 media-manager-app manifest --json
+media-manager app-services contracts
+media-manager app-services contracts --json
+media-manager app-services contract-bindings
+media-manager app-services contract-bindings --json
+media-manager app-services review-workbench
+media-manager app-services review-workbench --json
+media-manager app-services review-workbench --out-dir .\review-workbench-bundle
+media-manager app-services review-workbench-interactions --json
+media-manager app-services review-workbench-interactions --out-dir .\review-workbench-interactions
+media-manager app-services review-workbench-callback-mounts --json
+media-manager app-services review-workbench-callback-mounts --out-dir .\review-workbench-callback-mounts
+media-manager app-services review-workbench-apply-preview --json
+media-manager app-services review-workbench-apply-preview --out-dir .\review-workbench-apply-preview
+media-manager app-services review-workbench-confirmation-dialog --json
+media-manager app-services review-workbench-confirmation-dialog --out-dir .\review-workbench-confirmation-dialog
+media-manager app-services review-workbench-apply-executor-contract --json
+media-manager app-services review-workbench-apply-executor-contract --out-dir .\review-workbench-apply-executor-contract
+media-manager app-services review-workbench-apply-handoff-panel --json
+media-manager app-services review-workbench-apply-handoff-panel --out-dir .\review-workbench-apply-handoff-panel
+media-manager app-services review-workbench-stateful-rebuild --intent-action set_query --intent-query people --json
+media-manager app-services review-workbench-stateful-callbacks --callback-kind filter_query_changed --callback-query people --json
+media-manager app-services review-workbench-stateful-rebuild --intent-action select_lane --intent-lane people-review --out-dir .\review-workbench-stateful-rebuild
+media-manager app-services desktop-runtime --active-page review-workbench --json
 ```
 
-The manifest includes command capabilities, supported options, risk levels, supported media formats, and the run-artifact contract.
+The Review Workbench service is the first product-facing GUI bridge: it builds review lanes, a table model, controller state, a guarded Qt workbench payload, route intents, a Qt adapter descriptor package, a descriptor-only Qt widget binding plan, a lazy Qt widget skeleton, a local interaction plan, concrete callback mounts, a non-executing apply-preview command-plan contract, a guarded confirmation dialog model, and a disabled-by-default apply executor contract without importing PySide6, opening a window, or executing media operations. `desktop-runtime --active-page review-workbench` now treats Review Workbench as a real headless page, not a placeholder. The desktop Qt renderer consumes that skeleton through a PySide6-lazy builder. The interaction plan maps filter changes, lane selection, row activation, and toolbar actions to explicit non-executing UI intents; the callback mount plan wires those intents to concrete lazy Qt signal callbacks. The stateful callback bridge now connects those callbacks to the stateful rebuild loop, so filter/selection/reset/refresh callbacks can request a fresh `next_page_state` payload instead of mutating hidden GUI state. The apply-preview contract turns reviewed decisions into a confirmation-gated command-plan preview, and `review-workbench-confirmation-dialog` renders the risk summary, required checks, candidate commands, and typed confirmation phrase while still keeping command execution disabled. `review-workbench-apply-executor-contract` adds the disabled-by-default dry-run executor boundary: preflight checks, audit plan, mutation policy, and command previews exist, but execution remains off. `review-workbench-apply-handoff-panel` turns that boundary into a display-only GUI panel model with risk summary, typed-confirmation gate, preflight checklist, dry-run commands, audit rows, and disabled apply action. The stateful rebuild loop applies one local UI intent, reduces the current page state, and returns a replacement Review Workbench page-state bundle for the existing shell. It still does not import PySide6, open a window, write app state, execute commands, or perform media operations. Import smoke stays safe when the GUI extra is not installed.
+
+The manifest includes command capabilities, supported options, risk levels, supported media formats, and the run-artifact contract. `media-manager app-services contracts --json` prints the GUI-facing app-service contract inventory: which headless payloads exist, what they consume, what they produce, which surfaces use them, and which safety boundary rules the GUI must follow. `media-manager app-services contract-bindings --json` validates the next layer: every app-service contract must bind to explicit GUI pages, panels, or shell surfaces before real Qt widgets consume it. The `review_workbench_service` contract is the main handoff point for the first real Review Workbench page; `review-workbench-widget-bindings` maps its adapter components to concrete Qt widget roles, models, signals, slots, and safe route dispatchers. `review-workbench-widget-skeleton` then converts that plan into the concrete mount tree consumed by `media_manager.gui_review_workbench_qt`. `review-workbench-interactions` maps the skeleton signals and toolbar actions to local state/reload/route intents. `review-workbench-callback-mounts` adds the concrete widget callback layer for filter widgets, the lane table, detail actions, and toolbar actions. `review-workbench-apply-preview` adds the reviewed command-plan preview, `review-workbench-confirmation-dialog` turns it into a guarded dialog model with checklist, risk summary, candidate commands, and typed confirmation requirements, and `review-workbench-apply-executor-contract` defines the disabled-by-default dry-run executor boundary while keeping actual media operations behind a later explicit execution path. `review-workbench-apply-handoff-panel` then exposes that boundary as a concrete GUI handoff panel without enabling execution. `review-workbench-stateful-rebuild` is the next UI loop: filter, selection, sort, paging, reset, and refresh intents rebuild the next Qt-consumable page state instead of mutating hidden GUI-only state. `review-workbench-stateful-callbacks` binds that loop to concrete lazy Qt callbacks and returns a safe callback response with `next_page_state` plus render-update metadata.
 
 Run artifact folders created with `--run-dir` also include GUI-facing artifacts:
 
