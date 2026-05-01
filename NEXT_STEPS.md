@@ -4,15 +4,15 @@ This file is the short product-direction checkpoint for the current active basel
 
 ## Current goal
 
-The repository already has a cleaned CLI-first / core-first baseline.
+The repository already has a cleaned core-first baseline with the CLI as the stable operational foundation.
 
-The next goal is **not** to expand a GUI yet.
+The next goal is to introduce the GUI slowly and deliberately, without letting UI code duplicate business logic or bypass preview/apply safety contracts.
 
-The next goal is to make the CLI/core foundation strong enough that a future GUI can be built on top of it without duplicating business logic.
+The GUI must stay a consumer of explicit core/application contracts: manifests, run artifacts, review workspaces, action models, journals, and undo-ready results.
 
 ## Product direction for the next phase
 
-We will prioritize the following additions before starting a new GUI layer:
+We will prioritize the following additions while the GUI layer is introduced in controlled, contract-driven steps:
 
 1. **Associated files / media groups**
    - Treat a main media file together with known related files as one operational unit.
@@ -32,9 +32,10 @@ We will prioritize the following additions before starting a new GUI layer:
 4. **Review / manual-check output paths**
    - Distinguish between normal leftovers and files that require manual review.
 
-5. **Application-layer preparation for a future GUI**
-   - New features should be added in a way that later supports a service/application layer.
-   - The CLI should be a consumer of the logic, not the only place where the logic exists.
+5. **Application-layer contracts for GUI and CLI**
+   - New features should expose service/application contracts before UI-specific behavior is added.
+   - The CLI and GUI should both consume the same logic instead of becoming separate products.
+   - GUI work should start with guarded review/workbench surfaces, not unrestricted destructive flows.
 
 ## Important rule
 
@@ -43,7 +44,7 @@ For the next implementation blocks, we prefer this order:
 1. core/application logic
 2. result and journal model
 3. CLI flags and text/JSON output
-4. GUI later
+4. GUI/workbench surface backed by the same contracts
 
 ## Immediate next design task
 

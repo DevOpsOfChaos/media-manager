@@ -35,3 +35,11 @@ reports/
 
 # Environment
 .env
+
+# Local generated run / review artifacts
+/runs/
+/people-report.json
+/people-review-workflow.json
+/people-review-workspace.json
+/people-review-decisions.json
+/people-catalog.json

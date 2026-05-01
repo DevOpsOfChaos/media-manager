@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "media-manager"
 version = "0.6.0"
-description = "CLI-first media manager core for organizing photos and videos"
+description = "Core-first media manager with CLI foundation and guarded GUI entry points"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [

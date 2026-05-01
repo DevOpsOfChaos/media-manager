@@ -2,11 +2,11 @@
 
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 
-Open-source CLI-first media organization software for photos and videos.
+Open-source CLI-founded media organization software for photos and videos, with a controlled desktop GUI layer being introduced on top of the core/application contracts.
 
 ## What this repository is
 
-This repository is the active product baseline for **core-first media management on Windows**.
+This repository is the active product baseline for **core-first media management on Windows**, with the CLI as the stable operational foundation and the desktop GUI introduced gradually through explicit app-service contracts.
 
 The current focus is:
 
@@ -15,6 +15,7 @@ The current focus is:
 - review exact duplicates and similar-media candidates
 - capture run history, journals, and undo-oriented artifacts
 - compose repeatable workflows through presets, profiles, and bundles
+- expose GUI-ready app metadata, run state, review workspaces, and guarded desktop entry points
 
 ## Product direction
 
@@ -25,14 +26,14 @@ Development priority is:
 3. state, journaling, history, and undo
 4. duplicate and similar-media review
 5. workflow helpers, reusable profiles, and profile bundles
-6. GUI later
+6. app-service contracts and guarded GUI/workbench surfaces
 
 ## Core principles
 
 - **Safety first** — preview before destructive actions
 - **Idempotent behavior** — already compliant files should be skipped
 - **Traceable decisions** — date choice, skip reasons, and target paths should stay explainable
-- **Core/UI separation** — engine decisions belong in the core, not in a future GUI
+- **Core/UI separation** — engine decisions belong in the core/application layer; the GUI must consume explicit contracts instead of duplicating behavior
 - **Windows first** — Windows is the primary target for current examples and workflows
 - **English first** — CLI output and JSON contracts stay English for now
 
@@ -68,7 +69,7 @@ media-manager duplicates --source C:\Photos --media-kind video --run-dir .\runs
 media-manager cleanup --source C:\Photos --target E:\Library --run-dir .\runs
 ```
 
-`--run-dir` writes a timestamped run folder without changing the normal console output. Each run folder contains `command.json`, `report.json`, `review.json`, `summary.txt`, `ui_state.json`, `plan_snapshot.json`, and `action_model.json`; apply runs for commands that build journal entries also include `journal.json`. This is the recommended handoff format for repeatable CLI reviews and later GUI integration.
+`--run-dir` writes a timestamped run folder without changing the normal console output. Each run folder contains `command.json`, `report.json`, `review.json`, `summary.txt`, `ui_state.json`, `plan_snapshot.json`, and `action_model.json`; apply runs for commands that build journal entries also include `journal.json`. This is the recommended handoff format for repeatable CLI reviews and the gradually introduced GUI/workbench layer.
 
 Inspect existing run folders with:
 
@@ -137,12 +138,12 @@ pytest -q
 
 This is not yet a finished consumer-facing media manager.
 
-It is a serious CLI/core-first codebase aimed at becoming a trustworthy media-management product with safer execution, clearer reporting, and repeatable workflow operations.
+It is a serious core-first codebase with the CLI as the stable operational base and a controlled desktop GUI layer being introduced through tested contracts, safer execution, clearer reporting, and repeatable workflow operations.
 
 ## GUI-ready app metadata and run state
 
-The CLI now exposes a small machine-readable app surface for a future desktop GUI.
-The goal is that a UI can discover supported workflows and render run results from JSON artifacts instead of parsing console text.
+The CLI and app-service entry points expose a machine-readable app surface for the desktop GUI/workbench layer.
+The goal is that the UI can discover supported workflows and render run results from JSON artifacts instead of parsing console text.
 
 ```powershell
 media-manager app manifest
@@ -178,9 +179,9 @@ media-manager runs --run-dir .\runs show <run-id> --artifact plan-snapshot
 media-manager runs --run-dir .\runs show <run-id> --artifact action-model
 ```
 
-## App profiles for future GUI presets
+## App profiles for GUI presets
 
-`media-manager app profiles` manages small JSON profile files that a future GUI can use as saved presets. Profiles are intentionally structured data rather than raw shell snippets, so the GUI can show editable fields, validate risky choices, and render the final CLI command only when needed.
+`media-manager app profiles` manages small JSON profile files that the GUI can use as saved presets. Profiles are intentionally structured data rather than raw shell snippets, so the GUI can show editable fields, validate risky choices, and render the final CLI command only when needed.
 
 Create a profile:
 
