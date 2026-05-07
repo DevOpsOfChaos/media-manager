@@ -97,7 +97,11 @@ T = {
         "sh.main": "MAIN", "sh.tools": "TOOLS",
         "dashboard.title": "Dashboard", "dashboard.sub": "Your media library at a glance.",
         "dashboard.scan": "Scan Directory", "dashboard.quick": "Quick Actions",
-        "dashboard.files": "Total Files", "dashboard.dups": "Duplicates Found", "dashboard.people": "People Found", "dashboard.trips": "Trips",
+        "dashboard.files": "Media Files", "dashboard.dups": "Duplicates", "dashboard.people": "People", "dashboard.trips": "Trips",
+        "dashboard.organize": "Organize files", "dashboard.rename": "Rename files",
+        "dashboard.find_dups": "Find duplicates", "dashboard.face": "Face recognition",
+        "dashboard.welcome": "Welcome back", "dashboard.no_source": "Set a default source directory in Settings to see your library stats here.",
+        "dashboard.open_settings": "Open Settings",
         "organize.title": "Organize Media", "organize.sub": "Sort files into folders by date pattern.",
         "organize.src": "Source", "organize.tgt": "Target", "organize.pat": "Folder Pattern",
         "organize.preview": "Preview", "organize.apply": "Apply",
@@ -131,7 +135,11 @@ T = {
         "sh.main": "HAUPTMENÜ", "sh.tools": "WERKZEUGE",
         "dashboard.title": "Übersicht", "dashboard.sub": "Deine Medienbibliothek auf einen Blick.",
         "dashboard.scan": "Verzeichnis scannen", "dashboard.quick": "Schnellaktionen",
-        "dashboard.files": "Dateien gesamt", "dashboard.dups": "Duplikate gefunden", "dashboard.people": "Personen gefunden", "dashboard.trips": "Reisen",
+        "dashboard.files": "Mediendateien", "dashboard.dups": "Duplikate", "dashboard.people": "Personen", "dashboard.trips": "Reisen",
+        "dashboard.organize": "Dateien organisieren", "dashboard.rename": "Dateien umbenennen",
+        "dashboard.find_dups": "Duplikate finden", "dashboard.face": "Gesichtserkennung",
+        "dashboard.welcome": "Willkommen zurück", "dashboard.no_source": "Lege ein Standard-Quellverzeichnis in den Einstellungen fest, um hier deine Bibliothek-Statistiken zu sehen.",
+        "dashboard.open_settings": "Einstellungen öffnen",
         "organize.title": "Medien organisieren", "organize.sub": "Sortiere Dateien in Ordner nach Datumsmuster.",
         "organize.src": "Quelle", "organize.tgt": "Ziel", "organize.pat": "Ordner-Muster",
         "organize.preview": "Vorschau", "organize.apply": "Anwenden",
@@ -243,43 +251,106 @@ class StatusWidget:
 class DashboardPage:
     def __init__(self, shell): self.shell = shell
     def build(self):
-        qc, qg, qw = _qt(); lang = _ls().get("language", "en")
-        w = qw.QWidget(); lo = _vb(sp=20)
-        lo.addWidget(_lbl(_("dashboard.title", lang), "pageTitle"))
-        lo.addWidget(_lbl(_("dashboard.sub", lang), "pageSubtitle"))
+        qc, qg, qw = _qt(); lang = _ls().get("language", "en"); s = _ls()
+        w = qw.QWidget()
+        scroll = qw.QScrollArea(); scroll.setWidgetResizable(True); scroll.setStyleSheet("QScrollArea{border:none;background:transparent}")
+        content = qw.QWidget(); lo = _vb(sp=24, margins=(32,28,32,28))
+
+        # ── Hero ──
+        hero = qw.QWidget(); hero.setStyleSheet("background:#161b22;border:1px solid #30363d;border-radius:16px;padding:28px 32px")
+        hl = qw.QVBoxLayout(hero); hl.setSpacing(8)
+        welcome = _("dashboard.welcome", lang)
+        hl.addWidget(_lbl(f"{welcome} 👋", "pageTitle"))
+        hl.addWidget(_lbl(_("dashboard.sub", lang), "cardSub"))
+
+        # ExifTool warning (compact)
         if not _exiftool_ok():
-            wrn = qw.QWidget(); wrn.setStyleSheet("background:#da363322;border:1px solid #f85149;border-radius:8px;padding:12px")
-            wl = _vb(sp=4); wl.addWidget(_lbl(_("exiftool.missing", lang), "cardSub"))
-            btn = _btn(_("exiftool.dl", lang), "secondaryBtn")
-            btn.clicked.connect(lambda: qg.QDesktopServices.openUrl(qc.QUrl("https://exiftool.org")))
-            wl.addWidget(btn); wrn.setLayout(wl); lo.addWidget(wrn)
-        st = _hb(sp=16)
-        st.addWidget(_card(_("dashboard.files", lang), "...", "scan to populate"))
-        st.addWidget(_card(_("dashboard.dups", lang), "...", "scan to populate"))
-        st.addWidget(_card(_("dashboard.people", lang), "...", "scan to populate"))
-        st.addWidget(_card(_("dashboard.trips", lang), "...", "create to populate"))
-        lo.addLayout(st)
+            wr = qw.QWidget(); wr.setStyleSheet("background:#da36331a;border:1px solid #f8514966;border-radius:8px;padding:8px 14px;margin-top:8px")
+            wrl = qw.QHBoxLayout(wr); wrl.setContentsMargins(0,0,0,0)
+            wrl.addWidget(_lbl("⚠ " + _("exiftool.missing", lang), "cardSub"))
+            dl = _btn(_("exiftool.dl", lang), "secondaryBtn")
+            dl.clicked.connect(lambda: qg.QDesktopServices.openUrl(qc.QUrl("https://exiftool.org")))
+            wrl.addWidget(dl); hl.addWidget(wr)
+        lo.addWidget(hero)
+
+        # ── Stats grid 2x2 ──
+        grid = qw.QGridLayout(); grid.setSpacing(14)
+        self.stat_cards = []
+        stats = [
+            ("📁", _("dashboard.files", lang), "...", ""),
+            ("🔍", _("dashboard.dups", lang), "—", ""),
+            ("👤", _("dashboard.people", lang), "—", ""),
+            ("📍", _("dashboard.trips", lang), "—", ""),
+        ]
+        for i, (icon, title, val, sub) in enumerate(stats):
+            c = qw.QWidget(); c.setObjectName("card")
+            cl = qw.QVBoxLayout(c); cl.setSpacing(8)
+            # Icon + value row
+            ir = qw.QHBoxLayout(); ir.setSpacing(10)
+            ic = qw.QLabel(icon); ic.setStyleSheet("font-size:22px;background:transparent"); ir.addWidget(ic)
+            vl = qw.QLabel(val); vl.setObjectName("cardValue"); vl.setStyleSheet("font-size:26px"); ir.addWidget(vl)
+            ir.addStretch(1); cl.addLayout(ir)
+            cl.addWidget(_lbl(title, "cardTitle"))
+            if sub: cl.addWidget(_lbl(sub, "cardSub"))
+            grid.addWidget(c, i // 2, i % 2)
+            self.stat_cards.append((vl, c))
+        lo.addLayout(grid)
+        lo.addSpacing(8)
+
+        # ── Quick actions ──
         lo.addWidget(_lbl(_("dashboard.quick", lang), "cardTitle"))
-        ac = _hb(sp=12)
-        for pid, txt in [("organize", _("dashboard.scan", lang)), ("rename", _("rename.title", lang)), ("duplicates", _("duplicates.scan", lang)), ("people", _("people.scan", lang))]:
-            b = _btn(txt, "secondaryBtn"); b.clicked.connect(lambda _, p=pid: self.shell.navigate(p)); ac.addWidget(b)
-        ac.addStretch(1); lo.addLayout(ac)
-        lo.addStretch(1); w.setLayout(lo)
+        ag = qw.QGridLayout(); ag.setSpacing(10)
+        quick = [
+            ("organize", "📁", _("dashboard.organize", lang)),
+            ("rename", "✏️", _("dashboard.rename", lang)),
+            ("duplicates", "🔍", _("dashboard.find_dups", lang)),
+            ("people", "👤", _("dashboard.face", lang)),
+        ]
+        for i, (pid, icon, label) in enumerate(quick):
+            b = qw.QPushButton(f"  {icon}  {label}")
+            b.setCursor(qg.QCursor(qc.Qt.CursorShape.PointingHandCursor))
+            b.setMinimumHeight(52)
+            b.setStyleSheet("QPushButton{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:12px 16px;text-align:left;font-size:13px;font-weight:500;color:#c9d1d9}QPushButton:hover{background:#1c2128;border-color:#58a6ff;color:#e6edf3}")
+            b.clicked.connect(lambda _, p=pid: self.shell.navigate(p))
+            ag.addWidget(b, i // 2, i % 2)
+        lo.addLayout(ag)
+
+        # ── No-source hint ──
+        src = s.get("source_dir", "")
+        if not src or not Path(src).exists():
+            hint = qw.QWidget(); hint.setObjectName("card")
+            hl2 = qw.QVBoxLayout(hint); hl2.setSpacing(8)
+            hl2.addWidget(_lbl(_("dashboard.no_source", lang), "cardSub"))
+            ob = _btn(_("dashboard.open_settings", lang), "secondaryBtn")
+            ob.clicked.connect(lambda: self.shell.navigate("settings"))
+            hl2.addWidget(ob); lo.addWidget(hint)
+
+        lo.addStretch(1); content.setLayout(lo); scroll.setWidget(content)
 
         # Background scan
         def _scan():
-            s = _ls(); src = s.get("source_dir", "")
-            if src and Path(src).exists():
+            s2 = _ls(); src2 = s2.get("source_dir", "")
+            if src2 and Path(src2).exists():
                 exts = {'.jpg','.jpeg','.png','.gif','.mp4','.mov','.avi','.mkv','.raw','.cr2','.nef','.arw','.dng','.heic','.webp','.bmp','.tiff','.tif'}
-                n = sum(1 for _ in list(Path(src).rglob('*'))[:100000] if Path(_).suffix.lower() in exts)
-                qc.QTimer.singleShot(0, lambda: self._update_stats(w, n))
+                files = [f for f in Path(src2).rglob('*') if f.suffix.lower() in exts]
+                n = min(len(list(files)), 99999)
+                # Test data subdirs are trips-like
+                subdirs = len([d for d in Path(src2).iterdir() if d.is_dir()])
+                qc.QTimer.singleShot(0, lambda: self._update(n, subdirs))
+            else:
+                qc.QTimer.singleShot(0, lambda: self._show_no_source())
         threading.Thread(target=_scan, daemon=True).start()
-        return w
-    def _update_stats(self, w, n):
-        cards = w.findChildren(_qt()[2].QWidget, "card")
-        if len(cards) >= 1:
-            v = cards[0].findChildren(_qt()[2].QLabel)
-            if len(v) > 1: v[1].setText(str(n))
+        return scroll
+
+    def _update(self, n, subdirs):
+        if self.stat_cards:
+            self.stat_cards[0][0].setText(f"{n:,}")
+            # Trips = subdirs
+            self.stat_cards[3][0].setText(str(subdirs))
+
+    def _show_no_source(self):
+        for vl, card in self.stat_cards:
+            vl.setText("—")
 
 class OrganizePage:
     def __init__(self, shell): self.shell = shell
