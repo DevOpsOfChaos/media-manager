@@ -24,15 +24,24 @@ def _ss(s):
     sf.write_text(json.dumps(s, indent=2))
 
 # ── ExifTool check ──
-def _exiftool_ok():
+def _find_exiftool():
     try:
         from src.media_manager.exiftool import resolve_exiftool_path
-        return resolve_exiftool_path() is not None
-    except: return False
+        s = _ls()
+        custom = s.get("exiftool_path", "")
+        path = resolve_exiftool_path(Path(custom) if custom else None)
+        return path
+    except: return None
+
+def _exiftool_ok():
+    return _find_exiftool() is not None
 
 # ── CLI runner ──
 def _cli(*args, timeout=120):
     cmd = [sys.executable, "-m", "media_manager"] + list(args) + ["--json"]
+    s = _ls()
+    et = s.get("exiftool_path", "")
+    if et: cmd += ["--exiftool-path", et]
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         out = r.stdout.strip()
@@ -110,6 +119,7 @@ T = {
         "settings.lang": "Language", "settings.theme": "Theme", "settings.dark": "Dark", "settings.light": "Light",
         "settings.data": "Data Folders", "settings.src_hint": "Default source directory",
         "settings.tgt_hint": "Default target directory", "settings.save": "Save",
+        "settings.exiftool": "ExifTool Location", "settings.exiftool_find": "Auto-Detect", "settings.exiftool_found": "Found:", "settings.exiftool_notfound": "Not found — select manually or install from exiftool.org",
         "filter.kind": "Media Type", "filter.all": "All", "filter.img": "Images", "filter.vid": "Videos", "filter.aud": "Audio",
         "status.ready": "Ready", "status.scanning": "Scanning files...", "status.hashing": "Hashing...",
         "status.done": "Done", "exiftool.missing": "⚠ ExifTool not found. Organize, Rename & Trips need it for reading media dates.",
@@ -143,6 +153,7 @@ T = {
         "settings.lang": "Sprache", "settings.theme": "Design", "settings.dark": "Dunkel", "settings.light": "Hell",
         "settings.data": "Datenverzeichnisse", "settings.src_hint": "Standard-Quellverzeichnis",
         "settings.tgt_hint": "Standard-Zielverzeichnis", "settings.save": "Speichern",
+        "settings.exiftool": "ExifTool-Pfad", "settings.exiftool_find": "Auto-Erkennung", "settings.exiftool_found": "Gefunden:", "settings.exiftool_notfound": "Nicht gefunden — manuell auswählen oder von exiftool.org installieren",
         "filter.kind": "Medien-Typ", "filter.all": "Alle", "filter.img": "Bilder", "filter.vid": "Videos", "filter.aud": "Audio",
         "status.ready": "Bereit", "status.scanning": "Scanne Dateien...", "status.hashing": "Berechne Hashes...",
         "status.done": "Fertig", "exiftool.missing": "⚠ ExifTool nicht gefunden. Organisieren, Umbenennen & Reisen brauchen es für Mediendaten.",
@@ -523,6 +534,23 @@ class SettingsPage:
         td.setChecked(s.get("theme")=="dark"); tl.setChecked(s.get("theme")=="light")
         td.toggled.connect(lambda: self._st("dark")); tl.toggled.connect(lambda: self._st("light"))
         tr.addWidget(td); tr.addWidget(tl); tr.addStretch(1); tfl.addLayout(tr); lo.addWidget(tf)
+        # ExifTool
+        ef = qw.QWidget(); ef.setObjectName("card"); efl = qw.QVBoxLayout(ef)
+        efl.addWidget(_lbl(_("settings.exiftool", lang), "cardTitle"))
+        etr = _hb(sp=8)
+        self.et = qw.QLineEdit(); etr.addWidget(self.et)
+        fb = _btn(_("settings.exiftool_find", lang), "secondaryBtn"); etr.addWidget(fb)
+        def _find():
+            p = _find_exiftool()
+            if p: self.et.setText(str(p)); self.etlbl.setText(f"{_('settings.exiftool_found', lang)} {p}")
+            else: self.etlbl.setText(_("settings.exiftool_notfound", lang))
+        fb.clicked.connect(_find)
+        efl.addLayout(etr)
+        found = _find_exiftool()
+        self.etlbl = _lbl(f"{_('settings.exiftool_found', lang)} {found}" if found else _("settings.exiftool_notfound", lang), "cardSub")
+        efl.addWidget(self.etlbl)
+        if s.get("exiftool_path"): self.et.setText(s["exiftool_path"])
+        lo.addWidget(ef)
         # Data folders
         df = qw.QWidget(); df.setObjectName("card"); dfl = qw.QVBoxLayout(df)
         dfl.addWidget(_lbl(_("settings.data", lang), "cardTitle"))
@@ -539,7 +567,9 @@ class SettingsPage:
     def _st(self, theme):
         s = _ls(); s["theme"] = theme; _ss(s); self.shell.window.setStyleSheet(DARK)
     def _save(self):
-        s = _ls(); s["source_dir"] = self.se.text(); s["target_dir"] = self.te.text(); _ss(s)
+        s = _ls(); s["source_dir"] = self.se.text(); s["target_dir"] = self.te.text()
+        s["exiftool_path"] = self.et.text() if hasattr(self, 'et') else ""
+        _ss(s)
         _qt()[2].QMessageBox.information(None, "Settings", "Saved.")
 
 # ── Main Shell ──

@@ -8,11 +8,35 @@ from pathlib import Path
 
 from .constants import DATE_TAG_PRIORITY
 
-COMMON_EXIFTOOL_PATHS = [
-    Path(r"C:\Program Files\exiftool\exiftool.exe"),
-    Path(r"C:\Program Files\exiftool\exiftool(-k).exe"),
-]
+COMMON_EXIFTOOL_PATHS: list[Path] = []
 COMMON_EXIFTOOL_NAMES = ("exiftool", "exiftool.exe", "exiftool(-k).exe")
+
+def _init_common_paths() -> list[Path]:
+    """Build list of common exiftool locations across all drives and known install dirs."""
+    candidates: list[Path] = []
+    # Known install directories
+    known_dirs = [
+        Path("C:/Program Files/exiftool"),
+        Path("C:/Program Files (x86)/exiftool"),
+        Path.home() / "exiftool",
+        Path.home() / "bin" / "exiftool",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "exiftool",
+        Path(os.environ.get("APPDATA", "")) / "exiftool",
+        Path("D:/Program Files/exiftool"),
+        Path("D:/exiftool"),
+    ]
+    for d in known_dirs:
+        try:
+            d = d.expanduser().resolve()
+        except Exception:
+            continue
+        for name in COMMON_EXIFTOOL_NAMES:
+            p = d / name
+            if p.is_file():
+                candidates.append(p)
+    return candidates
+
+COMMON_EXIFTOOL_PATHS = _init_common_paths()
 
 
 def _resolve_explicit_candidate(candidate: Path) -> Path | None:
@@ -32,28 +56,62 @@ def _resolve_explicit_candidate(candidate: Path) -> Path | None:
     return None
 
 
+def _search_directory_for_exiftool(directory: Path, depth: int = 2) -> Path | None:
+    """Search up to `depth` levels deep for any exiftool executable."""
+    if depth < 0:
+        return None
+    try:
+        for child in directory.iterdir():
+            if child.is_file() and child.name.lower() in {n.lower() for n in COMMON_EXIFTOOL_NAMES}:
+                return child
+        if depth > 0:
+            for child in directory.iterdir():
+                if child.is_dir():
+                    result = _search_directory_for_exiftool(child, depth - 1)
+                    if result:
+                        return result
+    except (OSError, PermissionError):
+        pass
+    return None
+
+
+def _find_in_program_files() -> Path | None:
+    """Search Program Files directories for exiftool (one level deep)."""
+    for base in [Path("C:/Program Files"), Path("C:/Program Files (x86)"), Path("D:/Program Files")]:
+        if base.exists():
+            result = _search_directory_for_exiftool(base, depth=1)
+            if result:
+                return result
+    return None
+
+
 def resolve_exiftool_path(explicit_path: Path | None = None) -> Path | None:
+    # 1. Explicit path
     if explicit_path:
         resolved = _resolve_explicit_candidate(Path(explicit_path))
         if resolved is not None:
             return resolved
 
+    # 2. Environment variable
     env_path = os.environ.get("EXIFTOOL_PATH")
     if env_path:
         resolved = _resolve_explicit_candidate(Path(env_path))
         if resolved is not None:
             return resolved
 
+    # 3. PATH (fast)
     for name in ("exiftool", "exiftool.exe"):
         which_result = shutil.which(name)
         if which_result:
             return Path(which_result)
 
+    # 4. Known common paths
     for candidate in COMMON_EXIFTOOL_PATHS:
         if candidate.is_file():
             return candidate
 
-    return None
+    # 5. Search Program Files (slower, cached)
+    return _find_in_program_files()
 
 
 
