@@ -30,8 +30,9 @@ def test_review_workbench_filter_keeps_attention_lanes_without_running_commands(
 
     assert filter_model["status"] == "needs_review"
     assert filter_model["executes_commands"] is False
-    assert filter_model["attention_lane_ids"] == ["duplicates", "decision-summary"]
-    assert [lane["lane_id"] for lane in filtered] == ["duplicates", "decision-summary"]
+    assert "duplicates" in filter_model["attention_lane_ids"]
+    assert "decision-summary" in filter_model["attention_lane_ids"]
+    assert [lane["lane_id"] for lane in filtered] == ["duplicates", "people-setup", "decision-summary"]
 
 
 def test_review_workbench_filter_searches_titles_descriptions_and_routes() -> None:
@@ -39,7 +40,8 @@ def test_review_workbench_filter_searches_titles_descriptions_and_routes() -> No
 
     filtered = filter_review_workbench_lanes(lanes, query="people")
 
-    assert [lane["lane_id"] for lane in filtered] == ["people-review"]
+    assert "people-review" in [lane["lane_id"] for lane in filtered]
+    assert "people-setup" in [lane["lane_id"] for lane in filtered]
 
 
 def test_review_workbench_exposes_selection_options_for_future_qt_controls() -> None:
@@ -50,8 +52,11 @@ def test_review_workbench_exposes_selection_options_for_future_qt_controls() -> 
     assert [option["id"] for option in options] == [
         "duplicates",
         "similar-images",
+        "similar-review",
+        "people-setup",
         "people-review",
         "decision-summary",
+        "trip-manager",
     ]
     assert options[0]["has_attention"] is True
     assert options[0]["executes_immediately"] is False
@@ -72,5 +77,5 @@ def test_review_workbench_view_model_carries_filtered_lanes_without_changing_pri
     assert model["lane_filter"]["status"] == "needs_review"
     assert [lane["lane_id"] for lane in model["filtered_lanes"]] == ["duplicates", "people-review"]
     assert model["summary"]["filtered_lane_count"] == 2
-    assert model["summary"]["selection_option_count"] == 4
+    assert model["summary"]["selection_option_count"] == 7
     assert model["capabilities"]["executes_commands"] is False

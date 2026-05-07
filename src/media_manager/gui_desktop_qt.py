@@ -20,6 +20,8 @@ from .core.gui_qt_runtime_smoke_local_artifact_pack import (
 )
 from .core.gui_qt_runtime_smoke_shell_model_adapter import apply_guarded_qt_runtime_smoke_to_shell_model
 from .core.gui_theme import build_qt_stylesheet
+from .gui_review_workbench_qt import build_review_workbench_page_widget
+from .gui_similar_comparison_qt import build_similar_comparison_page_widget
 
 
 class MissingQtDependencyError(RuntimeError):
@@ -438,6 +440,12 @@ def _render_page_content(QtWidgets, page: Mapping[str, Any]):
         _render_settings(QtWidgets, layout, page)
     elif kind == "qt_runtime_smoke_page_model":
         _render_runtime_smoke(QtWidgets, layout, page)
+    elif kind == "review_workbench_page":
+        mount = build_review_workbench_page_widget(QtWidgets, page)
+        layout.addWidget(mount.root_widget, 1)
+    elif kind == "similar_comparison_page":
+        mount = build_similar_comparison_page_widget(QtWidgets, page)
+        layout.addWidget(mount.root_widget, 1)
     else:
         empty = _mapping(page.get("empty_state"))
         _add_label(layout, QtWidgets, _text(empty.get("title"), "This view is ready for the next GUI iteration."), object_name="Muted")

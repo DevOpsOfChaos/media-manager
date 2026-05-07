@@ -34,7 +34,10 @@ def test_review_workbench_sorts_attention_lanes_before_passive_lanes() -> None:
         "duplicates",
         "decision-summary",
         "people-review",
+        "people-setup",
         "similar-images",
+        "similar-review",
+        "trip-manager",
     ]
 
 
@@ -45,14 +48,20 @@ def test_review_workbench_sorts_by_item_count_without_mutating_source_order() ->
     assert [lane["lane_id"] for lane in lanes] == [
         "duplicates",
         "similar-images",
+        "similar-review",
+        "people-setup",
         "people-review",
         "decision-summary",
+        "trip-manager",
     ]
     assert [lane["lane_id"] for lane in sorted_lanes] == [
         "similar-images",
+        "similar-review",
         "people-review",
         "duplicates",
         "decision-summary",
+        "people-setup",
+        "trip-manager",
     ]
 
 

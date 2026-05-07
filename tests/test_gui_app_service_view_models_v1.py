@@ -36,7 +36,7 @@ def test_ui_app_service_view_models_are_product_ui_contracts_without_qt() -> Non
     assert payload["view_models"]["duplicate_review"]["review_candidate_count"] == 3
     assert payload["view_models"]["similar_images"]["run_count"] == 1
     assert payload["view_models"]["decision_summary"]["apply_enabled"] is False
-    assert payload["view_models"]["review_workbench"]["summary"]["lane_count"] == 4
+    assert payload["view_models"]["review_workbench"]["summary"]["lane_count"] == 7
     assert payload["view_models"]["review_workbench"]["capabilities"]["apply_enabled"] is False
     assert payload["capabilities"]["executes_commands"] is False
     assert "PySide6" not in sys.modules

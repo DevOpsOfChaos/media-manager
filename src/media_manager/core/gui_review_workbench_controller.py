@@ -96,6 +96,9 @@ def build_review_workbench_update_intent(
         "set_page",
         "set_page_size",
         "reset_view",
+        "refresh_view",
+        "open_selected_lane",
+        "disabled_apply",
     }
     if normalized_action not in allowed:
         normalized_action = "noop"
@@ -152,6 +155,10 @@ def reduce_review_workbench_state(
             "page": 1,
             "page_size": _as_int(current.get("page_size"), 20),
         }
+    elif action in {"refresh_view", "open_selected_lane", "disabled_apply"}:
+        # These are real UI events, but they are not state reducers here.
+        # The desktop shell handles refresh/route/disabled-apply semantics.
+        pass
     return {
         "kind": "ui_review_workbench_reduced_state",
         "state": next_state,

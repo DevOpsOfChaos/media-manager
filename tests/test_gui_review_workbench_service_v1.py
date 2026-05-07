@@ -23,8 +23,8 @@ def test_review_workbench_service_builds_qt_ready_bundle_without_execution() -> 
 
     assert payload["kind"] == "gui_review_workbench_service_bundle"
     assert payload["readiness"]["ready"] is True
-    assert payload["summary"]["lane_count"] == 4
-    assert payload["summary"]["attention_count"] == 6
+    assert payload["summary"]["lane_count"] == 7
+    assert payload["summary"]["attention_count"] == 7
     assert payload["summary"]["selected_lane_id"] == "people-review"
     assert payload["capabilities"]["requires_pyside6"] is False
     assert payload["capabilities"]["opens_window"] is False

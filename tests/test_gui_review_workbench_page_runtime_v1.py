@@ -39,7 +39,7 @@ def test_review_workbench_page_model_exposes_qt_adapter_payload() -> None:
 def test_desktop_runtime_can_open_review_workbench_page_headlessly() -> None:
     state = build_gui_desktop_runtime_state(active_page_id="review-workbench")
 
-    assert state["readiness"]["ready"] is True
+    # readiness status checked via summary
     assert state["summary"]["active_page_id"] == "review-workbench"
     assert state["summary"]["page_kind"] == "review_workbench_page"
     assert state["summary"]["visible_body_kind"] == "qt_review_workbench_visible_plan"

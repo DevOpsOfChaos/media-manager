@@ -8,14 +8,18 @@ from typing import Any
 from .gui_dashboard_model import build_dashboard_overview
 from .gui_empty_states import build_empty_state
 from .gui_file_refs import build_local_file_ref, collect_asset_refs
+from .gui_guided_flow_hub import build_guided_flow_hub_page_model
 from .gui_i18n import translate
 from .gui_people_review_model import build_people_review_card_grid, build_people_review_detail_model
+from .gui_trip_manager import build_trip_manager_page_model
+from .gui_people_onboarding import build_people_onboarding_page_model
 from .gui_people_review_editor_model import build_people_review_editor_state
 from .gui_people_review_queue import build_people_review_queue
 from .gui_profile_editor_model import build_profile_form_schema, build_profile_list_state
 from .gui_review_workbench_service import build_gui_review_workbench_service_bundle
 from .gui_run_history_model import build_run_history_page_state
 from .gui_run_wizard_model import build_run_wizard_model
+from .gui_similar_comparison import build_similar_comparison_page_model
 from .gui_table_state import build_table_state
 from .gui_validation_panel import build_validation_panel
 
@@ -344,6 +348,17 @@ def build_page_model(page_id: str, home_state: Mapping[str, Any], *, language: s
         return build_settings_page_model(home_state, language=language, density=density)
     if normalized in {"new-run", "new run"}:
         return build_new_run_page_model(home_state, language=language, density=density)
+    if normalized == "similar-comparison":
+        return build_similar_comparison_page_model(
+            home_state,
+            language=language,
+        )
+    if normalized in {"people-setup", "people setup"}:
+        return build_people_onboarding_page_model(home_state, language=language)
+    if normalized in {"guided-flows", "guided"}:
+        return build_guided_flow_hub_page_model(home_state, language=language)
+    if normalized in {"trip-manager", "trips", "trip"}:
+        return build_trip_manager_page_model(home_state, language=language)
     return {
         "schema_version": PAGE_MODEL_SCHEMA_VERSION,
         "page_id": normalized,

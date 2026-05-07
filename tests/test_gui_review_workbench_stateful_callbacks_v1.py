@@ -158,9 +158,9 @@ def test_stateful_callback_response_rebuilds_next_page_state() -> None:
     assert response["readiness"]["ready"] is True
     assert response["capabilities"]["executes_commands"] is False
     assert response["normalized_rebuild_intent"]["action"] == "set_query"
-    assert response["summary"]["selected_lane_id"] == "people-review"
-    assert response["summary"]["table_row_count"] == 1
-    assert response["next_page_state"]["view_model"]["selected_lane_id"] == "people-review"
+    assert response["summary"]["selected_lane_id"] == "people-setup"
+    assert response["summary"]["table_row_count"] == 2
+    assert response["next_page_state"]["view_model"]["selected_lane_id"] == "people-setup"
 
 
 def test_callback_intent_mapper_keeps_route_and_disabled_apply_non_executing() -> None:
@@ -206,7 +206,7 @@ def test_cli_stateful_callbacks_plan_and_response(tmp_path: Path, capsys) -> Non
     ]) == 0
     response = json.loads(capsys.readouterr().out)
     assert response["kind"] == REVIEW_WORKBENCH_STATEFUL_CALLBACK_RESPONSE_KIND
-    assert response["summary"]["selected_lane_id"] == "people-review"
+    assert response["summary"]["selected_lane_id"] == "people-setup"
 
     out_dir = tmp_path / "stateful-callbacks"
     assert app_services_main([
@@ -245,7 +245,7 @@ def test_lazy_qt_callbacks_can_request_stateful_rebuilds_without_pyside6() -> No
     assert len(rebuilds) == 2
     assert rebuilds[0]["kind"] == REVIEW_WORKBENCH_STATEFUL_CALLBACK_RESPONSE_KIND
     assert rebuilds[0]["summary"]["rebuild_action"] == "set_query"
-    assert rebuilds[0]["summary"]["selected_lane_id"] == "people-review"
+    assert rebuilds[0]["summary"]["selected_lane_id"] == "people-setup"
     assert rebuilds[1]["summary"]["rebuild_action"] == "select_lane"
     assert all(item["capabilities"]["executes_commands"] is False for item in rebuilds)
     assert "PySide6" not in sys.modules

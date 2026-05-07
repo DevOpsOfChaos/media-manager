@@ -26,8 +26,8 @@ def build_dashboard_overview(home_state: Mapping[str, Any], *, language: str = "
         "hero": {
             "title": translate("dashboard.hero.title", language=language, fallback=translate("page.dashboard.title", language=language)),
             "subtitle": translate("dashboard.hero.subtitle", language=language),
-            "primary_action": build_action_button("new_preview", translate("action.preview", language=language), variant="primary", icon="sparkles"),
-            "secondary_action": build_action_button("open_people_review", translate("action.review", language=language), variant="secondary", icon="users"),
+            "primary_action": build_action_button("open_guided_flows", translate("action.guided_flows", language=language, fallback="Guided workflows"), variant="primary", icon="compass"),
+            "secondary_action": build_action_button("new_preview", translate("action.preview", language=language), variant="secondary", icon="sparkles"),
         },
         "metrics": [
             build_metric_tile("profiles", translate("dashboard.profiles", language=language), profile_summary.get("profile_count", 0), helper=f"{profile_summary.get('valid_count', 0)} valid"),
@@ -35,6 +35,7 @@ def build_dashboard_overview(home_state: Mapping[str, Any], *, language: str = "
             build_metric_tile("people", translate("dashboard.people", language=language), people_summary.get("group_count", people_summary.get("groups", 0)), helper=f"{people_summary.get('face_count', people_summary.get('faces', 0))} faces"),
         ],
         "cards": [
+            build_card("guided_flows", translate("dashboard.guided_flows.title", language=language, fallback="Guided workflows"), subtitle=translate("dashboard.guided_flows.subtitle", language=language, fallback="Pick your goal and follow the steps. No CLI flags needed."), icon="compass", tone="success"),
             build_card("safe_preview", translate("dashboard.safe_preview.title", language=language), subtitle=translate("dashboard.safe_preview.subtitle", language=language), icon="shield", tone="success"),
             build_card("people_privacy", translate("dashboard.people_privacy.title", language=language), subtitle=translate("privacy.people", language=language), icon="lock", tone="warning"),
             build_card("recent_activity", translate("dashboard.recent_activity.title", language=language), subtitle=str(home_state.get("suggested_next_step") or ""), icon="activity"),

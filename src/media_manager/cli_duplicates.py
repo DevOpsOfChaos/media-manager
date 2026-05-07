@@ -24,6 +24,22 @@ from .core.state import (
     write_execution_journal,
     write_history_artifacts,
 )
+from .core.similar_assets import build_similar_group_id
+from .core.similar_cleanup_plan import build_similar_cleanup_plan
+from .core.similar_decisions import (
+    build_similar_decision_template,
+    load_similar_decision_file,
+    similar_decision_import_payload,
+    write_similar_decision_template,
+)
+from .core.similar_session_store import (
+    restore_similar_session,
+    save_similar_session_snapshot,
+)
+from .core.similar_workflow import (
+    build_similar_workflow_bundle,
+    execute_similar_workflow_bundle,
+)
 from .duplicate_session_store import (
     restore_duplicate_session,
     save_duplicate_session_snapshot,
@@ -85,6 +101,41 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=6,
         help="Maximum Hamming distance for likely similar images (default: 6).",
+    )
+    parser.add_argument(
+        "--export-similar-decisions",
+        type=Path,
+        help="Write an editable similar-image decision JSON file for review.",
+    )
+    parser.add_argument(
+        "--import-similar-decisions",
+        type=Path,
+        help="Import similar-image keep/remove/skip decisions from a JSON decision file.",
+    )
+    parser.add_argument(
+        "--save-similar-session",
+        type=Path,
+        help="Save the current similar-image decisions as a session snapshot.",
+    )
+    parser.add_argument(
+        "--load-similar-session",
+        type=Path,
+        help="Load similar-image keep/remove/skip decisions from a saved session snapshot.",
+    )
+    parser.add_argument(
+        "--show-similar-decisions",
+        action="store_true",
+        help="Print similar-image decision summary per group.",
+    )
+    parser.add_argument(
+        "--show-similar-plan",
+        action="store_true",
+        help="Print similar-image cleanup-plan and dry-run counters.",
+    )
+    parser.add_argument(
+        "--similar-apply",
+        action="store_true",
+        help="Execute similar-image removals. Requires --yes confirmation.",
     )
     parser.add_argument(
         "--policy",
@@ -831,6 +882,84 @@ def main(argv: list[str] | None = None) -> int:
         if emit_text and args.show_similar_review and similar_review.rows:
             _print_similar_review(similar_review)
 
+    # --- Similar-image decision pipeline ---
+    similar_decisions: dict[str, dict[str, str]] = {}
+    similar_decision_import = None
+    similar_session_restore = None
+    similar_bundle = None
+    similar_execution_result = None
+
+    if similar_result is not None and similar_result.similar_groups:
+        import_similar_path = getattr(args, "import_similar_decisions", None)
+        load_similar_path = getattr(args, "load_similar_session", None)
+
+        if import_similar_path is not None:
+            similar_decision_import = load_similar_decision_file(import_similar_path, similar_result.similar_groups)
+            similar_decisions.update(similar_decision_import.decisions)
+
+        if load_similar_path is not None:
+            similar_session_restore = restore_similar_session(load_similar_path, similar_result.similar_groups)
+            similar_decisions.update(similar_session_restore.decisions)
+
+        if getattr(args, "export_similar_decisions", None) is not None:
+            decision_payload = build_similar_decision_template(
+                similar_groups=similar_result.similar_groups,
+                decisions=similar_decisions,
+                policy=args.similar_policy,
+            )
+            write_similar_decision_template(args.export_similar_decisions, decision_payload)
+            if emit_text:
+                print(f"Wrote similar decision file: {args.export_similar_decisions}")
+
+        if getattr(args, "save_similar_session", None) is not None:
+            save_similar_session_snapshot(args.save_similar_session, similar_result.similar_groups, similar_decisions)
+            if emit_text:
+                print(f"Saved similar session: {args.save_similar_session}")
+
+        if getattr(args, "show_similar_decisions", None):
+            for group in similar_result.similar_groups:
+                gid = build_similar_group_id(group)
+                gdec = similar_decisions.get(gid, {})
+                keep_count = sum(1 for v in gdec.values() if v == "keep")
+                remove_count = sum(1 for v in gdec.values() if v == "remove")
+                skip_count = sum(1 for v in gdec.values() if v == "skip")
+                print(f"\n[Similar Group] {gid} | anchor={group.anchor_path} | members={len(group.members)}")
+                print(f"  keep={keep_count} | remove={remove_count} | skip={skip_count}")
+                for member in group.members:
+                    decision = gdec.get(str(member.path), "auto-keep" if member.path == group.anchor_path else "unresolved")
+                    print(f"  - [{decision}] {member.path} (distance={member.distance})")
+
+        if similar_decisions:
+            similar_bundle = build_similar_workflow_bundle(similar_result.similar_groups, similar_decisions)
+            if emit_text and getattr(args, "show_similar_plan", None):
+                plan = similar_bundle.cleanup_plan
+                preview = similar_bundle.execution_preview
+                print(
+                    f"Similar plan: groups={plan.total_groups} | resolved={plan.resolved_groups} | "
+                    f"unresolved={plan.unresolved_groups} | removes={len(plan.planned_removals)} | "
+                    f"reclaimable={plan.estimated_reclaimable_bytes} bytes"
+                )
+                print(
+                    f"Similar dry run: ready={preview.ready} | "
+                    f"executable={preview.executable_count} | deferred={preview.deferred_count} | "
+                    f"blocked={preview.blocked_count}"
+                )
+
+            if getattr(args, "similar_apply", None):
+                if not getattr(args, "yes", None):
+                    parser.error("--similar-apply requires --yes for explicit confirmation.")
+                if similar_bundle.cleanup_plan.ready_for_apply:
+                    similar_execution_result = execute_similar_workflow_bundle(similar_bundle, apply=True)
+                    if emit_text:
+                        print(
+                            f"Similar execution: processed={similar_execution_result.processed_rows} | "
+                            f"executed={similar_execution_result.executed_rows} | "
+                            f"deferred={similar_execution_result.deferred_rows} | "
+                            f"blocked={similar_execution_result.blocked_rows} | "
+                            f"errors={similar_execution_result.error_rows}"
+                        )
+
+    # --- Exact duplicate decision pipeline ---
     decisions, session_restore, decision_import = _build_decisions(result, args, include_decision_import=True)
     bundle = build_duplicate_workflow_bundle(
         result.exact_groups,

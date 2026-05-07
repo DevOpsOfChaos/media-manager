@@ -6,6 +6,7 @@ from typing import Any
 from .gui_qt_dashboard_visible_plan import build_qt_dashboard_visible_plan
 from .gui_qt_page_header_plan import build_qt_page_header_plan
 from .gui_qt_people_review_visible_plan import build_qt_people_review_visible_plan
+from .gui_qt_review_workbench_visible_plan import build_qt_review_workbench_visible_plan
 from .gui_qt_section_plan import build_empty_state_section
 from .gui_qt_table_visible_plan import build_qt_table_visible_plan
 
@@ -27,6 +28,16 @@ def build_qt_visible_page_plan(page_model: Mapping[str, Any], *, density: str = 
         body = build_qt_dashboard_visible_plan(page_model, density=density)
     elif kind == "people_review_page":
         body = build_qt_people_review_visible_plan(page_model)
+    elif kind == "review_workbench_page":
+        body = build_qt_review_workbench_visible_plan(page_model)
+    elif kind == "similar_comparison_page":
+        body = build_empty_state_section(str(page_model.get("page_id") or "similar-comparison"), _as_mapping(page_model.get("empty_state")))
+    elif kind == "people_setup_page":
+        body = build_empty_state_section(str(page_model.get("page_id") or "people-setup"), _as_mapping(page_model.get("empty_state")))
+    elif kind == "guided_flow_hub_page":
+        body = build_empty_state_section(str(page_model.get("page_id") or "guided-flows"), _as_mapping(page_model.get("empty_state")))
+    elif kind == "trip_manager_page":
+        body = build_empty_state_section(str(page_model.get("page_id") or "trip-manager"), _as_mapping(page_model.get("empty_state")))
     elif kind in {"table_page", "profiles_page"}:
         body = build_qt_table_visible_plan(
             table_id=str(page_model.get("page_id") or "table"),

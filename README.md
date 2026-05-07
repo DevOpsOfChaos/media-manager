@@ -2,11 +2,54 @@
 
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 
-Open-source CLI-founded media organization software for photos and videos, with a controlled desktop GUI layer being introduced on top of the core/application contracts.
+Open-source media organization tool with CLI and modern desktop GUI. Organize, rename, find duplicates, detect people, and manage trip collections — all locally on your machine.
 
-## What this repository is
+## Quick Start
 
-This repository is the active product baseline for **core-first media management on Windows**, with the CLI as the stable operational foundation and the desktop GUI introduced gradually through explicit app-service contracts.
+```powershell
+# Install
+git clone https://github.com/YOUR_REPO/media-manager.git
+cd media-manager
+python -m pip install -e .
+
+# CLI
+media-manager duplicates --source C:\Photos --similar-images
+media-manager organize --source C:\Inbox --target D:\Library --pattern "yyyy\\yyyy-MM-dd"
+
+# Modern GUI
+python -c "from src.media_manager.gui_desktop_qt_v2 import run; run()"
+```
+
+### Requirements
+- Windows (primary), Python 3.11+
+- **ExifTool** — download from https://exiftool.org (needed for organize/rename/trips)
+- **PySide6** — `pip install pyside6` (needed for GUI)
+- **dlib** (optional) — `pip install -e .[people]` (needed for face recognition)
+
+## Features
+
+| Feature | CLI | GUI |
+|---------|-----|-----|
+| Organize by date | `organize` | Yes |
+| Rename with templates | `rename` | Yes |
+| Exact duplicates | `duplicates` | Yes |
+| Similar images | `--similar-images` | Yes |
+| Face recognition | `people scan` | Setup page |
+| Trip collections | `trip` | Yes |
+| Safe preview | `--json` | Preview button |
+| Undo | `undo --apply` | Planned |
+| Media type filter | `--media-kind` | Dropdown |
+| German / English | — | Flag toggle |
+
+## GUI Pages
+
+- **Dashboard** — Stats, quick actions, ExifTool status
+- **Organize** — Sort files into date-pattern folders
+- **Rename** — Rename with templates ({date}, {camera}, {index})
+- **Duplicates** — Exact + similar scan with results table
+- **People** — Face recognition setup + scan
+- **Trips** — Create trip collections from date ranges
+- **Settings** — Language (🇺🇸/🇩🇪), Theme (Dark/Light), default folders
 
 The current focus is:
 

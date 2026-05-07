@@ -43,3 +43,10 @@ reports/
 /people-review-workspace.json
 /people-review-decisions.json
 /people-catalog.json
+# Added by code-review-graph
+.code-review-graph/
+
+# Claude Code
+.claude/
+.mcp.json
+/test_media/

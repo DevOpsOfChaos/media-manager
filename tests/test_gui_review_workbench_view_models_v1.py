@@ -47,8 +47,8 @@ def test_review_workbench_builds_lanes_without_qt_import() -> None:
         people_review_summary={"group_count": 4, "face_count": 12},
     )
     assert workbench["kind"] == "ui_review_workbench_view_model"
-    assert workbench["summary"]["lane_count"] == 4
-    assert workbench["summary"]["attention_count"] == 15
+    assert workbench["summary"]["lane_count"] == 7
+    assert workbench["summary"]["attention_count"] == 17
     assert workbench["active_lane_id"] == "duplicates"
     assert workbench["capabilities"]["executes_commands"] is False
     assert workbench["capabilities"]["apply_enabled"] is False
@@ -62,7 +62,7 @@ def test_review_workbench_lanes_are_safe_navigation_contracts() -> None:
         decision_summary=_decision_model(),
         people_review_summary={"group_count": 0, "face_count": 0},
     )
-    assert [lane["lane_id"] for lane in lanes] == ["duplicates", "similar-images", "people-review", "decision-summary"]
+    assert [lane["lane_id"] for lane in lanes] == ["duplicates", "similar-images", "similar-review", "people-setup", "people-review", "decision-summary", "trip-manager"]
     assert all(lane["primary_action"]["executes_immediately"] is False for lane in lanes)
     assert all(lane["executes_commands"] is False for lane in lanes)
-    assert lanes[2]["status"] == "empty"
+    assert lanes[4]["status"] == "empty"

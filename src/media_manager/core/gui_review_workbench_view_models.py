@@ -152,6 +152,26 @@ def build_review_workbench_lanes(
             empty_state="Run a similar-images preview to populate this lane.",
         ),
         _build_lane(
+            "similar-review",
+            title="Similar image review",
+            description="Side-by-side visual comparison of similar image groups with keep/remove/skip actions.",
+            page_id="similar-comparison",
+            source_model=similar_images,
+            item_count=max(similar_candidates, _as_int(similar_images.get("run_count"))),
+            attention_count=similar_candidates,
+            empty_state="Run a similar-images scan and generate thumbnails to populate comparison pairs.",
+        ),
+        _build_lane(
+            "people-setup",
+            title="Face recognition setup",
+            description="Guided onboarding for local face recognition: install, scan, and review.",
+            page_id="people-setup",
+            source_model={},
+            item_count=1,
+            attention_count=1 if people_groups == 0 else 0,
+            empty_state="Run people-setup to begin face recognition.",
+        ),
+        _build_lane(
             "people-review",
             title="People review",
             description="Review local face groups and naming decisions without uploading media.",
@@ -170,6 +190,16 @@ def build_review_workbench_lanes(
             item_count=max(decision_candidates, decision_errors),
             attention_count=decision_candidates + decision_errors,
             empty_state="No pending review blockers are visible.",
+        ),
+        _build_lane(
+            "trip-manager",
+            title="Trip manager",
+            description="Browse and create trip collections from capture-date ranges.",
+            page_id="trip-manager",
+            source_model={},
+            item_count=1,
+            attention_count=0,
+            empty_state="Create a trip to begin.",
         ),
     ]
 

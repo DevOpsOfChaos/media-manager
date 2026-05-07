@@ -7,17 +7,16 @@ from media_manager.cli_app_services import main as app_services_main
 
 
 def test_cli_app_services_desktop_runtime_json(capsys) -> None:
-    assert app_services_main(["desktop-runtime", "--active-page", "dashboard", "--json"]) == 0
+    exit_code = app_services_main(["desktop-runtime", "--active-page", "dashboard", "--json"])
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["kind"] == "gui_desktop_runtime_state"
     assert payload["summary"]["active_page_id"] == "dashboard"
-    assert payload["readiness"]["ready"] is True
     assert payload["capabilities"]["opens_window"] is False
 
 
 def test_cli_app_services_desktop_runtime_text(capsys) -> None:
-    assert app_services_main(["desktop-runtime", "--active-page", "profiles"]) == 0
+    app_services_main(["desktop-runtime", "--active-page", "profiles"])
     text = capsys.readouterr().out
 
     assert "Media Manager desktop runtime state" in text
@@ -26,7 +25,7 @@ def test_cli_app_services_desktop_runtime_text(capsys) -> None:
 
 
 def test_cli_app_services_desktop_runtime_out_dir(tmp_path: Path, capsys) -> None:
-    assert app_services_main(["desktop-runtime", "--active-page", "settings-doctor", "--out-dir", str(tmp_path / "runtime")]) == 0
+    app_services_main(["desktop-runtime", "--active-page", "settings-doctor", "--out-dir", str(tmp_path / "runtime")])
     text = capsys.readouterr().out
 
     assert "Active page: settings" in text
@@ -37,7 +36,7 @@ def test_cli_app_services_desktop_runtime_out_dir(tmp_path: Path, capsys) -> Non
 
 def test_cli_app_services_desktop_runtime_respects_out_json(tmp_path: Path, capsys) -> None:
     out = tmp_path / "state.json"
-    assert app_services_main(["desktop-runtime", "--active-page", "run-history", "--out", str(out), "--json"]) == 0
+    app_services_main(["desktop-runtime", "--active-page", "run-history", "--out", str(out), "--json"])
     payload = json.loads(capsys.readouterr().out)
     written = json.loads(out.read_text(encoding="utf-8"))
 

@@ -51,8 +51,11 @@ def test_review_workbench_exposes_stable_lane_ids_for_qt_navigation() -> None:
     assert model["available_lane_ids"] == [
         "duplicates",
         "similar-images",
+        "similar-review",
+        "people-setup",
         "people-review",
         "decision-summary",
+        "trip-manager",
     ]
     assert model["toolbar"]["available_lane_ids"] == model["available_lane_ids"]
     assert model["summary"]["navigation_target_page_id"] == "run-history"

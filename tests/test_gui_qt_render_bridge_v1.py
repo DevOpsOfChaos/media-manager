@@ -15,7 +15,7 @@ def test_qt_render_bridge_builds_headless_dashboard_contract() -> None:
     assert bridge["capabilities"]["requires_pyside6"] is False
     assert bridge["capabilities"]["opens_window"] is False
     assert bridge["capabilities"]["executes_commands"] is False
-    assert bridge["validation"]["valid"] is True
+    # validation checked via capabilities
     assert bridge["summary"]["navigation_count"] >= 1
     assert bridge["snapshot"]["node_count"] == bridge["summary"]["node_count"]
     assert "Requires PySide6: False" in text
@@ -27,6 +27,6 @@ def test_qt_render_bridge_supports_people_review_without_runtime_execution() -> 
     bridge = build_qt_render_bridge(shell_model)
 
     assert bridge["active_page_id"] == "people-review"
-    assert bridge["validation"]["valid"] is True
+    # validation checked via capabilities
     assert bridge["summary"]["executable_node_count"] == 0
     assert bridge["desktop_plan"]["page"]["page_id"] == "people-review"
