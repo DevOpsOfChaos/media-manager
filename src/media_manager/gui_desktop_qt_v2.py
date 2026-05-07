@@ -182,8 +182,8 @@ def _hb(*ws, sp=12):
         elif isinstance(w, qw.QLayout): lo.addLayout(w)
         else: lo.addWidget(w)
     return lo
-def _vb(*ws, sp=12):
-    qc, qg, qw = _qt(); lo = qw.QVBoxLayout(); lo.setSpacing(sp)
+def _vb(*ws, sp=12, margins=(0,0,0,0)):
+    qc, qg, qw = _qt(); lo = qw.QVBoxLayout(); lo.setSpacing(sp); lo.setContentsMargins(*margins)
     for w in ws:
         if isinstance(w, int): lo.addStretch(w)
         elif isinstance(w, qw.QLayout): lo.addLayout(w)
