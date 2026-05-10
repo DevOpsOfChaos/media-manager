@@ -4,6 +4,30 @@ import json, os, shutil, subprocess, sys, threading
 from pathlib import Path
 from typing import Any
 
+# ── Thread-safe main-thread dispatcher (polling, 100% reliable) ──
+_MAIN_ACTIONS: list = []
+_MAIN_TIMER_STARTED = False
+
+def _run_on_main(fn):
+    """Queue fn for execution on the main Qt thread. Safe from any thread."""
+    global _MAIN_TIMER_STARTED
+    _MAIN_ACTIONS.append(fn)
+    if not _MAIN_TIMER_STARTED:
+        _MAIN_TIMER_STARTED = True
+        def _start_timer():
+            qc, _, _ = _qt()
+            t = qc.QTimer()
+            t.timeout.connect(_flush_main_actions)
+            t.start(100)
+        _run_on_main(_start_timer)
+
+def _flush_main_actions():
+    while _MAIN_ACTIONS:
+        try:
+            _MAIN_ACTIONS.pop(0)()
+        except Exception:
+            pass
+
 def _qt():
     from PySide6 import QtCore, QtGui, QtWidgets
     return QtCore, QtGui, QtWidgets
@@ -741,8 +765,7 @@ class ProgressWidget:
         qc,qg,qw=_qt(); qc.QTimer.singleShot(5000, lambda: self.w.setVisible(False))
     def tick(self, current, total):
         """Thread-safe. Call from any thread."""
-        qc,qg,qw=_qt()
-        qc.QTimer.singleShot(0, lambda c=current,t=total: self._do_tick(c,t))
+        _run_on_main(lambda c=current, t=total: self._do_tick(c, t))
     def _do_tick(self, current, total):
         if not self.w.isVisible(): return
         if total>0:
@@ -1000,7 +1023,7 @@ class DashboardPage:
             # Phase 1: Show cached stats immediately (via main thread)
             if sources:
                 cached_stats = cache.get_stats(sources)
-                self.shell.run_on_main(lambda cs=cached_stats: (
+                _run_on_main(lambda cs=cached_stats: (
                     self._set_stat("images", cs.get("images", 0), cached=True),
                     self._set_stat("videos", cs.get("videos", 0), cached=True),
                     self._set_stat("music", cs.get("music", 0), cached=True),
@@ -1044,7 +1067,7 @@ class DashboardPage:
                 change_msg = _("status.ready", lang)
 
             _log_error(f"DASHBOARD SCAN DONE: images={stats['images']} videos={stats['videos']} music={stats['music']} subdirs={stats['subdirs']} organized={organized}")
-            self.shell.run_on_main(lambda st=stats, org=organized, et=et_ok, cm=change_msg: (
+            _run_on_main(lambda st=stats, org=organized, et=et_ok, cm=change_msg: (
                 self._set_stat("images", st["images"]),
                 self._set_stat("videos", st["videos"]),
                 self._set_stat("music", st["music"]),
@@ -1057,7 +1080,7 @@ class DashboardPage:
         except Exception as e:
             _log_error(f"DASHBOARD CACHE ERROR: {e}")
             import traceback; _log_error(traceback.format_exc())
-            self.shell.run_on_main(lambda: (
+            _run_on_main(lambda: (
                 self.shell.set_status(f"⚠ {_('status.ready',lang)}"),
                 setattr(self, '_scanning', False)
             ))
@@ -1317,11 +1340,11 @@ class OrganizePage:
                     pass
                 _log_error(f"QUICK COUNT: {file_count} media files in sources")
                 # Pass result to main thread (polling, reliable)
-                self.shell.run_on_main(lambda fc=file_count: self._on_quick_count(lang, fc, sources, tgt, pat))
+                _run_on_main(lambda fc=file_count: self._on_quick_count(lang, fc, sources, tgt, pat))
             except Exception as e:
                 _log_error(f"ORGANIZE COUNT ERROR: {e}")
                 import traceback; _log_error(traceback.format_exc())
-                self.shell.run_on_main(lambda: (
+                _run_on_main(lambda: (
                     self.res.setPlainText(_("organize.error",lang).format(error=str(e))),
                     self.prog.hide(), self.shell.set_status(_("status.ready",lang)),
                     self.pv_btn.setEnabled(True), self.ap_btn.setEnabled(True)
@@ -1382,14 +1405,14 @@ class OrganizePage:
                 total=len(plan.entries)
                 _log_error(f"ORGANIZE PLAN: {total} entries")
                 if total==0:
-                    self.shell.run_on_main(lambda: (
+                    _run_on_main(lambda: (
                         self.res.setPlainText(_("organize.no_files",lang)),
                         self.prog.hide(), self.shell.set_status(_("status.ready",lang)),
                         self.pv_btn.setEnabled(True), self.ap_btn.setEnabled(True)
                     ))
                     return
 
-                self.shell.run_on_main(lambda: (
+                _run_on_main(lambda: (
                     self.prog.show(f"0 / {total}  (0%)", cancellable=True, total=total),
                     self.shell.set_status(f"Organizing {total} files...")
                 ))
@@ -1412,7 +1435,7 @@ class OrganizePage:
                     if deleted: del_msg="\n"+_("organize.empty_removed",lang).format(count=deleted)
 
                 result_text=_("organize.done",lang).format(count=executed) if executed>0 else _("organize.no_files",lang)
-                self.shell.run_on_main(lambda: (
+                _run_on_main(lambda: (
                     self.res.setPlainText(result_text+del_msg),self.prog.hide(_("status.done",lang)),
                     self.shell.set_status(_("status.ready",lang)),
                     self.pv_btn.setEnabled(True),self.ap_btn.setEnabled(True)
@@ -1420,7 +1443,7 @@ class OrganizePage:
             except Exception as e:
                 _log_error(f"ORGANIZE CRASH: {e}")
                 import traceback; _log_error(traceback.format_exc())
-                self.shell.run_on_main(lambda: (
+                _run_on_main(lambda: (
                     self.res.setPlainText(_("organize.error",lang).format(error=str(e))),
                     self.prog.hide(), self.shell.set_status(_("status.ready",lang)),
                     self.pv_btn.setEnabled(True), self.ap_btn.setEnabled(True)
@@ -2087,23 +2110,6 @@ class MediaManagerShell:
         self.status_lbl=qw.QLabel(f"  {_('status.ready',lang)}"); self.status_lbl.setObjectName("statusBar")
         rl.addWidget(self.status_lbl)
         ml.addWidget(r,1); self.window.setCentralWidget(c); self.navigate("dashboard")
-
-        # Thread-safe main-thread dispatcher (polling, 100% reliable)
-        self._main_actions = []
-        self._action_timer = qc.QTimer()
-        self._action_timer.timeout.connect(self._flush_main_actions)
-        self._action_timer.start(100)
-
-    def run_on_main(self, fn):
-        """Queue fn for execution on the main Qt thread. Safe from any thread."""
-        self._main_actions.append(fn)
-
-    def _flush_main_actions(self):
-        while self._main_actions:
-            try:
-                self._main_actions.pop(0)()
-            except Exception:
-                pass
 
     def _toggle_lang(self):
         new_lang="de" if self.lang=="en" else "en"
