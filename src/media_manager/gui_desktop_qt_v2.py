@@ -837,7 +837,8 @@ class DashboardPage:
 
         src=s.get("source_dir","")
         if src and Path(src).exists():
-            self._show_stats(lang); self._start_scan(lang)
+            self._show_stats(lang)
+            qc.QTimer.singleShot(100, lambda: self._start_scan(lang))
         else:
             self._show_onboarding()
         return scroll
