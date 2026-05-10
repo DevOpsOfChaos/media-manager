@@ -202,54 +202,68 @@ def _cli(*args, timeout=600, cancel_event=None):
 # ═══════════════════════════════════════════
 
 DARK = """QWidget{background:#0d1117;color:#e6edf3;font:13px "Segoe UI"}
-#sidebar{background:#161b22;border-right:1px solid #30363d;min-width:220px;max-width:220px}
-#sidebar QPushButton{background:transparent;color:#8b949e;border:none;border-radius:8px;padding:10px 14px;text-align:left;font-weight:500;margin:1px 8px}
+#sidebar{background:#161b22;border-right:1px solid #30363d;min-width:250px;max-width:250px}
+#sidebar QPushButton{background:transparent;color:#8b949e;border:none;border-radius:8px;padding:10px 16px;text-align:left;font-weight:500;margin:1px 10px;font-size:13px}
 #sidebar QPushButton:hover{background:#1c2128;color:#e6edf3}
 #sidebar QPushButton:checked{background:#1f6feb33;color:#58a6ff;font-weight:600}
 #sidebar QLabel#sh{color:#8b949e;font-size:11px;font-weight:600;padding:20px 16px 6px 16px}
 #topbar{background:#161b22;border-bottom:1px solid #30363d;min-height:52px;max-height:52px;padding:0 24px}
 #topbar QLabel#pageTitle{font-size:15px;font-weight:600;color:#e6edf3}
-#langBtn{background:transparent;border:1px solid #30363d;border-radius:8px;padding:6px 12px;font-size:20px;min-width:52px;min-height:36px}
+#langBtn{background:transparent;border:1px solid #30363d;border-radius:8px;padding:6px 14px;font-size:18px;min-width:56px;min-height:38px}
 #langBtn:hover{background:#1c2128;border-color:#58a6ff}
 #pageTitle{font-size:22px;font-weight:700;padding:0}
-#pageSubtitle{font-size:13px;color:#8b949e;padding:2px 0 16px 0}
-#card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px}
-#card QLabel#cardTitle{font-size:14px;font-weight:600}
-#card QLabel#cardValue{font-size:28px;font-weight:700;color:#58a6ff}
+#pageSubtitle{font-size:13px;color:#8b949e;padding:2px 0 16px 0;line-height:1.4}
+#card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px;min-height:80px}
+#card QLabel#cardTitle{font-size:13px;font-weight:600;color:#c9d1d9}
+#card QLabel#cardValue{font-size:24px;font-weight:700;color:#58a6ff}
+#card QLabel#cardValue[cached="true"]{color:#8b949e}
 #card QLabel#cardSub{font-size:12px;color:#8b949e}
-#optionTile{background:#161b22;border:2px solid #30363d;border-radius:12px;padding:14px 8px;min-width:88px;min-height:68px}
+#optionTile{background:#161b22;border:2px solid #30363d;border-radius:12px;padding:12px 10px;min-width:108px;min-height:76px}
 #optionTile:hover{border-color:#58a6ff;background:#1c2128}
 #optionTile[selected="true"]{border-color:#58a6ff;background:#1f6feb22}
 #optionTile QLabel{background:transparent;font-size:11px;color:#c9d1d9}
-QLabel#previewLabel{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px 16px;font:13px "Cascadia Code",monospace;color:#7ee787}
-QPushButton#primaryBtn{background:#238636;color:#fff;border:1px solid #2ea043;border-radius:8px;padding:10px 24px;font-weight:600;font-size:13px}
+QLabel#previewLabel{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px 16px;font:13px "Cascadia Code",monospace;color:#7ee787;min-height:24px}
+QPushButton#primaryBtn{background:#238636;color:#fff;border:1px solid #2ea043;border-radius:8px;padding:10px 28px;font-weight:600;font-size:13px;min-height:36px}
 QPushButton#primaryBtn:hover{background:#2ea043}
 QPushButton#primaryBtn:disabled{background:#21262d;color:#484f58;border-color:#30363d}
-QPushButton#secondaryBtn{background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:8px;padding:10px 24px;font-weight:500;font-size:13px}
+QPushButton#secondaryBtn{background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:8px;padding:10px 20px;font-weight:500;font-size:13px;min-height:34px}
 QPushButton#secondaryBtn:hover{background:#30363d}
-QPushButton#addBtn{background:#1f6feb22;color:#58a6ff;border:1px solid #1f6feb44;border-radius:8px;padding:8px 16px;font-weight:600;font-size:13px}
+QPushButton#addBtn{background:#1f6feb22;color:#58a6ff;border:1px solid #1f6feb44;border-radius:8px;padding:10px 18px;font-weight:600;font-size:13px}
 QPushButton#addBtn:hover{background:#1f6feb33;border-color:#58a6ff}
 QPushButton#removeBtn{background:transparent;color:#8b949e;border:none;border-radius:4px;padding:4px 8px;font-size:16px;min-width:28px;min-height:28px}
 QPushButton#removeBtn:hover{background:#da363322;color:#f85149}
-QLineEdit,QComboBox{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px 12px;color:#e6edf3}
+QLineEdit,QComboBox{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:9px 12px;color:#e6edf3;min-height:28px}
 QLineEdit:focus,QComboBox:focus{border-color:#58a6ff}
-QComboBox::drop-down{border:none;width:24px}
-QComboBox QAbstractItemView{background:#161b22;border:1px solid #30363d;border-radius:6px;color:#e6edf3;selection-background-color:#1f6feb33;outline:none;padding:4px}
-QComboBox QAbstractItemView::item{padding:8px 12px;min-height:28px}
+QComboBox::drop-down{border:none;width:28px}
+QComboBox::down-arrow{image:none;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #8b949e;margin-right:8px}
+QComboBox QAbstractItemView{background:#161b22;border:1px solid #30363d;border-radius:6px;color:#e6edf3;selection-background-color:#1f6feb44;outline:none;padding:4px}
+QComboBox QAbstractItemView::item{padding:8px 14px;min-height:30px}
 QComboBox QAbstractItemView::item:hover{background:#1c2128}
-QProgressBar{background:#21262d;border:none;border-radius:4px;height:8px}
-QProgressBar::chunk{background:#58a6ff;border-radius:4px}
+QProgressBar{background:#21262d;border:1px solid #30363d;border-radius:6px;height:26px;text-align:center;font-weight:600;font-size:12px;color:#e6edf3}
+QProgressBar::chunk{background:#238636;border-radius:5px}
 QTableWidget{background:#161b22;border:1px solid #30363d;border-radius:8px;gridline-color:#21262d}
 QTableWidget::item{padding:8px 12px;border-bottom:1px solid #21262d}
 QHeaderView::section{background:#0d1117;color:#8b949e;font-weight:600;padding:10px 12px;border:none;border-bottom:1px solid #30363d}
-QScrollBar:vertical{background:#0d1117;width:8px;border-radius:4px}
-QScrollBar::handle:vertical{background:#30363d;border-radius:4px;min-height:30px}
-QScrollBar:horizontal{background:#0d1117;height:8px;border-radius:4px}
-QScrollBar::handle:horizontal{background:#30363d;border-radius:4px;min-width:30px}
+QScrollBar:vertical{background:#0d1117;width:10px;border-radius:5px;margin:2px}
+QScrollBar::handle:vertical{background:#30363d;border-radius:5px;min-height:30px}
+QScrollBar::handle:vertical:hover{background:#484f58}
+QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0}
+QScrollBar:horizontal{background:#0d1117;height:10px;border-radius:5px;margin:2px}
+QScrollBar::handle:horizontal{background:#30363d;border-radius:5px;min-width:30px}
+QScrollBar::handle:horizontal:hover{background:#484f58}
+QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal{width:0}
 QScrollArea{border:none;background:transparent}
-QDateEdit{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px 12px;color:#e6edf3}
-QDateEdit::drop-down{border:none;width:24px}
-QDateEdit QAbstractItemView{background:#161b22;border:1px solid #30363d;border-radius:6px;color:#e6edf3;selection-background-color:#1f6feb33}
+QDateEdit{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:9px 12px;color:#e6edf3;min-height:28px}
+QDateEdit::drop-down{border:none;width:28px}
+QDateEdit::down-arrow{border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #8b949e;margin-right:8px}
+QCalendarWidget{background:#161b22;border:1px solid #30363d;border-radius:8px}
+QCalendarWidget QToolButton{color:#e6edf3;background:transparent;border:none;border-radius:4px;padding:6px 10px;font-weight:600;font-size:13px}
+QCalendarWidget QToolButton:hover{background:#1c2128}
+QCalendarWidget QMenu{background:#161b22;border:1px solid #30363d}
+QCalendarWidget QSpinBox{background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:4px 8px;color:#e6edf3}
+QCalendarWidget QAbstractItemView:enabled{background:#161b22;color:#e6edf3;selection-background-color:#1f6feb44;selection-color:#58a6ff}
+QCalendarWidget QAbstractItemView:disabled{color:#484f58}
+QCalendarWidget QWidget#qt_calendar_navigationbar{background:#161b22;border-bottom:1px solid #30363d}
 QRadioButton,QCheckBox{spacing:10px;color:#c9d1d9}
 QRadioButton::indicator{width:18px;height:18px;border:2px solid #30363d;border-radius:9px;background:#0d1117}
 QRadioButton::indicator:checked{background:#58a6ff;border-color:#58a6ff}
@@ -261,60 +275,73 @@ QTextEdit,QPlainTextEdit{background:#0d1117;border:1px solid #30363d;border-radi
 QDialog{background:#161b22;border:1px solid #30363d;border-radius:12px}
 QDialog QLabel{color:#e6edf3}
 QDialog QLineEdit{min-width:300px}
+QMessageBox{background:#161b22}
+QMessageBox QLabel{color:#e6edf3;font-size:13px}
+QMessageBox QPushButton{background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:8px 20px;font-weight:500;font-size:13px;min-width:80px}
+QMessageBox QPushButton:hover{background:#30363d}
 QToolTip{background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 10px}
-#statusBar{background:#161b22;border-top:1px solid #30363d;min-height:30px;max-height:30px;padding:0 16px;font-size:12px;color:#8b949e}
-#sourceRow{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:4px 4px 4px 12px}
-#sourceRow:hover{border-color:#58a6ff}"""
+#statusBar{background:#161b22;border-top:1px solid #30363d;min-height:28px;max-height:28px;padding:0 16px;font-size:12px;color:#8b949e}
+#sourceRow{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:6px 6px 6px 14px}
+#sourceRow:hover{border-color:#58a6ff}
+#quickActionBtn{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:12px 18px;text-align:left;font-size:13px;font-weight:500;color:#c9d1d9}
+#quickActionBtn:hover{background:#1c2128;border-color:#58a6ff;color:#e6edf3}
+#onFolderRow{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:6px 6px 6px 14px}
+#scopeCard{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:14px 18px}"""
 
 LIGHT = """QWidget{background:#ffffff;color:#24292f;font:13px "Segoe UI"}
-#sidebar{background:#f6f8fa;border-right:1px solid #d0d7de;min-width:220px;max-width:220px}
-#sidebar QPushButton{background:transparent;color:#656d76;border:none;border-radius:8px;padding:10px 14px;text-align:left;font-weight:500;margin:1px 8px}
+#sidebar{background:#f6f8fa;border-right:1px solid #d0d7de;min-width:250px;max-width:250px}
+#sidebar QPushButton{background:transparent;color:#656d76;border:none;border-radius:8px;padding:10px 16px;text-align:left;font-weight:500;margin:1px 10px;font-size:13px}
 #sidebar QPushButton:hover{background:#eaeef2;color:#24292f}
 #sidebar QPushButton:checked{background:#ddf4ff;color:#0969da;font-weight:600}
 #sidebar QLabel#sh{color:#656d76;font-size:11px;font-weight:600;padding:20px 16px 6px 16px}
 #topbar{background:#f6f8fa;border-bottom:1px solid #d0d7de;min-height:52px;max-height:52px;padding:0 24px}
 #topbar QLabel#pageTitle{font-size:15px;font-weight:600;color:#24292f}
-#langBtn{background:transparent;border:1px solid #d0d7de;border-radius:8px;padding:6px 12px;font-size:20px;min-width:52px;min-height:36px}
+#langBtn{background:transparent;border:1px solid #d0d7de;border-radius:8px;padding:6px 14px;font-size:18px;min-width:56px;min-height:38px}
 #langBtn:hover{background:#eaeef2;border-color:#0969da}
 #pageTitle{font-size:22px;font-weight:700;padding:0}
-#pageSubtitle{font-size:13px;color:#656d76;padding:2px 0 16px 0}
-#card{background:#f6f8fa;border:1px solid #d0d7de;border-radius:12px;padding:20px}
-#card QLabel#cardTitle{font-size:14px;font-weight:600}
-#card QLabel#cardValue{font-size:28px;font-weight:700;color:#0969da}
+#pageSubtitle{font-size:13px;color:#656d76;padding:2px 0 16px 0;line-height:1.4}
+#card{background:#f6f8fa;border:1px solid #d0d7de;border-radius:12px;padding:20px;min-height:80px}
+#card QLabel#cardTitle{font-size:13px;font-weight:600;color:#57606a}
+#card QLabel#cardValue{font-size:24px;font-weight:700;color:#0969da}
+#card QLabel#cardValue[cached="true"]{color:#656d76}
 #card QLabel#cardSub{font-size:12px;color:#656d76}
-#optionTile{background:#f6f8fa;border:2px solid #d0d7de;border-radius:12px;padding:14px 8px;min-width:88px;min-height:68px}
+#optionTile{background:#f6f8fa;border:2px solid #d0d7de;border-radius:12px;padding:12px 10px;min-width:108px;min-height:76px}
 #optionTile:hover{border-color:#0969da;background:#eaeef2}
 #optionTile[selected="true"]{border-color:#0969da;background:#ddf4ff}
 #optionTile QLabel{background:transparent;font-size:11px;color:#24292f}
-QLabel#previewLabel{background:#f6f8fa;border:1px solid #d0d7de;border-radius:8px;padding:12px 16px;font:13px "Cascadia Code",monospace;color:#1a7f37}
-QPushButton#primaryBtn{background:#1f883d;color:#fff;border:1px solid #1a7f37;border-radius:8px;padding:10px 24px;font-weight:600;font-size:13px}
+QLabel#previewLabel{background:#f6f8fa;border:1px solid #d0d7de;border-radius:8px;padding:12px 16px;font:13px "Cascadia Code",monospace;color:#1a7f37;min-height:24px}
+QPushButton#primaryBtn{background:#1f883d;color:#fff;border:1px solid #1a7f37;border-radius:8px;padding:10px 28px;font-weight:600;font-size:13px;min-height:36px}
 QPushButton#primaryBtn:hover{background:#1a7f37}
 QPushButton#primaryBtn:disabled{background:#afb8c1;color:#8c959f;border-color:#afb8c1}
-QPushButton#secondaryBtn{background:#f6f8fa;color:#24292f;border:1px solid #d0d7de;border-radius:8px;padding:10px 24px;font-weight:500;font-size:13px}
+QPushButton#secondaryBtn{background:#f6f8fa;color:#24292f;border:1px solid #d0d7de;border-radius:8px;padding:10px 20px;font-weight:500;font-size:13px;min-height:34px}
 QPushButton#secondaryBtn:hover{background:#eaeef2}
-QPushButton#addBtn{background:#ddf4ff;color:#0969da;border:1px solid #0969da33;border-radius:8px;padding:8px 16px;font-weight:600;font-size:13px}
+QPushButton#addBtn{background:#ddf4ff;color:#0969da;border:1px solid #0969da33;border-radius:8px;padding:10px 18px;font-weight:600;font-size:13px}
 QPushButton#addBtn:hover{background:#b6e3ff;border-color:#0969da}
 QPushButton#removeBtn{background:transparent;color:#656d76;border:none;border-radius:4px;padding:4px 8px;font-size:16px;min-width:28px;min-height:28px}
 QPushButton#removeBtn:hover{background:#ffebe9;color:#cf222e}
-QLineEdit,QComboBox{background:#ffffff;border:1px solid #d0d7de;border-radius:6px;padding:8px 12px;color:#24292f}
+QLineEdit,QComboBox{background:#ffffff;border:1px solid #d0d7de;border-radius:6px;padding:9px 12px;color:#24292f;min-height:28px}
 QLineEdit:focus,QComboBox:focus{border-color:#0969da}
-QComboBox::drop-down{border:none;width:24px}
+QComboBox::drop-down{border:none;width:28px}
 QComboBox QAbstractItemView{background:#ffffff;border:1px solid #d0d7de;border-radius:6px;color:#24292f;selection-background-color:#ddf4ff;outline:none;padding:4px}
-QComboBox QAbstractItemView::item{padding:8px 12px;min-height:28px}
+QComboBox QAbstractItemView::item{padding:8px 14px;min-height:30px}
 QComboBox QAbstractItemView::item:hover{background:#eaeef2}
-QProgressBar{background:#eaeef2;border:none;border-radius:4px;height:8px}
-QProgressBar::chunk{background:#0969da;border-radius:4px}
+QProgressBar{background:#eaeef2;border:1px solid #d0d7de;border-radius:6px;height:26px;text-align:center;font-weight:600;font-size:12px;color:#24292f}
+QProgressBar::chunk{background:#0969da;border-radius:5px}
 QTableWidget{background:#ffffff;border:1px solid #d0d7de;border-radius:8px;gridline-color:#eaeef2}
 QTableWidget::item{padding:8px 12px;border-bottom:1px solid #eaeef2}
 QHeaderView::section{background:#f6f8fa;color:#656d76;font-weight:600;padding:10px 12px;border:none;border-bottom:1px solid #d0d7de}
-QScrollBar:vertical{background:#ffffff;width:8px;border-radius:4px}
-QScrollBar::handle:vertical{background:#d0d7de;border-radius:4px;min-height:30px}
-QScrollBar:horizontal{background:#ffffff;height:8px;border-radius:4px}
-QScrollBar::handle:horizontal{background:#d0d7de;border-radius:4px;min-width:30px}
+QScrollBar:vertical{background:#ffffff;width:10px;border-radius:5px;margin:2px}
+QScrollBar::handle:vertical{background:#d0d7de;border-radius:5px;min-height:30px}
+QScrollBar::handle:vertical:hover{background:#afb8c1}
+QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0}
+QScrollBar:horizontal{background:#ffffff;height:10px;border-radius:5px;margin:2px}
+QScrollBar::handle:horizontal{background:#d0d7de;border-radius:5px;min-width:30px}
+QScrollBar::handle:horizontal:hover{background:#afb8c1}
+QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal{width:0}
 QScrollArea{border:none;background:transparent}
-QDateEdit{background:#ffffff;border:1px solid #d0d7de;border-radius:6px;padding:8px 12px;color:#24292f}
-QDateEdit::drop-down{border:none;width:24px}
-QDateEdit QAbstractItemView{background:#ffffff;border:1px solid #d0d7de;border-radius:6px;color:#24292f;selection-background-color:#ddf4ff}
+QDateEdit{background:#ffffff;border:1px solid #d0d7de;border-radius:6px;padding:9px 12px;color:#24292f;min-height:28px}
+QDateEdit::drop-down{border:none;width:28px}
+QCalendarWidget QAbstractItemView:enabled{background:#ffffff;color:#24292f;selection-background-color:#ddf4ff;selection-color:#0969da}
 QRadioButton,QCheckBox{spacing:10px;color:#24292f}
 QRadioButton::indicator{width:18px;height:18px;border:2px solid #d0d7de;border-radius:9px;background:#ffffff}
 QRadioButton::indicator:checked{background:#0969da;border-color:#0969da}
@@ -327,9 +354,13 @@ QDialog{background:#ffffff;border:1px solid #d0d7de;border-radius:12px}
 QDialog QLabel{color:#24292f}
 QDialog QLineEdit{min-width:300px}
 QToolTip{background:#f6f8fa;color:#24292f;border:1px solid #d0d7de;border-radius:4px;padding:6px 10px}
-#statusBar{background:#f6f8fa;border-top:1px solid #d0d7de;min-height:30px;max-height:30px;padding:0 16px;font-size:12px;color:#656d76}
-#sourceRow{background:#ffffff;border:1px solid #d0d7de;border-radius:8px;padding:4px 4px 4px 12px}
-#sourceRow:hover{border-color:#0969da}"""
+#statusBar{background:#f6f8fa;border-top:1px solid #d0d7de;min-height:28px;max-height:28px;padding:0 16px;font-size:12px;color:#656d76}
+#sourceRow{background:#ffffff;border:1px solid #d0d7de;border-radius:8px;padding:6px 6px 6px 14px}
+#sourceRow:hover{border-color:#0969da}
+#quickActionBtn{background:#f6f8fa;border:1px solid #d0d7de;border-radius:10px;padding:12px 18px;text-align:left;font-size:13px;font-weight:500;color:#24292f}
+#quickActionBtn:hover{background:#eaeef2;border-color:#0969da;color:#24292f}
+#onFolderRow{background:#ffffff;border:1px solid #d0d7de;border-radius:8px;padding:6px 6px 6px 14px}
+#scopeCard{background:#ffffff;border:1px solid #d0d7de;border-radius:8px;padding:14px 18px}"""
 
 # ═══════════════════════════════════════════
 # i18n
@@ -430,7 +461,7 @@ T = {
         "settings.exiftool":"ExifTool","settings.exiftool_find":"Auto-Detect",
         "settings.exiftool_found":"Found:","settings.exiftool_notfound":"Not found — browse or install from exiftool.org",
         "filter.kind":"File type:","filter.all":"All media","filter.img_vid":"Images + Videos","filter.img":"Images only","filter.vid":"Videos only","filter.aud":"Music only",
-        "status.ready":"Ready","status.scanning":"Scanning...","status.hashing":"Hashing...","status.done":"Done",
+        "status.ready":"Ready","status.scanning":"Scanning...","status.hashing":"Hashing...","status.done":"Done","status.cancel":"Cancel",
         "exiftool.missing":"ExifTool not found. Needed for reading photo/video dates.","exiftool.dl":"Download ExifTool",
     },
     "de": {
@@ -527,7 +558,7 @@ T = {
         "settings.exiftool":"ExifTool","settings.exiftool_find":"Auto-Erkennung",
         "settings.exiftool_found":"Gefunden:","settings.exiftool_notfound":"Nicht gefunden — auswählen oder von exiftool.org installieren",
         "filter.kind":"Dateityp:","filter.all":"Alle Medien","filter.img_vid":"Bilder + Videos","filter.img":"Nur Bilder","filter.vid":"Nur Videos","filter.aud":"Nur Musik",
-        "status.ready":"Bereit","status.scanning":"Scanne...","status.hashing":"Berechne Hashes...","status.done":"Fertig",
+        "status.ready":"Bereit","status.scanning":"Scanne...","status.hashing":"Berechne Hashes...","status.done":"Fertig","status.cancel":"Abbrechen",
         "exiftool.missing":"ExifTool nicht gefunden. Wird für Foto-/Video-Datumsdaten benötigt.","exiftool.dl":"ExifTool herunterladen",
     },
 }
@@ -671,12 +702,12 @@ class ProgressWidget:
         qc,qg,qw=_qt(); self.w=qw.QWidget(); lo=_vb(sp=6)
         self.label=_lbl("","cardSub")
         self.pb=qw.QProgressBar(); self.pb.setRange(0,100); self.pb.setValue(0)
-        self.pb.setTextVisible(True); self.pb.setFixedHeight(26)
-        self.pb.setStyleSheet("QProgressBar{background:#21262d;border:none;border-radius:4px;height:26px;text-align:center;font-weight:600;font-size:12px;color:#e6edf3}QProgressBar::chunk{background:#238636;border-radius:4px}")
+        self.pb.setTextVisible(True); self.pb.setMinimumHeight(26)
+        self.pb.setObjectName("progBar")
         row=_hb(sp=8); row.addWidget(self.label,1)
-        self.cancel_btn=_btn("✕ Cancel","secondaryBtn")
-        self.cancel_btn.setVisible(False); self.cancel_btn.setMaximumWidth(90)
-        self.cancel_btn.setStyleSheet("QPushButton#secondaryBtn{padding:6px 12px;font-size:12px;min-height:28px;background:#21262d;color:#f85149;border:1px solid #f8514966;border-radius:6px}QPushButton#secondaryBtn:hover{background:#da363322}")
+        self.cancel_btn=_btn("✕ " + _("status.cancel", _ls().get("language","en")), "secondaryBtn")
+        self.cancel_btn.setVisible(False); self.cancel_btn.setMaximumWidth(100)
+        self.cancel_btn.setStyleSheet("QPushButton#secondaryBtn{padding:6px 14px;font-size:12px;min-height:28px;background:#21262d;color:#f85149;border:1px solid #f8514966;border-radius:6px}QPushButton#secondaryBtn:hover{background:#da363322}")
         self._total=0; self._timer=None; self._start=0
         row.addWidget(self.cancel_btn); lo.addLayout(row); lo.addWidget(self.pb)
         self.w.setLayout(lo); self.w.setVisible(False)
@@ -799,7 +830,7 @@ class DashboardPage:
         quick=[("organize","📁",_("dashboard.organize",lang)),("rename","✏️",_("dashboard.rename",lang)),("duplicates","🔍",_("dashboard.find_dups",lang)),("people","👤",_("dashboard.face",lang))]
         for i,(pid,icon,label) in enumerate(quick):
             b=qw.QPushButton(f"  {icon}  {label}"); b.setCursor(qg.QCursor(qc.Qt.CursorShape.PointingHandCursor)); b.setMinimumHeight(52)
-            b.setStyleSheet("QPushButton{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:12px 16px;text-align:left;font-size:13px;font-weight:500;color:#c9d1d9}QPushButton:hover{background:#1c2128;border-color:#58a6ff;color:#e6edf3}")
+            b.setObjectName("quickActionBtn")
             b.clicked.connect(lambda _,p=pid: self.shell.navigate(p)); ag.addWidget(b,i//2,i%2)
         self.lo.addLayout(ag)
         self.lo.addStretch(1); cw.setLayout(self.lo); scroll.setWidget(cw)
@@ -820,7 +851,7 @@ class DashboardPage:
         cl.addWidget(_lbl(_("onboarding.sub",lang),"cardSub"))
 
         # Folder picker
-        fr=qw.QWidget(); fr.setStyleSheet("#onFolderRow{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:4px 4px 4px 14px}"); fr.setObjectName("onFolderRow")
+        fr=qw.QWidget(); fr.setObjectName("onFolderRow")
         frl=qw.QHBoxLayout(fr); frl.setContentsMargins(0,0,0,0); frl.setSpacing(8)
         self.on_folder=qw.QLineEdit(); self.on_folder.setPlaceholderText(_("onboarding.folder_hint",lang))
         self.on_folder.setMinimumHeight(40); frl.addWidget(self.on_folder,1)
@@ -841,9 +872,7 @@ class DashboardPage:
         cbr.addStretch(1); cl.addLayout(cbr)
 
         # Scope: separate vs together
-        self.scope_card=qw.QWidget(); self.scope_card.setObjectName("card")
-        scope_card_style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px 16px"
-        self.scope_card.setStyleSheet(scope_card_style)
+        self.scope_card=qw.QWidget(); self.scope_card.setObjectName("scopeCard")
         scl=qw.QVBoxLayout(self.scope_card); scl.setSpacing(6)
         scl.addWidget(_lbl(_("onboarding.scope",lang),"cardTitle"))
         self.rb_together=qw.QRadioButton(_("onboarding.scope_together",lang))
@@ -909,7 +938,7 @@ class DashboardPage:
             if i==5:
                 vl=qw.QLabel("—"); vl.setStyleSheet("font-size:30px")
             else:
-                vl=qw.QLabel("..."); vl.setObjectName("cardValue"); vl.setStyleSheet("font-size:26px")
+                vl=qw.QLabel("..."); vl.setObjectName("cardValue")
             ir.addWidget(vl); ir.addStretch(1); cl.addLayout(ir)
             cl.addWidget(_lbl(title,"cardTitle"))
             grid.addWidget(c,i//3,i%3)
@@ -940,8 +969,9 @@ class DashboardPage:
         if key not in self.stat_labels: return
         lbl=self.stat_labels[key]
         if isinstance(value,int):
-            if cached: lbl.setText(f"~{value:,}"); lbl.setStyleSheet("font-size:26px;color:#8b949e")
-            else: lbl.setText(f"{value:,}"); lbl.setStyleSheet("font-size:26px")
+            lbl.setText(f"{'~' if cached else ''}{value:,}")
+            lbl.setProperty("cached", "true" if cached else "false")
+            lbl.style().unpolish(lbl); lbl.style().polish(lbl)
         else:
             lbl.setText(str(value))
 
@@ -1080,7 +1110,7 @@ class OrganizePage:
         ]
         for i,(mode,icon,label,_pat) in enumerate(modes):
             tile=qw.QPushButton(f"{icon}\n{label}"); tile.setObjectName("optionTile")
-            tile.setCheckable(True); tile.setMinimumSize(100,72)
+            tile.setCheckable(True); tile.setMinimumSize(114,80)
             tile.setCursor(qg.QCursor(qc.Qt.CursorShape.PointingHandCursor))
             tile.clicked.connect(lambda checked,m=mode: self._sel_mode(m))
             col=i%4 if i<4 else i%4 if i<8 else i-8
