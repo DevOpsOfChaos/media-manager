@@ -280,7 +280,7 @@ QMessageBox QLabel{color:#e6edf3;font-size:13px}
 QMessageBox QPushButton{background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:8px 20px;font-weight:500;font-size:13px;min-width:80px}
 QMessageBox QPushButton:hover{background:#30363d}
 QToolTip{background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:6px 10px}
-#statusBar{background:#161b22;border-top:1px solid #30363d;min-height:28px;max-height:28px;padding:0 16px;font-size:12px;color:#8b949e}
+#statusBar{background:#161b22;border-top:1px solid #30363d;min-height:32px;max-height:32px;padding:0 20px;font-size:12px;color:#8b949e}
 #sourceRow{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:6px 6px 6px 14px}
 #sourceRow:hover{border-color:#58a6ff}
 #quickActionBtn{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:12px 18px;text-align:left;font-size:13px;font-weight:500;color:#c9d1d9}
@@ -354,7 +354,7 @@ QDialog{background:#ffffff;border:1px solid #d0d7de;border-radius:12px}
 QDialog QLabel{color:#24292f}
 QDialog QLineEdit{min-width:300px}
 QToolTip{background:#f6f8fa;color:#24292f;border:1px solid #d0d7de;border-radius:4px;padding:6px 10px}
-#statusBar{background:#f6f8fa;border-top:1px solid #d0d7de;min-height:28px;max-height:28px;padding:0 16px;font-size:12px;color:#656d76}
+#statusBar{background:#f6f8fa;border-top:1px solid #d0d7de;min-height:32px;max-height:32px;padding:0 20px;font-size:12px;color:#656d76}
 #sourceRow{background:#ffffff;border:1px solid #d0d7de;border-radius:8px;padding:6px 6px 6px 14px}
 #sourceRow:hover{border-color:#0969da}
 #quickActionBtn{background:#f6f8fa;border:1px solid #d0d7de;border-radius:10px;padding:12px 18px;text-align:left;font-size:13px;font-weight:500;color:#24292f}
@@ -945,10 +945,6 @@ class DashboardPage:
             key=["images","videos","music","subdirs","organized","exif"][i]
             self.stat_labels[key]=vl
         lo.addLayout(grid)
-
-        # Scanning indicator
-        self.scan_status=qw.QLabel(""); self.scan_status.setStyleSheet("font-size:12px;color:#8b949e;padding:0 4px")
-        lo.addWidget(self.scan_status)
         lo.addStretch(1); w.setLayout(lo)
         return w
 
@@ -984,7 +980,7 @@ class DashboardPage:
     def _start_scan(self,lang):
         if self._scanning: return
         self._scanning=True
-        self.scan_status.setText(f"🔄 {_('dashboard.refreshing',lang)}...")
+        self.shell.set_status(f"🔄 {_('dashboard.refreshing',lang)}...")
         s=_ls(); folder=s.get("source_dir","")
         threading.Thread(target=self._do_scan,args=(folder,lang),daemon=True).start()
 
@@ -1003,7 +999,7 @@ class DashboardPage:
                     self._set_stat("videos", cached_stats.get("videos", 0), cached=True)
                     self._set_stat("music", cached_stats.get("music", 0), cached=True)
                     self._set_stat("subdirs", cached_stats.get("subdirs", 0), cached=True)
-                    self.scan_status.setText(f"🔄 {_('dashboard.syncing',lang)}...")
+                    self.shell.set_status(f"🔄 {_('dashboard.syncing',lang)}...")
                 qc.QTimer.singleShot(0, _show_cached)
 
             # Phase 2: Sync cache with filesystem
@@ -1034,15 +1030,12 @@ class DashboardPage:
             del_c = changes.get("deleted", 0)
             if new_c or chg_c or del_c:
                 parts = []
-                if new_c:
-                    parts.append(f"+{new_c} new")
-                if chg_c:
-                    parts.append(f"~{chg_c} changed")
-                if del_c:
-                    parts.append(f"-{del_c} removed")
-                change_msg = f"✓ {'  '.join(parts)}"
+                if new_c: parts.append(f"+{new_c}")
+                if chg_c: parts.append(f"~{chg_c}")
+                if del_c: parts.append(f"-{del_c}")
+                change_msg = f"{' '.join(parts)} | {_('status.ready',lang)}"
             else:
-                change_msg = f"✓ {_('status.ready',lang)}"
+                change_msg = _("status.ready", lang)
 
             def _update():
                 self._set_stat("images", stats["images"])
@@ -1051,7 +1044,7 @@ class DashboardPage:
                 self._set_stat("subdirs", stats["subdirs"])
                 self._set_stat("organized", organized)
                 self._set_exif_stat(et_ok)
-                self.scan_status.setText(change_msg)
+                self.shell.set_status(change_msg)
                 self._scanning = False
             qc.QTimer.singleShot(0, _update)
         except Exception as e:
@@ -1254,10 +1247,11 @@ class OrganizePage:
         progress=self.prog
         def _run():
             try:
-                # Quick count first
+                # Quick count from cache (instant, no disk walk)
                 file_count=0
                 try:
-                    for sp in sources: file_count+=_count_source_media([Path(sp)])
+                    from media_manager.core.media_cache import MediaCache
+                    file_count = MediaCache.get().get_stats(sources).get("total", 0)
                 except: pass
                 if file_count==0:
                     qc.QTimer.singleShot(0,lambda:(self.res.setPlainText(_("organize.no_files",lang)),self.prog.hide(),self.shell.set_status(_("status.ready",lang)),self.pv_btn.setEnabled(True),self.ap_btn.setEnabled(True)))
@@ -1310,11 +1304,11 @@ class OrganizePage:
                 from media_manager.core.organizer.planner import build_organize_dry_run, OrganizePlannerOptions
                 from media_manager.core.organizer.executor import execute_organize_plan
 
-                # Phase 0: quick count
+                # Phase 0: quick count from cache (instant, no disk walk)
                 file_count=0
                 try:
-                    for sp in sources:
-                        file_count+=_count_source_media([Path(sp)])
+                    from media_manager.core.media_cache import MediaCache
+                    file_count = MediaCache.get().get_stats(sources).get("total", 0)
                 except: pass
                 _log_error(f"QUICK COUNT: {file_count} media files in sources")
 

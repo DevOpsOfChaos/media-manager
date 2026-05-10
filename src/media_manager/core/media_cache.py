@@ -36,6 +36,7 @@ class MediaCache:
         self._db_path = db_path or CACHE_DB
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._local = threading.local()
+        self._sync_lock = threading.Lock()
 
     # ── connection management ──
 
@@ -76,91 +77,96 @@ class MediaCache:
     # ── sync: compare filesystem with cache ──
 
     def sync(self, source_roots: list[str], *, progress_cb=None, cancel_ev=None) -> dict:
-        """Walk source directories and update cache. Returns change summary."""
-        self._ensure_schema()
-        conn = self._conn()
-        now = datetime.now(timezone.utc).isoformat()
+        """Walk source directories and update cache. Returns change summary.
+        Skips if another sync is already in progress (non-blocking)."""
+        if not self._sync_lock.acquire(blocking=False):
+            return {"total": 0, "new": 0, "changed": 0, "deleted": 0, "unchanged": 0, "skipped": True}
+        try:
+            self._ensure_schema()
+            conn = self._conn()
+            now = datetime.now(timezone.utc).isoformat()
 
-        total_files = 0
-        new_files = 0
-        changed_files = 0
-        deleted_files = 0
+            total_files = 0
+            new_files = 0
+            changed_files = 0
+            deleted_files = 0
 
-        # Load existing cache for these roots
-        placeholders = ",".join("?" for _ in source_roots)
-        cached: dict[str, tuple[int, float]] = {}
-        for row in conn.execute(
-            f"SELECT path, size_bytes, mtime FROM media_files WHERE source_root IN ({placeholders})",
-            source_roots,
-        ):
-            cached[row[0]] = (row[1], row[2])
+            # Load existing cache for these roots
+            placeholders = ",".join("?" for _ in source_roots)
+            cached: dict[str, tuple[int, float]] = {}
+            for row in conn.execute(
+                f"SELECT path, size_bytes, mtime FROM media_files WHERE source_root IN ({placeholders})",
+                source_roots,
+            ):
+                cached[row[0]] = (row[1], row[2])
 
-        cached_paths = set(cached.keys())
-        seen_paths: set[str] = set()
-        inserts: list[tuple] = []
-        updates: list[tuple] = []
+            cached_paths = set(cached.keys())
+            seen_paths: set[str] = set()
+            inserts: list[tuple] = []
 
-        for source_root in source_roots:
-            root = Path(source_root)
-            if not root.exists():
-                continue
-            for dirpath, dirnames, filenames in os.walk(root):
-                if cancel_ev and cancel_ev.is_set():
-                    break
-                dirnames[:] = [d for d in dirnames if not d.startswith(".")]
-                for fname in filenames:
-                    ext = os.path.splitext(fname)[1].lower()
-                    if ext not in ALL_EXTS:
-                        continue
-                    full = os.path.join(dirpath, fname)
-                    full_norm = os.path.normcase(full)
-                    seen_paths.add(full_norm)
-                    total_files += 1
+            for source_root in source_roots:
+                root = Path(source_root)
+                if not root.exists():
+                    continue
+                for dirpath, dirnames, filenames in os.walk(root):
+                    if cancel_ev and cancel_ev.is_set():
+                        break
+                    dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+                    for fname in filenames:
+                        ext = os.path.splitext(fname)[1].lower()
+                        if ext not in ALL_EXTS:
+                            continue
+                        full = os.path.join(dirpath, fname)
+                        full_norm = os.path.normcase(full)
+                        seen_paths.add(full_norm)
+                        total_files += 1
 
-                    try:
-                        st = os.stat(full)
-                    except OSError:
-                        continue
+                        try:
+                            st = os.stat(full)
+                        except OSError:
+                            continue
 
-                    if full_norm in cached:
-                        prev_size, prev_mtime = cached[full_norm]
-                        if st.st_size == prev_size and abs(st.st_mtime - prev_mtime) < 1.0:
-                            continue  # unchanged
-                        changed_files += 1
-                    else:
-                        new_files += 1
+                        if full_norm in cached:
+                            prev_size, prev_mtime = cached[full_norm]
+                            if st.st_size == prev_size and abs(st.st_mtime - prev_mtime) < 1.0:
+                                continue
+                            changed_files += 1
+                        else:
+                            new_files += 1
 
-                    rel = os.path.relpath(full, source_root).replace("\\", "/")
-                    inserts.append((
-                        full_norm, source_root, rel, ext, st.st_size, st.st_mtime,
-                        _kind(ext), None, None, None, now,
-                    ))
+                        rel = os.path.relpath(full, source_root).replace("\\", "/")
+                        inserts.append((
+                            full_norm, source_root, rel, ext, st.st_size, st.st_mtime,
+                            _kind(ext), None, None, None, now,
+                        ))
 
-        # Remove deleted files
-        deleted = cached_paths - seen_paths
-        deleted_files = len(deleted)
-        if deleted:
-            batch = list(deleted)
-            for i in range(0, len(batch), 500):
-                chunk = batch[i:i + 500]
-                placeholders = ",".join("?" for _ in chunk)
-                conn.execute(f"DELETE FROM media_files WHERE path IN ({placeholders})", chunk)
+            # Remove deleted files
+            deleted = cached_paths - seen_paths
+            deleted_files = len(deleted)
+            if deleted:
+                batch = list(deleted)
+                for i in range(0, len(batch), 500):
+                    chunk = batch[i:i + 500]
+                    ph = ",".join("?" for _ in chunk)
+                    conn.execute(f"DELETE FROM media_files WHERE path IN ({ph})", chunk)
 
-        # Batch insert/update new and changed files
-        if inserts:
-            conn.executemany(
-                "INSERT OR REPLACE INTO media_files(path, source_root, relative_path, extension, size_bytes, mtime, kind, date_taken, date_source, exif_json, last_seen) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                inserts,
-            )
+            # Batch insert new and changed files
+            if inserts:
+                conn.executemany(
+                    "INSERT OR REPLACE INTO media_files(path, source_root, relative_path, extension, size_bytes, mtime, kind, date_taken, date_source, exif_json, last_seen) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    inserts,
+                )
 
-        conn.commit()
-        return {
-            "total": total_files,
-            "new": new_files,
-            "changed": changed_files,
-            "deleted": deleted_files,
-            "unchanged": total_files - new_files - changed_files,
-        }
+            conn.commit()
+            return {
+                "total": total_files,
+                "new": new_files,
+                "changed": changed_files,
+                "deleted": deleted_files,
+                "unchanged": total_files - new_files - changed_files,
+            }
+        finally:
+            self._sync_lock.release()
 
     # ── stats ──
 
