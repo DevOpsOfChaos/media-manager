@@ -1048,10 +1048,12 @@ class DashboardPage:
                 self.shell.set_status(change_msg)
                 self._scanning = False
             qc.QTimer.singleShot(0, _update)
+            _log_error(f"DASHBOARD SCAN DONE: images={stats['images']} videos={stats['videos']} music={stats['music']} subdirs={stats['subdirs']} organized={organized} change_msg={change_msg}")
         except Exception as e:
             _log_error(f"DASHBOARD CACHE ERROR: {e}")
+            import traceback; _log_error(traceback.format_exc())
             qc.QTimer.singleShot(0, lambda: (
-                self.scan_status.setText(f"⚠ {_('status.ready',lang)}"),
+                self.shell.set_status(f"⚠ {_('status.ready',lang)}"),
                 setattr(self, '_scanning', False)
             ))
 
