@@ -347,7 +347,7 @@ T = {
         "dashboard.organize":"Organize files","dashboard.rename":"Rename files",
         "dashboard.find_dups":"Find duplicates","dashboard.face":"Face recognition",
         "dashboard.welcome":"Welcome back","dashboard.no_source":"Set a source folder in Settings to see your library stats.",
-        "dashboard.open_settings":"Open Settings","dashboard.refreshing":"Refreshing",
+        "dashboard.open_settings":"Open Settings","dashboard.refreshing":"Refreshing","dashboard.syncing":"Syncing",
         "onboarding.title":"Welcome to Media Manager",
         "onboarding.sub":"Organize, rename, and manage your photos, videos, and music — all on your computer.",
         "onboarding.folder_hint":"Select your media folder...",
@@ -444,7 +444,7 @@ T = {
         "dashboard.organize":"Dateien organisieren","dashboard.rename":"Dateien umbenennen",
         "dashboard.find_dups":"Duplikate finden","dashboard.face":"Gesichtserkennung",
         "dashboard.welcome":"Willkommen zurück","dashboard.no_source":"Lege ein Quellverzeichnis in den Einstellungen fest.",
-        "dashboard.open_settings":"Einstellungen öffnen","dashboard.refreshing":"Aktualisiere",
+        "dashboard.open_settings":"Einstellungen öffnen","dashboard.refreshing":"Aktualisiere","dashboard.syncing":"Synchronisiere",
         "onboarding.title":"Willkommen bei Media Manager",
         "onboarding.sub":"Organisiere, benenne um und verwalte deine Fotos, Videos und Musik — alles auf deinem Computer.",
         "onboarding.folder_hint":"Medienordner auswählen...",
@@ -950,7 +950,7 @@ class DashboardPage:
         lbl=self.stat_labels["exif"]; lbl.setText("✓" if ok else "✗")
         lbl.setStyleSheet(f"font-size:30px;color:{'#3fb950' if ok else '#f85149'}")
 
-    # ── Background scan ──
+    # ── Background scan (SQLite cache powered) ──
     def _start_scan(self,lang):
         if self._scanning: return
         self._scanning=True
@@ -960,38 +960,76 @@ class DashboardPage:
 
     def _do_scan(self,folder,lang):
         qc,qg,qw=_qt()
-        img_exts={'.jpg','.jpeg','.png','.gif','.webp','.bmp','.tiff','.tif','.heic','.raw','.cr2','.nef','.arw','.dng'}
-        vid_exts={'.mp4','.mov','.avi','.mkv','.wmv','.webm','.mts','.m2ts'}
-        mus_exts={'.mp3','.wav','.flac','.aac','.ogg','.wma','.m4a'}
-        images=videos=music=subdirs=organized=0
-        if folder and Path(folder).exists():
-            try:
-                for root,dirs,files in os.walk(folder):
-                    dirs[:]=[d for d in dirs if not d.startswith('.')]
-                    subdirs+=len(dirs)
-                    for f in files:
-                        ext=Path(f).suffix.lower()
-                        if ext in img_exts: images+=1
-                        elif ext in vid_exts: videos+=1
-                        elif ext in mus_exts: music+=1
-            except Exception as e:
-                _log_error(f"DASHBOARD SCAN ERROR: {e}")
-        tgt=_ls().get("target_dir","")
-        if tgt and Path(tgt).exists():
-            try: organized=_count_organized_fast(tgt)
-            except Exception: organized=0
-        et_ok=_exiftool_ok()
-        _log_error(f"DASHBOARD SCAN: images={images} videos={videos} music={music} subdirs={subdirs} organized={organized} exiftool={et_ok}")
-        # Cache
-        s=_ls(); s["last_stats"]={"images":images,"videos":videos,"music":music,"subdirs":subdirs,"organized":organized}
-        _ss(s)
-        def _update():
-            self._set_stat("images",images); self._set_stat("videos",videos)
-            self._set_stat("music",music); self._set_stat("subdirs",subdirs)
-            self._set_stat("organized",organized); self._set_exif_stat(et_ok)
-            self.scan_status.setText(f"✓ {_('status.ready',lang)}")
-            self._scanning=False
-        qc.QTimer.singleShot(0,_update)
+        try:
+            from media_manager.core.media_cache import MediaCache
+            cache = MediaCache.get()
+            sources = [folder] if folder and Path(folder).exists() else []
+
+            # Phase 1: Show cached stats immediately
+            if sources:
+                cached_stats = cache.get_stats(sources)
+                def _show_cached():
+                    self._set_stat("images", cached_stats.get("images", 0), cached=True)
+                    self._set_stat("videos", cached_stats.get("videos", 0), cached=True)
+                    self._set_stat("music", cached_stats.get("music", 0), cached=True)
+                    self._set_stat("subdirs", cached_stats.get("subdirs", 0), cached=True)
+                    self.scan_status.setText(f"🔄 {_('dashboard.syncing',lang)}...")
+                qc.QTimer.singleShot(0, _show_cached)
+
+            # Phase 2: Sync cache with filesystem
+            changes = cache.sync(sources)
+            _log_error(f"CACHE SYNC: {changes}")
+
+            # Phase 3: Get final stats from cache
+            stats = cache.get_stats(sources) if sources else {"images": 0, "videos": 0, "music": 0, "subdirs": 0, "total": 0}
+            tgt = _ls().get("target_dir", "")
+            organized = 0
+            if tgt and Path(tgt).exists():
+                try:
+                    organized = _count_organized_fast(tgt)
+                except Exception:
+                    organized = 0
+            et_ok = _exiftool_ok()
+
+            # Save to settings (legacy)
+            s = _ls()
+            s["last_stats"] = {"images": stats["images"], "videos": stats["videos"],
+                               "music": stats["music"], "subdirs": stats["subdirs"],
+                               "organized": organized}
+            _ss(s)
+
+            # Phase 4: Show change summary
+            new_c = changes.get("new", 0)
+            chg_c = changes.get("changed", 0)
+            del_c = changes.get("deleted", 0)
+            if new_c or chg_c or del_c:
+                parts = []
+                if new_c:
+                    parts.append(f"+{new_c} new")
+                if chg_c:
+                    parts.append(f"~{chg_c} changed")
+                if del_c:
+                    parts.append(f"-{del_c} removed")
+                change_msg = f"✓ {'  '.join(parts)}"
+            else:
+                change_msg = f"✓ {_('status.ready',lang)}"
+
+            def _update():
+                self._set_stat("images", stats["images"])
+                self._set_stat("videos", stats["videos"])
+                self._set_stat("music", stats["music"])
+                self._set_stat("subdirs", stats["subdirs"])
+                self._set_stat("organized", organized)
+                self._set_exif_stat(et_ok)
+                self.scan_status.setText(change_msg)
+                self._scanning = False
+            qc.QTimer.singleShot(0, _update)
+        except Exception as e:
+            _log_error(f"DASHBOARD CACHE ERROR: {e}")
+            qc.QTimer.singleShot(0, lambda: (
+                self.scan_status.setText(f"⚠ {_('status.ready',lang)}"),
+                setattr(self, '_scanning', False)
+            ))
 
 
 # ═══ ORGANIZE ═══

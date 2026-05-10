@@ -7,6 +7,7 @@ from media_manager.core.date_resolver import resolve_capture_datetime
 from media_manager.core.file_identity import files_have_identical_content
 from media_manager.core.media_groups import build_media_groups
 from media_manager.core.metadata.inspect import inspect_media_files_batch
+from media_manager.core.metadata.models import DateCandidate, FileInspection
 from media_manager.core.path_filters import path_is_included_by_patterns
 from media_manager.core.scanner import ScanOptions, scan_media_sources
 from media_manager.core.scanner.models import ScannedFile
@@ -193,71 +194,110 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
         file_list = list(scan_summary.files)
         total = len(file_list)
         file_paths = [item.path for item in file_list]
+        seen = {os.path.normcase(str(p)): p for p in file_paths}
 
-        for batch_start in range(0, total, batch_size):
-            if cancel_event and cancel_event.is_set():
-                break
+        # ── Cache: load previously resolved dates ──
+        cached_dates: dict[str, tuple[str, str]] = {}  # norm_path → (date_taken, date_source)
+        try:
+            from media_manager.core.media_cache import MediaCache
+            cache = MediaCache.get()
+            source_roots = [str(d) for d in options.source_dirs]
+            cached_dates = {os.path.normcase(k): (v.split("|", 1)[0], v.split("|", 1)[1] if "|" in v else "metadata")
+                           for k, v in cache.get_resolved_dates(source_roots).items()}
+        except Exception:
+            pass
 
-            batch_end = min(batch_start + batch_size, total)
-            batch_paths = file_paths[batch_start:batch_end]
+        # ── Build inspections: cached synthetic + uncached batch ──
+        inspections: dict[Path, FileInspection] = {}
+        uncached: list[Path] = []
+        new_date_entries: list[tuple[str, str, str, str | None]] = []
 
-            # Batch-resolve all metadata for this chunk
-            batch_inspections = inspect_media_files_batch(
-                batch_paths, exiftool_path=options.exiftool_path,
-            )
+        for fp in file_paths:
+            norm = os.path.normcase(str(fp))
+            if norm in cached_dates:
+                date_str, source = cached_dates[norm]
+                candidate = DateCandidate(source_tag=source, value=date_str, priority_index=0)
+                inspections[fp] = FileInspection(
+                    path=fp, selected_value=date_str, selected_source=source,
+                    date_candidates=[candidate], metadata_available=True, exiftool_available=True,
+                )
+            else:
+                uncached.append(fp)
 
-            # Process each file in the batch
-            for i in range(batch_start, batch_end):
-                scanned_file = file_list[i]
-                inspection = batch_inspections.get(scanned_file.path)
-                try:
-                    resolution = resolve_capture_datetime(
-                        scanned_file.path, inspection=inspection,
-                        exiftool_path=options.exiftool_path,
-                    )
-                    target_relative_dir = render_organize_directory(
-                        options.pattern, resolution, source_root=scanned_file.source_root,
-                    )
-                    target_path = options.target_root / target_relative_dir / scanned_file.path.name
-                    group_target_paths = {scanned_file.path: target_path}
-                    status, reason = _evaluate_group_plan_state(
-                        group_target_paths, conflict_policy=options.conflict_policy,
-                    )
-                except Exception as exc:
-                    dry_run.entries.append(
-                        OrganizePlanEntry(
-                            scanned_file=scanned_file,
-                            resolution=None,
-                            operation_mode=options.operation_mode,
-                            status="error",
-                            reason=str(exc),
-                            target_relative_dir=None,
-                            target_path=None,
-                            media_group=None,
-                            group_target_paths={},
-                        )
-                    )
-                    idx += 1
-                    continue
+        # Batch-resolve uncached files
+        cached_total = len(inspections)
+        if uncached:
+            for batch_start in range(0, len(uncached), batch_size):
+                if cancel_event and cancel_event.is_set():
+                    break
+                batch_paths = uncached[batch_start:batch_start + batch_size]
+                batch_inspections = inspect_media_files_batch(
+                    batch_paths, exiftool_path=options.exiftool_path,
+                )
+                inspections.update(batch_inspections)
+                # Cache newly resolved dates
+                for fp in batch_paths:
+                    insp = batch_inspections.get(fp)
+                    if insp and insp.selected_value and insp.selected_source:
+                        new_date_entries.append((
+                            str(fp), f"{insp.selected_value}|{insp.selected_source}",
+                            insp.selected_source, None,
+                        ))
+                # Progress during uncached processing
+                if progress_callback:
+                    done = cached_total + batch_start + len(batch_paths)
+                    progress_callback(min(done, total), total)
 
+        # ── Save new dates to cache ──
+        if new_date_entries:
+            try:
+                cache.set_dates_batch(new_date_entries)
+            except Exception:
+                pass
+
+        # ── Process all files (cached + uncached) ──
+        for i, scanned_file in enumerate(file_list):
+            inspection = inspections.get(scanned_file.path)
+            try:
+                resolution = resolve_capture_datetime(
+                    scanned_file.path, inspection=inspection,
+                    exiftool_path=options.exiftool_path,
+                )
+                target_relative_dir = render_organize_directory(
+                    options.pattern, resolution, source_root=scanned_file.source_root,
+                )
+                target_path = options.target_root / target_relative_dir / scanned_file.path.name
+                group_target_paths = {scanned_file.path: target_path}
+                status, reason = _evaluate_group_plan_state(
+                    group_target_paths, conflict_policy=options.conflict_policy,
+                )
+            except Exception as exc:
                 dry_run.entries.append(
                     OrganizePlanEntry(
-                        scanned_file=scanned_file,
-                        resolution=resolution,
-                        operation_mode=options.operation_mode,
-                        status=status,
-                        reason=reason,
-                        target_relative_dir=target_relative_dir,
-                        target_path=target_path,
-                        media_group=None,
-                        group_target_paths=group_target_paths,
+                        scanned_file=scanned_file, resolution=None, operation_mode=options.operation_mode,
+                        status="error", reason=str(exc), target_relative_dir=None, target_path=None,
+                        media_group=None, group_target_paths={},
                     )
                 )
                 idx += 1
+                continue
 
-            # Progress after each batch
-            if progress_callback:
+            dry_run.entries.append(
+                OrganizePlanEntry(
+                    scanned_file=scanned_file, resolution=resolution,
+                    operation_mode=options.operation_mode, status=status, reason=reason,
+                    target_relative_dir=target_relative_dir, target_path=target_path,
+                    media_group=None, group_target_paths=group_target_paths,
+                )
+            )
+            idx += 1
+
+            # Progress during full processing
+            if progress_callback and i > 0 and i % batch_size == 0:
                 progress_callback(idx, total)
+
+        if progress_callback:
+            progress_callback(idx, total)
 
     # Final progress tick (in case total wasn't hit exactly)
     if progress_callback and idx != total:
