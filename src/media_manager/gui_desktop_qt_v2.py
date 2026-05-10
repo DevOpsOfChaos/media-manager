@@ -1292,46 +1292,58 @@ class OrganizePage:
         src_list="\n".join(f"  • {s}" for s in sources[:5])
         if len(sources)>5: src_list+=f"\n  • ... and {len(sources)-5} more"
 
-        # Quick-count files first so user knows what they're in for
+        # Quick-count via cache in background thread, then confirm on main thread
         self.res.clear(); self.prog.show(_("organize.counting",lang), cancellable=False, total=0)
         self.pv_btn.setEnabled(False); self.ap_btn.setEnabled(False)
         self.shell.set_status(_("organize.counting",lang))
 
         def _run():
             try:
-                from media_manager.core.organizer.planner import build_organize_dry_run, OrganizePlannerOptions
-                from media_manager.core.organizer.executor import execute_organize_plan
-
-                # Phase 0: quick count from cache (instant, no disk walk)
-                file_count=0
+                from media_manager.core.media_cache import MediaCache
+                file_count = 0
                 try:
-                    from media_manager.core.media_cache import MediaCache
                     file_count = MediaCache.get().get_stats(sources).get("total", 0)
-                except: pass
+                except Exception:
+                    pass
                 _log_error(f"QUICK COUNT: {file_count} media files in sources")
-
-                if file_count==0:
-                    qc.QTimer.singleShot(0,lambda:(self.res.setPlainText(_("organize.no_files",lang)),self.prog.hide(),self.shell.set_status(_("status.ready",lang)),self.pv_btn.setEnabled(True),self.ap_btn.setEnabled(True)))
-                    return
-
-                # Confirm with file count
-                qc.QTimer.singleShot(0,lambda:(self.prog.hide(),))
-                import time as _time; _time.sleep(0.3)  # let UI catch up
-
-                # Ask on main thread via signal
-                def _confirm():
-                    ans2=qw.QMessageBox.warning(None,_("organize.apply",lang),
-                        _("organize.apply_confirm_count",lang).format(mode=mode_word,sources=src_list,target=tgt,count=file_count),
-                        qw.QMessageBox.StandardButton.Yes|qw.QMessageBox.StandardButton.No)
-                    if ans2!=qw.QMessageBox.StandardButton.Yes:
-                        self.pv_btn.setEnabled(True); self.ap_btn.setEnabled(True)
-                        self.shell.set_status(_("status.ready",lang)); return
-                    self._execute_organize(lang,sources,tgt,pat)
-                qc.QTimer.singleShot(0,_confirm)
+                # Pass result to main thread
+                qc.QTimer.singleShot(0, lambda fc=file_count: self._on_quick_count(lang, fc, sources, tgt, pat))
             except Exception as e:
-                _log_error(f"ORGANIZE COUNT ERROR: {e}"); import traceback; _log_error(traceback.format_exc())
-                qc.QTimer.singleShot(0,lambda:(self.res.setPlainText(_("organize.error",lang).format(error=str(e))),self.prog.hide(),self.shell.set_status(_("status.ready",lang)),self.pv_btn.setEnabled(True),self.ap_btn.setEnabled(True)))
+                _log_error(f"ORGANIZE COUNT ERROR: {e}")
+                import traceback; _log_error(traceback.format_exc())
+                qc.QTimer.singleShot(0, lambda: (
+                    self.res.setPlainText(_("organize.error",lang).format(error=str(e))),
+                    self.prog.hide(), self.shell.set_status(_("status.ready",lang)),
+                    self.pv_btn.setEnabled(True), self.ap_btn.setEnabled(True)
+                ))
         threading.Thread(target=_run,daemon=True).start()
+
+    def _on_quick_count(self, lang, file_count, sources, tgt, pat):
+        """Called on main thread after quick-count completes."""
+        qc, qg, qw = _qt()
+        self.prog.hide()
+
+        if file_count == 0:
+            self.res.setPlainText(_("organize.no_files", lang))
+            self.shell.set_status(_("status.ready", lang))
+            self.pv_btn.setEnabled(True); self.ap_btn.setEnabled(True)
+            return
+
+        mode_word = _("organize.move", lang).split("(")[0].strip().lower() if self.rb_move.isChecked() else _("organize.copy", lang).split("(")[0].strip().lower()
+        src_list = "\n".join(f"  • {s}" for s in sources[:5])
+        if len(sources) > 5:
+            src_list += f"\n  • ... and {len(sources)-5} more"
+
+        ans2 = qw.QMessageBox.warning(
+            None, _("organize.apply", lang),
+            _("organize.apply_confirm_count", lang).format(mode=mode_word, sources=src_list, target=tgt, count=file_count),
+            qw.QMessageBox.StandardButton.Yes | qw.QMessageBox.StandardButton.No,
+        )
+        if ans2 != qw.QMessageBox.StandardButton.Yes:
+            self.pv_btn.setEnabled(True); self.ap_btn.setEnabled(True)
+            self.shell.set_status(_("status.ready", lang))
+            return
+        self._execute_organize(lang, sources, tgt, pat)
 
     def _execute_organize(self,lang,sources,tgt,pat):
         qc,qg,qw=_qt(); progress=self.prog
