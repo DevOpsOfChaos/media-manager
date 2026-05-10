@@ -965,17 +965,23 @@ class DashboardPage:
     def _set_stat(self,key,value,cached=False):
         if key not in self.stat_labels: return
         lbl=self.stat_labels[key]
-        if isinstance(value,int):
-            lbl.setText(f"{'~' if cached else ''}{value:,}")
-            lbl.setProperty("cached", "true" if cached else "false")
-            lbl.style().unpolish(lbl); lbl.style().polish(lbl)
-        else:
-            lbl.setText(str(value))
+        try:
+            if isinstance(value,int):
+                lbl.setText(f"{'~' if cached else ''}{value:,}")
+                lbl.setProperty("cached", "true" if cached else "false")
+                lbl.style().unpolish(lbl); lbl.style().polish(lbl)
+            else:
+                lbl.setText(str(value))
+        except RuntimeError:
+            pass  # widget was deleted (page rebuild during scan)
 
     def _set_exif_stat(self,ok):
         if "exif" not in self.stat_labels: return
-        lbl=self.stat_labels["exif"]; lbl.setText("✓" if ok else "✗")
-        lbl.setStyleSheet(f"font-size:30px;color:{'#3fb950' if ok else '#f85149'}")
+        try:
+            lbl=self.stat_labels["exif"]; lbl.setText("✓" if ok else "✗")
+            lbl.setStyleSheet(f"font-size:30px;color:{'#3fb950' if ok else '#f85149'}")
+        except RuntimeError:
+            pass
 
     # ── Background scan (SQLite cache powered) ──
     def _start_scan(self,lang):
@@ -986,26 +992,27 @@ class DashboardPage:
         threading.Thread(target=self._do_scan,args=(folder,lang),daemon=True).start()
 
     def _do_scan(self,folder,lang):
-        qc,qg,qw=_qt()
         try:
             from media_manager.core.media_cache import MediaCache
             cache = MediaCache.get()
             sources = [folder] if folder and Path(folder).exists() else []
 
-            # Phase 1: Show cached stats immediately
+            # Phase 1: Show cached stats immediately (via main thread)
             if sources:
                 cached_stats = cache.get_stats(sources)
-                self._set_stat("images", cached_stats.get("images", 0), cached=True)
-                self._set_stat("videos", cached_stats.get("videos", 0), cached=True)
-                self._set_stat("music", cached_stats.get("music", 0), cached=True)
-                self._set_stat("subdirs", cached_stats.get("subdirs", 0), cached=True)
-                self.shell.set_status(f"🔄 {_('dashboard.syncing',lang)}...")
+                self.shell.run_on_main(lambda cs=cached_stats: (
+                    self._set_stat("images", cs.get("images", 0), cached=True),
+                    self._set_stat("videos", cs.get("videos", 0), cached=True),
+                    self._set_stat("music", cs.get("music", 0), cached=True),
+                    self._set_stat("subdirs", cs.get("subdirs", 0), cached=True),
+                    self.shell.set_status(f"🔄 {_('dashboard.syncing',lang)}...")
+                ))
 
-            # Phase 2: Sync cache with filesystem
+            # Phase 2: Sync cache with filesystem (no UI)
             changes = cache.sync(sources)
             _log_error(f"CACHE SYNC: {changes}")
 
-            # Phase 3: Get final stats from cache
+            # Phase 3: Get final stats (no UI)
             stats = cache.get_stats(sources) if sources else {"images": 0, "videos": 0, "music": 0, "subdirs": 0, "total": 0}
             tgt = _ls().get("target_dir", "")
             organized = 0
@@ -1023,7 +1030,7 @@ class DashboardPage:
                                "organized": organized}
             _ss(s)
 
-            # Phase 4: Show change summary
+            # Phase 4: Show final stats + change summary (via main thread)
             new_c = changes.get("new", 0)
             chg_c = changes.get("changed", 0)
             del_c = changes.get("deleted", 0)
@@ -1036,21 +1043,24 @@ class DashboardPage:
             else:
                 change_msg = _("status.ready", lang)
 
-            self._set_stat("images", stats["images"])
-            self._set_stat("videos", stats["videos"])
-            self._set_stat("music", stats["music"])
-            self._set_stat("subdirs", stats["subdirs"])
-            self._set_stat("organized", organized)
-            self._set_exif_stat(et_ok)
-            self.shell.set_status(change_msg)
-            _log_error(f"STATUS SET TO: {change_msg}")
-            self._scanning = False
             _log_error(f"DASHBOARD SCAN DONE: images={stats['images']} videos={stats['videos']} music={stats['music']} subdirs={stats['subdirs']} organized={organized}")
+            self.shell.run_on_main(lambda st=stats, org=organized, et=et_ok, cm=change_msg: (
+                self._set_stat("images", st["images"]),
+                self._set_stat("videos", st["videos"]),
+                self._set_stat("music", st["music"]),
+                self._set_stat("subdirs", st["subdirs"]),
+                self._set_stat("organized", org),
+                self._set_exif_stat(et),
+                self.shell.set_status(cm),
+                setattr(self, '_scanning', False)
+            ))
         except Exception as e:
             _log_error(f"DASHBOARD CACHE ERROR: {e}")
             import traceback; _log_error(traceback.format_exc())
-            self.shell.set_status(f"⚠ {_('status.ready',lang)}")
-            self._scanning = False
+            self.shell.run_on_main(lambda: (
+                self.shell.set_status(f"⚠ {_('status.ready',lang)}"),
+                setattr(self, '_scanning', False)
+            ))
 
 
 # ═══ ORGANIZE ═══
@@ -1306,12 +1316,12 @@ class OrganizePage:
                 except Exception:
                     pass
                 _log_error(f"QUICK COUNT: {file_count} media files in sources")
-                # Pass result to main thread
-                qc.QTimer.singleShot(0, lambda fc=file_count: self._on_quick_count(lang, fc, sources, tgt, pat))
+                # Pass result to main thread (polling, reliable)
+                self.shell.run_on_main(lambda fc=file_count: self._on_quick_count(lang, fc, sources, tgt, pat))
             except Exception as e:
                 _log_error(f"ORGANIZE COUNT ERROR: {e}")
                 import traceback; _log_error(traceback.format_exc())
-                qc.QTimer.singleShot(0, lambda: (
+                self.shell.run_on_main(lambda: (
                     self.res.setPlainText(_("organize.error",lang).format(error=str(e))),
                     self.prog.hide(), self.shell.set_status(_("status.ready",lang)),
                     self.pv_btn.setEnabled(True), self.ap_btn.setEnabled(True)
@@ -2068,6 +2078,23 @@ class MediaManagerShell:
         self.status_lbl=qw.QLabel(f"  {_('status.ready',lang)}"); self.status_lbl.setObjectName("statusBar")
         rl.addWidget(self.status_lbl)
         ml.addWidget(r,1); self.window.setCentralWidget(c); self.navigate("dashboard")
+
+        # Thread-safe main-thread dispatcher (polling, 100% reliable)
+        self._main_actions = []
+        self._action_timer = qc.QTimer()
+        self._action_timer.timeout.connect(self._flush_main_actions)
+        self._action_timer.start(100)
+
+    def run_on_main(self, fn):
+        """Queue fn for execution on the main Qt thread. Safe from any thread."""
+        self._main_actions.append(fn)
+
+    def _flush_main_actions(self):
+        while self._main_actions:
+            try:
+                self._main_actions.pop(0)()
+            except Exception:
+                pass
 
     def _toggle_lang(self):
         new_lang="de" if self.lang=="en" else "en"
