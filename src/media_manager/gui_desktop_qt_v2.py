@@ -995,13 +995,11 @@ class DashboardPage:
             # Phase 1: Show cached stats immediately
             if sources:
                 cached_stats = cache.get_stats(sources)
-                def _show_cached():
-                    self._set_stat("images", cached_stats.get("images", 0), cached=True)
-                    self._set_stat("videos", cached_stats.get("videos", 0), cached=True)
-                    self._set_stat("music", cached_stats.get("music", 0), cached=True)
-                    self._set_stat("subdirs", cached_stats.get("subdirs", 0), cached=True)
-                    self.shell.set_status(f"🔄 {_('dashboard.syncing',lang)}...")
-                qc.QTimer.singleShot(0, _show_cached)
+                self._set_stat("images", cached_stats.get("images", 0), cached=True)
+                self._set_stat("videos", cached_stats.get("videos", 0), cached=True)
+                self._set_stat("music", cached_stats.get("music", 0), cached=True)
+                self._set_stat("subdirs", cached_stats.get("subdirs", 0), cached=True)
+                self.shell.set_status(f"🔄 {_('dashboard.syncing',lang)}...")
 
             # Phase 2: Sync cache with filesystem
             changes = cache.sync(sources)
@@ -1038,24 +1036,20 @@ class DashboardPage:
             else:
                 change_msg = _("status.ready", lang)
 
-            def _update():
-                self._set_stat("images", stats["images"])
-                self._set_stat("videos", stats["videos"])
-                self._set_stat("music", stats["music"])
-                self._set_stat("subdirs", stats["subdirs"])
-                self._set_stat("organized", organized)
-                self._set_exif_stat(et_ok)
-                self.shell.set_status(change_msg)
-                self._scanning = False
-            qc.QTimer.singleShot(0, _update)
-            _log_error(f"DASHBOARD SCAN DONE: images={stats['images']} videos={stats['videos']} music={stats['music']} subdirs={stats['subdirs']} organized={organized} change_msg={change_msg}")
+            self._set_stat("images", stats["images"])
+            self._set_stat("videos", stats["videos"])
+            self._set_stat("music", stats["music"])
+            self._set_stat("subdirs", stats["subdirs"])
+            self._set_stat("organized", organized)
+            self._set_exif_stat(et_ok)
+            self.shell.set_status(change_msg)
+            self._scanning = False
+            _log_error(f"DASHBOARD SCAN DONE: images={stats['images']} videos={stats['videos']} music={stats['music']} subdirs={stats['subdirs']} organized={organized}")
         except Exception as e:
             _log_error(f"DASHBOARD CACHE ERROR: {e}")
             import traceback; _log_error(traceback.format_exc())
-            qc.QTimer.singleShot(0, lambda: (
-                self.shell.set_status(f"⚠ {_('status.ready',lang)}"),
-                setattr(self, '_scanning', False)
-            ))
+            self.shell.set_status(f"⚠ {_('status.ready',lang)}")
+            self._scanning = False
 
 
 # ═══ ORGANIZE ═══
@@ -2072,7 +2066,7 @@ class MediaManagerShell:
         self.lang_btn.setToolTip("English" if self.lang=="en" else "Deutsch")
 
     def set_status(self,text):
-        self.status_lbl.setText(f"  {text}")
+        qc,qg,qw=_qt(); qc.QTimer.singleShot(0, lambda t=text: self.status_lbl.setText(f"  {t}"))
 
     def _sl(self,lang):
         s=_ls(); s["language"]=lang; _ss(s); self.lang=lang; self._up_lang_btn(); self._rebuild()
