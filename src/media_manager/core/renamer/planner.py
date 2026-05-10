@@ -5,6 +5,8 @@ from pathlib import Path
 
 from media_manager.core.date_resolver import resolve_capture_datetime
 from media_manager.core.media_groups import build_media_groups, summarize_media_groups
+from media_manager.core.metadata.inspect import inspect_media_files_batch
+from media_manager.core.metadata.models import FileInspection
 from media_manager.core.path_filters import path_is_included_by_patterns
 from media_manager.core.scanner import ScanOptions, scan_media_sources
 from media_manager.core.scanner.models import ScannedFile
@@ -61,9 +63,9 @@ def _augment_with_sidecar_siblings(
     return augmented
 
 
-def _single_plan_entry(options: RenamePlannerOptions, scanned_file: ScannedFile, index: int) -> RenamePlanEntry:
+def _single_plan_entry(options: RenamePlannerOptions, scanned_file: ScannedFile, index: int, *, inspection: FileInspection | None = None) -> RenamePlanEntry:
     try:
-        resolution = resolve_capture_datetime(scanned_file.path, exiftool_path=options.exiftool_path)
+        resolution = resolve_capture_datetime(scanned_file.path, inspection=inspection, exiftool_path=options.exiftool_path)
         rendered_name = render_rename_filename(
             scanned_file.path,
             resolution,
@@ -206,12 +208,30 @@ def build_rename_dry_run(options: RenamePlannerOptions, progress_callback=None, 
     batch_size = options.batch_size if options.batch_size > 0 else total
 
     if not options.include_associated_files:
-        for index, scanned_file in enumerate(scan_summary.files, start=1):
+        file_list = list(scan_summary.files)
+        total = len(file_list)
+        file_paths = [item.path for item in file_list]
+
+        for batch_start in range(0, total, batch_size):
             if cancel_event and cancel_event.is_set():
                 break
-            dry_run.entries.append(_single_plan_entry(options, scanned_file, index=index))
-            if progress_callback and (index % batch_size == 0 or index == total):
-                progress_callback(index, total)
+
+            batch_end = min(batch_start + batch_size, total)
+            batch_paths = file_paths[batch_start:batch_end]
+            batch_inspections = inspect_media_files_batch(
+                batch_paths, exiftool_path=options.exiftool_path,
+            )
+
+            for i in range(batch_start, batch_end):
+                scanned_file = file_list[i]
+                inspection = batch_inspections.get(scanned_file.path)
+                index = i + 1
+                dry_run.entries.append(
+                    _single_plan_entry(options, scanned_file, index, inspection=inspection)
+                )
+
+            if progress_callback:
+                progress_callback(batch_end, total)
     else:
         augmented_files = _augment_with_sidecar_siblings(
             list(scan_summary.files),

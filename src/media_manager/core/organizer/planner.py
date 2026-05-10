@@ -6,6 +6,7 @@ from pathlib import Path
 from media_manager.core.date_resolver import resolve_capture_datetime
 from media_manager.core.file_identity import files_have_identical_content
 from media_manager.core.media_groups import build_media_groups
+from media_manager.core.metadata.inspect import inspect_media_files_batch
 from media_manager.core.path_filters import path_is_included_by_patterns
 from media_manager.core.scanner import ScanOptions, scan_media_sources
 from media_manager.core.scanner.models import ScannedFile
@@ -189,49 +190,73 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
             if progress_callback and (idx % batch_size == 0 or idx == total):
                 progress_callback(idx, total)
     else:
-        for scanned_file in scan_summary.files:
+        file_list = list(scan_summary.files)
+        total = len(file_list)
+        file_paths = [item.path for item in file_list]
+
+        for batch_start in range(0, total, batch_size):
             if cancel_event and cancel_event.is_set():
                 break
-            try:
-                resolution = resolve_capture_datetime(scanned_file.path, exiftool_path=options.exiftool_path)
-                target_relative_dir = render_organize_directory(options.pattern, resolution, source_root=scanned_file.source_root)
-                target_path = options.target_root / target_relative_dir / scanned_file.path.name
-                group_target_paths = {scanned_file.path: target_path}
-                status, reason = _evaluate_group_plan_state(group_target_paths, conflict_policy=options.conflict_policy)
-            except Exception as exc:
+
+            batch_end = min(batch_start + batch_size, total)
+            batch_paths = file_paths[batch_start:batch_end]
+
+            # Batch-resolve all metadata for this chunk
+            batch_inspections = inspect_media_files_batch(
+                batch_paths, exiftool_path=options.exiftool_path,
+            )
+
+            # Process each file in the batch
+            for i in range(batch_start, batch_end):
+                scanned_file = file_list[i]
+                inspection = batch_inspections.get(scanned_file.path)
+                try:
+                    resolution = resolve_capture_datetime(
+                        scanned_file.path, inspection=inspection,
+                        exiftool_path=options.exiftool_path,
+                    )
+                    target_relative_dir = render_organize_directory(
+                        options.pattern, resolution, source_root=scanned_file.source_root,
+                    )
+                    target_path = options.target_root / target_relative_dir / scanned_file.path.name
+                    group_target_paths = {scanned_file.path: target_path}
+                    status, reason = _evaluate_group_plan_state(
+                        group_target_paths, conflict_policy=options.conflict_policy,
+                    )
+                except Exception as exc:
+                    dry_run.entries.append(
+                        OrganizePlanEntry(
+                            scanned_file=scanned_file,
+                            resolution=None,
+                            operation_mode=options.operation_mode,
+                            status="error",
+                            reason=str(exc),
+                            target_relative_dir=None,
+                            target_path=None,
+                            media_group=None,
+                            group_target_paths={},
+                        )
+                    )
+                    idx += 1
+                    continue
+
                 dry_run.entries.append(
                     OrganizePlanEntry(
                         scanned_file=scanned_file,
-                        resolution=None,
+                        resolution=resolution,
                         operation_mode=options.operation_mode,
-                        status="error",
-                        reason=str(exc),
-                        target_relative_dir=None,
-                        target_path=None,
+                        status=status,
+                        reason=reason,
+                        target_relative_dir=target_relative_dir,
+                        target_path=target_path,
                         media_group=None,
-                        group_target_paths={},
+                        group_target_paths=group_target_paths,
                     )
                 )
                 idx += 1
-                if progress_callback and idx % batch_size == 0:
-                    progress_callback(idx, total)
-                continue
 
-            dry_run.entries.append(
-                OrganizePlanEntry(
-                    scanned_file=scanned_file,
-                    resolution=resolution,
-                    operation_mode=options.operation_mode,
-                    status=status,
-                    reason=reason,
-                    target_relative_dir=target_relative_dir,
-                    target_path=target_path,
-                    media_group=None,
-                    group_target_paths=group_target_paths,
-                )
-            )
-            idx += 1
-            if progress_callback and (idx % batch_size == 0 or idx == total):
+            # Progress after each batch
+            if progress_callback:
                 progress_callback(idx, total)
 
     # Final progress tick (in case total wasn't hit exactly)

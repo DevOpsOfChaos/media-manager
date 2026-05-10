@@ -179,3 +179,62 @@ def read_exiftool_metadata(
     if not payload or not isinstance(payload, list) or not isinstance(payload[0], dict):
         return {}, True, None, None
     return payload[0], True, None, None
+
+
+def read_exiftool_metadata_batch(
+    file_paths: list[Path],
+    exiftool_path: Path | None = None,
+    *,
+    include_time_tags: bool = True,
+    group_names: bool = True,
+    timeout_seconds: float = 300.0,
+) -> dict[Path, dict[str, object]]:
+    """Read ExifTool metadata for multiple files in a single subprocess call.
+
+    Returns a dict mapping each file path to its metadata dict.
+    Files that fail to read are omitted from the result.
+    """
+    if not file_paths:
+        return {}
+
+    resolved_exiftool = resolve_exiftool_path(exiftool_path)
+    if resolved_exiftool is None:
+        return {}
+
+    command = [str(resolved_exiftool), "-json"]
+    if include_time_tags:
+        command.append("-time:all")
+    if group_names:
+        command.extend(["-G0:1", "-s"])
+    for fp in file_paths:
+        command.append(str(fp))
+
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout_seconds,
+        )
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError):
+        return {}
+
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return {}
+
+    if not isinstance(payload, list):
+        return {}
+
+    metadata_map: dict[Path, dict[str, object]] = {}
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        source_file = item.get("SourceFile", "")
+        if source_file:
+            metadata_map[Path(source_file)] = item
+    return metadata_map

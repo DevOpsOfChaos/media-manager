@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from media_manager.constants import DATE_TAG_PRIORITY
-from media_manager.exiftool import read_exiftool_metadata
+from media_manager.exiftool import read_exiftool_metadata, read_exiftool_metadata_batch
 
 from .models import DateCandidate, FileInspection
 
@@ -106,3 +106,62 @@ def inspect_media_file(file_path: Path, exiftool_path: Path | None = None) -> Fi
         metadata_error_kind=metadata_error_kind,
         error=error,
     )
+
+
+def inspect_media_files_batch(
+    file_paths: list[Path],
+    exiftool_path: Path | None = None,
+    *,
+    timeout_seconds: float = 300.0,
+) -> dict[Path, FileInspection]:
+    """Inspect multiple media files with a single ExifTool subprocess call.
+
+    Returns a dict mapping each file path to its FileInspection.
+    Files that ExifTool cannot read fall back to file-system mtime.
+    """
+    if not file_paths:
+        return {}
+
+    metadata_map = read_exiftool_metadata_batch(
+        file_paths, exiftool_path=exiftool_path, timeout_seconds=timeout_seconds,
+    )
+
+    inspections: dict[Path, FileInspection] = {}
+    for file_path in file_paths:
+        try:
+            stat = file_path.stat()
+        except OSError:
+            continue
+        file_modified_value = datetime.fromtimestamp(stat.st_mtime).strftime(TIME_OUTPUT_FORMAT)
+        metadata = metadata_map.get(file_path)
+
+        if metadata is not None:
+            candidates = extract_date_candidates(metadata)
+            metadata_tag_count = len(metadata)
+            if candidates:
+                selected = candidates[0]
+                inspections[file_path] = FileInspection(
+                    path=file_path,
+                    selected_value=selected.value,
+                    selected_source=selected.source_tag,
+                    date_candidates=candidates,
+                    file_modified_value=file_modified_value,
+                    metadata_available=True,
+                    exiftool_available=True,
+                    metadata_tag_count=metadata_tag_count,
+                )
+                continue
+
+        # Fallback: no metadata or no candidates — use file mtime
+        inspections[file_path] = FileInspection(
+            path=file_path,
+            selected_value=file_modified_value,
+            selected_source="file_system:mtime",
+            date_candidates=[],
+            file_modified_value=file_modified_value,
+            metadata_available=metadata is not None,
+            exiftool_available=bool(metadata_map),
+            metadata_tag_count=len(metadata) if metadata else 0,
+        )
+
+    return inspections
