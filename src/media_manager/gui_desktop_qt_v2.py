@@ -1382,12 +1382,19 @@ class OrganizePage:
                 total=len(plan.entries)
                 _log_error(f"ORGANIZE PLAN: {total} entries")
                 if total==0:
-                    qc.QTimer.singleShot(0,lambda:(self.res.setPlainText(_("organize.no_files",lang)),self.prog.hide(),self.shell.set_status(_("status.ready",lang)),self.pv_btn.setEnabled(True),self.ap_btn.setEnabled(True)))
+                    self.shell.run_on_main(lambda: (
+                        self.res.setPlainText(_("organize.no_files",lang)),
+                        self.prog.hide(), self.shell.set_status(_("status.ready",lang)),
+                        self.pv_btn.setEnabled(True), self.ap_btn.setEnabled(True)
+                    ))
                     return
 
-                qc.QTimer.singleShot(0,lambda:(self.prog.show(f"0 / {total}  (0%)",cancellable=True,total=total),self.shell.set_status(f"Organizing {total} files...")))
+                self.shell.run_on_main(lambda: (
+                    self.prog.show(f"0 / {total}  (0%)", cancellable=True, total=total),
+                    self.shell.set_status(f"Organizing {total} files...")
+                ))
 
-                result=execute_organize_plan(plan)
+                result=execute_organize_plan(plan, progress_callback=lambda c,t: progress.tick(c,t))
                 executed=sum(1 for e in result.entries if e.outcome in ("copied","moved"))
                 progress.tick(total,total)
                 _log_error(f"ORGANIZE DONE: {executed} files")
@@ -1405,17 +1412,19 @@ class OrganizePage:
                     if deleted: del_msg="\n"+_("organize.empty_removed",lang).format(count=deleted)
 
                 result_text=_("organize.done",lang).format(count=executed) if executed>0 else _("organize.no_files",lang)
-                qc.QTimer.singleShot(0,lambda:(
+                self.shell.run_on_main(lambda: (
                     self.res.setPlainText(result_text+del_msg),self.prog.hide(_("status.done",lang)),
                     self.shell.set_status(_("status.ready",lang)),
-                    self.pv_btn.setEnabled(True),self.ap_btn.setEnabled(True)))
+                    self.pv_btn.setEnabled(True),self.ap_btn.setEnabled(True)
+                ))
             except Exception as e:
                 _log_error(f"ORGANIZE CRASH: {e}")
                 import traceback; _log_error(traceback.format_exc())
-                qc.QTimer.singleShot(0,lambda:(
+                self.shell.run_on_main(lambda: (
                     self.res.setPlainText(_("organize.error",lang).format(error=str(e))),
-                    self.prog.hide(),self.shell.set_status(_("status.ready",lang)),
-                    self.pv_btn.setEnabled(True),self.ap_btn.setEnabled(True)))
+                    self.prog.hide(), self.shell.set_status(_("status.ready",lang)),
+                    self.pv_btn.setEnabled(True), self.ap_btn.setEnabled(True)
+                ))
         threading.Thread(target=_run,daemon=True).start()
 
 

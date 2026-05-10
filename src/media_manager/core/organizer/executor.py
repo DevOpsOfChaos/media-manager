@@ -103,10 +103,15 @@ def _rollback_group(performed: list[tuple[str, Path, Path]]) -> str | None:
     return None
 
 
-def execute_organize_plan(plan: OrganizeDryRun) -> OrganizeExecutionResult:
+def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None) -> OrganizeExecutionResult:
     result = OrganizeExecutionResult(plan=plan)
+    total = len(plan.entries)
+    done = 0
 
     for entry in plan.entries:
+        done += 1
+        if progress_callback and done % 200 == 0:
+            progress_callback(done, total)
         if entry.status == "skipped":
             result.entries.append(
                 OrganizeExecutionEntry(
@@ -200,4 +205,6 @@ def execute_organize_plan(plan: OrganizeDryRun) -> OrganizeExecutionResult:
             )
         )
 
+    if progress_callback:
+        progress_callback(total, total)
     return result
