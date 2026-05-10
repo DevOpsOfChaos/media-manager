@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 from media_manager.core.date_resolver import resolve_capture_datetime
@@ -190,16 +191,36 @@ def _group_plan_entry(options: RenamePlannerOptions, group, scanned_index: dict[
 
 
 def build_rename_dry_run(options: RenamePlannerOptions, progress_callback=None, cancel_event=None) -> RenameDryRun:
-    scan_summary = scan_media_sources(
-        ScanOptions(
-            source_dirs=options.source_dirs,
-            recursive=options.recursive,
-            include_hidden=options.include_hidden,
-            follow_symlinks=options.follow_symlinks,
-            include_patterns=options.include_patterns,
-            exclude_patterns=options.exclude_patterns,
+    source_roots = [str(d) for d in options.source_dirs]
+    scan_summary = None
+    try:
+        from media_manager.core.media_cache import MediaCache
+        cache = MediaCache.get()
+        cache._ensure_schema()
+        row = cache._conn().execute("SELECT value FROM cache_meta WHERE key='last_sync'").fetchone()
+        last_sync = float(row[0]) if row else 0
+        if time.time() - last_sync > 30:
+            cache.sync(source_roots)
+            cache._conn().execute(
+                "INSERT OR REPLACE INTO cache_meta(key,value) VALUES('last_sync',?)",
+                (str(time.time()),)
+            )
+            cache._conn().commit()
+        scan_summary = cache.build_scan_summary(source_roots)
+    except Exception:
+        pass
+
+    if scan_summary is None or not scan_summary.files:
+        scan_summary = scan_media_sources(
+            ScanOptions(
+                source_dirs=options.source_dirs,
+                recursive=options.recursive,
+                include_hidden=options.include_hidden,
+                follow_symlinks=options.follow_symlinks,
+                include_patterns=options.include_patterns,
+                exclude_patterns=options.exclude_patterns,
+            )
         )
-    )
     if options.conflict_policy not in {"conflict", "skip"}:
         raise ValueError("Rename conflict policy must be one of: conflict, skip.")
 

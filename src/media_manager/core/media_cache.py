@@ -243,6 +243,39 @@ class MediaCache:
         )
         return [dict(r) for r in rows]
 
+    def get_scanned_files(self, source_roots: list[str]) -> list:
+        """Return cached files as ScannedFile objects — instant, no filesystem walk."""
+        from media_manager.core.scanner.models import ScannedFile
+
+        self._ensure_schema()
+        placeholders = ",".join("?" for _ in source_roots)
+        rows = self._conn().execute(
+            f"SELECT path, source_root, relative_path, extension, size_bytes FROM media_files WHERE source_root IN ({placeholders}) ORDER BY path",
+            source_roots,
+        )
+        result: list = []
+        for row in rows:
+            result.append(ScannedFile(
+                source_root=Path(row[1]),
+                path=Path(row[0]),
+                relative_path=Path(row[2].replace("/", os.sep)),
+                extension=row[3],
+                size_bytes=row[4],
+            ))
+        return result
+
+    def build_scan_summary(self, source_roots: list[str]) -> object:
+        """Build a ScanSummary-equivalent from cache — replaces scan_media_sources."""
+        from media_manager.core.scanner.models import ScanSummary
+
+        files = self.get_scanned_files(source_roots)
+        missing = [r for r in source_roots if not Path(r).exists()]
+        return ScanSummary(
+            source_dirs=tuple(Path(r) for r in source_roots),
+            files=files,
+            missing_sources=[Path(m) for m in missing],
+        )
+
     def close(self) -> None:
         if hasattr(self._local, "conn") and self._local.conn:
             self._local.conn.close()

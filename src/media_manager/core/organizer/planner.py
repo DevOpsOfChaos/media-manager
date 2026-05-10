@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 from media_manager.core.date_resolver import resolve_capture_datetime
@@ -112,16 +113,38 @@ def _augment_files_with_associated_sidecars(
 
 
 def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=None, cancel_event=None) -> OrganizeDryRun:
-    scan_summary = scan_media_sources(
-        ScanOptions(
-            source_dirs=options.source_dirs,
-            recursive=options.recursive,
-            include_hidden=options.include_hidden,
-            follow_symlinks=options.follow_symlinks,
-            include_patterns=options.include_patterns,
-            exclude_patterns=options.exclude_patterns,
+    # Try cache first for instant file listing
+    source_roots = [str(d) for d in options.source_dirs]
+    scan_summary = None
+    try:
+        from media_manager.core.media_cache import MediaCache
+        cache = MediaCache.get()
+        cache._ensure_schema()
+        # Only sync if last sync was > 30s ago (avoids 11s overhead on repeated calls)
+        row = cache._conn().execute("SELECT value FROM cache_meta WHERE key='last_sync'").fetchone()
+        last_sync = float(row[0]) if row else 0
+        if time.time() - last_sync > 30:
+            cache.sync(source_roots)
+            cache._conn().execute(
+                "INSERT OR REPLACE INTO cache_meta(key,value) VALUES('last_sync',?)",
+                (str(time.time()),)
+            )
+            cache._conn().commit()
+        scan_summary = cache.build_scan_summary(source_roots)
+    except Exception:
+        pass
+
+    if scan_summary is None or not scan_summary.files:
+        scan_summary = scan_media_sources(
+            ScanOptions(
+                source_dirs=options.source_dirs,
+                recursive=options.recursive,
+                include_hidden=options.include_hidden,
+                follow_symlinks=options.follow_symlinks,
+                include_patterns=options.include_patterns,
+                exclude_patterns=options.exclude_patterns,
+            )
         )
-    )
     if options.conflict_policy not in {"conflict", "skip"}:
         raise ValueError("Organize conflict policy must be one of: conflict, skip.")
 
@@ -194,7 +217,6 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
         file_list = list(scan_summary.files)
         total = len(file_list)
         file_paths = [item.path for item in file_list]
-        seen = {os.path.normcase(str(p)): p for p in file_paths}
 
         # ── Cache: load previously resolved dates ──
         cached_dates: dict[str, tuple[str, str]] = {}  # norm_path → (date_taken, date_source)
@@ -207,7 +229,7 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
         except Exception:
             pass
 
-        # ── Build inspections: cached synthetic + uncached batch ──
+        # ── Build inspections for uncached files (batch ExifTool) ──
         inspections: dict[Path, FileInspection] = {}
         uncached: list[Path] = []
         new_date_entries: list[tuple[str, str, str, str | None]] = []
@@ -224,8 +246,6 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
             else:
                 uncached.append(fp)
 
-        # Batch-resolve uncached files
-        cached_total = len(inspections)
         if uncached:
             for batch_start in range(0, len(uncached), batch_size):
                 if cancel_event and cancel_event.is_set():
@@ -235,7 +255,6 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                     batch_paths, exiftool_path=options.exiftool_path,
                 )
                 inspections.update(batch_inspections)
-                # Cache newly resolved dates
                 for fp in batch_paths:
                     insp = batch_inspections.get(fp)
                     if insp and insp.selected_value and insp.selected_source:
@@ -243,20 +262,17 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                             str(fp), f"{insp.selected_value}|{insp.selected_source}",
                             insp.selected_source, None,
                         ))
-                # Progress during uncached processing
-                if progress_callback:
-                    done = cached_total + batch_start + len(batch_paths)
-                    progress_callback(min(done, total), total)
 
-        # ── Save new dates to cache ──
         if new_date_entries:
             try:
                 cache.set_dates_batch(new_date_entries)
             except Exception:
                 pass
 
-        # ── Process all files (cached + uncached) ──
+        # ── Process all files, single progress pass ──
         for i, scanned_file in enumerate(file_list):
+            if cancel_event and cancel_event.is_set():
+                break
             inspection = inspections.get(scanned_file.path)
             try:
                 resolution = resolve_capture_datetime(
@@ -292,8 +308,7 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
             )
             idx += 1
 
-            # Progress during full processing
-            if progress_callback and i > 0 and i % batch_size == 0:
+            if progress_callback and idx % batch_size == 0:
                 progress_callback(idx, total)
 
         if progress_callback:
