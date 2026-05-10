@@ -1043,6 +1043,7 @@ class DashboardPage:
             self._set_stat("organized", organized)
             self._set_exif_stat(et_ok)
             self.shell.set_status(change_msg)
+            _log_error(f"STATUS SET TO: {change_msg}")
             self._scanning = False
             _log_error(f"DASHBOARD SCAN DONE: images={stats['images']} videos={stats['videos']} music={stats['music']} subdirs={stats['subdirs']} organized={organized}")
         except Exception as e:
@@ -2066,7 +2067,17 @@ class MediaManagerShell:
         self.lang_btn.setToolTip("English" if self.lang=="en" else "Deutsch")
 
     def set_status(self,text):
-        qc,qg,qw=_qt(); qc.QTimer.singleShot(0, lambda t=text: self.status_lbl.setText(f"  {t}"))
+        try:
+            QMetaObject = __import__("PySide6.QtCore", fromlist=["QMetaObject"]).QMetaObject
+            Qt = __import__("PySide6.QtCore", fromlist=["Qt"]).Qt
+            Q_ARG = __import__("PySide6.QtCore", fromlist=["Q_ARG"]).Q_ARG
+            QMetaObject.invokeMethod(
+                self.status_lbl, "setText",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(str, f"  {text}")
+            )
+        except Exception:
+            pass
 
     def _sl(self,lang):
         s=_ls(); s["language"]=lang; _ss(s); self.lang=lang; self._up_lang_btn(); self._rebuild()
