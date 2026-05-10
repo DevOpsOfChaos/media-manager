@@ -28,7 +28,6 @@ from .gui_desktop_qt import (
     build_guarded_qt_runtime_smoke_plan,
     guarded_qt_runtime_smoke_plan_to_pretty_json,
     qt_install_guidance,
-    run_qt_gui,
     summarize_guarded_qt_runtime_smoke_plan,
     summarize_guarded_qt_runtime_smoke_local_artifact_pack,
     summarize_guarded_qt_runtime_smoke_local_artifact_pack_verification,
@@ -302,8 +301,10 @@ def main(argv: list[str] | None = None) -> int:
             print(summarize_gui_shell_model(model))
         return 0
     try:
-        return run_qt_gui(model)
-    except MissingQtDependencyError:
+        from .gui_desktop_qt_v2 import run as run_qt_v2
+
+        return run_qt_v2()
+    except (MissingQtDependencyError, ModuleNotFoundError, ImportError):
         print(qt_install_guidance())
         return 1
 

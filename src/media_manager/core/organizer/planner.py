@@ -109,7 +109,7 @@ def _augment_files_with_associated_sidecars(
     return augmented
 
 
-def build_organize_dry_run(options: OrganizePlannerOptions) -> OrganizeDryRun:
+def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=None) -> OrganizeDryRun:
     scan_summary = scan_media_sources(
         ScanOptions(
             source_dirs=options.source_dirs,
@@ -126,6 +126,7 @@ def build_organize_dry_run(options: OrganizePlannerOptions) -> OrganizeDryRun:
     dry_run = OrganizeDryRun(options=options, scan_summary=scan_summary)
 
     scanned_files = list(scan_summary.files)
+    total = len(scanned_files)
     if options.include_associated_files:
         scanned_files = _augment_files_with_associated_sidecars(
             scanned_files,
@@ -133,6 +134,7 @@ def build_organize_dry_run(options: OrganizePlannerOptions) -> OrganizeDryRun:
         )
 
     scanned_by_path = {item.path: item for item in scanned_files}
+    idx = 0
     if options.include_associated_files:
         groups = build_media_groups(scanned_files)
         for group in groups:
@@ -161,6 +163,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions) -> OrganizeDryRun:
                         group_target_paths={},
                     )
                 )
+                idx += 1
+                if progress_callback: progress_callback(idx, total)
                 continue
 
             dry_run.entries.append(
@@ -176,6 +180,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions) -> OrganizeDryRun:
                     group_target_paths=group_target_paths,
                 )
             )
+            idx += 1
+            if progress_callback: progress_callback(idx, total)
     else:
         for scanned_file in scan_summary.files:
             try:
@@ -198,6 +204,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions) -> OrganizeDryRun:
                         group_target_paths={},
                     )
                 )
+                idx += 1
+                if progress_callback: progress_callback(idx, total)
                 continue
 
             dry_run.entries.append(
@@ -213,6 +221,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions) -> OrganizeDryRun:
                     group_target_paths=group_target_paths,
                 )
             )
+            idx += 1
+            if progress_callback: progress_callback(idx, total)
 
     collisions: dict[str, list[OrganizePlanEntry]] = {}
     for entry in dry_run.entries:

@@ -17,11 +17,23 @@ def _sanitize_segment(value: str) -> str:
     return cleaned
 
 
+_MONTH_NAMES_EN = [
+    "", "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+]
+_MONTH_NAMES_DE = [
+    "", "Januar", "Februar", "März", "April", "Mai", "Juni",
+    "Juli", "August", "September", "Oktober", "November", "Dezember",
+]
+
 def render_organize_directory(pattern: str, resolution: DateResolution, *, source_root: Path | None = None) -> Path:
     dt = resolution.resolved_datetime
+    month_idx = dt.month
     tokens = {
         "year": dt.strftime("%Y"),
         "month": dt.strftime("%m"),
+        "month_name": _MONTH_NAMES_EN[month_idx] if 1 <= month_idx <= 12 else dt.strftime("%B"),
+        "month_name_de": _MONTH_NAMES_DE[month_idx] if 1 <= month_idx <= 12 else dt.strftime("%B"),
         "day": dt.strftime("%d"),
         "year_month": dt.strftime("%Y-%m"),
         "year_month_day": dt.strftime("%Y-%m-%d"),
