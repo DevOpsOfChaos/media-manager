@@ -372,7 +372,9 @@ T = {
         "organize.delete_empty":"Remove empty folders after organizing",
         "organize.conflict":"If file already exists:","organize.conflict_skip":"Skip","organize.conflict_rename":"Rename new file",
         "organize.preview":"Preview","organize.apply":"Organize Files",
+        "organize.counting":"Counting media files...","organize.scanning_dates":"Reading capture dates from files...",
         "organize.apply_confirm":"This will {mode} your files into date-based folders.\n\nSource: {sources}\nTarget: {target}\n\nThis cannot be undone. Continue?",
+        "organize.apply_confirm_count":"This will {mode} your files into date-based folders.\n\nSource: {sources}\nTarget: {target}\nFiles found: {count:,}\n\nThis cannot be undone. Continue?",
         "organize.working":"Organizing files...","organize.done":"Done — {count} files organized.",
         "organize.skipped":"Skipped: {count} files (missing date or unsupported format).",
         "organize.empty_removed":"Removed {count} empty folders.",
@@ -467,7 +469,9 @@ T = {
         "organize.delete_empty":"Leere Ordner nach dem Organisieren entfernen",
         "organize.conflict":"Bei Namenskonflikt:","organize.conflict_skip":"Überspringen","organize.conflict_rename":"Umbenennen",
         "organize.preview":"Vorschau","organize.apply":"Dateien organisieren",
+        "organize.counting":"Zähle Mediendateien...","organize.scanning_dates":"Lese Aufnahmedaten aus Dateien...",
         "organize.apply_confirm":"Deine Dateien werden in datumsbasierte Ordner {mode}.\n\nQuelle: {sources}\nZiel: {target}\n\nKann nicht rückgängig gemacht werden. Fortsetzen?",
+        "organize.apply_confirm_count":"Deine Dateien werden in datumsbasierte Ordner {mode}.\n\nQuelle: {sources}\nZiel: {target}\nGefundene Dateien: {count:,}\n\nKann nicht rückgängig gemacht werden. Fortsetzen?",
         "organize.working":"Organisiere Dateien...","organize.done":"Fertig — {count} Dateien organisiert.",
         "organize.skipped":"Übersprungen: {count} Dateien (fehlendes Datum oder ungültiges Format).",
         "organize.empty_removed":"{count} leere Ordner entfernt.","organize.error":"Fehler: {error}",
@@ -714,11 +718,18 @@ class ProgressWidget:
             self._total=total; self.pb.setRange(0,total)
             self.pb.setValue(min(current,total))
             pct=int(current/total*100) if total else 0
-            self.pb.setFormat(f"{current} / {total}  ({pct}%)")
-            self.label.setText(f"Phase 2/2: Organizing... {current}/{total} files ({pct}%)")
+            elapsed=int(__import__("time").time()-self._start)
+            if current>0 and elapsed>0:
+                rate=current/elapsed
+                remaining=int((total-current)/rate) if rate>0 else 0
+                eta=f"{remaining//60}m{remaining%60:02d}s" if remaining>0 else "..."
+            else:
+                eta="..."
+            self.pb.setFormat(f"{current:,} / {total:,}  ({pct}%)  ETA {eta}")
+            self.label.setText(f"Reading dates: {current:,}/{total:,} files ({pct}%)")
         else:
             elapsed=int(__import__("time").time()-self._start)
-            self.label.setText(f"Phase 1/2: Scanning files... ({elapsed}s)")
+            self.label.setText(f"Scanning files... ({elapsed}s)")
     def _cancel(self):
         _cancel_all()
         self.label.setText("Cancelling..."); self.cancel_btn.setEnabled(False)
@@ -963,12 +974,14 @@ class DashboardPage:
                         if ext in img_exts: images+=1
                         elif ext in vid_exts: videos+=1
                         elif ext in mus_exts: music+=1
-            except: pass
+            except Exception as e:
+                _log_error(f"DASHBOARD SCAN ERROR: {e}")
         tgt=_ls().get("target_dir","")
         if tgt and Path(tgt).exists():
             try: organized=_count_organized_fast(tgt)
-            except: organized=0
+            except Exception: organized=0
         et_ok=_exiftool_ok()
+        _log_error(f"DASHBOARD SCAN: images={images} videos={videos} music={music} subdirs={subdirs} organized={organized} exiftool={et_ok}")
         # Cache
         s=_ls(); s["last_stats"]={"images":images,"videos":videos,"music":music,"subdirs":subdirs,"organized":organized}
         _ss(s)
@@ -1167,16 +1180,27 @@ class OrganizePage:
     def _preview(self,lang):
         sources=self._sources(); tgt=self.te.text().strip()
         if not sources or not tgt: return
-        pat=self._build_pat(); self.res.clear(); self.prog.show(_("status.scanning",lang), cancellable=True)
+        pat=self._build_pat(); self.res.clear(); self.prog.show(_("organize.counting",lang), cancellable=False)
         self.pv_btn.setEnabled(False); self.ap_btn.setEnabled(False)
-        self.shell.set_status(_("status.scanning",lang))
+        self.shell.set_status(_("organize.counting",lang))
+        progress=self.prog
         def _run():
             try:
+                # Quick count first
+                file_count=0
+                try:
+                    for sp in sources: file_count+=_count_source_media([Path(sp)])
+                except: pass
+                if file_count==0:
+                    qc.QTimer.singleShot(0,lambda:(self.res.setPlainText(_("organize.no_files",lang)),self.prog.hide(),self.shell.set_status(_("status.ready",lang)),self.pv_btn.setEnabled(True),self.ap_btn.setEnabled(True)))
+                    return
+                qc.QTimer.singleShot(0,lambda: self.prog.show(f"{_('organize.scanning_dates',lang)} ({file_count:,} files)",cancellable=True,total=0))
+
                 from media_manager.core.organizer.planner import build_organize_dry_run, OrganizePlannerOptions
                 source_paths=[Path(s) for s in sources]
                 mode="move" if self.rb_move.isChecked() else "copy"
                 patterns=_filter_patterns(self.mk)
-                opts=OrganizePlannerOptions(source_dirs=tuple(source_paths), target_root=Path(tgt), pattern=pat, operation_mode=mode, include_patterns=patterns)
+                opts=OrganizePlannerOptions(source_dirs=tuple(source_paths), target_root=Path(tgt), pattern=pat, operation_mode=mode, include_patterns=patterns, batch_size=200)
                 plan=build_organize_dry_run(opts, progress_callback=lambda c,t: progress.tick(c,t))
                 lines=[f"Files planned: {len(plan.entries)}"]
                 for e in plan.entries[:30]:
@@ -1207,35 +1231,72 @@ class OrganizePage:
         mode_word=_("organize.move",lang).split("(")[0].strip().lower() if self.rb_move.isChecked() else _("organize.copy",lang).split("(")[0].strip().lower()
         src_list="\n".join(f"  • {s}" for s in sources[:5])
         if len(sources)>5: src_list+=f"\n  • ... and {len(sources)-5} more"
-        ans=qw.QMessageBox.warning(None,_("organize.apply",lang),
-            _("organize.apply_confirm",lang).format(mode=mode_word,sources=src_list,target=tgt),
-            qw.QMessageBox.StandardButton.Yes|qw.QMessageBox.StandardButton.No)
-        if ans!=qw.QMessageBox.StandardButton.Yes: return
 
-        self.res.clear(); self.prog.show("Phase 1/2: Scanning files (reading dates)...", cancellable=False, total=0)
+        # Quick-count files first so user knows what they're in for
+        self.res.clear(); self.prog.show(_("organize.counting",lang), cancellable=False, total=0)
         self.pv_btn.setEnabled(False); self.ap_btn.setEnabled(False)
-        self.shell.set_status("Phase 1/2: Scanning files...")
+        self.shell.set_status(_("organize.counting",lang))
 
-        cancel_ev=threading.Event(); progress=self.prog
+        def _run():
+            try:
+                from media_manager.core.organizer.planner import build_organize_dry_run, OrganizePlannerOptions
+                from media_manager.core.organizer.executor import execute_organize_plan
+
+                # Phase 0: quick count
+                file_count=0
+                try:
+                    for sp in sources:
+                        file_count+=_count_source_media([Path(sp)])
+                except: pass
+                _log_error(f"QUICK COUNT: {file_count} media files in sources")
+
+                if file_count==0:
+                    qc.QTimer.singleShot(0,lambda:(self.res.setPlainText(_("organize.no_files",lang)),self.prog.hide(),self.shell.set_status(_("status.ready",lang)),self.pv_btn.setEnabled(True),self.ap_btn.setEnabled(True)))
+                    return
+
+                # Confirm with file count
+                qc.QTimer.singleShot(0,lambda:(self.prog.hide(),))
+                import time as _time; _time.sleep(0.3)  # let UI catch up
+
+                # Ask on main thread via signal
+                def _confirm():
+                    ans2=qw.QMessageBox.warning(None,_("organize.apply",lang),
+                        _("organize.apply_confirm_count",lang).format(mode=mode_word,sources=src_list,target=tgt,count=file_count),
+                        qw.QMessageBox.StandardButton.Yes|qw.QMessageBox.StandardButton.No)
+                    if ans2!=qw.QMessageBox.StandardButton.Yes:
+                        self.pv_btn.setEnabled(True); self.ap_btn.setEnabled(True)
+                        self.shell.set_status(_("status.ready",lang)); return
+                    self._execute_organize(lang,sources,tgt,pat)
+                qc.QTimer.singleShot(0,_confirm)
+            except Exception as e:
+                _log_error(f"ORGANIZE COUNT ERROR: {e}"); import traceback; _log_error(traceback.format_exc())
+                qc.QTimer.singleShot(0,lambda:(self.res.setPlainText(_("organize.error",lang).format(error=str(e))),self.prog.hide(),self.shell.set_status(_("status.ready",lang)),self.pv_btn.setEnabled(True),self.ap_btn.setEnabled(True)))
+        threading.Thread(target=_run,daemon=True).start()
+
+    def _execute_organize(self,lang,sources,tgt,pat):
+        qc,qg,qw=_qt(); progress=self.prog
+        source_paths=[Path(s) for s in sources]
+        mode="move" if self.rb_move.isChecked() else "copy"
+        conflict="conflict" if self.conf.currentIndex()==0 else "skip"
+
+        self.prog.show(_("organize.scanning_dates",lang), cancellable=True, total=0)
+        self.shell.set_status(_("organize.scanning_dates",lang))
+        cancel_ev=threading.Event()
         with _CANCEL_LOCK: _CANCEL_EVENTS[id(cancel_ev)]=cancel_ev
 
         def _run():
             try:
                 from media_manager.core.organizer.planner import build_organize_dry_run, OrganizePlannerOptions
                 from media_manager.core.organizer.executor import execute_organize_plan
-                from media_manager.core.organizer.patterns import DEFAULT_ORGANIZE_PATTERN
 
-                source_paths=[Path(s) for s in sources]
-                mode="move" if self.rb_move.isChecked() else "copy"
-                conflict="conflict" if self.conf.currentIndex()==0 else "skip"
                 _log_error(f"BUILDING PLAN: sources={[str(s) for s in source_paths]} tgt={tgt} pat={pat} mode={mode}")
-
                 patterns=_filter_patterns(self.mk)
                 opts=OrganizePlannerOptions(
                     source_dirs=tuple(source_paths), target_root=Path(tgt), pattern=pat,
                     operation_mode=mode, conflict_policy=conflict, include_patterns=patterns,
+                    batch_size=200,
                 )
-                plan=build_organize_dry_run(opts, progress_callback=lambda c,t: progress.tick(c,t))
+                plan=build_organize_dry_run(opts, progress_callback=lambda c,t: progress.tick(c,t), cancel_event=cancel_ev)
                 total=len(plan.entries)
                 _log_error(f"ORGANIZE PLAN: {total} entries")
                 if total==0:
@@ -1244,7 +1305,6 @@ class OrganizePage:
 
                 qc.QTimer.singleShot(0,lambda:(self.prog.show(f"0 / {total}  (0%)",cancellable=True,total=total),self.shell.set_status(f"Organizing {total} files...")))
 
-                # Execute plan directly — no subprocess
                 result=execute_organize_plan(plan)
                 executed=sum(1 for e in result.entries if e.outcome in ("copied","moved"))
                 progress.tick(total,total)
@@ -1269,8 +1329,7 @@ class OrganizePage:
                     self.pv_btn.setEnabled(True),self.ap_btn.setEnabled(True)))
             except Exception as e:
                 _log_error(f"ORGANIZE CRASH: {e}")
-                import traceback
-                _log_error(traceback.format_exc())
+                import traceback; _log_error(traceback.format_exc())
                 qc.QTimer.singleShot(0,lambda:(
                     self.res.setPlainText(_("organize.error",lang).format(error=str(e))),
                     self.prog.hide(),self.shell.set_status(_("status.ready",lang)),
@@ -1355,8 +1414,8 @@ class RenamePage:
                 if not src_paths:
                     qc,qg,qw=_qt(); qc.QTimer.singleShot(0,lambda:(self.res.setPlainText("Source not found."),self.prog.hide(),self.pv_btn.setEnabled(True),self.ap_btn.setEnabled(True))); return
                 patterns=_filter_patterns(self.mk)
-                opts=RenamePlannerOptions(source_dirs=src_paths, template=tmpl, include_patterns=patterns)
-                plan=build_rename_dry_run(opts)
+                opts=RenamePlannerOptions(source_dirs=src_paths, template=tmpl, include_patterns=patterns, batch_size=200)
+                plan=build_rename_dry_run(opts, progress_callback=lambda c,t: progress.tick(c,t))
                 lines=[f"Files planned: {len(plan.entries)}"]
                 for e in plan.entries[:30]:
                     sn=Path(e.source_path).name if e.source_path else "?"
@@ -1392,14 +1451,14 @@ class RenamePage:
                     qc.QTimer.singleShot(0,lambda:(self.res.setPlainText("Source folder not found."),self.prog.hide(),self.shell.set_status(_("status.ready",lang)),self.pv_btn.setEnabled(True),self.ap_btn.setEnabled(True)))
                     return
                 patterns=_filter_patterns(self.mk)
-                opts=RenamePlannerOptions(source_dirs=src_paths, template=tmpl, include_patterns=patterns)
-                plan=build_rename_dry_run(opts)
+                opts=RenamePlannerOptions(source_dirs=src_paths, template=tmpl, include_patterns=patterns, batch_size=200)
+                plan=build_rename_dry_run(opts, progress_callback=lambda c,t: progress.tick(c,t), cancel_event=cancel_ev)
                 total=len(plan.entries)
                 _log_error(f"RENAME PLAN: {total} entries")
                 if total==0:
                     qc.QTimer.singleShot(0,lambda:(self.res.setPlainText("No files to rename."),self.prog.hide(),self.shell.set_status(_("status.ready",lang)),self.pv_btn.setEnabled(True),self.ap_btn.setEnabled(True)))
                     return
-                qc.QTimer.singleShot(0,lambda:(self.prog.show(f"0 / {total}  (0%)",cancellable=True,total=total),self.shell.set_status(f"Renaming {total} files...")))
+                qc.QTimer.singleShot(0,lambda:(self.prog.show(f"Renaming {total} files...",cancellable=True,total=total),self.shell.set_status(f"Renaming {total} files...")))
                 result=execute_rename_dry_run(plan, apply=True)
                 executed=sum(1 for e in result.entries if getattr(e,"outcome",None)=="renamed")
                 progress.tick(total,total)

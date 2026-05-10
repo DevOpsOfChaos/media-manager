@@ -109,7 +109,7 @@ def _augment_files_with_associated_sidecars(
     return augmented
 
 
-def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=None) -> OrganizeDryRun:
+def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=None, cancel_event=None) -> OrganizeDryRun:
     scan_summary = scan_media_sources(
         ScanOptions(
             source_dirs=options.source_dirs,
@@ -133,11 +133,15 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
             exclude_patterns=options.exclude_patterns,
         )
 
+    batch_size = options.batch_size if options.batch_size > 0 else total
+
     scanned_by_path = {item.path: item for item in scanned_files}
     idx = 0
     if options.include_associated_files:
         groups = build_media_groups(scanned_files)
         for group in groups:
+            if cancel_event and cancel_event.is_set():
+                break
             scanned_file = scanned_by_path[group.main_path]
             try:
                 resolution = resolve_capture_datetime(scanned_file.path, exiftool_path=options.exiftool_path)
@@ -164,7 +168,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                     )
                 )
                 idx += 1
-                if progress_callback: progress_callback(idx, total)
+                if progress_callback and idx % batch_size == 0:
+                    progress_callback(idx, total)
                 continue
 
             dry_run.entries.append(
@@ -181,9 +186,12 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                 )
             )
             idx += 1
-            if progress_callback: progress_callback(idx, total)
+            if progress_callback and (idx % batch_size == 0 or idx == total):
+                progress_callback(idx, total)
     else:
         for scanned_file in scan_summary.files:
+            if cancel_event and cancel_event.is_set():
+                break
             try:
                 resolution = resolve_capture_datetime(scanned_file.path, exiftool_path=options.exiftool_path)
                 target_relative_dir = render_organize_directory(options.pattern, resolution, source_root=scanned_file.source_root)
@@ -205,7 +213,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                     )
                 )
                 idx += 1
-                if progress_callback: progress_callback(idx, total)
+                if progress_callback and idx % batch_size == 0:
+                    progress_callback(idx, total)
                 continue
 
             dry_run.entries.append(
@@ -222,7 +231,12 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                 )
             )
             idx += 1
-            if progress_callback: progress_callback(idx, total)
+            if progress_callback and (idx % batch_size == 0 or idx == total):
+                progress_callback(idx, total)
+
+    # Final progress tick (in case total wasn't hit exactly)
+    if progress_callback and idx != total:
+        progress_callback(idx, total)
 
     collisions: dict[str, list[OrganizePlanEntry]] = {}
     for entry in dry_run.entries:

@@ -23,6 +23,7 @@ class RenamePlannerOptions:
     conflict_policy: RenameConflictPolicy = "conflict"
     include_patterns: tuple[str, ...] = ()
     exclude_patterns: tuple[str, ...] = ()
+    batch_size: int = 0
 
 
 @dataclass(slots=True, frozen=True)

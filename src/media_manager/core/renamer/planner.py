@@ -187,7 +187,7 @@ def _group_plan_entry(options: RenamePlannerOptions, group, scanned_index: dict[
     )
 
 
-def build_rename_dry_run(options: RenamePlannerOptions) -> RenameDryRun:
+def build_rename_dry_run(options: RenamePlannerOptions, progress_callback=None, cancel_event=None) -> RenameDryRun:
     scan_summary = scan_media_sources(
         ScanOptions(
             source_dirs=options.source_dirs,
@@ -202,10 +202,16 @@ def build_rename_dry_run(options: RenamePlannerOptions) -> RenameDryRun:
         raise ValueError("Rename conflict policy must be one of: conflict, skip.")
 
     dry_run = RenameDryRun(options=options, scan_summary=scan_summary)
+    total = len(scan_summary.files)
+    batch_size = options.batch_size if options.batch_size > 0 else total
 
     if not options.include_associated_files:
         for index, scanned_file in enumerate(scan_summary.files, start=1):
+            if cancel_event and cancel_event.is_set():
+                break
             dry_run.entries.append(_single_plan_entry(options, scanned_file, index=index))
+            if progress_callback and (index % batch_size == 0 or index == total):
+                progress_callback(index, total)
     else:
         augmented_files = _augment_with_sidecar_siblings(
             list(scan_summary.files),
@@ -219,7 +225,11 @@ def build_rename_dry_run(options: RenamePlannerOptions) -> RenameDryRun:
         dry_run.group_kind_summary = dict(summary.group_kind_summary)
         scanned_index = {_normalized_path_key(item.path): item for item in augmented_files}
         for index, group in enumerate(groups, start=1):
+            if cancel_event and cancel_event.is_set():
+                break
             dry_run.entries.append(_group_plan_entry(options, group, scanned_index, index=index))
+            if progress_callback and (index % batch_size == 0 or index == total):
+                progress_callback(index, total)
 
     collisions: dict[str, list[RenamePlanEntry]] = {}
     for entry in dry_run.entries:
