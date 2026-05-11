@@ -102,6 +102,33 @@ export async function undoApply(
   return invoke("undo_apply", { journalPath })
 }
 
+// ── Diagnostics ──
+
+export interface RuntimeDiagnostics {
+  python_exe: string
+  project_root: string
+  pythonpath_prepended: string
+  settings_path_override: string | null
+  env_hints: {
+    MEDIA_MANAGER_PYTHON: string | null
+    VIRTUAL_ENV: string | null
+    CONDA_PREFIX: string | null
+    MEDIA_MANAGER_PROJECT_ROOT: string | null
+    MEDIA_MANAGER_SETTINGS_PATH: string | null
+  }
+  python_reachable: boolean
+  python_error?: string
+  python_version?: string
+  media_manager_import?: { ok: boolean; error?: string }
+  bridge_settings_import?: { ok: boolean; error?: string }
+  settings_path?: string
+  settings_file_exists?: boolean
+}
+
+export async function runtimeDiagnostics(): Promise<RuntimeDiagnostics> {
+  return invoke("runtime_diagnostics")
+}
+
 // ── Doctor ──
 
 export async function doctorCheck(): Promise<unknown> {

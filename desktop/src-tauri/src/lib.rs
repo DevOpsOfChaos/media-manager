@@ -24,6 +24,8 @@ pub fn run() {
             // Undo
             media_commands::undo_preview,
             media_commands::undo_apply,
+            // Diagnostics
+            media_commands::runtime_diagnostics,
             // Doctor
             media_commands::doctor_check,
         ])

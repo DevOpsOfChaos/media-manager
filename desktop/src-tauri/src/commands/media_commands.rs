@@ -82,6 +82,47 @@ pub async fn undo_apply(journal_path: String) -> Result<Value, String> {
     Err("media_commands: undo_apply not yet implemented".into())
 }
 
+// ── Diagnostics ──
+
+#[tauri::command]
+pub async fn runtime_diagnostics() -> Result<Value, String> {
+    let b = bridge()?;
+
+    let env_hints = serde_json::json!({
+        "MEDIA_MANAGER_PYTHON": std::env::var("MEDIA_MANAGER_PYTHON").ok(),
+        "VIRTUAL_ENV": std::env::var("VIRTUAL_ENV").ok(),
+        "CONDA_PREFIX": std::env::var("CONDA_PREFIX").ok(),
+        "MEDIA_MANAGER_PROJECT_ROOT": std::env::var("MEDIA_MANAGER_PROJECT_ROOT").ok(),
+        "MEDIA_MANAGER_SETTINGS_PATH": std::env::var("MEDIA_MANAGER_SETTINGS_PATH").ok(),
+    });
+
+    let mut rust_info = serde_json::json!({
+        "python_exe": b.executable(),
+        "project_root": b.project_root().to_string_lossy(),
+        "pythonpath_prepended": b.effective_pythonpath(),
+        "settings_path_override": b.settings_path(),
+        "env_hints": env_hints,
+    });
+
+    // Try to get Python-side diagnostics
+    match b.run_module("bridge_diagnostics", "", None) {
+        Ok(py_info) => {
+            if let Some(obj) = py_info.as_object() {
+                for (key, value) in obj {
+                    rust_info[key] = value.clone();
+                }
+            }
+            rust_info["python_reachable"] = serde_json::Value::Bool(true);
+        }
+        Err(e) => {
+            rust_info["python_reachable"] = serde_json::Value::Bool(false);
+            rust_info["python_error"] = serde_json::Value::String(e);
+        }
+    }
+
+    Ok(rust_info)
+}
+
 // ── Doctor ──
 
 #[tauri::command]

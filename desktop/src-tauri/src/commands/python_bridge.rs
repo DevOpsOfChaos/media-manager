@@ -47,6 +47,32 @@ impl PythonBridge {
         })
     }
 
+    // ── accessors for diagnostics ──
+
+    pub fn executable(&self) -> &str {
+        &self.executable
+    }
+
+    pub fn project_root(&self) -> &Path {
+        &self.project_root
+    }
+
+    pub fn settings_path(&self) -> Option<&str> {
+        self.settings_path.as_deref()
+    }
+
+    /// Compute the PYTHONPATH that would be used for subprocess calls.
+    pub fn effective_pythonpath(&self) -> String {
+        let src_dir = self.project_root.join("src");
+        let separator = if cfg!(windows) { ";" } else { ":" };
+        let existing = std::env::var("PYTHONPATH").unwrap_or_default();
+        if existing.is_empty() {
+            src_dir.to_string_lossy().to_string()
+        } else {
+            format!("{}{separator}{existing}", src_dir.display())
+        }
+    }
+
     /// Run a Python bridge module with the given action.
     ///
     /// - `module`: the dotted module name under `media_manager` (e.g. `bridge_settings`)
@@ -333,5 +359,28 @@ mod tests {
     fn test_bridge_config_resolves() {
         let result = PythonBridge::resolve();
         assert!(result.is_ok(), "PythonBridge::resolve() failed: {result:?}");
+    }
+
+    #[test]
+    fn test_diagnostics_accessors() {
+        let result = PythonBridge::resolve();
+        assert!(result.is_ok(), "PythonBridge::resolve() failed: {result:?}");
+        let bridge = result.unwrap();
+
+        let exe = bridge.executable();
+        assert!(!exe.is_empty(), "executable should not be empty");
+
+        let root = bridge.project_root();
+        assert!(
+            root.join("src").join("media_manager").is_dir(),
+            "project_root should contain src/media_manager/"
+        );
+
+        let pp = bridge.effective_pythonpath();
+        assert!(!pp.is_empty(), "effective_pythonpath should not be empty");
+        assert!(
+            pp.contains("src"),
+            "PYTHONPATH should contain src/: {pp}"
+        );
     }
 }
