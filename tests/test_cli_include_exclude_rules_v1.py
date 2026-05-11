@@ -74,7 +74,7 @@ def test_cli_organize_json_reports_include_exclude_patterns(monkeypatch, tmp_pat
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     exit_code = organize_main([
@@ -100,7 +100,7 @@ def test_cli_rename_json_reports_include_exclude_patterns(monkeypatch, tmp_path:
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     exit_code = rename_main([
@@ -128,11 +128,11 @@ def test_cli_cleanup_json_reports_filter_counts(monkeypatch, tmp_path: Path, cap
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     exit_code = cleanup_main([

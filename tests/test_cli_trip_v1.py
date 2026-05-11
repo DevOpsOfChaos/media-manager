@@ -30,7 +30,7 @@ def test_cli_trip_json_output_contains_summary(monkeypatch, tmp_path: Path, caps
 
     monkeypatch.setattr(
         "media_manager.core.workflows.trip.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     exit_code = main([
@@ -61,7 +61,7 @@ def test_cli_trip_apply_copy_reports_execution(monkeypatch, tmp_path: Path, caps
 
     monkeypatch.setattr(
         "media_manager.core.workflows.trip.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     exit_code = main([
@@ -92,7 +92,7 @@ def test_cli_trip_text_output_includes_summary_blocks(monkeypatch, tmp_path: Pat
 
     monkeypatch.setattr(
         "media_manager.core.workflows.trip.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     exit_code = main([
@@ -119,7 +119,7 @@ def test_cli_trip_writes_run_log(monkeypatch, tmp_path: Path) -> None:
 
     monkeypatch.setattr(
         "media_manager.core.workflows.trip.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     exit_code = main([
@@ -146,7 +146,7 @@ def test_cli_trip_apply_writes_execution_journal(monkeypatch, tmp_path: Path) ->
 
     monkeypatch.setattr(
         "media_manager.core.workflows.trip.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     exit_code = main([
@@ -175,7 +175,7 @@ def test_cli_trip_history_dir_writes_preview_run_log(monkeypatch, tmp_path: Path
 
     monkeypatch.setattr(
         "media_manager.core.workflows.trip.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     exit_code = main([
@@ -200,7 +200,7 @@ def test_cli_trip_history_dir_writes_apply_run_log_and_journal(monkeypatch, tmp_
 
     monkeypatch.setattr(
         "media_manager.core.workflows.trip.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     exit_code = main([

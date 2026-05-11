@@ -39,7 +39,7 @@ def test_build_organize_dry_run_plans_target_paths(monkeypatch, tmp_path: Path) 
     source.mkdir(); target.mkdir()
     photo = source / "photo.jpg"
     photo.write_bytes(b"jpg")
-    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
     plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN))
     assert plan.media_file_count == 1
     assert plan.planned_count == 1
@@ -58,7 +58,7 @@ def test_build_organize_dry_run_marks_existing_target_as_conflict_when_bytes_dif
     existing_target = target / "2024" / "2024-08-10"
     existing_target.mkdir(parents=True)
     (existing_target / "photo.jpg").write_bytes(b"same-size-b")
-    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
     plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN))
     assert plan.planned_count == 0
     assert plan.conflict_count == 1
@@ -74,7 +74,7 @@ def test_build_organize_dry_run_skips_existing_identical_target(monkeypatch, tmp
     existing_target = target / "2024" / "2024-08-10"
     existing_target.mkdir(parents=True)
     (existing_target / "photo.jpg").write_bytes(b"same-bytes")
-    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
     plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN))
     assert plan.skipped_count == 1
     assert plan.entries[0].status == "skipped"
@@ -86,7 +86,7 @@ def test_build_organize_dry_run_marks_same_target_path_collisions(monkeypatch, t
     source_a.mkdir(); source_b.mkdir(); target.mkdir()
     (source_a / "photo.jpg").write_bytes(b"a")
     (source_b / "photo.jpg").write_bytes(b"b")
-    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
     plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(source_a, source_b), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN))
     assert plan.planned_count == 0
     assert plan.conflict_count == 2
@@ -99,7 +99,7 @@ def test_build_organize_dry_run_skips_source_already_in_target_location(monkeypa
     planned_dir.mkdir(parents=True)
     photo = planned_dir / "photo.jpg"
     photo.write_bytes(b"jpg")
-    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
     plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(planned_dir,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN, recursive=False))
     assert plan.skipped_count == 1
     assert plan.entries[0].status == "skipped"
@@ -111,7 +111,7 @@ def test_execute_organize_plan_copies_planned_entries(monkeypatch, tmp_path: Pat
     source.mkdir(); target.mkdir()
     photo = source / "photo.jpg"
     photo.write_bytes(b"jpg")
-    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
     plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN, operation_mode="copy"))
     result = execute_organize_plan(plan)
     assert result.executed_count == 1
@@ -126,7 +126,7 @@ def test_execute_organize_plan_moves_planned_entries(monkeypatch, tmp_path: Path
     source.mkdir(); target.mkdir()
     photo = source / "photo.jpg"
     photo.write_bytes(b"jpg")
-    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
     plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN, operation_mode="move"))
     result = execute_organize_plan(plan)
     assert result.executed_count == 1
@@ -141,7 +141,7 @@ def test_execute_organize_plan_skips_identical_target_that_appears_after_plannin
     source.mkdir(); target.mkdir()
     photo = source / "photo.jpg"
     photo.write_bytes(b"same-bytes")
-    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
     plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN, operation_mode="copy"))
     plan.entries[0].target_path.parent.mkdir(parents=True)
     plan.entries[0].target_path.write_bytes(b"same-bytes")

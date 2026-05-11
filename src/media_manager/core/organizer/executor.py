@@ -3,10 +3,14 @@ from __future__ import annotations
 import os
 import shutil
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from media_manager.core.file_identity import files_have_identical_content
 
 from .models import OrganizeDryRun, OrganizeExecutionEntry, OrganizeExecutionResult, OrganizeMemberExecution
+
+if TYPE_CHECKING:
+    from media_manager.core.progress_tracker import ProgressTracker
 
 
 def _normalized_path_key(path: Path) -> str:
@@ -103,21 +107,96 @@ def _rollback_group(performed: list[tuple[str, Path, Path]]) -> str | None:
     return None
 
 
-def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None) -> OrganizeExecutionResult:
+def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None,
+                         progress: "ProgressTracker | None" = None,
+                         checkpoint_path: Path | None = None,
+                         resume: bool = False) -> OrganizeExecutionResult:
+    """Execute an organize plan.
+
+    Args:
+        plan: The dry-run plan to execute.
+        progress_callback: Legacy callback(current, total) — still supported.
+        progress: New-style ProgressTracker for granular phase reporting.
+        checkpoint_path: If set, write a checkpoint after each batch for resume support.
+        resume: If True and checkpoint_path exists, skip already-processed entries.
+    """
+    from media_manager.core.progress_tracker import ProgressTracker  # local import avoids circular
+
     result = OrganizeExecutionResult(plan=plan)
     total = len(plan.entries)
-    done = 0
+    if total == 0:
+        if progress:
+            progress.done("No files to organize.")
+        return result
 
+    # ── Resume: determine start index from checkpoint ──
+    start_index = 0
+    checkpoint_data: dict | None = None
+    if resume and checkpoint_path and checkpoint_path.exists():
+        try:
+            import json as _json
+            checkpoint_data = _json.loads(checkpoint_path.read_text(encoding="utf-8"))
+            start_index = int(checkpoint_data.get("last_processed_index", 0))
+            if start_index >= total:
+                start_index = total
+        except Exception:
+            start_index = 0
+
+    # ── Phase: create directories ──
+    if progress and start_index == 0:
+        progress.enter_phase("creating_dirs", f"Creating {total:,} target folders...")
+    dirs_created: set[Path] = set()
     for entry in plan.entries:
+        if entry.status == "planned" and entry.target_path:
+            parent = entry.target_path.parent
+            if parent not in dirs_created:
+                parent.mkdir(parents=True, exist_ok=True)
+                dirs_created.add(parent)
+
+    # ── Phase: move/copy files ──
+    checkpoint_batch = 500  # save progress every 500 entries
+    if progress:
+        resume_note = f" (resuming from {start_index:,})" if start_index > 0 else ""
+        progress.enter_phase("moving_files", f"Moving files... {start_index:,}/{total:,}{resume_note}")
+    report_every = max(1, min(50, total // 200))  # throttle: every 50 files, or less for small plans
+    done = 0
+    for i, entry in enumerate(plan.entries):
+        # Skip already-processed entries on resume
+        if i < start_index:
+            done += 1
+            # Reconstruct a minimal skip result for result tracking
+            if entry.status in ("skipped", "conflict", "error"):
+                result.entries.append(
+                    OrganizeExecutionEntry(
+                        plan_entry=entry, outcome=entry.status, reason=entry.reason,
+                        member_results=_member_results_for_nonexecuted_entry(entry, outcome=entry.status, reason=entry.reason),
+                    )
+                )
+            else:
+                # Already-processed entries: assume they were executed successfully
+                outcome = "moved" if entry.operation_mode == "move" else "copied"
+                result.entries.append(
+                    OrganizeExecutionEntry(
+                        plan_entry=entry, outcome=outcome, reason="resumed from checkpoint",
+                        member_results=_member_results_for_nonexecuted_entry(entry, outcome=outcome, reason="resumed from checkpoint"),
+                    )
+                )
+            if progress and done % report_every == 0:
+                progress.tick_count(done, total, f"Resuming... {done:,}/{total:,}")
+            continue
+
         done += 1
-        if progress_callback and done % 200 == 0:
+
+        # Report progress at finer granularity
+        if progress and done % report_every == 0:
+            progress.tick_count(done, total, f"Moving files... {done:,}/{total:,}")
+        elif progress_callback and done % 200 == 0:
             progress_callback(done, total)
+
         if entry.status == "skipped":
             result.entries.append(
                 OrganizeExecutionEntry(
-                    plan_entry=entry,
-                    outcome="skipped",
-                    reason=entry.reason,
+                    plan_entry=entry, outcome="skipped", reason=entry.reason,
                     member_results=_member_results_for_nonexecuted_entry(entry, outcome="skipped", reason=entry.reason),
                 )
             )
@@ -125,9 +204,7 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None) -> Organ
         if entry.status == "conflict":
             result.entries.append(
                 OrganizeExecutionEntry(
-                    plan_entry=entry,
-                    outcome="conflict",
-                    reason=entry.reason,
+                    plan_entry=entry, outcome="conflict", reason=entry.reason,
                     member_results=_member_results_for_nonexecuted_entry(entry, outcome="conflict", reason=entry.reason),
                 )
             )
@@ -135,9 +212,7 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None) -> Organ
         if entry.status == "error":
             result.entries.append(
                 OrganizeExecutionEntry(
-                    plan_entry=entry,
-                    outcome="error",
-                    reason=entry.reason,
+                    plan_entry=entry, outcome="error", reason=entry.reason,
                     member_results=_member_results_for_nonexecuted_entry(entry, outcome="error", reason=entry.reason),
                 )
             )
@@ -147,9 +222,7 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None) -> Organ
         if current_status != "planned":
             result.entries.append(
                 OrganizeExecutionEntry(
-                    plan_entry=entry,
-                    outcome=current_status,
-                    reason=current_reason,
+                    plan_entry=entry, outcome=current_status, reason=current_reason,
                     member_results=_member_results_for_nonexecuted_entry(entry, outcome=current_status, reason=current_reason),
                 )
             )
@@ -162,7 +235,7 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None) -> Organ
             for source_path, target_path, role, is_main_file in specs:
                 if target_path is None:
                     raise RuntimeError("missing target path")
-                target_path.parent.mkdir(parents=True, exist_ok=True)
+                # Directory already created in the pre-pass above
                 if entry.operation_mode == "move":
                     shutil.move(str(source_path), str(target_path))
                     outcome = "moved"
@@ -172,12 +245,9 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None) -> Organ
                 performed.append((outcome, source_path, target_path))
                 member_results.append(
                     OrganizeMemberExecution(
-                        source_path=source_path,
-                        target_path=target_path,
-                        role=role,
-                        is_main_file=is_main_file,
-                        outcome=outcome,
-                        reason="executed organize action",
+                        source_path=source_path, target_path=target_path,
+                        role=role, is_main_file=is_main_file,
+                        outcome=outcome, reason="executed organize action",
                     )
                 )
         except Exception as exc:  # pragma: no cover
@@ -187,9 +257,7 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None) -> Organ
                 reason = f"{reason} (rollback failed: {rollback_error})"
             result.entries.append(
                 OrganizeExecutionEntry(
-                    plan_entry=entry,
-                    outcome="error",
-                    reason=reason,
+                    plan_entry=entry, outcome="error", reason=reason,
                     member_results=_member_results_for_nonexecuted_entry(entry, outcome="error", reason=reason),
                 )
             )
@@ -198,13 +266,36 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None) -> Organ
         group_outcome = "moved" if entry.operation_mode == "move" else "copied"
         result.entries.append(
             OrganizeExecutionEntry(
-                plan_entry=entry,
-                outcome=group_outcome,
-                reason="executed organize action",
-                member_results=member_results,
+                plan_entry=entry, outcome=group_outcome,
+                reason="executed organize action", member_results=member_results,
             )
         )
 
-    if progress_callback:
+        # ── Checkpoint: save progress every N entries ──
+        if checkpoint_path and done % checkpoint_batch == 0:
+            try:
+                import json as _json
+                checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+                checkpoint_path.write_text(
+                    _json.dumps({
+                        "last_processed_index": done,
+                        "total": total,
+                        "executed_count": result.executed_count,
+                    }),
+                    encoding="utf-8",
+                )
+            except Exception:
+                pass
+
+    # ── Final checkpoint + cleanup ──
+    if checkpoint_path and checkpoint_path.exists():
+        try:
+            checkpoint_path.unlink()
+        except Exception:
+            pass
+
+    if progress:
+        progress.done(f"Done — {result.executed_count:,} files organized.")
+    elif progress_callback:
         progress_callback(total, total)
     return result

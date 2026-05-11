@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 
-Open-source media organization tool with CLI and modern desktop GUI. Organize, rename, find duplicates, detect people, and manage trip collections — all locally on your machine.
+Open-source media organization tool with CLI and a Tauri + React + TypeScript desktop frontend. Organize, rename, find duplicates, detect people, and manage trip collections — all locally on your machine.
 
 ## Quick Start
 
@@ -15,43 +15,33 @@ python -m pip install -e .
 # CLI
 media-manager duplicates --source C:\Photos --similar-images
 media-manager organize --source C:\Inbox --target D:\Library --pattern "yyyy\\yyyy-MM-dd"
-
-# Modern GUI
-python -c "from src.media_manager.gui_desktop_qt_v2 import run; run()"
 ```
 
 ### Requirements
 - Windows (primary), Python 3.11+
 - **ExifTool** — download from https://exiftool.org (needed for organize/rename/trips)
-- **PySide6** — `pip install pyside6` (needed for GUI)
 - **dlib** (optional) — `pip install -e .[people]` (needed for face recognition)
 
 ## Features
 
-| Feature | CLI | GUI |
-|---------|-----|-----|
-| Organize by date | `organize` | Yes |
-| Rename with templates | `rename` | Yes |
-| Exact duplicates | `duplicates` | Yes |
-| Similar images | `--similar-images` | Yes |
-| Face recognition | `people scan` | Setup page |
-| Trip collections | `trip` | Yes |
-| Safe preview | `--json` | Preview button |
-| Undo | `undo --apply` | Planned |
-| Media type filter | `--media-kind` | Dropdown |
-| German / English | — | Flag toggle |
+| Feature | CLI |
+|---------|-----|
+| Organize by date | `organize` |
+| Rename with templates | `rename` |
+| Exact duplicates | `duplicates` |
+| Similar images | `--similar-images` |
+| Face recognition | `people scan` |
+| Trip collections | `trip` |
+| Safe preview | `--json` |
+| Undo | `undo --apply` |
+| Media type filter | `--media-kind` |
+| German / English | `--language` |
 
-## GUI Pages
+## Desktop UI
 
-- **Dashboard** — Stats, quick actions, ExifTool status
-- **Organize** — Sort files into date-pattern folders
-- **Rename** — Rename with templates ({date}, {camera}, {index})
-- **Duplicates** — Exact + similar scan with results table
-- **People** — Face recognition setup + scan
-- **Trips** — Create trip collections from date ranges
-- **Settings** — Language (🇺🇸/🇩🇪), Theme (Dark/Light), default folders
+The desktop frontend is a **fresh redesign** (Tauri + React + TypeScript + shadcn/ui) under `./desktop` — not a port of the old PySide6 GUI. The old PySide6 desktop GUI has been removed. Deleted files are historical reference only; `core/gui_qt_*` modules serve as functional inventory and contract references, not design direction. See [docs/ui-migration.md](docs/ui-migration.md) for the full design boundary.
 
-The current focus is:
+## Current focus
 
 - inspect media metadata and date resolution
 - plan and apply organize / rename operations
@@ -112,7 +102,7 @@ media-manager duplicates --source C:\Photos --media-kind video --run-dir .\runs
 media-manager cleanup --source C:\Photos --target E:\Library --run-dir .\runs
 ```
 
-`--run-dir` writes a timestamped run folder without changing the normal console output. Each run folder contains `command.json`, `report.json`, `review.json`, `summary.txt`, `ui_state.json`, `plan_snapshot.json`, and `action_model.json`; apply runs for commands that build journal entries also include `journal.json`. This is the recommended handoff format for repeatable CLI reviews and the gradually introduced GUI/workbench layer.
+`--run-dir` writes a timestamped run folder without changing the normal console output. Each run folder contains `command.json`, `report.json`, `review.json`, `summary.txt`, `ui_state.json`, `plan_snapshot.json`, and `action_model.json`; apply runs for commands that build journal entries also include `journal.json`. This is the recommended handoff format for repeatable CLI reviews and the new desktop frontend.
 
 Inspect existing run folders with:
 
@@ -217,9 +207,9 @@ media-manager app-services review-workbench-stateful-rebuild --intent-action sel
 media-manager app-services desktop-runtime --active-page review-workbench --json
 ```
 
-The Review Workbench service is the first product-facing GUI bridge: it builds review lanes, a table model, controller state, a guarded Qt workbench payload, route intents, a Qt adapter descriptor package, a descriptor-only Qt widget binding plan, a lazy Qt widget skeleton, a local interaction plan, concrete callback mounts, a non-executing apply-preview command-plan contract, a guarded confirmation dialog model, and a disabled-by-default apply executor contract without importing PySide6, opening a window, or executing media operations. `desktop-runtime --active-page review-workbench` now treats Review Workbench as a real headless page, not a placeholder. The desktop Qt renderer consumes that skeleton through a PySide6-lazy builder. The interaction plan maps filter changes, lane selection, row activation, and toolbar actions to explicit non-executing UI intents; the callback mount plan wires those intents to concrete lazy Qt signal callbacks. The stateful callback bridge now connects those callbacks to the stateful rebuild loop, so filter/selection/reset/refresh callbacks can request a fresh `next_page_state` payload instead of mutating hidden GUI state. The apply-preview contract turns reviewed decisions into a confirmation-gated command-plan preview, and `review-workbench-confirmation-dialog` renders the risk summary, required checks, candidate commands, and typed confirmation phrase while still keeping command execution disabled. `review-workbench-apply-executor-contract` adds the disabled-by-default dry-run executor boundary: preflight checks, audit plan, mutation policy, and command previews exist, but execution remains off. `review-workbench-apply-handoff-panel` turns that boundary into a display-only GUI panel model with risk summary, typed-confirmation gate, preflight checklist, dry-run commands, audit rows, and disabled apply action. The stateful rebuild loop applies one local UI intent, reduces the current page state, and returns a replacement Review Workbench page-state bundle for the existing shell. It still does not import PySide6, open a window, write app state, execute commands, or perform media operations. Import smoke stays safe when the GUI extra is not installed.
+The Review Workbench service is a headless contract layer for the future desktop frontend: it builds review lanes, table models, controller state, widget binding plans, widget skeletons, interaction plans, callback mounts, apply-preview contracts, confirmation dialog models, and disabled-by-default apply executor contracts — all as pure data without importing any UI toolkit, opening a window, or executing media operations.
 
-The manifest includes command capabilities, supported options, risk levels, supported media formats, and the run-artifact contract. `media-manager app-services contracts --json` prints the GUI-facing app-service contract inventory: which headless payloads exist, what they consume, what they produce, which surfaces use them, and which safety boundary rules the GUI must follow. `media-manager app-services contract-bindings --json` validates the next layer: every app-service contract must bind to explicit GUI pages, panels, or shell surfaces before real Qt widgets consume it. The `review_workbench_service` contract is the main handoff point for the first real Review Workbench page; `review-workbench-widget-bindings` maps its adapter components to concrete Qt widget roles, models, signals, slots, and safe route dispatchers. `review-workbench-widget-skeleton` then converts that plan into the concrete mount tree consumed by `media_manager.gui_review_workbench_qt`. `review-workbench-interactions` maps the skeleton signals and toolbar actions to local state/reload/route intents. `review-workbench-callback-mounts` adds the concrete widget callback layer for filter widgets, the lane table, detail actions, and toolbar actions. `review-workbench-apply-preview` adds the reviewed command-plan preview, `review-workbench-confirmation-dialog` turns it into a guarded dialog model with checklist, risk summary, candidate commands, and typed confirmation requirements, and `review-workbench-apply-executor-contract` defines the disabled-by-default dry-run executor boundary while keeping actual media operations behind a later explicit execution path. `review-workbench-apply-handoff-panel` then exposes that boundary as a concrete GUI handoff panel without enabling execution. `review-workbench-stateful-rebuild` is the next UI loop: filter, selection, sort, paging, reset, and refresh intents rebuild the next Qt-consumable page state instead of mutating hidden GUI-only state. `review-workbench-stateful-callbacks` binds that loop to concrete lazy Qt callbacks and returns a safe callback response with `next_page_state` plus render-update metadata.
+The manifest includes command capabilities, supported options, risk levels, supported media formats, and the run-artifact contract. `media-manager app-services contracts --json` prints the GUI-facing app-service contract inventory: which headless payloads exist, what they consume, what they produce, which surfaces use them, and which safety boundary rules the UI must follow. `media-manager app-services contract-bindings --json` validates the next layer: every app-service contract must bind to explicit pages, panels, or shell surfaces. The widget binding plans and skeletons remain as reference designs for the new Tauri + React frontend under `./desktop`.
 
 Run artifact folders created with `--run-dir` also include GUI-facing artifacts:
 

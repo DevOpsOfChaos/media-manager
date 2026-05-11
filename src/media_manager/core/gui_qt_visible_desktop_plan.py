@@ -21,12 +21,17 @@ def build_qt_visible_desktop_plan(shell_model: Mapping[str, Any]) -> dict[str, o
     layout = _as_mapping(shell_model.get("layout"))
     page_plan = build_qt_visible_page_plan(page_model, density=str(layout.get("density") or "comfortable"))
     navigation_items = []
+    seen_ids: set[str] = set()
     for index, raw in enumerate(_as_list(shell_model.get("navigation"))):
         if not isinstance(raw, Mapping):
             continue
+        page_id = str(raw.get("id") or "").strip()
+        if not page_id or page_id in seen_ids:
+            continue
+        seen_ids.add(page_id)
         navigation_items.append(
             {
-                "id": raw.get("id"),
+                "id": page_id,
                 "label": raw.get("label"),
                 "active": bool(raw.get("active")),
                 "enabled": bool(raw.get("enabled", True)),

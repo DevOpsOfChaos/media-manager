@@ -90,6 +90,9 @@ _EN = {
     "nav.similar-comparison": "Similar images",
     "nav.people-setup": "Face setup",
     "nav.guided-flows": "Guided workflows",
+    "nav.people-catalog": "People catalog",
+    "nav.settings-doctor": "Settings",
+    "nav.trip-manager": "Trips",
     "page.review-workbench.title": "Review workbench",
     "page.review-workbench.description": "Unified review for duplicates, similar images, people, and apply readiness.",
     "page.people-setup.title": "Face recognition setup",
@@ -98,6 +101,10 @@ _EN = {
     "page.similar-comparison.description": "Side-by-side visual review of perceptually similar images.",
     "page.guided-flows.title": "Guided workflows",
     "page.guided-flows.description": "Pick your goal and follow step-by-step instructions.",
+    "page.people-catalog.title": "People catalog",
+    "page.people-catalog.description": "Inspect local named-person catalog metadata and privacy-sensitive face embeddings.",
+    "page.trip-manager.title": "Trips",
+    "page.trip-manager.description": "Browse, create, and manage your trip collections.",
     "dashboard.guided_flows.title": "Guided workflows",
     "dashboard.guided_flows.subtitle": "Pick your goal and follow the steps. No CLI flags needed.",
     "action.guided_flows": "Guided workflows",
@@ -222,6 +229,9 @@ _DE = {
     "nav.similar-comparison": "Ähnliche Bilder",
     "nav.people-setup": "Gesichtserkennung",
     "nav.guided-flows": "Geführte Workflows",
+    "nav.people-catalog": "Personenkatalog",
+    "nav.settings-doctor": "Einstellungen",
+    "nav.trip-manager": "Reisen",
     "page.review-workbench.title": "Prüfwerkbank",
     "page.review-workbench.description": "Zentrale Prüfung für Duplikate, ähnliche Bilder, Personen und Anwendungsbereitschaft.",
     "page.people-setup.title": "Gesichtserkennung einrichten",
@@ -230,6 +240,10 @@ _DE = {
     "page.similar-comparison.description": "Seite-an-Seite-Vergleich von visuell ähnlichen Bildern.",
     "page.guided-flows.title": "Geführte Workflows",
     "page.guided-flows.description": "Wähle dein Ziel und folge den Schritten.",
+    "page.people-catalog.title": "Personenkatalog",
+    "page.people-catalog.description": "Lokale Personenkatalog-Metadaten und sensible Face-Embeddings prüfen.",
+    "page.trip-manager.title": "Reisen",
+    "page.trip-manager.description": "Reisesammlungen durchsuchen, erstellen und verwalten.",
     "dashboard.guided_flows.title": "Geführte Workflows",
     "dashboard.guided_flows.subtitle": "Wähle dein Ziel und folge den Schritten. Keine CLI-Flags nötig.",
     "action.guided_flows": "Geführte Workflows",
@@ -296,7 +310,7 @@ def localize_navigation_item(item: Mapping[str, Any], *, language: str | None = 
     page_id = str(item.get("id") or item.get("page_id") or "").strip()
     payload = dict(item)
     if page_id:
-        payload["label"] = translate(f"nav.{page_id}", language=language, fallback=str(item.get("label") or page_id))
+        payload["label"] = translate(f"nav.{page_id}", language=language, fallback=str(item.get("label") or item.get("title") or page_id))
     return payload
 
 

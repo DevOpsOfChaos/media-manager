@@ -41,11 +41,11 @@ def test_build_cleanup_workflow_report_combines_sections(monkeypatch, tmp_path: 
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     report = build_cleanup_workflow_report(
@@ -78,11 +78,11 @@ def test_build_cleanup_workflow_report_collects_review_candidates_from_associati
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     report = build_cleanup_workflow_report(
@@ -107,11 +107,11 @@ def test_execute_cleanup_workflow_can_apply_organize_and_write_journal(monkeypat
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     report = build_cleanup_workflow_report(
@@ -141,11 +141,11 @@ def test_execute_cleanup_workflow_can_consolidate_leftovers_after_apply_organize
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     report = build_cleanup_workflow_report(
@@ -181,11 +181,11 @@ def test_execute_cleanup_workflow_can_apply_rename_and_write_journal(monkeypatch
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     report = build_cleanup_workflow_report(

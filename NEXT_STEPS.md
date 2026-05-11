@@ -4,15 +4,13 @@ This file is the short product-direction checkpoint for the current active basel
 
 ## Current goal
 
-The repository already has a cleaned core-first baseline with the CLI as the stable operational foundation.
+The repository has a cleaned core-first baseline with the CLI as the stable operational foundation. The old PySide6 desktop GUI has been removed.
 
-The next goal is to introduce the GUI slowly and deliberately, without letting UI code duplicate business logic or bypass preview/apply safety contracts.
-
-The GUI must stay a consumer of explicit core/application contracts: manifests, run artifacts, review workspaces, action models, journals, and undo-ready results.
+The next goal is to build the new desktop frontend under `./desktop` (Tauri + React + TypeScript + shadcn/ui) as a **fresh redesign** — not a visual or structural port of the old PySide6 GUI. The old PySide6 files are historical reference only. Remaining `core/gui_qt_*` modules serve as functional inventory and headless contract references, not design direction. The new frontend consumes explicit core/application contracts: manifests, run artifacts, review workspaces, action models, journals, and undo-ready results. See [docs/ui-migration.md](docs/ui-migration.md) for the full design boundary.
 
 ## Product direction for the next phase
 
-We will prioritize the following additions while the GUI layer is introduced in controlled, contract-driven steps:
+We will prioritize the following additions while the new Tauri + React desktop frontend is introduced under `./desktop`:
 
 1. **Associated files / media groups**
    - Treat a main media file together with known related files as one operational unit.
@@ -37,7 +35,7 @@ We will prioritize the following additions while the GUI layer is introduced in 
    - The CLI and GUI should both consume the same logic instead of becoming separate products.
    - GUI work should start with guarded review/workbench surfaces, not unrestricted destructive flows.
    - The current GUI-facing contract inventory is available through `media-manager app-services contracts --json`. The GUI surface binding gate is available through `media-manager app-services contract-bindings --json`; new GUI work should keep both payloads green before adding UI-specific behavior.
-   - The Review Workbench page is now a real headless runtime target via `media-manager app-services review-workbench`, `media-manager app-services review-workbench-widget-bindings`, `media-manager app-services review-workbench-widget-skeleton`, `media-manager app-services review-workbench-interactions`, `media-manager app-services review-workbench-callback-mounts`, `media-manager app-services review-workbench-apply-preview`, `media-manager app-services review-workbench-confirmation-dialog`, `media-manager app-services review-workbench-apply-executor-contract`, `media-manager app-services review-workbench-apply-handoff-panel`, `media-manager app-services review-workbench-stateful-rebuild`, `media-manager app-services review-workbench-stateful-callbacks`, and `media-manager app-services desktop-runtime --active-page review-workbench`. The Qt desktop renderer now has a PySide6-lazy Review Workbench builder plus non-executing interaction intents and concrete callback mounts for filters, lane selection, row activation, refresh, reset, detail actions, and route requests. The visible confirmation/executor handoff panel is now wired as a display-only contract. The stateful rebuild loop now applies filter, selection, sort, paging, reset, and refresh intents and returns a replacement Review Workbench page-state bundle without enabling execution. Lazy Qt callbacks can now call that loop through a `stateful_rebuild_handler`, so the next GUI step is controlled in-place re-rendering of the Review Workbench page from returned `next_page_state`, not a parallel GUI-only state store or execution path.
+   - The Review Workbench page is a headless runtime target via `media-manager app-services review-workbench` and related subcommands. The old PySide6 desktop GUI has been removed. The new desktop frontend lives under `./desktop` (Tauri + React + TypeScript + shadcn/ui). Headless contract/blueprint modules in `core/gui_qt_*` remain as reference designs for the new UI.
 
 ## Important rule
 
@@ -47,7 +45,7 @@ For the next implementation blocks, we prefer this order:
 2. result and journal model
 3. CLI flags and text/JSON output
 4. GUI/workbench surface bound through `contract-bindings` and backed by the same contracts
-5. real Qt widgets consume the Review Workbench widget skeleton, interaction plan, callback mounts, stateful callback bridge, apply-preview command-plan contract, confirmation dialog, executor contract, and handoff panel without bypassing route intents or command plans
+5. the new Tauri + React desktop frontend consumes the Review Workbench contracts, widget skeletons, interaction plans, and apply-preview contracts through a stable API boundary
 
 ## Immediate next design task
 

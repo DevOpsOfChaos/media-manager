@@ -36,8 +36,8 @@ def test_cli_organize_json_includes_summary_blocks(monkeypatch, capsys, tmp_path
         missing_source_count=0,
         entries=[fake_entry],
     )
-    monkeypatch.setattr("media_manager.cli_organize.build_organize_dry_run", lambda options: fake_plan)
-    monkeypatch.setattr("media_manager.cli_organize.execute_organize_plan", lambda plan: None)
+    monkeypatch.setattr("media_manager.cli_organize.build_organize_dry_run", lambda options, **kwargs: fake_plan)
+    monkeypatch.setattr("media_manager.cli_organize.execute_organize_plan", lambda plan, **kwargs: None)
 
     code = organize_main(["--source", str(source), "--target", str(target), "--json"])
     payload = json.loads(capsys.readouterr().out)

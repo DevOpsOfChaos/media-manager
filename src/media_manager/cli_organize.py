@@ -12,6 +12,11 @@ from .core.organizer import (
     execute_organize_plan,
 )
 from .core.outcome_report import build_execution_outcome_report, build_plan_outcome_report
+from .core.progress_tracker import (
+    ProgressTracker,
+    console_progress_callback,
+    console_progress_done,
+)
 from .core.review_report import build_review_export
 from .core.run_artifacts import write_run_artifacts
 from .core.report_export import build_review_file_payload, write_json_report
@@ -128,6 +133,17 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="Optional explicit path to the exiftool executable.",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from last checkpoint if the previous run was interrupted.",
+    )
+    parser.add_argument(
+        "--checkpoint",
+        type=Path,
+        default=None,
+        help="Path to a checkpoint file for progress tracking and resume support.",
     )
     return parser
 
@@ -382,6 +398,18 @@ def main(argv: list[str] | None = None) -> int:
     argv_for_artifacts = list(sys.argv[1:] if argv is None else argv)
 
     operation_mode = "move" if args.move else "copy"
+
+    # Progress tracker — CLI shows a progress bar unless --json is specified
+    use_progress = not args.json
+    tracker: ProgressTracker | None = None
+    if use_progress:
+        tracker = ProgressTracker.for_organize_plan()
+        tracker._on_update = console_progress_callback
+    elif args.apply:
+        # Still track progress for execute phase, just no console output for plan
+        tracker = ProgressTracker.for_organize_execute()
+        tracker._on_update = console_progress_callback
+
     plan = build_organize_dry_run(
         OrganizePlannerOptions(
             source_dirs=tuple(args.sources),
@@ -395,9 +423,26 @@ def main(argv: list[str] | None = None) -> int:
             conflict_policy=args.conflict_policy,
             include_patterns=tuple(args.include_patterns),
             exclude_patterns=tuple(args.exclude_patterns),
-        )
+        ),
+        progress=tracker if use_progress else None,
     )
-    execution_result = execute_organize_plan(plan) if args.apply else None
+    if use_progress:
+        console_progress_done(f"Plan built — {plan.planned_count:,} files planned")
+
+    if args.apply:
+        exec_tracker = ProgressTracker.for_organize_execute()
+        exec_tracker._on_update = console_progress_callback
+        checkpoint = args.checkpoint
+        if checkpoint is None and args.resume:
+            checkpoint = args.target / ".media-manager-organize-checkpoint.json"
+        execution_result = execute_organize_plan(
+            plan, progress=exec_tracker,
+            checkpoint_path=checkpoint,
+            resume=args.resume,
+        )
+        console_progress_done(f"Executed — {execution_result.executed_count:,} files organized")
+    else:
+        execution_result = None
 
     payload = _build_payload(plan, execution_result)
     has_errors = plan.error_count > 0 or plan.missing_source_count > 0

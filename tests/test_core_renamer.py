@@ -67,7 +67,7 @@ def test_build_rename_dry_run_marks_matching_name_as_skipped(monkeypatch, tmp_pa
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     dry_run = build_rename_dry_run(
@@ -92,7 +92,7 @@ def test_build_rename_dry_run_marks_existing_target_as_conflict(monkeypatch, tmp
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     dry_run = build_rename_dry_run(
@@ -116,7 +116,7 @@ def test_build_rename_dry_run_detects_duplicate_target_names(monkeypatch, tmp_pa
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     dry_run = build_rename_dry_run(
@@ -138,7 +138,7 @@ def test_execute_rename_dry_run_preview_marks_planned_entries(monkeypatch, tmp_p
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     dry_run = build_rename_dry_run(
@@ -163,7 +163,7 @@ def test_execute_rename_dry_run_apply_renames_file(monkeypatch, tmp_path: Path) 
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     dry_run = build_rename_dry_run(
@@ -189,7 +189,7 @@ def test_second_rename_run_becomes_skipped_due_to_matching_name(monkeypatch, tmp
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     first_run = build_rename_dry_run(

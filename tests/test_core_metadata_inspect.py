@@ -27,7 +27,7 @@ def test_inspect_media_file_falls_back_to_file_mtime_when_no_metadata(monkeypatc
 
     monkeypatch.setattr(
         "media_manager.core.metadata.inspect._read_exiftool_metadata",
-        lambda file_path, exiftool_path=None: (None, False, None),
+        lambda file_path, exiftool_path=None, **kwargs: (None, False, None),
     )
 
     inspection = inspect_media_file(media_file)
@@ -45,7 +45,7 @@ def test_inspect_media_file_uses_first_candidate_from_metadata(monkeypatch, tmp_
 
     monkeypatch.setattr(
         "media_manager.core.metadata.inspect._read_exiftool_metadata",
-        lambda file_path, exiftool_path=None: (
+        lambda file_path, exiftool_path=None, **kwargs: (
             {
                 "QuickTime:CreateDate": "2024:08:10 11:12:13",
                 "EXIF:DateTimeOriginal": "2023:07:09 08:07:06",

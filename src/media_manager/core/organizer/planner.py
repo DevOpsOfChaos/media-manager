@@ -3,11 +3,15 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from media_manager.core.date_resolver import resolve_capture_datetime
 from media_manager.core.file_identity import files_have_identical_content
 from media_manager.core.media_groups import build_media_groups
 from media_manager.core.metadata.inspect import inspect_media_files_batch
+
+if TYPE_CHECKING:
+    from media_manager.core.progress_tracker import ProgressTracker
 from media_manager.core.metadata.models import DateCandidate, FileInspection
 from media_manager.core.path_filters import path_is_included_by_patterns
 from media_manager.core.scanner import ScanOptions, scan_media_sources
@@ -112,8 +116,13 @@ def _augment_files_with_associated_sidecars(
     return augmented
 
 
-def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=None, cancel_event=None) -> OrganizeDryRun:
-    # Try cache first for instant file listing
+def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=None, cancel_event=None,
+                          progress: "ProgressTracker | None" = None) -> OrganizeDryRun:
+    from media_manager.core.progress_tracker import ProgressTracker
+
+    # ── Phase: scanning ──
+    if progress:
+        progress.enter_phase("scanning", "Discovering media files...")
     source_roots = [str(d) for d in options.source_dirs]
     scan_summary = None
     try:
@@ -152,6 +161,10 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
 
     scanned_files = list(scan_summary.files)
     total = len(scanned_files)
+
+    # ── Phase: resolving dates ──
+    if progress:
+        progress.enter_phase("resolving_dates", f"Reading capture dates from {total:,} files...")
     if options.include_associated_files:
         scanned_files = _augment_files_with_associated_sidecars(
             scanned_files,
@@ -195,6 +208,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                 idx += 1
                 if progress_callback and idx % batch_size == 0:
                     progress_callback(idx, total)
+                if progress and idx % batch_size == 0:
+                    progress.tick_count(idx, total, f"Resolving dates... {idx:,}/{total:,}")
                 continue
 
             dry_run.entries.append(
@@ -213,6 +228,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
             idx += 1
             if progress_callback and (idx % batch_size == 0 or idx == total):
                 progress_callback(idx, total)
+            if progress and (idx % batch_size == 0 or idx == total):
+                progress.tick_count(idx, total, f"Resolving dates... {idx:,}/{total:,}")
     else:
         file_list = list(scan_summary.files)
         total = len(file_list)
@@ -269,6 +286,10 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
             except Exception:
                 pass
 
+        # ── Phase: building plan ──
+        if progress:
+            progress.enter_phase("building_plan", f"Building organize plan from {total:,} files...")
+
         # ── Process all files, single progress pass ──
         for i, scanned_file in enumerate(file_list):
             if cancel_event and cancel_event.is_set():
@@ -310,13 +331,21 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
 
             if progress_callback and idx % batch_size == 0:
                 progress_callback(idx, total)
+            if progress and idx % 100 == 0:
+                progress.tick_count(idx, total, f"Building plan... {idx:,}/{total:,}")
 
         if progress_callback:
             progress_callback(idx, total)
+        if progress:
+            progress.tick_count(total, total, f"Building plan... {total:,}/{total:,}")
 
     # Final progress tick (in case total wasn't hit exactly)
     if progress_callback and idx != total:
         progress_callback(idx, total)
+
+    # ── Phase: resolving collisions ──
+    if progress:
+        progress.enter_phase("resolving_conflicts", "Checking for path collisions...")
 
     collisions: dict[str, list[OrganizePlanEntry]] = {}
     for entry in dry_run.entries:
@@ -339,4 +368,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
             entry.reason = "multiple source files would resolve to the same target path"
 
     dry_run.entries.sort(key=lambda item: _normalized_path_key(item.source_path))
+
+    if progress:
+        progress.done(f"Plan complete — {dry_run.planned_count:,} files ready")
+
     return dry_run

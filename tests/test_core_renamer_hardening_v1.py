@@ -28,7 +28,7 @@ def test_execute_rename_dry_run_captures_runtime_rename_errors(monkeypatch, tmp_
     file_path = source / "IMG_0001.JPG"
     file_path.write_bytes(b"jpg")
 
-    monkeypatch.setattr("media_manager.core.renamer.planner.resolve_capture_datetime", lambda path, exiftool_path=None: _resolution(path))
+    monkeypatch.setattr("media_manager.core.renamer.planner.resolve_capture_datetime", lambda path, exiftool_path=None, **kwargs: _resolution(path))
 
     original_rename = Path.rename
 

@@ -29,7 +29,7 @@ def test_cli_rename_json_output_contains_summary(monkeypatch, tmp_path: Path, ca
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     exit_code = main(["--source", str(source), "--json"])
@@ -49,7 +49,7 @@ def test_cli_rename_include_associated_files_groups_sidecar_in_json(monkeypatch,
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     exit_code = main(["--source", str(source), "--include-associated-files", "--json"])
@@ -72,7 +72,7 @@ def test_cli_rename_apply_reports_rename_execution(monkeypatch, tmp_path: Path, 
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     exit_code = main(["--source", str(source), "--json", "--apply"])
@@ -96,7 +96,7 @@ def test_cli_rename_apply_with_associated_files_renames_sidecar_and_journals_eac
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     exit_code = main(
@@ -143,7 +143,7 @@ def test_cli_rename_writes_run_log(monkeypatch, tmp_path: Path, capsys) -> None:
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     exit_code = main(["--source", str(source), "--json", "--run-log", str(log_path)])
@@ -166,7 +166,7 @@ def test_cli_rename_apply_writes_execution_journal(monkeypatch, tmp_path: Path) 
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     exit_code = main(["--source", str(source), "--apply", "--journal", str(journal_path)])
@@ -187,7 +187,7 @@ def test_cli_rename_history_dir_writes_auto_named_run_log(monkeypatch, tmp_path:
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     exit_code = main(["--source", str(source), "--json", "--history-dir", str(history_dir)])

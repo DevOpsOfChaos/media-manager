@@ -29,7 +29,7 @@ def test_cli_organize_json_output(monkeypatch, capsys, tmp_path: Path) -> None:
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     code = main(["--source", str(source), "--target", str(tmp_path / "target"), "--json"])
@@ -50,7 +50,7 @@ def test_cli_organize_include_associated_files_groups_sidecar_in_json(monkeypatc
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     code = main(
@@ -84,7 +84,7 @@ def test_cli_organize_apply_reports_execution_json(monkeypatch, capsys, tmp_path
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     code = main(["--source", str(source), "--target", str(tmp_path / "target"), "--json", "--apply"])
@@ -109,7 +109,7 @@ def test_cli_organize_apply_with_associated_files_copies_sidecar_and_journals_ea
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     code = main(
@@ -153,7 +153,7 @@ def test_cli_organize_writes_run_log(monkeypatch, capsys, tmp_path: Path) -> Non
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     code = main(
@@ -186,7 +186,7 @@ def test_cli_organize_apply_writes_execution_journal(monkeypatch, tmp_path: Path
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     code = main(
@@ -217,7 +217,7 @@ def test_cli_organize_history_dir_writes_auto_named_run_log_and_journal(monkeypa
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     code = main(

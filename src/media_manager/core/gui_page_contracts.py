@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
+from .gui_router import normalize_route
+
 SCHEMA_VERSION = "1.0"
 
 
@@ -118,10 +120,10 @@ _PAGE_CONTRACTS: tuple[GuiPageContract, ...] = (
         recommended_actions=("create_profile", "validate_profile", "render_profile"),
     ),
     GuiPageContract(
-        page_id="settings-doctor",
-        title="Settings & Doctor",
+        page_id="settings",
+        title="Settings",
         description="Validate paths, filters, output locations, and environment assumptions.",
-        route="/settings/doctor",
+        route="/settings",
         primary_command="doctor",
         optional_artifacts=("doctor_report.json",),
         recommended_actions=("run_doctor", "fix_diagnostics"),
@@ -147,16 +149,6 @@ _PAGE_CONTRACTS: tuple[GuiPageContract, ...] = (
         recommended_actions=("check_backend", "init_catalog", "run_scan", "review_faces"),
     ),
     GuiPageContract(
-        page_id="guided-flows",
-        title="Guided Workflows",
-        description="Pick your goal and follow step-by-step instructions.",
-        route="/guided",
-        primary_command="workflow",
-        risk_level="safe",
-        optional_artifacts=(),
-        recommended_actions=("organize_media", "find_duplicates", "rename_files", "cleanup_leftovers", "create_trip", "find_people"),
-    ),
-    GuiPageContract(
         page_id="trip-manager",
         title="Trip Manager",
         description="Browse, create, and manage trip collections from capture-date ranges.",
@@ -174,7 +166,17 @@ def list_gui_page_contracts() -> list[GuiPageContract]:
 
 
 def build_gui_page_catalog() -> dict[str, object]:
-    pages = [page.to_dict() for page in _PAGE_CONTRACTS]
+    pages: list[dict[str, object]] = []
+    seen_page_ids: set[str] = set()
+    for page in _PAGE_CONTRACTS:
+        page_id = normalize_route(page.page_id)
+        if page_id in seen_page_ids:
+            continue
+        seen_page_ids.add(page_id)
+        payload = page.to_dict()
+        payload["page_id"] = page_id
+        payload["route"] = f"/{page_id}" if page_id != "dashboard" else "/"
+        pages.append(payload)
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at_utc": _now_utc(),
@@ -186,11 +188,13 @@ def build_gui_page_catalog() -> dict[str, object]:
 
 
 def validate_gui_page_id(page_id: str) -> bool:
-    return any(page.page_id == page_id for page in _PAGE_CONTRACTS)
+    normalized = normalize_route(page_id)
+    return any(normalize_route(page.page_id) == normalized for page in _PAGE_CONTRACTS)
 
 
 def build_gui_navigation_state(active_page_id: str = "dashboard") -> dict[str, object]:
-    active = active_page_id if validate_gui_page_id(active_page_id) else "dashboard"
+    active = normalize_route(active_page_id) if validate_gui_page_id(str(active_page_id)) else "dashboard"
+    pages = [page for page in build_gui_page_catalog()["pages"] if isinstance(page, dict)]
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at_utc": _now_utc(),
@@ -198,13 +202,13 @@ def build_gui_navigation_state(active_page_id: str = "dashboard") -> dict[str, o
         "active_page_id": active,
         "items": [
             {
-                "page_id": page.page_id,
-                "title": page.title,
-                "route": page.route,
-                "risk_level": page.risk_level,
-                "active": page.page_id == active,
+                "page_id": page["page_id"],
+                "title": page["title"],
+                "route": page["route"],
+                "risk_level": page["risk_level"],
+                "active": page["page_id"] == active,
             }
-            for page in _PAGE_CONTRACTS
+            for page in pages
         ],
     }
 
@@ -215,7 +219,11 @@ def page_ids_for_commands(commands: Iterable[str]) -> list[str]:
     for page in _PAGE_CONTRACTS:
         primary = (page.primary_command or "").split(" ", 1)[0]
         if primary and primary in command_set:
-            page_ids.append(page.page_id)
+            normalized = normalize_route(page.page_id)
+            if normalized not in page_ids:
+                page_ids.append(normalized)
+            if primary == "doctor" and "settings-doctor" not in page_ids:
+                page_ids.append("settings-doctor")
     return page_ids
 
 

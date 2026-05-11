@@ -60,12 +60,16 @@ def _navigation_items(home_state: Mapping[str, Any], *, active_page_id: str, lan
         items = [item for item in pages if isinstance(item, Mapping)]
     normalized: list[dict[str, object]] = []
     active = normalize_route(active_page_id)
+    seen_page_ids: set[str] = set()
     for item in items:
         if not isinstance(item, Mapping):
             continue
         page_id = normalize_route(item.get("id") or item.get("page_id") or "")
         if not page_id:
             continue
+        if page_id in seen_page_ids:
+            continue
+        seen_page_ids.add(page_id)
         localized = localize_navigation_item(item, language=language)
         normalized.append(
             {
@@ -77,8 +81,13 @@ def _navigation_items(home_state: Mapping[str, Any], *, active_page_id: str, lan
             }
         )
     if not normalized:
+        seen_page_ids.clear()
         for page_id in ("dashboard", "new-run", "people-review", "run-history", "profiles", "settings"):
-            normalized.append({"id": page_id, "label": translate(f"nav.{page_id}", language=language), "enabled": True, "active": page_id == active, "icon": _default_icon_for_page(page_id)})
+            route = normalize_route(page_id)
+            if route in seen_page_ids:
+                continue
+            seen_page_ids.add(route)
+            normalized.append({"id": route, "label": translate(f"nav.{route}", language=language), "enabled": True, "active": route == active, "icon": _default_icon_for_page(route)})
     return normalized
 
 

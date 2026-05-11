@@ -33,7 +33,7 @@ def test_cli_organize_json_includes_outcome_report(monkeypatch, tmp_path: Path, 
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     exit_code = organize_main(["--source", str(source), "--target", str(target), "--json"])
@@ -53,7 +53,7 @@ def test_cli_rename_json_includes_plan_and_preview_outcome_reports(monkeypatch, 
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     exit_code = rename_main(["--source", str(source), "--json"])
@@ -75,11 +75,11 @@ def test_cli_cleanup_json_includes_workflow_outcome_report(monkeypatch, tmp_path
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     exit_code = cleanup_main(["--source", str(source), "--target", str(target), "--json"])

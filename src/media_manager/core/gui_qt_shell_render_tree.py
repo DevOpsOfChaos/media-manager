@@ -47,21 +47,27 @@ def _page_tree(page_plan: Mapping[str, Any]) -> Mapping[str, Any]:
 
 def _navigation_tree(plan: Mapping[str, Any]) -> dict[str, object]:
     navigation = [item for item in _list(plan.get("navigation")) if isinstance(item, Mapping)]
-    items = [
-        build_leaf_node(
-            f"nav-{item.get('id') or index + 1}",
+    items: list[dict[str, object]] = []
+    seen_page_ids: set[str] = set()
+    for index, item in enumerate(navigation):
+        page_id = _text(item.get("id"), str(index + 1))
+        if page_id in seen_page_ids:
+            continue
+        seen_page_ids.add(page_id)
+        items.append(
+            build_leaf_node(
+            f"nav-{page_id}",
             "NavigationItem",
             role="navigation_item",
             props={
-                "page_id": item.get("id"),
+                "page_id": page_id,
                 "label": item.get("label"),
                 "active": bool(item.get("active")),
                 "enabled": bool(item.get("enabled", True)),
                 "shortcut": item.get("shortcut"),
             },
         )
-        for index, item in enumerate(navigation)
-    ]
+        )
     return build_render_node(
         "navigation-rail",
         "NavigationRail",

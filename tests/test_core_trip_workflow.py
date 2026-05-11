@@ -75,7 +75,7 @@ def test_build_trip_dry_run_skips_existing_matching_target(monkeypatch, tmp_path
 
     monkeypatch.setattr(
         "media_manager.core.workflows.trip.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path, datetime(2025, 8, 10, 12, 0, 0)),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path, datetime(2025, 8, 10, 12, 0, 0)),
     )
 
     target = tmp_path / "collections" / "Trips" / "2025" / "Italy_2025" / "Phone" / "photo.jpg"
@@ -105,7 +105,7 @@ def test_execute_trip_plan_creates_hardlinks(monkeypatch, tmp_path: Path) -> Non
 
     monkeypatch.setattr(
         "media_manager.core.workflows.trip.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path, datetime(2025, 8, 10, 12, 0, 0)),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path, datetime(2025, 8, 10, 12, 0, 0)),
     )
 
     dry_run = build_trip_dry_run(
@@ -139,7 +139,7 @@ def test_execute_trip_plan_can_copy(monkeypatch, tmp_path: Path) -> None:
 
     monkeypatch.setattr(
         "media_manager.core.workflows.trip.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path, datetime(2025, 8, 10, 12, 0, 0)),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path, datetime(2025, 8, 10, 12, 0, 0)),
     )
 
     dry_run = build_trip_dry_run(

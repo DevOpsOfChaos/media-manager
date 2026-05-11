@@ -32,11 +32,11 @@ def test_cli_cleanup_json_output_contains_sections(monkeypatch, tmp_path: Path, 
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     exit_code = main(["--source", str(source), "--target", str(target), "--json"])
@@ -61,11 +61,11 @@ def test_cli_cleanup_can_apply_organize_and_emit_execution_json(monkeypatch, tmp
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     exit_code = main([
@@ -93,11 +93,11 @@ def test_cli_cleanup_json_reports_review_candidates_from_association_warnings(mo
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     exit_code = main([
@@ -125,11 +125,11 @@ def test_cli_cleanup_can_apply_rename_and_write_journal(monkeypatch, tmp_path: P
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     exit_code = main([
@@ -162,11 +162,11 @@ def test_cli_cleanup_apply_organize_can_consolidate_leftovers(monkeypatch, tmp_p
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda file_path, exiftool_path=None: _resolution(file_path),
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
     )
 
     exit_code = main([

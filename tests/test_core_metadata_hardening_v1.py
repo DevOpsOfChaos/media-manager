@@ -28,7 +28,7 @@ def test_inspect_media_file_reports_metadata_diagnostics(monkeypatch, tmp_path: 
 
     monkeypatch.setattr(
         "media_manager.core.metadata.inspect.read_exiftool_metadata",
-        lambda file_path, exiftool_path=None: (
+        lambda file_path, exiftool_path=None, **kwargs: (
             {
                 "EXIF:DateTimeOriginal": "2024:08:10 11:12:13",
                 "QuickTime:CreateDate": "2025:01:01 00:00:00",

@@ -40,7 +40,7 @@ def test_organize_dry_run_exposes_reason_and_resolution_summaries(monkeypatch, t
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     dry_run = build_organize_dry_run(
@@ -65,7 +65,7 @@ def test_organize_execution_result_exposes_outcome_and_reason_summaries(monkeypa
 
     monkeypatch.setattr(
         "media_manager.core.organizer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     dry_run = build_organize_dry_run(
@@ -87,7 +87,7 @@ def test_rename_dry_run_exposes_reason_and_resolution_summaries(monkeypatch, tmp
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     dry_run = build_rename_dry_run(RenamePlannerOptions(source_dirs=(source,), template="{date:%Y-%m-%d}"))
@@ -106,7 +106,7 @@ def test_rename_execution_result_exposes_status_action_and_reason_summaries(monk
 
     monkeypatch.setattr(
         "media_manager.core.renamer.planner.resolve_capture_datetime",
-        lambda path, exiftool_path=None: _resolution(path),
+        lambda path, exiftool_path=None, **kwargs: _resolution(path),
     )
 
     dry_run = build_rename_dry_run(RenamePlannerOptions(source_dirs=(source,), template="{date:%Y-%m-%d}_{stem}"))
