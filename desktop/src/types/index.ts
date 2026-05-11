@@ -43,7 +43,6 @@ export type {
 } from "./settings"
 
 export type {
-  CommandRunLog,
   RunSummary,
   UndoEntryResult,
   UndoExecutionResult,

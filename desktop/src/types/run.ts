@@ -1,19 +1,17 @@
-export interface CommandRunLog {
-  command_name: string
-  argv: string[]
-  apply_requested: boolean
-  exit_code: number
-  created_at_utc: string
-  run_dir: string
-}
-
 export interface RunSummary {
   run_id: string
   run_dir: string
-  command_name: string
-  created_at_utc: string
-  apply_requested: boolean
+  command: string | null
+  mode: "preview" | "apply" | null
+  created_at_utc: string | null
   exit_code: number | null
+  status: string | null
+  next_action: string | null
+  review_candidate_count: number
+  has_journal: boolean
+  valid: boolean
+  missing_files: string[]
+  errors: string[]
 }
 
 export interface UndoEntryResult {

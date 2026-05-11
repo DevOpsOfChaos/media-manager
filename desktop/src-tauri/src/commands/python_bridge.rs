@@ -73,19 +73,17 @@ impl PythonBridge {
         }
     }
 
-    /// Run a Python bridge module with the given action.
+    /// Run a Python bridge module with the given action and optional extra args.
     ///
     /// - `module`: the dotted module name under `media_manager` (e.g. `bridge_settings`)
     /// - `action`: the first CLI argument (e.g. `read`, `write`, `reset`)
+    /// - `extra_args`: additional arguments appended after the action
     /// - `stdin_json`: optional JSON string to pipe to stdin
-    ///
-    /// The subprocess inherits the parent environment with these additions:
-    /// - `PYTHONPATH` prepended with `{project_root}/src`
-    /// - `MEDIA_MANAGER_SETTINGS_PATH` if configured
     pub fn run_module(
         &self,
         module: &str,
         action: &str,
+        extra_args: &[&str],
         stdin_json: Option<&str>,
     ) -> Result<Value, String> {
         let full_module = format!("media_manager.{module}");
@@ -96,7 +94,6 @@ impl PythonBridge {
             std::env::vars().collect();
 
         // Prepend src/ to PYTHONPATH so `media_manager` is importable
-        // even when the package isn't pip-installed.
         let separator = if cfg!(windows) { ";" } else { ":" };
         let existing = env_vars.get("PYTHONPATH").cloned().unwrap_or_default();
         let new_pythonpath = if existing.is_empty() {
@@ -110,12 +107,15 @@ impl PythonBridge {
             env_vars.insert("MEDIA_MANAGER_SETTINGS_PATH".into(), sp.clone());
         }
 
-        // Build args list
+        // Build args list: -m <module> <action> [extra_args...]
         let mut args: Vec<String> = vec![
             "-m".into(),
             full_module,
             action.into(),
         ];
+        for a in extra_args {
+            args.push(a.to_string());
+        }
 
         // Pass --settings-path if bridge supports it and we have an override
         if let Some(ref sp) = self.settings_path {

@@ -80,12 +80,59 @@ export async function peopleScan(config: {
 
 // ── History ──
 
-export async function runsList(): Promise<RunSummary[]> {
-  return invoke("runs_list")
+export interface HistoryListPayload {
+  root_dir: string
+  run_count: number
+  valid_count: number
+  invalid_count: number
+  runs: HistoryRunEntry[]
 }
 
-export async function runsInspect(runId: string): Promise<unknown> {
-  return invoke("runs_inspect", { runId })
+export interface HistoryRunEntry {
+  run_id: string
+  run_dir: string
+  command: string | null
+  mode: "preview" | "apply" | null
+  created_at_utc: string | null
+  exit_code: number | null
+  status: string | null
+  next_action: string | null
+  review_candidate_count: number
+  has_ui_state: boolean
+  has_plan_snapshot: boolean
+  has_action_model: boolean
+  action_count: number
+  recommended_action_count: number
+  has_journal: boolean
+  valid: boolean
+  missing_files: string[]
+  errors: string[]
+}
+
+export interface HistoryDetail {
+  run_id: string
+  run_dir: string
+  command: string | null
+  mode: "preview" | "apply" | null
+  created_at_utc: string | null
+  exit_code: number | null
+  status: string | null
+  next_action: string | null
+  summary: string | null
+  command_json: Record<string, unknown> | null
+  report_outcome: Record<string, unknown> | null
+  has_journal: boolean
+  valid: boolean
+  missing_files: string[]
+  errors: string[]
+}
+
+export async function historyList(): Promise<HistoryListPayload> {
+  return invoke("history_list")
+}
+
+export async function historyGet(runId: string): Promise<HistoryDetail> {
+  return invoke("history_get", { runId })
 }
 
 // ── Undo ──

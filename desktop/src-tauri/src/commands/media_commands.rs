@@ -10,19 +10,19 @@ fn bridge() -> Result<&'static PythonBridge, String> {
 
 #[tauri::command]
 pub async fn settings_read() -> Result<Value, String> {
-    bridge()?.run_module("bridge_settings", "read", None)
+    bridge()?.run_module("bridge_settings", "read", &[], None)
 }
 
 #[tauri::command]
 pub async fn settings_write(settings: Value) -> Result<Value, String> {
     let json = serde_json::to_string(&settings)
         .map_err(|e| format!("Failed to serialize settings: {e}"))?;
-    bridge()?.run_module("bridge_settings", "write", Some(&json))
+    bridge()?.run_module("bridge_settings", "write", &[], Some(&json))
 }
 
 #[tauri::command]
 pub async fn settings_reset() -> Result<Value, String> {
-    bridge()?.run_module("bridge_settings", "reset", None)
+    bridge()?.run_module("bridge_settings", "reset", &[], None)
 }
 
 // ── Organize ──
@@ -58,14 +58,13 @@ pub async fn people_scan(config: Value) -> Result<Value, String> {
 // ── History / Runs ──
 
 #[tauri::command]
-pub async fn runs_list() -> Result<Value, String> {
-    Err("media_commands: runs_list not yet implemented".into())
+pub async fn history_list() -> Result<Value, String> {
+    bridge()?.run_module("bridge_history", "list", &[], None)
 }
 
 #[tauri::command]
-pub async fn runs_inspect(run_id: String) -> Result<Value, String> {
-    let _ = run_id;
-    Err("media_commands: runs_inspect not yet implemented".into())
+pub async fn history_get(run_id: String) -> Result<Value, String> {
+    bridge()?.run_module("bridge_history", "get", &[&run_id], None)
 }
 
 // ── Undo ──
@@ -105,7 +104,7 @@ pub async fn runtime_diagnostics() -> Result<Value, String> {
     });
 
     // Try to get Python-side diagnostics
-    match b.run_module("bridge_diagnostics", "", None) {
+    match b.run_module("bridge_diagnostics", "", &[], None) {
         Ok(py_info) => {
             if let Some(obj) = py_info.as_object() {
                 for (key, value) in obj {

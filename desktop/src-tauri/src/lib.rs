@@ -19,8 +19,8 @@ pub fn run() {
             // People
             media_commands::people_scan,
             // History
-            media_commands::runs_list,
-            media_commands::runs_inspect,
+            media_commands::history_list,
+            media_commands::history_get,
             // Undo
             media_commands::undo_preview,
             media_commands::undo_apply,
