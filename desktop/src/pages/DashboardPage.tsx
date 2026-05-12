@@ -289,6 +289,37 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Quick navigation */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <button
+              onClick={() => navigate("/organize")}
+              className="rounded-lg border p-4 text-left hover:bg-muted/50 transition-colors"
+            >
+              <p className="text-sm font-medium">Organize</p>
+              <p className="text-xs text-muted-foreground">
+                Preview media organization safely.
+              </p>
+            </button>
+            <button
+              onClick={() => navigate("/history")}
+              className="rounded-lg border p-4 text-left hover:bg-muted/50 transition-colors"
+            >
+              <p className="text-sm font-medium">History</p>
+              <p className="text-xs text-muted-foreground">
+                Browse past runs and inspect results.
+              </p>
+            </button>
+            <button
+              onClick={() => navigate("/settings")}
+              className="rounded-lg border p-4 text-left hover:bg-muted/50 transition-colors"
+            >
+              <p className="text-sm font-medium">Settings</p>
+              <p className="text-xs text-muted-foreground">
+                Language, theme, and diagnostics.
+              </p>
+            </button>
+          </div>
         </div>
       </main>
     </>

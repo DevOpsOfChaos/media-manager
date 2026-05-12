@@ -31,6 +31,7 @@ export default function SettingsPage() {
   const [diag, setDiag] = useState<RuntimeDiagnostics | null>(null)
   const [diagLoading, setDiagLoading] = useState(false)
   const [diagError, setDiagError] = useState<string | null>(null)
+  const [diagOpen, setDiagOpen] = useState(false)
 
   useEffect(() => {
     load()
@@ -189,105 +190,122 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <div>
+                <button
+                  onClick={() => setDiagOpen(!diagOpen)}
+                  className="text-left"
+                >
                   <CardTitle>Runtime Diagnostics</CardTitle>
                   <CardDescription>
                     Python bridge health and environment information.
                   </CardDescription>
+                </button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setDiagOpen(true)
+                      runDiag()
+                    }}
+                    disabled={diagLoading}
+                  >
+                    {diagLoading ? "Checking..." : "Refresh"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDiagOpen(!diagOpen)}
+                  >
+                    {diagOpen ? "Hide" : "Show"}
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={runDiag}
-                  disabled={diagLoading}
-                >
-                  {diagLoading ? "Checking..." : "Refresh"}
-                </Button>
               </div>
             </CardHeader>
-            <CardContent>
-              {diagError && (
-                <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive mb-3">
-                  {diagError}
-                </div>
-              )}
-
-              {diag ? (
-                <div className="space-y-3 text-sm">
-                  <StatusRow
-                    label="Python Reachable"
-                    ok={pythonOk}
-                    detail={diag.python_error}
-                  />
-                  <StatusRow
-                    label="media_manager import"
-                    ok={diag.media_manager_import?.ok}
-                    detail={diag.media_manager_import?.error}
-                  />
-                  <StatusRow
-                    label="bridge_settings import"
-                    ok={diag.bridge_settings_import?.ok}
-                    detail={diag.bridge_settings_import?.error}
-                  />
-                  <StatusRow
-                    label="Settings file"
-                    ok={diag.settings_file_exists}
-                    detail={
-                      diag.settings_file_exists
-                        ? diag.settings_path
-                        : `Not found: ${diag.settings_path}`
-                    }
-                  />
-
-                  <Separator />
-
-                  <InfoRow label="Python executable" value={diag.python_exe} />
-                  <InfoRow
-                    label="Python version"
-                    value={diag.python_version ?? "—"}
-                  />
-                  <InfoRow label="Project root" value={diag.project_root} />
-                  <InfoRow
-                    label="PYTHONPATH"
-                    value={diag.pythonpath_prepended || "—"}
-                  />
-                  {diag.settings_path_override && (
-                    <InfoRow
-                      label="Settings path override"
-                      value={diag.settings_path_override}
-                    />
-                  )}
-
-                  <Separator />
-
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Environment Hints
-                  </p>
-                  <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
-                    <EnvHint
-                      label="MEDIA_MANAGER_PYTHON"
-                      value={diag.env_hints.MEDIA_MANAGER_PYTHON}
-                    />
-                    <EnvHint
-                      label="VIRTUAL_ENV"
-                      value={diag.env_hints.VIRTUAL_ENV}
-                    />
-                    <EnvHint
-                      label="CONDA_PREFIX"
-                      value={diag.env_hints.CONDA_PREFIX}
-                    />
-                    <EnvHint
-                      label="PROJECT_ROOT"
-                      value={diag.env_hints.MEDIA_MANAGER_PROJECT_ROOT}
-                    />
+            {diagOpen && (
+              <CardContent>
+                {diagError && (
+                  <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive mb-3">
+                    {diagError}
                   </div>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Click Refresh to check Python bridge health.
-                </p>
-              )}
-            </CardContent>
+                )}
+
+                {diag ? (
+                  <div className="space-y-3 text-sm">
+                    <StatusRow
+                      label="Python Reachable"
+                      ok={pythonOk}
+                      detail={diag.python_error}
+                    />
+                    <StatusRow
+                      label="media_manager import"
+                      ok={diag.media_manager_import?.ok}
+                      detail={diag.media_manager_import?.error}
+                    />
+                    <StatusRow
+                      label="bridge_settings import"
+                      ok={diag.bridge_settings_import?.ok}
+                      detail={diag.bridge_settings_import?.error}
+                    />
+                    <StatusRow
+                      label="Settings file"
+                      ok={diag.settings_file_exists}
+                      detail={
+                        diag.settings_file_exists
+                          ? diag.settings_path
+                          : `Not found: ${diag.settings_path}`
+                      }
+                    />
+
+                    <Separator />
+
+                    <InfoRow label="Python executable" value={diag.python_exe} />
+                    <InfoRow
+                      label="Python version"
+                      value={diag.python_version ?? "—"}
+                    />
+                    <InfoRow label="Project root" value={diag.project_root} />
+                    <InfoRow
+                      label="PYTHONPATH"
+                      value={diag.pythonpath_prepended || "—"}
+                    />
+                    {diag.settings_path_override && (
+                      <InfoRow
+                        label="Settings path override"
+                        value={diag.settings_path_override}
+                      />
+                    )}
+
+                    <Separator />
+
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Environment Hints
+                    </p>
+                    <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
+                      <EnvHint
+                        label="MEDIA_MANAGER_PYTHON"
+                        value={diag.env_hints.MEDIA_MANAGER_PYTHON}
+                      />
+                      <EnvHint
+                        label="VIRTUAL_ENV"
+                        value={diag.env_hints.VIRTUAL_ENV}
+                      />
+                      <EnvHint
+                        label="CONDA_PREFIX"
+                        value={diag.env_hints.CONDA_PREFIX}
+                      />
+                      <EnvHint
+                        label="PROJECT_ROOT"
+                        value={diag.env_hints.MEDIA_MANAGER_PROJECT_ROOT}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Click Refresh to check Python bridge health.
+                  </p>
+                )}
+              </CardContent>
+            )}
           </Card>
         </div>
       </main>

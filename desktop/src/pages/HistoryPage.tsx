@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import {
   historyList,
   type HistoryListPayload,
@@ -20,6 +21,7 @@ export default function HistoryPage() {
   const [data, setData] = useState<HistoryListPayload | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [filter, setFilter] = useState("")
   const navigate = useNavigate()
 
   const load = useCallback(async () => {
@@ -39,9 +41,31 @@ export default function HistoryPage() {
     load()
   }, [load])
 
+  const filteredRuns = useMemo(() => {
+    if (!data) return []
+    if (!filter.trim()) return data.runs
+    const q = filter.toLowerCase()
+    return data.runs.filter(
+      (r) =>
+        r.run_id.toLowerCase().includes(q) ||
+        (r.command ?? "").toLowerCase().includes(q) ||
+        (r.mode ?? "").toLowerCase().includes(q) ||
+        (r.status ?? "").toLowerCase().includes(q),
+    )
+  }, [data, filter])
+
   return (
     <>
-      <PageHeader title="History" />
+      <PageHeader title="History">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={load}
+          disabled={loading}
+        >
+          {loading ? "Loading..." : "Refresh"}
+        </Button>
+      </PageHeader>
       <main className="flex flex-1 gap-4 p-4">
         <div className="flex-1 max-w-3xl space-y-4">
           {error && (
@@ -52,24 +76,12 @@ export default function HistoryPage() {
 
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Run History</CardTitle>
-                  <CardDescription>
-                    Browse past runs, inspect results, and undo operations.
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={load}
-                  disabled={loading}
-                >
-                  {loading ? "Loading..." : "Refresh"}
-                </Button>
-              </div>
+              <CardTitle>Run History</CardTitle>
+              <CardDescription>
+                Browse past runs and inspect results.
+              </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               {loading && !data && (
                 <p className="text-sm text-muted-foreground">Loading runs...</p>
               )}
@@ -81,8 +93,8 @@ export default function HistoryPage() {
               )}
 
               {data && data.runs.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
+                <>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span>{data.run_count} runs</span>
                     <span>{data.valid_count} valid</span>
                     {data.invalid_count > 0 && (
@@ -92,14 +104,30 @@ export default function HistoryPage() {
                     )}
                   </div>
 
-                  {data.runs.map((run) => (
-                    <RunRow
-                      key={run.run_id}
-                      run={run}
-                      onClick={() => navigate(`/history/${run.run_id}`)}
-                    />
-                  ))}
-                </div>
+                  <Input
+                    type="text"
+                    placeholder="Filter by run ID, command, mode, or status..."
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+
+                  {filteredRuns.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No runs match the filter.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {filteredRuns.map((run) => (
+                        <RunRow
+                          key={run.run_id}
+                          run={run}
+                          onClick={() => navigate(`/history/${run.run_id}`)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
