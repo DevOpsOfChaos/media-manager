@@ -12,6 +12,9 @@ export type {
   OrganizePlannerOptions,
   OrganizePlanEntry,
   OrganizeDryRun,
+  OrganizePreviewResponse,
+  OrganizePreviewEntry,
+  OrganizePreviewOutcome,
   OrganizeExecutionEntry,
   OrganizeExecutionResult,
 } from "./organizer"

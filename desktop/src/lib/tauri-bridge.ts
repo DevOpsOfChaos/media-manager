@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core"
 import type {
   OrganizePlannerOptions,
   OrganizeDryRun,
+  OrganizePreviewResponse,
   OrganizeExecutionResult,
   DuplicateScanConfig,
   DuplicateScanResult,
@@ -52,7 +53,7 @@ export async function getPythonInfo(): Promise<unknown> {
 
 export async function organizePreview(
   options: OrganizePlannerOptions,
-): Promise<OrganizeDryRun> {
+): Promise<OrganizePreviewResponse> {
   return invoke("organize_preview", { options })
 }
 

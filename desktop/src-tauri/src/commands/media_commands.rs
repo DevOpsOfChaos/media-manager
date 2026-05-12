@@ -29,8 +29,14 @@ pub async fn settings_reset() -> Result<Value, String> {
 
 #[tauri::command]
 pub async fn organize_preview(options: Value) -> Result<Value, String> {
-    let _ = options;
-    Err("media_commands: organize_preview not yet implemented".into())
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize organize options: {e}"))?;
+    bridge()?.run_module(
+        "bridge_organize_preview",
+        "",
+        &[],
+        Some(&json),
+    )
 }
 
 #[tauri::command]

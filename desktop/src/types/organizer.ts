@@ -102,3 +102,85 @@ export interface OrganizeExecutionResult {
   outcome_summary: Record<string, number>
   reason_summary: Record<string, number>
 }
+
+// ── Bridge preview response (from bridge_organize_preview.py) ──
+
+export interface OrganizePreviewOutcome {
+  command: string
+  phase: string
+  status: string
+  conflict_policy: string
+  safe_to_apply: boolean
+  needs_review: boolean
+  total_count: number
+  actionable_count: number
+  blocked_count: number
+  review_candidate_count: number
+  counts: {
+    planned: number
+    skipped: number
+    conflict: number
+    error: number
+    missing_source: number
+  }
+  status_summary: Record<string, number>
+  reason_summary: Record<string, number>
+  next_action: string
+}
+
+export interface OrganizePreviewEntry {
+  source_path: string
+  source_root: string
+  relative_source_path: string
+  extension: string
+  size_bytes: number
+  status: EntryStatus
+  reason: string
+  operation_mode: OperationMode
+  target_relative_dir: string | null
+  target_path: string | null
+  resolution: {
+    path: string
+    resolved_datetime: string | null
+    resolved_value: string
+    source_kind: string
+    source_label: string
+    confidence: "high" | "medium" | "low"
+    timezone_status: string
+    reason: string
+    candidates_checked: number
+  } | null
+  group_id: string | null
+  group_kind: string | null
+  associated_file_count: number
+  association_warning_count: number
+}
+
+export interface OrganizePreviewResponse {
+  kind: "preview"
+  dry_run: true
+  options: OrganizePlannerOptions
+  scan_summary: {
+    source_dirs: string[]
+    missing_sources: string[]
+    source_count: number
+    media_file_count: number
+    total_size_bytes: number
+  }
+  planned_count: number
+  skipped_count: number
+  conflict_count: number
+  error_count: number
+  missing_source_count: number
+  media_file_count: number
+  media_group_count: number
+  associated_file_count: number
+  association_warning_count: number
+  status_summary: Record<string, number>
+  reason_summary: Record<string, number>
+  resolution_source_summary: Record<string, number>
+  confidence_summary: Record<string, number>
+  group_kind_summary: Record<string, number>
+  outcome_report: OrganizePreviewOutcome
+  entries: OrganizePreviewEntry[]
+}
