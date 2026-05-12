@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   runtimeDiagnostics,
   settingsRead,
@@ -37,6 +38,7 @@ export default function DashboardPage() {
     history: null,
     historyError: null,
   })
+  const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
   const load = useCallback(async () => {
@@ -48,6 +50,8 @@ export default function DashboardPage() {
       history: null,
       historyError: null,
     }
+
+    setLoading(true)
 
     // Fetch all three sources independently
     const [diagRes, settingsRes, historyRes] = await Promise.allSettled([
@@ -75,6 +79,7 @@ export default function DashboardPage() {
     }
 
     setData(result)
+    setLoading(false)
   }, [])
 
   useEffect(() => {
@@ -88,7 +93,16 @@ export default function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Dashboard" />
+      <PageHeader title="Dashboard">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={load}
+          disabled={loading}
+        >
+          {loading ? "Refreshing..." : "Refresh"}
+        </Button>
+      </PageHeader>
       <main className="flex flex-1 gap-4 p-4">
         <div className="flex-1 max-w-4xl space-y-4">
           {/* Error summary */}
