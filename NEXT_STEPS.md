@@ -6,7 +6,35 @@ This file is the short product-direction checkpoint for the current active basel
 
 The repository has a cleaned core-first baseline with the CLI as the stable operational foundation. The old PySide6 desktop GUI has been removed.
 
-The next goal is to build the new desktop frontend under `./desktop` (Tauri + React + TypeScript + shadcn/ui) as a **fresh redesign** — not a visual or structural port of the old PySide6 GUI. The old PySide6 files are historical reference only. Remaining `core/gui_qt_*` modules serve as functional inventory and headless contract references, not design direction. The new frontend consumes explicit core/application contracts: manifests, run artifacts, review workspaces, action models, journals, and undo-ready results. See [docs/ui-migration.md](docs/ui-migration.md) for the full design boundary.
+The new desktop frontend under `./desktop` (Tauri + React + TypeScript + shadcn/ui) is a **fresh redesign** — not a visual or structural port of the old PySide6 GUI. The old PySide6 files are historical reference only. Remaining `core/gui_qt_*` modules serve as functional inventory and headless contract references, not design direction. The new frontend consumes explicit core/application contracts: manifests, run artifacts, review workspaces, action models, journals, and undo-ready results. See [docs/ui-migration.md](docs/ui-migration.md) for the full design boundary.
+
+## Desktop implementation status (2026-05-12)
+
+**Finished:**
+- Tauri + React + shadcn/ui scaffold under `./desktop`
+- Settings bridge: read/write/reset via `bridge_settings.py`
+- Runtime Diagnostics bridge via `bridge_diagnostics.py`
+- Run History bridge: list/get via `bridge_history.py`
+- Dashboard: composed real summary from diagnostics, settings, history (with Refresh)
+- Organize Preview bridge: `bridge_organize_preview.py` — calls `build_organize_dry_run()` only, **never modifies files**
+- Organize frontend: preview-only UI (source, target, pattern, options, results table, outcome report)
+- History: search/filter, Refresh
+- Settings: collapsible Runtime Diagnostics
+- Quick navigation cards on Dashboard
+
+**Preview-only guarantees:**
+- `bridge_organize_preview.py` calls `build_organize_dry_run()` and explicitly marks results as `kind: "preview"`, `dry_run: true`
+- The bridge does not import or call `execute_organize_plan()`
+- The desktop UI shows "Preview only. No files are modified." and has no Apply button
+- `organize_apply` Tauri command remains stubbed (returns error)
+
+**Not yet implemented:**
+- Organize Apply / execution
+- Duplicates scan
+- People scan
+- Undo preview/apply
+- Progress streaming
+- Review Workbench
 
 ## Product direction for the next phase
 
