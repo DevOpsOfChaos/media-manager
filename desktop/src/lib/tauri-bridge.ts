@@ -5,7 +5,7 @@ import type {
   OrganizePreviewResponse,
   OrganizeExecutionResult,
   DuplicateScanConfig,
-  DuplicateScanResult,
+  DuplicatesPreviewResponse,
   RunSummary,
   UndoExecutionResult,
   GuiSettings,
@@ -67,7 +67,7 @@ export async function organizeApply(
 
 export async function duplicateScan(
   config: DuplicateScanConfig,
-): Promise<DuplicateScanResult> {
+): Promise<DuplicatesPreviewResponse> {
   return invoke("duplicates_scan", { config })
 }
 

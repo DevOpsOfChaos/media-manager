@@ -49,8 +49,14 @@ pub async fn organize_apply(plan: Value) -> Result<Value, String> {
 
 #[tauri::command]
 pub async fn duplicates_scan(config: Value) -> Result<Value, String> {
-    let _ = config;
-    Err("media_commands: duplicates_scan not yet implemented".into())
+    let json = serde_json::to_string(&config)
+        .map_err(|e| format!("Failed to serialize duplicates config: {e}"))?;
+    bridge()?.run_module(
+        "bridge_duplicates_preview",
+        "",
+        &[],
+        Some(&json),
+    )
 }
 
 // ── People ──

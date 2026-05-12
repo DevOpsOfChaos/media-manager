@@ -3,13 +3,8 @@ import type { DuplicateScanConfig, DuplicateScanResult, ExactDuplicateGroup } fr
 
 export const defaultDuplicateConfig: DuplicateScanConfig = {
   source_dirs: [],
-  recursive: true,
-  include_hidden: false,
-  follow_symlinks: false,
-  media_extensions: null,
   include_patterns: [],
   exclude_patterns: [],
-  min_file_size_bytes: 0,
 }
 
 interface DuplicatesState {

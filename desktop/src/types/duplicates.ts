@@ -1,12 +1,7 @@
 export interface DuplicateScanConfig {
   source_dirs: string[]
-  recursive: boolean
-  include_hidden: boolean
-  follow_symlinks: boolean
-  media_extensions: string[] | null
   include_patterns: string[]
   exclude_patterns: string[]
-  min_file_size_bytes: number
 }
 
 export interface ExactDuplicateGroup {
@@ -16,6 +11,24 @@ export interface ExactDuplicateGroup {
   full_digest: string
   same_name: boolean
   same_suffix: boolean
+  extension_summary: Record<string, number>
+  media_kind_summary: Record<string, number>
+}
+
+export interface DuplicatesPreviewResponse {
+  kind: "preview"
+  scanned_files: number
+  size_candidate_groups: number
+  size_candidate_files: number
+  sampled_files: number
+  hashed_files: number
+  exact_groups: ExactDuplicateGroup[]
+  exact_duplicate_files: number
+  exact_duplicates: number
+  errors: number
+  skipped_filtered_files: number
+  extension_summary: Record<string, number>
+  media_kind_summary: Record<string, number>
 }
 
 export interface DuplicateScanResult {

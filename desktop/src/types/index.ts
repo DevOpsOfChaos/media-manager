@@ -22,6 +22,7 @@ export type {
 export type {
   DuplicateScanConfig,
   ExactDuplicateGroup,
+  DuplicatesPreviewResponse,
   DuplicateScanResult,
   SimilarImageMember,
   SimilarImageGroup,
