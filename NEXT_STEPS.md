@@ -15,26 +15,36 @@ The new desktop frontend under `./desktop` (Tauri + React + TypeScript + shadcn/
 - Settings bridge: read/write/reset via `bridge_settings.py`
 - Runtime Diagnostics bridge via `bridge_diagnostics.py`
 - Run History bridge: list/get via `bridge_history.py`
-- Dashboard: composed real summary from diagnostics, settings, history (with Refresh)
+- Dashboard: composed real summary from diagnostics, settings, history (with Refresh + quick nav cards)
 - Organize Preview bridge: `bridge_organize_preview.py` — calls `build_organize_dry_run()` only, **never modifies files**
-- Organize frontend: preview-only UI (source, target, pattern, options, results table, outcome report)
-- History: search/filter, Refresh
-- Settings: collapsible Runtime Diagnostics
-- Quick navigation cards on Dashboard
+- Organize frontend: preview-only UI with native Browse buttons, pattern presets, custom builder, dual-language (EN/DE) support, file-name auto-preservation note
+- Duplicates Preview bridge: `bridge_duplicates_preview.py` — calls `scan_exact_duplicates()` only, **never deletes files**
+- Duplicates frontend: scan with Browse, summary cards, duplicate groups table, reclaimable space estimate, preview-only safety banner
+- Native directory picker via tauri-plugin-dialog for Organize and Duplicates
+- Library page: honest placeholder with quick-action links
+- People page: honest placeholder with feature cards marked "not available yet"
+- Shared UI components: ErrorBanner, EmptyState, StatusBadge
+- History: search/filter, Refresh (in header)
+- Settings: collapsible Runtime Diagnostics with show/hide toggle
+- All pages have loading, error, and empty states
 
 **Preview-only guarantees:**
 - `bridge_organize_preview.py` calls `build_organize_dry_run()` and explicitly marks results as `kind: "preview"`, `dry_run: true`
-- The bridge does not import or call `execute_organize_plan()`
-- The desktop UI shows "Preview only. No files are modified." and has no Apply button
-- `organize_apply` Tauri command remains stubbed (returns error)
+- `bridge_duplicates_preview.py` calls `scan_exact_duplicates()` and returns `kind: "preview"`
+- Neither bridge imports destructive functions (`execute_organize_plan`, `run_duplicate_execution_preview`, `send2trash`)
+- All desktop UI pages show "Preview only. No files are modified/deleted." safety banners
+- No Apply/Execute/Delete buttons exist in the desktop UI
+- `organize_apply` Tauri command returns "not yet implemented"
 
 **Not yet implemented:**
 - Organize Apply / execution
-- Duplicates scan
-- People scan
+- Duplicates deletion / cleanup
+- People face detection / recognition
+- Library media browser
 - Undo preview/apply
 - Progress streaming
 - Review Workbench
+- Similar image scanning in desktop UI
 
 ## Product direction for the next phase
 
