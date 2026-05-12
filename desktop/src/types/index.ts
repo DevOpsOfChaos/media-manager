@@ -27,6 +27,7 @@ export type {
   SimilarImageMember,
   SimilarImageGroup,
   SimilarImageScanConfig,
+  SimilarImagesPreviewResponse,
   SimilarImageScanResult,
 } from "./duplicates"
 

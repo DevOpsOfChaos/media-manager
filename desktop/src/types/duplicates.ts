@@ -55,15 +55,28 @@ export interface SimilarImageGroup {
 
 export interface SimilarImageScanConfig {
   source_dirs: string[]
-  recursive: boolean
-  include_hidden: boolean
-  follow_symlinks: boolean
   hash_size: number
   max_distance: number
+  include_patterns: string[]
+  exclude_patterns: string[]
 }
 
 export interface SimilarImageScanResult {
   scanned_files: string[]
   groups: SimilarImageGroup[]
   errors: string[]
+}
+
+export interface SimilarImagesPreviewResponse {
+  kind: "preview"
+  scanned_files: number
+  image_files: number
+  hashed_files: number
+  candidate_pairs_checked: number
+  exact_hash_pairs: number
+  similar_pairs: number
+  similar_groups: SimilarImageGroup[]
+  errors: number
+  decode_errors: number
+  skipped_filtered_files: number
 }

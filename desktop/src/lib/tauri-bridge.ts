@@ -6,6 +6,8 @@ import type {
   OrganizeExecutionResult,
   DuplicateScanConfig,
   DuplicatesPreviewResponse,
+  SimilarImageScanConfig,
+  SimilarImagesPreviewResponse,
   RunSummary,
   UndoExecutionResult,
   GuiSettings,
@@ -69,6 +71,12 @@ export async function duplicateScan(
   config: DuplicateScanConfig,
 ): Promise<DuplicatesPreviewResponse> {
   return invoke("duplicates_scan", { config })
+}
+
+export async function similarImagesScan(
+  config: SimilarImageScanConfig,
+): Promise<SimilarImagesPreviewResponse> {
+  return invoke("similar_images_scan", { config })
 }
 
 // ── People ──
