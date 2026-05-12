@@ -57,6 +57,7 @@ export interface SimilarImageScanConfig {
   source_dirs: string[]
   hash_size: number
   max_distance: number
+  max_images: number
   include_patterns: string[]
   exclude_patterns: string[]
 }
@@ -79,4 +80,10 @@ export interface SimilarImagesPreviewResponse {
   errors: number
   decode_errors: number
   skipped_filtered_files: number
+  guardrail?: {
+    blocked: boolean
+    reason: string
+    image_count: number
+    max_images: number
+  }
 }

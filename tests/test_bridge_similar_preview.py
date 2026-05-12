@@ -50,6 +50,56 @@ def test_preview_returns_kind_preview(tmp_path: Path) -> None:
         sys.stdout = old_stdout
 
 
+def test_preview_guardrail_blocks_large_scan(tmp_path: Path) -> None:
+    """Guardrail blocks scan when image count exceeds max_images."""
+    from PIL import Image
+
+    source = tmp_path / "source"
+    source.mkdir()
+    # Create 3 images, set max_images=2
+    for i in range(3):
+        im = Image.new("RGB", (8, 8), color=(i, i, i))
+        im.save(source / f"img_{i}.jpg")
+
+    old_stdin = sys.stdin
+    old_stdout = sys.stdout
+    sys.stdin = StringIO(json.dumps({"source_dirs": [str(source)], "max_images": 2}))
+    sys.stdout = StringIO()
+    try:
+        exit_code = cmd_preview()
+        assert exit_code == 0
+        output = json.loads(sys.stdout.getvalue())
+        assert output.get("guardrail", {}).get("blocked") is True
+        assert output["guardrail"]["image_count"] == 3
+        assert output["guardrail"]["max_images"] == 2
+    finally:
+        sys.stdin = old_stdin
+        sys.stdout = old_stdout
+
+
+def test_preview_guardrail_allows_within_limit(tmp_path: Path) -> None:
+    """Guardrail allows scan when image count is within max_images."""
+    from PIL import Image
+
+    source = tmp_path / "source"
+    source.mkdir()
+    im = Image.new("RGB", (8, 8), color=(0, 0, 0))
+    im.save(source / "img.jpg")
+
+    old_stdin = sys.stdin
+    old_stdout = sys.stdout
+    sys.stdin = StringIO(json.dumps({"source_dirs": [str(source)], "max_images": 10}))
+    sys.stdout = StringIO()
+    try:
+        exit_code = cmd_preview()
+        assert exit_code == 0
+        output = json.loads(sys.stdout.getvalue())
+        assert output.get("guardrail") is None or output.get("guardrail", {}).get("blocked") is not True
+    finally:
+        sys.stdin = old_stdin
+        sys.stdout = old_stdout
+
+
 def test_preview_never_modifies_files(tmp_path: Path) -> None:
     from PIL import Image
 

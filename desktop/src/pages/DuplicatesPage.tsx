@@ -31,6 +31,8 @@ export default function DuplicatesPage() {
   const [error, setError] = useState<string | null>(null)
   const [filterPath, setFilterPath] = useState("")
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const [maxDistance, setMaxDistance] = useState(6)
+  const [maxImages, setMaxImages] = useState(500)
 
   const handleScan = async () => {
     if (!sourceDir.trim()) {
@@ -47,7 +49,7 @@ export default function DuplicatesPage() {
       if (tab === "exact") {
         setExactPreview(await duplicateScan(config))
       } else {
-        setSimilarPreview(await similarImagesScan({ ...config, hash_size: 8, max_distance: 6 }))
+        setSimilarPreview(await similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages }))
       }
     } catch (err) {
       setError(String(err))
@@ -151,6 +153,48 @@ export default function DuplicatesPage() {
                   Similar images
                 </Button>
               </div>
+
+              {tab === "exact" && (
+                <p className="text-xs text-muted-foreground">
+                  Finds byte-identical duplicate files using content hashing.
+                </p>
+              )}
+
+              {tab === "similar" && (
+                <div className="space-y-3 rounded-lg border p-3 bg-muted/20">
+                  <p className="text-xs text-muted-foreground">
+                    Finds visually similar images using perceptual hashing.
+                    Higher distance = more matches but more false positives.
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-1.5 text-xs">
+                      Max distance:
+                      <Input
+                        type="number"
+                        min={0}
+                        max={30}
+                        value={maxDistance}
+                        onChange={(e) => setMaxDistance(Number(e.target.value) || 6)}
+                        className="h-7 w-16 text-xs"
+                      />
+                    </label>
+                    <label className="flex items-center gap-1.5 text-xs">
+                      Max images:
+                      <Input
+                        type="number"
+                        min={1}
+                        max={2000}
+                        value={maxImages}
+                        onChange={(e) => setMaxImages(Number(e.target.value) || 500)}
+                        className="h-7 w-20 text-xs"
+                      />
+                    </label>
+                    <span className="text-xs text-muted-foreground">
+                      (scan blocked if folder has more images)
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center gap-3">
                 <Button onClick={handleScan} disabled={loading} size="sm">
@@ -284,6 +328,21 @@ function SimilarResults({
   onCopyPath: (path: string) => void
 }) {
   const totalMembers = preview.similar_groups.reduce((s, g) => s + g.members.length, 0)
+
+  // Guardrail blocked
+  if (preview.guardrail?.blocked) {
+    return (
+      <div className="rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950 px-4 py-3 text-sm text-yellow-800 dark:text-yellow-200">
+        <p className="font-medium">Scan blocked by guardrail</p>
+        <p className="text-xs mt-1">{preview.guardrail.reason}</p>
+        <p className="text-xs mt-1 text-muted-foreground">
+          Found {preview.guardrail.image_count} images, maximum is{" "}
+          {preview.guardrail.max_images}. Increase the max images limit or
+          select a smaller source folder.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <>

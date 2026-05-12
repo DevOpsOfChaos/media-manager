@@ -63,8 +63,41 @@ def cmd_preview() -> int:
     if not source_dirs_raw:
         return _fail("source_dirs is required and must be non-empty.")
 
+    max_images = payload.get("max_images", 500)
+    if not isinstance(max_images, int) or max_images < 1:
+        max_images = 500
+
+    # Guardrail: count image files before scanning
+    from media_manager.sorter import iter_media_files
+    from media_manager.media_formats import list_supported_similar_image_extensions
+    supported = list_supported_similar_image_extensions()
+    source_paths = [Path(p) for p in source_dirs_raw]
+    image_files = iter_media_files(source_paths, media_extensions=supported)
+    image_count = len(image_files)
+    if image_count > max_images:
+        _emit({
+            "kind": "preview",
+            "scanned_files": 0,
+            "image_files": 0,
+            "hashed_files": 0,
+            "candidate_pairs_checked": 0,
+            "exact_hash_pairs": 0,
+            "similar_pairs": 0,
+            "similar_groups": [],
+            "errors": 0,
+            "decode_errors": 0,
+            "skipped_filtered_files": 0,
+            "guardrail": {
+                "blocked": True,
+                "reason": f"Too many image files ({image_count}). Maximum is {max_images}. Narrow the source directory or increase max_images.",
+                "image_count": image_count,
+                "max_images": max_images,
+            },
+        })
+        return 0
+
     config = SimilarImageScanConfig(
-        source_dirs=[Path(p) for p in source_dirs_raw],
+        source_dirs=source_paths,
         hash_size=payload.get("hash_size", 8),
         max_distance=payload.get("max_distance", 6),
         include_patterns=tuple(payload.get("include_patterns", ())),
