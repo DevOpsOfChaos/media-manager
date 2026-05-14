@@ -11,6 +11,7 @@ const DuplicatesPage = lazy(() => import("./pages/DuplicatesPage"))
 const PeoplePage = lazy(() => import("./pages/PeoplePage"))
 const HistoryPage = lazy(() => import("./pages/HistoryPage"))
 const RunDetailPage = lazy(() => import("./pages/RunDetailPage"))
+const ReviewWorkbenchPage = lazy(() => import("./pages/ReviewWorkbenchPage"))
 const SettingsPage = lazy(() => import("./pages/SettingsPage"))
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
@@ -71,6 +72,14 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
             element={
               <Suspense fallback={<PageFallback />}>
                 <RunDetailPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="review"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <ReviewWorkbenchPage />
               </Suspense>
             }
           />

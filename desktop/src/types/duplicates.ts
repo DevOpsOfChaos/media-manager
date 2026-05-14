@@ -58,6 +58,7 @@ export interface SimilarImageScanConfig {
   hash_size: number
   max_distance: number
   max_images: number
+  max_pairs: number
   include_patterns: string[]
   exclude_patterns: string[]
 }
@@ -85,5 +86,7 @@ export interface SimilarImagesPreviewResponse {
     reason: string
     image_count: number
     max_images: number
+    estimated_pairs?: number
+    max_pairs?: number
   }
 }

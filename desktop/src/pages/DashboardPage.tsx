@@ -291,34 +291,38 @@ export default function DashboardPage() {
           )}
 
           {/* Quick navigation */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <button
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <QuickNavCard
+              label="Organize"
+              desc="Preview folder organization."
               onClick={() => navigate("/organize")}
-              className="rounded-lg border p-4 text-left hover:bg-muted/50 transition-colors"
-            >
-              <p className="text-sm font-medium">Organize</p>
-              <p className="text-xs text-muted-foreground">
-                Preview media organization safely.
-              </p>
-            </button>
-            <button
+            />
+            <QuickNavCard
+              label="Exact duplicates"
+              desc="Find byte-identical files."
+              onClick={() => navigate("/duplicates")}
+            />
+            <QuickNavCard
+              label="Similar images"
+              desc="Find visually similar images."
+              onClick={() => navigate("/duplicates")}
+            />
+            <QuickNavCard
+              label="Review"
+              desc="Review candidates and record decisions. (coming soon)"
+              disabled
+              onClick={() => navigate("/review")}
+            />
+            <QuickNavCard
+              label="History"
+              desc="Browse past runs."
               onClick={() => navigate("/history")}
-              className="rounded-lg border p-4 text-left hover:bg-muted/50 transition-colors"
-            >
-              <p className="text-sm font-medium">History</p>
-              <p className="text-xs text-muted-foreground">
-                Browse past runs and inspect results.
-              </p>
-            </button>
-            <button
+            />
+            <QuickNavCard
+              label="Settings"
+              desc="Language, theme, diagnostics."
               onClick={() => navigate("/settings")}
-              className="rounded-lg border p-4 text-left hover:bg-muted/50 transition-colors"
-            >
-              <p className="text-sm font-medium">Settings</p>
-              <p className="text-xs text-muted-foreground">
-                Language, theme, and diagnostics.
-              </p>
-            </button>
+            />
           </div>
         </div>
       </main>
@@ -347,5 +351,39 @@ function StatusRow({
         {detail ?? "—"}
       </span>
     </div>
+  )
+}
+
+function QuickNavCard({
+  label,
+  desc,
+  onClick,
+  disabled,
+}: {
+  label: string
+  desc: string
+  onClick: () => void
+  disabled?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`rounded-lg border p-3 text-left transition-colors ${
+        disabled
+          ? "opacity-50 cursor-not-allowed"
+          : "hover:bg-muted/50"
+      }`}
+    >
+      <p className="text-sm font-medium">
+        {label}
+        {disabled && (
+          <span className="ml-1.5 text-[10px] text-muted-foreground font-normal">
+            coming soon
+          </span>
+        )}
+      </p>
+      <p className="text-xs text-muted-foreground">{desc}</p>
+    </button>
   )
 }

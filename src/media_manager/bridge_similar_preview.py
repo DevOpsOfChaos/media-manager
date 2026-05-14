@@ -74,7 +74,25 @@ def cmd_preview() -> int:
     source_paths = [Path(p) for p in source_dirs_raw]
     image_files = iter_media_files(source_paths, media_extensions=supported)
     image_count = len(image_files)
-    if image_count > max_images:
+    # Estimate pair count: n*(n-1)/2
+    estimated_pairs = image_count * (image_count - 1) // 2 if image_count > 1 else 0
+
+    max_pairs = payload.get("max_pairs", 150_000)
+    if not isinstance(max_pairs, int) or max_pairs < 1:
+        max_pairs = 150_000
+
+    if image_count > max_images or estimated_pairs > max_pairs:
+        blocked_reasons = []
+        if image_count > max_images:
+            blocked_reasons.append(
+                f"Too many image files ({image_count}). Maximum is {max_images}."
+            )
+        if estimated_pairs > max_pairs:
+            blocked_reasons.append(
+                f"Estimated {estimated_pairs:,} image pair comparisons would exceed the limit ({max_pairs:,})."
+            )
+        reason = " ".join(blocked_reasons)
+        reason += " Narrow the source directory, increase max_images, or increase max_pairs."
         _emit({
             "kind": "preview",
             "scanned_files": 0,
@@ -89,9 +107,11 @@ def cmd_preview() -> int:
             "skipped_filtered_files": 0,
             "guardrail": {
                 "blocked": True,
-                "reason": f"Too many image files ({image_count}). Maximum is {max_images}. Narrow the source directory or increase max_images.",
+                "reason": reason,
                 "image_count": image_count,
                 "max_images": max_images,
+                "estimated_pairs": estimated_pairs,
+                "max_pairs": max_pairs,
             },
         })
         return 0

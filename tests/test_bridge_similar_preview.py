@@ -167,6 +167,58 @@ def test_preview_nonexistent_source() -> None:
         sys.stdout = old_stdout
 
 
+def test_preview_guardrail_blocks_excessive_pairs(tmp_path: Path) -> None:
+    """Guardrail blocks when estimated pairs exceed max_pairs."""
+    from PIL import Image
+
+    source = tmp_path / "source"
+    source.mkdir()
+    # Create 4 images → 4*3/2 = 6 pairs. Set max_pairs=3 to block.
+    for i in range(4):
+        im = Image.new("RGB", (8, 8), color=(i, i, i))
+        im.save(source / f"img_{i}.jpg")
+
+    old_stdin = sys.stdin
+    old_stdout = sys.stdout
+    sys.stdin = StringIO(json.dumps({"source_dirs": [str(source)], "max_pairs": 3}))
+    sys.stdout = StringIO()
+    try:
+        exit_code = cmd_preview()
+        assert exit_code == 0
+        output = json.loads(sys.stdout.getvalue())
+        assert output.get("guardrail", {}).get("blocked") is True
+        assert output["guardrail"]["estimated_pairs"] == 6
+        assert output["guardrail"]["max_pairs"] == 3
+        assert "pair" in output["guardrail"]["reason"].lower()
+    finally:
+        sys.stdin = old_stdin
+        sys.stdout = old_stdout
+
+
+def test_preview_guardrail_allows_within_pairs_limit(tmp_path: Path) -> None:
+    """Guardrail allows when estimated pairs is within max_pairs."""
+    from PIL import Image
+
+    source = tmp_path / "source"
+    source.mkdir()
+    im = Image.new("RGB", (8, 8), color=(0, 0, 0))
+    im.save(source / "img.jpg")
+
+    old_stdin = sys.stdin
+    old_stdout = sys.stdout
+    sys.stdin = StringIO(json.dumps({"source_dirs": [str(source)], "max_pairs": 1000}))
+    sys.stdout = StringIO()
+    try:
+        exit_code = cmd_preview()
+        assert exit_code == 0
+        output = json.loads(sys.stdout.getvalue())
+        gr = output.get("guardrail")
+        assert gr is None or gr.get("blocked") is not True
+    finally:
+        sys.stdin = old_stdin
+        sys.stdout = old_stdout
+
+
 def test_main_returns_exit_code(tmp_path: Path) -> None:
     source = tmp_path / "source"
     source.mkdir()

@@ -33,6 +33,7 @@ export default function DuplicatesPage() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [maxDistance, setMaxDistance] = useState(6)
   const [maxImages, setMaxImages] = useState(500)
+  const [maxPairs, setMaxPairs] = useState(150_000)
 
   const handleScan = async () => {
     if (!sourceDir.trim()) {
@@ -49,7 +50,7 @@ export default function DuplicatesPage() {
       if (tab === "exact") {
         setExactPreview(await duplicateScan(config))
       } else {
-        setSimilarPreview(await similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages }))
+        setSimilarPreview(await similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages, max_pairs: maxPairs }))
       }
     } catch (err) {
       setError(String(err))
@@ -189,8 +190,20 @@ export default function DuplicatesPage() {
                         className="h-7 w-20 text-xs"
                       />
                     </label>
+                    <label className="flex items-center gap-1.5 text-xs">
+                      Max pairs:
+                      <Input
+                        type="number"
+                        min={1}
+                        max={1_000_000}
+                        step={10_000}
+                        value={maxPairs}
+                        onChange={(e) => setMaxPairs(Number(e.target.value) || 150_000)}
+                        className="h-7 w-24 text-xs"
+                      />
+                    </label>
                     <span className="text-xs text-muted-foreground">
-                      (scan blocked if folder has more images)
+                      (pair count = n&times;(n-1)/2, blocked if exceeded)
                     </span>
                   </div>
                 </div>
@@ -336,9 +349,11 @@ function SimilarResults({
         <p className="font-medium">Scan blocked by guardrail</p>
         <p className="text-xs mt-1">{preview.guardrail.reason}</p>
         <p className="text-xs mt-1 text-muted-foreground">
-          Found {preview.guardrail.image_count} images, maximum is{" "}
-          {preview.guardrail.max_images}. Increase the max images limit or
-          select a smaller source folder.
+          {preview.guardrail.image_count} images (limit {preview.guardrail.max_images})
+          {preview.guardrail.estimated_pairs != null && (
+            <> / ~{preview.guardrail.estimated_pairs.toLocaleString()} pairs (limit {preview.guardrail.max_pairs?.toLocaleString()})</>
+          )}
+          . Increase limits or select a smaller folder.
         </p>
       </div>
     )
