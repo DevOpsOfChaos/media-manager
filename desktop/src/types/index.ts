@@ -39,6 +39,22 @@ export type {
 } from "./progress"
 
 export type {
+  ReviewSourceKind,
+  ReviewCandidateRole,
+  ReviewDecisionDraft,
+  ReviewSafetyState,
+  ReviewCandidate,
+  ReviewGroup,
+  ReviewUnsupportedReason,
+  ReviewSession,
+} from "./review"
+
+export {
+  REVIEW_FEATURE_STATUS,
+  UNSUPPORTED_FEATURES,
+} from "./review"
+
+export type {
   Language,
   Theme,
   Density,

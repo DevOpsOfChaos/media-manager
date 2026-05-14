@@ -255,6 +255,29 @@ export default function DuplicatesPage() {
               onCopyPath={copyPath}
             />
           )}
+
+          {(exactPreview ?? similarPreview) && (
+            <div className="rounded-lg border border-muted px-4 py-3 text-sm text-muted-foreground space-y-1">
+              <p>
+                Review workflow is not connected yet. Draft decisions exist
+                only in memory and are not saved or applied.
+              </p>
+              <p className="text-xs">
+                <a
+                  href="/review"
+                  className="underline hover:text-foreground"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    window.location.href = "/review"
+                  }}
+                >
+                  Open Review Workbench
+                </a>{" "}
+                to inspect candidates. Apply, journal, and undo are not
+                implemented yet.
+              </p>
+            </div>
+          )}
         </div>
       </main>
     </>
