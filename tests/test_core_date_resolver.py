@@ -124,3 +124,111 @@ def test_resolve_capture_datetime_falls_back_to_file_mtime(tmp_path: Path) -> No
     assert resolution.source_kind == "file_system"
     assert resolution.source_label == "mtime"
     assert resolution.confidence == "low"
+
+
+def test_resolve_capture_datetime_rejects_unrealistic_metadata_year(tmp_path: Path) -> None:
+    """Metadata with year 0047 is rejected, falls back to filename."""
+    media_file = tmp_path / "IMG_20240102_123456.jpg"
+    media_file.write_bytes(b"jpg")
+
+    inspection = FileInspection(
+        path=media_file,
+        selected_value="0047:08:10 11:12:13",
+        selected_source="EXIF:DateTimeOriginal",
+        date_candidates=[
+            DateCandidate(source_tag="EXIF:DateTimeOriginal", value="0047:08:10 11:12:13", priority_index=0),
+        ],
+        file_modified_value="2026-01-01 00:00:00",
+        metadata_available=True,
+        exiftool_available=True,
+        error=None,
+    )
+
+    resolution = resolve_capture_datetime(media_file, inspection=inspection)
+
+    # Must fall back to filename since metadata year 0047 is unrealistic
+    assert resolution.source_kind == "filename"
+    assert resolution.confidence == "medium"
+    assert resolution.resolved_datetime == datetime(2024, 1, 2, 12, 34, 56)
+    assert "unrealistic year" in resolution.reason.lower()
+
+
+def test_resolve_capture_datetime_rejects_unrealistic_year_in_filename(tmp_path: Path) -> None:
+    """Filename date with year 0100 falls through to file mtime (before realistic minimum 1800)."""
+    # Year 0100 is valid to Python datetime but before photography existed
+    media_file = tmp_path / "IMG_01000102_123456.jpg"
+    media_file.write_bytes(b"jpg")
+
+    inspection = FileInspection(
+        path=media_file,
+        selected_value="not-a-date",
+        selected_source="QuickTime:CreateDate",
+        date_candidates=[
+            DateCandidate(source_tag="QuickTime:CreateDate", value="not-a-date", priority_index=0),
+        ],
+        file_modified_value="2026-01-01 00:00:00",
+        metadata_available=True,
+        exiftool_available=True,
+        error=None,
+    )
+
+    resolution = resolve_capture_datetime(media_file, inspection=inspection)
+
+    # Filename match (IMG_01000102_123456) parses to year 0100 → rejected by guard
+    # Falls through to file mtime
+    assert resolution.source_kind == "file_system"
+    assert resolution.source_label == "mtime"
+    assert resolution.confidence == "low"
+    assert "unrealistic" in resolution.reason.lower()
+
+
+def test_resolve_capture_datetime_accepts_early_photography_date(tmp_path: Path) -> None:
+    """Year 1826 (first photograph) is accepted since 1800 is the minimum."""
+    media_file = tmp_path / "old_photo.jpg"
+    media_file.write_bytes(b"jpg")
+
+    inspection = FileInspection(
+        path=media_file,
+        selected_value="1826:07:15 12:00:00",
+        selected_source="EXIF:DateTimeOriginal",
+        date_candidates=[
+            DateCandidate(source_tag="EXIF:DateTimeOriginal", value="1826:07:15 12:00:00", priority_index=0),
+        ],
+        file_modified_value="2026-01-01 00:00:00",
+        metadata_available=True,
+        exiftool_available=True,
+        error=None,
+    )
+
+    resolution = resolve_capture_datetime(media_file, inspection=inspection)
+
+    # 1826 >= 1800, so it's accepted as realistic
+    assert resolution.source_kind == "metadata"
+    assert resolution.confidence == "high"
+    assert resolution.resolved_datetime == datetime(1826, 7, 15, 12, 0, 0)
+
+
+def test_resolve_capture_datetime_rejects_far_future_year(tmp_path: Path) -> None:
+    """Year 2099 is rejected (after current_year + 1)."""
+    media_file = tmp_path / "future_photo.jpg"
+    media_file.write_bytes(b"jpg")
+
+    inspection = FileInspection(
+        path=media_file,
+        selected_value="2099:01:01 00:00:00",
+        selected_source="EXIF:DateTimeOriginal",
+        date_candidates=[
+            DateCandidate(source_tag="EXIF:DateTimeOriginal", value="2099:01:01 00:00:00", priority_index=0),
+        ],
+        file_modified_value="2026-01-01 00:00:00",
+        metadata_available=True,
+        exiftool_available=True,
+        error=None,
+    )
+
+    resolution = resolve_capture_datetime(media_file, inspection=inspection)
+
+    # 2099 is far future → rejected, falls to mtime (no filename match on "future_photo")
+    assert resolution.source_kind == "file_system"
+    assert resolution.source_label == "mtime"
+    assert resolution.confidence == "low"

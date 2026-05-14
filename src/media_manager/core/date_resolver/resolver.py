@@ -10,6 +10,16 @@ from media_manager.core.metadata import FileInspection, inspect_media_file
 from .models import DateResolution, FilenameDateMatch
 from .parse import describe_timezone_status, format_resolution_value, parse_datetime_value
 
+# Realistic year guard: reject dates before photography existed or far in the future.
+# 1800 = earliest practical photography (Niepce experiments ~1820s, first photo 1826/27).
+# Current year + 1 allows files dated slightly ahead (camera clock drift, next-year metadata).
+_REALISTIC_YEAR_MIN = 1800
+_REALISTIC_YEAR_MAX = datetime.now().year + 1
+
+
+def _year_is_realistic(value: datetime) -> bool:
+    return _REALISTIC_YEAR_MIN <= value.year <= _REALISTIC_YEAR_MAX
+
 FILENAME_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("whatsapp_datetime", re.compile(r"WhatsApp (?:Image|Video) (\d{4}-\d{2}-\d{2}) at (\d{2}\.\d{2}\.\d{2})", re.IGNORECASE)),
     ("pixel_datetime_ms", re.compile(r"PXL[_-]?(\d{8})[_-](\d{6})\d{3}", re.IGNORECASE)),
@@ -53,16 +63,20 @@ def find_filename_datetime(file_path: Path) -> FilenameDateMatch | None:
     return None
 
 
-def _candidate_counts(inspection: FileInspection) -> tuple[list[tuple[object, datetime]], int]:
+def _candidate_counts(inspection: FileInspection) -> tuple[list[tuple[object, datetime]], int, int]:
     parseable_candidates: list[tuple[object, datetime]] = []
     unparseable_candidates = 0
+    unrealistic_year_count = 0
     for candidate in inspection.date_candidates:
         parsed = parse_datetime_value(candidate.value)
         if parsed is None:
             unparseable_candidates += 1
             continue
+        if not _year_is_realistic(parsed):
+            unrealistic_year_count += 1
+            continue
         parseable_candidates.append((candidate, parsed))
-    return parseable_candidates, unparseable_candidates
+    return parseable_candidates, unparseable_candidates, unrealistic_year_count
 
 
 def _build_metadata_reason(selected_source_tag: str, parseable_candidates: list[tuple[object, datetime]]) -> tuple[str, bool]:
@@ -88,11 +102,16 @@ def resolve_capture_datetime(
     exiftool_path: Path | None = None,
 ) -> DateResolution:
     inspection = inspection or inspect_media_file(file_path, exiftool_path=exiftool_path)
-    parseable_candidates, unparseable_candidates = _candidate_counts(inspection)
+    parseable_candidates, unparseable_candidates, unrealistic_year_count = _candidate_counts(inspection)
+
+    total_skipped = unparseable_candidates + unrealistic_year_count
 
     if parseable_candidates:
         selected_candidate, parsed = parseable_candidates[0]
         reason, metadata_conflict = _build_metadata_reason(selected_candidate.source_tag, parseable_candidates)
+        if unrealistic_year_count:
+            label = "candidate" if unrealistic_year_count == 1 else "candidates"
+            reason += f" Rejected {unrealistic_year_count} metadata {label} with unrealistic year (before {_REALISTIC_YEAR_MIN} or after {_REALISTIC_YEAR_MAX})."
         return DateResolution(
             path=file_path,
             resolved_datetime=parsed,
@@ -104,18 +123,47 @@ def resolve_capture_datetime(
             reason=reason,
             candidates_checked=len(inspection.date_candidates),
             parseable_candidate_count=len(parseable_candidates),
-            unparseable_candidate_count=unparseable_candidates,
+            unparseable_candidate_count=total_skipped,
             metadata_conflict=metadata_conflict,
             decision_policy="highest_priority_parseable_metadata",
         )
 
     filename_match = find_filename_datetime(file_path)
     if filename_match is not None:
+        if not _year_is_realistic(filename_match.parsed_datetime):
+            # Filename date has unrealistic year — skip it, fall through to mtime
+            reason = f"Filename pattern matched ({filename_match.matched_text}) but produced unrealistic year {filename_match.parsed_datetime.year} (before {_REALISTIC_YEAR_MIN} or after {_REALISTIC_YEAR_MAX}). Fell back to file modification time."
+            if inspection.date_candidates:
+                count = len(inspection.date_candidates)
+                label = "candidate" if count == 1 else "candidates"
+                reason = f"skipping {count} unparseable metadata {label}. " + reason
+            if unrealistic_year_count:
+                label = "candidate" if unrealistic_year_count == 1 else "candidates"
+                reason += f" Also rejected {unrealistic_year_count} metadata {label} with unrealistic year."
+            modified_at = datetime.fromtimestamp(file_path.stat().st_mtime)
+            return DateResolution(
+                path=file_path,
+                resolved_datetime=modified_at,
+                resolved_value=format_resolution_value(modified_at),
+                source_kind="file_system",
+                source_label="mtime",
+                confidence="low",
+                timezone_status=describe_timezone_status(modified_at),
+                reason=reason,
+                candidates_checked=len(inspection.date_candidates),
+                parseable_candidate_count=0,
+                unparseable_candidate_count=total_skipped,
+                metadata_conflict=False,
+                decision_policy="mtime_fallback",
+            )
         reason = f"Fell back to a recognized filename pattern: {filename_match.matched_text}."
         if inspection.date_candidates:
             count = len(inspection.date_candidates)
             label = "candidate" if count == 1 else "candidates"
             reason = f"skipping {count} unparseable metadata {label}. " + reason
+        if unrealistic_year_count:
+            label = "candidate" if unrealistic_year_count == 1 else "candidates"
+            reason += f" Rejected {unrealistic_year_count} metadata {label} with unrealistic year (before {_REALISTIC_YEAR_MIN} or after {_REALISTIC_YEAR_MAX})."
         return DateResolution(
             path=file_path,
             resolved_datetime=filename_match.parsed_datetime,
@@ -127,7 +175,7 @@ def resolve_capture_datetime(
             reason=reason,
             candidates_checked=len(inspection.date_candidates),
             parseable_candidate_count=0,
-            unparseable_candidate_count=unparseable_candidates,
+            unparseable_candidate_count=total_skipped,
             metadata_conflict=False,
             decision_policy="filename_fallback",
         )
@@ -138,6 +186,9 @@ def resolve_capture_datetime(
         count = len(inspection.date_candidates)
         label = "candidate" if count == 1 else "candidates"
         reason = f"skipping {count} unparseable metadata {label}. " + reason
+    if unrealistic_year_count:
+        label = "candidate" if unrealistic_year_count == 1 else "candidates"
+        reason += f" Rejected {unrealistic_year_count} metadata {label} with unrealistic year."
     return DateResolution(
         path=file_path,
         resolved_datetime=modified_at,
@@ -149,7 +200,7 @@ def resolve_capture_datetime(
         reason=reason,
         candidates_checked=len(inspection.date_candidates),
         parseable_candidate_count=0,
-        unparseable_candidate_count=unparseable_candidates,
+        unparseable_candidate_count=total_skipped,
         metadata_conflict=False,
         decision_policy="mtime_fallback",
     )
