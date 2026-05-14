@@ -15,34 +15,40 @@ The new desktop frontend under `./desktop` (Tauri + React + TypeScript + shadcn/
 - Settings bridge: read/write/reset via `bridge_settings.py`
 - Runtime Diagnostics bridge via `bridge_diagnostics.py`
 - Run History bridge: list/get via `bridge_history.py`
-- Dashboard: composed real summary from diagnostics, settings, history (with Refresh + quick nav cards)
+- Dashboard: composed real summary + refresh + 6 quick-nav cards (Organize, Exact, Similar, Review, History, Settings)
 - Organize Preview bridge: `bridge_organize_preview.py` — calls `build_organize_dry_run()` only, **never modifies files**
-- Organize frontend: preview-only UI with native Browse buttons, pattern presets, custom builder, dual-language (EN/DE) support, file-name auto-preservation note
-- Duplicates Preview bridge: `bridge_duplicates_preview.py` — calls `scan_exact_duplicates()` only, **never deletes files**
-- Duplicates frontend: scan with Browse, summary cards, duplicate groups table, reclaimable space estimate, preview-only safety banner
+- Organize frontend: preview-only UI with native Browse, pattern presets, custom builder, dual-language (EN/DE), file-name auto-preservation note
+- Duplicates Exact Preview bridge: `bridge_duplicates_preview.py` — calls `scan_exact_duplicates()` only, **never deletes files**
+- Duplicates Similar Images Preview bridge: `bridge_similar_preview.py` — calls `scan_similar_images()` only, **never modifies files**
+- Similar scan guardrails: `max_images` (default 500) and `max_pairs` (default 150K, estimates n*(n-1)/2) — blocks scan if exceeded, returns structured warning
+- Duplicates frontend: Exact/Similar tabs, collapsible group cards, filter, Copy buttons, threshold controls (max_distance, max_images, max_pairs), guardrail display
+- Review Workbench shell: `/review` route, sidebar entry, honest placeholder cards for exact/similar/decision-journal — read-only, no active controls
+- Date resolver year guard: rejects years before 1800 or after current+1, forces fallthrough to filename or file mtime
 - Native directory picker via tauri-plugin-dialog for Organize and Duplicates
 - Library page: honest placeholder with quick-action links
 - People page: honest placeholder with feature cards marked "not available yet"
 - Shared UI components: ErrorBanner, EmptyState, StatusBadge
-- History: search/filter, Refresh (in header)
+- History: search/filter, Refresh
 - Settings: collapsible Runtime Diagnostics with show/hide toggle
-- All pages have loading, error, and empty states
 
 **Preview-only guarantees:**
-- `bridge_organize_preview.py` calls `build_organize_dry_run()` and explicitly marks results as `kind: "preview"`, `dry_run: true`
-- `bridge_duplicates_preview.py` calls `scan_exact_duplicates()` and returns `kind: "preview"`
-- Neither bridge imports destructive functions (`execute_organize_plan`, `run_duplicate_execution_preview`, `send2trash`)
+- All bridges mark results as `kind: "preview"` and return `dry_run: true`
+- Bridges NEVER import destructive functions (`execute_organize_plan`, `run_duplicate_execution_preview`, `send2trash`, `execute_similar_workflow_bundle`)
 - All desktop UI pages show "Preview only. No files are modified/deleted." safety banners
 - No Apply/Execute/Delete buttons exist in the desktop UI
 - `organize_apply` Tauri command returns "not yet implemented"
+- No media files are modified by any preview flow
 
 **Not yet implemented:**
 - Organize Apply / execution
 - Duplicates deletion / cleanup
+- Similar image deletion
 - People face detection / recognition
 - Library media browser
+- Review Workbench decision persistence / apply
 - Undo preview/apply
 - Progress streaming
+- Thumbnail previews for similar image groups
 - Review Workbench
 - Similar image scanning in desktop UI
 
