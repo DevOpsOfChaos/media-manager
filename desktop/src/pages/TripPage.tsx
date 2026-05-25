@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { tripPreview, tripApply, type TripOptions, type TripApplyResponse } from "@/lib/tauri-bridge"
+import { useProgress } from "@/lib/progress-context"
 import { libraryBrowse } from "@/lib/tauri-bridge"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
@@ -59,6 +60,7 @@ function TripDetailView({ trip, onBack }: { trip: TripEntry; onBack: () => void 
 
 export default function TripPage() {
   const t = useT()
+  const { startProgress, updateProgress, finishProgress } = useProgress()
   const [tripsRoot, setTripsRoot] = useState(() => localStorage.getItem("trips_root") || localStorage.getItem("default_source_dir") || "")
   const [trips, setTrips] = useState<TripEntry[]>([])
   const [loadingTrips, setLoadingTrips] = useState(false)
@@ -108,6 +110,7 @@ export default function TripPage() {
   const handleCreate = async () => {
     if (!sourceDir || !label || !startDate || !endDate) return
     setCreating(true); setCreateError(null); setCreateResult(null)
+    startProgress(t("Creating trip...", "Reise wird erstellt..."), 100)
     try {
       const options: TripOptions = {
         source_dirs: [sourceDir],
@@ -118,13 +121,15 @@ export default function TripPage() {
         use_hardlinks: useHardlinks,
       }
       const preview = await tripPreview(options)
+      updateProgress(50)
       if (preview.planned_count > 0) {
         const result = await tripApply(options)
+        updateProgress(100)
         setCreateResult(result)
         loadTrips()
       }
     } catch (e) { setCreateError(String(e)) }
-    finally { setCreating(false) }
+    finally { setTimeout(() => finishProgress(), 500); setCreating(false) }
   }
 
   // ── Trip Detail View ──

@@ -18,6 +18,7 @@ import { ErrorBanner } from "@/components/shared/ErrorBanner"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { duplicateScan, similarImagesScan, duplicatesApply } from "@/lib/tauri-bridge"
 import { useSettingsStore } from "@/stores/settings-store"
+import { useProgress } from "@/lib/progress-context"
 import type {
   DuplicatesPreviewResponse,
   SimilarImagesPreviewResponse,
@@ -72,6 +73,7 @@ const FileThumbnail = React.memo(function FileThumbnail({ path, size = 80 }: { p
 
 export default function DuplicatesPage() {
   const t = useT()
+  const { startProgress, updateProgress, finishProgress } = useProgress()
   const [sourceDir, setSourceDir] = useState(() => localStorage.getItem("default_source_dir") || "")
   const [tab, setTab] = useState<Tab>("exact")
   const [exactPreview, setExactPreview] = useState<DuplicatesPreviewResponse | null>(null)
@@ -100,18 +102,21 @@ export default function DuplicatesPage() {
     setExactPreview(null)
     setSimilarPreview(null)
     setExpandedGroups(new Set())
+    startProgress(t("Scanning for duplicates...", "Suche nach Duplikaten..."), 2)
     try {
       const config = { source_dirs: [sourceDir.trim()], include_patterns: [], exclude_patterns: [] }
       const [exact, similar] = await Promise.all([
         duplicateScan(config),
         similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages, max_pairs: maxPairs }),
       ])
+      updateProgress(2)
       setExactPreview(exact)
       setSimilarPreview(similar)
       setTab("all")
     } catch (err) {
       setError(userFriendlyError(err))
     } finally {
+      setTimeout(() => finishProgress(), 500)
       setScanAllLoading(false)
     }
   }
@@ -136,6 +141,7 @@ export default function DuplicatesPage() {
     setExactPreview(null)
     setSimilarPreview(null)
     setExpandedGroups(new Set())
+    startProgress(t("Scanning for duplicates...", "Suche nach Duplikaten..."), 2)
     try {
       const config = { source_dirs: [sourceDir.trim()], include_patterns: [], exclude_patterns: [] }
       if (tab === "exact") {
@@ -150,9 +156,11 @@ export default function DuplicatesPage() {
         setExactPreview(exact)
         setSimilarPreview(similar)
       }
+      updateProgress(2)
     } catch (err) {
       setError(userFriendlyError(err))
     } finally {
+      setTimeout(() => finishProgress(), 500)
       setLoading(false)
     }
   }

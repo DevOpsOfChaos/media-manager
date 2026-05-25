@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
 import { peopleCatalogList, peoplePersonRename, peoplePersonCreate, peoplePersonReassign, peoplePersonMerge, peopleScan, peopleScanStatus, peopleFaceIgnore, peopleFaceAge, type PersonEntry, type CatalogListResponse } from "@/lib/tauri-bridge"
+import { useProgress } from "@/lib/progress-context"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
  import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff, GitMerge, MoreHorizontal, EyeOff } from "lucide-react"
@@ -64,6 +65,7 @@ function FaceThumb({ path, size = 96, alt }: { path: string; size?: number; alt?
 // ── Main component ──
 export default function PeoplePage() {
   const t = useT()
+  const { startProgress, updateProgress, finishProgress } = useProgress()
   const [catalogPath, setCatalogPath] = useState(() => localStorage.getItem("people_catalog_path") || "")
   const [enabled, setEnabled] = useState(() => localStorage.getItem("people_scan_enabled") === "true")
   const [catalog, setCatalog] = useState<CatalogListResponse | null>(null)
@@ -162,6 +164,7 @@ export default function PeoplePage() {
     localStorage.setItem("people_scan_catalog", catalogPath)
     setLoading(true)
     setError(null)
+    startProgress(t("Scanning for faces...", "Suche nach Gesichtern..."), 100)
     try {
       const result = await peopleScan({
         source_dirs: [sourceDir],
@@ -169,12 +172,13 @@ export default function PeoplePage() {
         incremental: true,
         tolerance: 0.6,
       })
+      updateProgress(100)
       setScanResult(result)
       setLastScanTime(new Date().toLocaleTimeString())
       const status = await peopleScanStatus({ source_dirs: [sourceDir] })
       setScanStatus(status)
     } catch (e) { setError(friendlyPeopleError(e, "scan")) }
-    finally { setLoading(false) }
+    finally { setTimeout(() => finishProgress(), 500); setLoading(false) }
   }
 
   const handleRename = async () => {

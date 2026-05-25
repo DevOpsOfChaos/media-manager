@@ -392,10 +392,11 @@ export interface LibraryBrowseResult {
   root: string
   file_count: number
   depth: number
+  quick?: boolean
   files: Array<{ path: string; name: string; relative: string; size: number; suffix: string }>
 }
 
-export async function libraryBrowse(options: { root_dir: string; max_depth?: number }): Promise<LibraryBrowseResult> {
+export async function libraryBrowse(options: { root_dir: string; max_depth?: number; quick?: boolean }): Promise<LibraryBrowseResult> {
   return invoke("library_browse", { options })
 }
 
@@ -450,6 +451,8 @@ export interface LibraryBrowsePaginatedResult {
   page_size: number
   total_pages: number
   depth: number
+  cached?: boolean
+  quick?: boolean
   files: Array<{
     path: string
     name: string

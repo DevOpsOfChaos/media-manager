@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse as _ap
 import datetime as _dt
+import hashlib
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 
@@ -51,6 +53,60 @@ def _fail(message: str, exit_code: int = 1) -> int:
     return exit_code
 
 
+def _scan_directory(root: Path, max_depth: int, date_from: str | None, date_to: str | None, file_types: list[str] | None) -> list[dict]:
+    """Full directory scan — collects all media files with metadata."""
+    media_files: list[dict] = []
+
+    for current, dirs, filenames in os.walk(root):
+        depth = len(Path(current).relative_to(root).parts)
+        if depth > max_depth:
+            dirs[:] = []
+            continue
+        dirs[:] = [d for d in dirs if not d.startswith(".")]
+        for f in sorted(filenames):
+            fp = Path(current) / f
+            suffix = fp.suffix.lower()
+
+            if suffix not in ALL_MEDIA:
+                continue
+
+            if file_types:
+                cat = _get_file_category(suffix)
+                if cat not in file_types:
+                    continue
+
+            try:
+                size = fp.stat().st_size
+                mtime = fp.stat().st_mtime
+            except OSError:
+                size = 0
+                mtime = 0
+
+            if date_from or date_to:
+                mtime_dt = _dt.datetime.fromtimestamp(mtime, tz=_dt.timezone.utc)
+                if date_from:
+                    from_dt = _dt.datetime.fromisoformat(date_from)
+                    if mtime_dt < from_dt.replace(tzinfo=_dt.timezone.utc):
+                        continue
+                if date_to:
+                    to_dt = _dt.datetime.fromisoformat(date_to) + _dt.timedelta(days=1)
+                    if mtime_dt >= to_dt.replace(tzinfo=_dt.timezone.utc):
+                        continue
+
+            media_files.append({
+                "path": str(fp),
+                "name": f,
+                "relative": str(fp.relative_to(root)),
+                "size": size,
+                "suffix": suffix,
+                "modified": _dt.datetime.fromtimestamp(mtime, tz=_dt.timezone.utc).isoformat(),
+                "category": _get_file_category(suffix),
+                "sidecars": [],
+            })
+
+    return media_files
+
+
 def cmd_browse() -> int:
     raw = sys.stdin.read()
     try:
@@ -66,122 +122,89 @@ def cmd_browse() -> int:
     date_from = payload.get("date_from")
     date_to = payload.get("date_to")
     file_types = payload.get("file_types")
-    include_sidecars = payload.get("include_sidecars", False)
-
-    media_files: list[dict] = []
-    all_files_map: dict[str, dict] = {}
-
-    for current, dirs, filenames in os.walk(root):
-        depth = len(Path(current).relative_to(root).parts)
-        if depth > max_depth:
-            dirs[:] = []
-            continue
-        dirs[:] = [d for d in dirs if not d.startswith(".")]
-        for f in sorted(filenames):
-            fp = Path(current) / f
-            suffix = fp.suffix.lower()
-
-            try:
-                size = fp.stat().st_size
-                mtime = fp.stat().st_mtime
-            except OSError:
-                size = 0
-                mtime = 0
-
-            if suffix in ALL_MEDIA:
-                if file_types:
-                    cat = _get_file_category(suffix)
-                    if cat not in file_types:
-                        continue
-
-                if date_from or date_to:
-                    mtime_dt = _dt.datetime.fromtimestamp(mtime, tz=_dt.timezone.utc)
-                    if date_from:
-                        from_dt = _dt.datetime.fromisoformat(date_from)
-                        if mtime_dt < from_dt.replace(tzinfo=_dt.timezone.utc):
-                            continue
-                    if date_to:
-                        to_dt = _dt.datetime.fromisoformat(date_to) + _dt.timedelta(days=1)
-                        if mtime_dt >= to_dt.replace(tzinfo=_dt.timezone.utc):
-                            continue
-
-                media_files.append({
-                    "path": str(fp),
-                    "name": f,
-                    "relative": str(fp.relative_to(root)),
-                    "size": size,
-                    "suffix": suffix,
-                    "modified": _dt.datetime.fromtimestamp(mtime, tz=_dt.timezone.utc).isoformat(),
-                    "category": _get_file_category(suffix),
-                    "sidecars": [],
-                })
-            elif suffix in SIDECAR_EXTENSIONS:
-                all_files_map[str(fp)] = {
-                    "path": str(fp),
-                    "name": f,
-                    "relative": str(fp.relative_to(root)),
-                    "suffix": suffix,
-                    "size": size,
-                }
-            elif include_sidecars:
-                all_files_map[str(fp)] = {
-                    "path": str(fp),
-                    "name": f,
-                    "relative": str(fp.relative_to(root)),
-                    "suffix": suffix,
-                    "size": size,
-                }
-
-    # Smart sidecar matching
-    for media in media_files:
-        media_path = Path(media["path"])
-        media_stem = media_path.stem.lower()
-        media_dir = media_path.parent
-
-        for sf_path_str, sf_data in list(all_files_map.items()):
-            sf_path = Path(sf_path_str)
-            sf_stem = sf_path.stem.lower()
-
-            # Match 1: exact stem match (photo.jpg + photo.xmp)
-            if sf_stem == media_stem:
-                media["sidecars"].append(sf_data)
-                del all_files_map[sf_path_str]
-                continue
-
-            # Match 2: stem starts with same prefix (IMG_0001.jpg + IMG_0001_edit.xmp)
-            if sf_stem.startswith(media_stem) and sf_path.parent == media_dir:
-                media["sidecars"].append(sf_data)
-                del all_files_map[sf_path_str]
-                continue
-
-            # Match 3: fuzzy — same directory, stem similarity > 80%
-            if sf_path.parent == media_dir and _stem_similarity(media_stem, sf_stem) > 0.8:
-                media["sidecars"].append(sf_data)
-                del all_files_map[sf_path_str]
-
-    other_files_count = len(all_files_map)
-
     page = payload.get("page", 0)
     page_size = payload.get("page_size", 0)
+    quick = payload.get("quick", False)
+
+    # --- Phase 1: Quick count ---
+    if quick:
+        media_count = 0
+        other_count = 0
+        for current, dirs, filenames in os.walk(root):
+            depth = len(Path(current).relative_to(root).parts)
+            if depth > max_depth:
+                dirs[:] = []
+                continue
+            dirs[:] = [d for d in dirs if not d.startswith(".")]
+            for f in filenames:
+                suffix = Path(f).suffix.lower()
+                if suffix in ALL_MEDIA:
+                    media_count += 1
+                else:
+                    other_count += 1
+
+        _emit({
+            "kind": "browse",
+            "root": str(root),
+            "file_count": media_count,
+            "other_count": other_count,
+            "quick": True,
+            "depth": max_depth,
+        })
+        return 0
+
+    # --- Phase 2: Cached paginated load ---
+    cache_dir = Path(os.environ.get("MEDIA_MANAGER_HOME", Path.home() / ".media-manager")) / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    root_hash = hashlib.md5(str(root.resolve()).encode()).hexdigest()[:12]
+    cache_path = cache_dir / f"library_{root_hash}.json"
+
+    # Check if cache is valid (exists, same root, < 5 min old)
+    cache_valid = False
+    if cache_path.exists():
+        try:
+            cache_data = json.loads(cache_path.read_text())
+            cache_age = time.time() - cache_data.get("created_at", 0)
+            if cache_data.get("root") == str(root) and cache_age < 300:
+                cache_valid = True
+        except Exception:
+            pass
+
+    # Build or load cache
+    if not cache_valid:
+        media_files = _scan_directory(root, max_depth, date_from, date_to, file_types)
+        cache_data = {
+            "root": str(root),
+            "created_at": time.time(),
+            "file_count": len(media_files),
+            "files": media_files,
+        }
+        cache_path.write_text(json.dumps(cache_data, ensure_ascii=False))
+    else:
+        media_files = cache_data["files"]
+
     total_count = len(media_files)
 
+    # Paginate
     if page_size > 0:
         start = page * page_size
         end = start + page_size
         paged_files = media_files[start:end]
     else:
         paged_files = media_files
+        page_size = total_count
 
     _emit({
         "kind": "browse",
         "root": str(root),
         "file_count": total_count,
-        "other_count": other_files_count,
+        "other_count": cache_data.get("other_count", 0) if cache_valid else 0,
         "page": page,
-        "page_size": page_size if page_size > 0 else total_count,
-        "total_pages": (total_count + page_size - 1) // page_size if page_size > 0 else 1,
+        "page_size": page_size,
+        "total_pages": max(1, (total_count + page_size - 1) // page_size) if page_size > 0 else 1,
         "depth": max_depth,
         "files": paged_files,
+        "cached": cache_valid,
         "applied_filters": {
             "date_from": date_from,
             "date_to": date_to,

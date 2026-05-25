@@ -19,6 +19,7 @@ import { useSettingsStore } from "@/stores/settings-store"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { RecentPathsDropdown, addRecentPath } from "@/components/shared/RecentPaths"
 import { FullPageProgress } from "@/components/shared/FullPageProgress"
+import { useProgress } from "@/lib/progress-context"
 import { AlertTriangle } from "lucide-react"
 
 // ── Pattern presets ──
@@ -157,6 +158,7 @@ function buildLiveExample(pattern: string): string {
 export default function OrganizePage() {
   const { options, setOptions } = useOrganizeStore()
   const { settings } = useSettingsStore()
+  const { startProgress, updateProgress, finishProgress } = useProgress()
   const lang = settings.language === "de" ? "de" : "en"
 
   const [preview, setPreview] = useState<OrganizePreviewResponse | null>(null)
@@ -236,12 +238,16 @@ export default function OrganizePage() {
     setLoading(true)
     setError(null)
     setPreview(null)
+    startProgress(t("Organize Preview", "Organisations-Vorschau"), 100)
     try {
       const result = await organizePreview(options)
+      updateProgress(50)
       setPreview(result)
+      updateProgress(100)
     } catch (err) {
       setError(userFriendlyError(err))
     } finally {
+      setTimeout(() => finishProgress(), 500)
       setLoading(false)
     }
   }
@@ -253,14 +259,19 @@ export default function OrganizePage() {
     const total = preview?.planned_count || 0
     const start = Date.now()
     setApplyProgress({ current: 0, total, startedAt: start })
+    startProgress(
+      options.operation_mode === "move" ? t("Moving files...", "Verschiebe Dateien...") : t("Copying files...", "Kopiere Dateien..."),
+      total,
+    )
 
     // Simulated progress updates while waiting for the subprocess
     const interval = setInterval(() => {
       setApplyProgress(prev => {
         const elapsed = (Date.now() - prev.startedAt) / 1000
-        // Estimate: ~50ms per file, but cap at 95% until real completion
         const estimated = Math.min(Math.floor(elapsed * 20), Math.floor(prev.total * 0.95))
-        return { ...prev, current: Math.max(prev.current, estimated) }
+        const next = Math.max(prev.current, estimated)
+        updateProgress(next)
+        return { ...prev, current: next }
       })
     }, 200)
     setProgressInterval(interval)
@@ -268,12 +279,14 @@ export default function OrganizePage() {
     try {
       const result = await organizeApply(options)
       clearInterval(interval)
+      updateProgress(total)
       setApplyProgress(prev => ({ ...prev, current: prev.total }))
       setApplyResult(result)
     } catch (e: unknown) {
       clearInterval(interval)
       setError(userFriendlyError(e))
     } finally {
+      setTimeout(() => finishProgress(), 500)
       setApplyLoading(false)
       setProgressInterval(null)
     }

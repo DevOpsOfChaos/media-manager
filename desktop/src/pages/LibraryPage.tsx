@@ -4,10 +4,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EmptyState } from "@/components/shared/EmptyState"
-import { libraryBrowsePaginated, fileOpen, fileReveal, fileDelete, fileRename, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
+import { fileOpen, fileReveal, fileDelete, fileRename, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { FolderOpen, Film, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, File, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive } from "lucide-react"
 import {
@@ -70,7 +69,6 @@ export default function LibraryPage() {
   const [renameDialog, setRenameDialog] = useState<{ path: string; name: string } | null>(null)
   const [renameValue, setRenameValue] = useState("")
   const [actionLoading, setActionLoading] = useState<string | null>(null)
-  const preloadQueue = useRef<Set<number>>(new Set())
   const [slideshowOpen, setSlideshowOpen] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
@@ -108,6 +106,9 @@ export default function LibraryPage() {
   const [splitViewOpen, setSplitViewOpen] = useState(false)
   const [showEmailShare, setShowEmailShare] = useState(false)
   const [showNetworkHint, setShowNetworkHint] = useState(false)
+
+  const [elapsed, setElapsed] = useState(0)
+  const elapsedRef = useRef<NodeJS.Timeout | null>(null)
 
   const [exifData, setExifData] = useState<Record<string, string | number> | null>(null)
 
@@ -154,10 +155,10 @@ export default function LibraryPage() {
 
   const loadPageData = useCallback(async (pageNum: number) => {
     if (!rootDir) return
-    if (preloadQueue.current.has(pageNum)) return
+    if (loadedPages.has(pageNum)) return
 
-    preloadQueue.current.add(pageNum)
     try {
+      const { libraryBrowsePaginated } = await import("@/lib/tauri-bridge")
       const r = await libraryBrowsePaginated({
         root_dir: rootDir,
         page: pageNum,
@@ -168,24 +169,27 @@ export default function LibraryPage() {
         next.set(pageNum, r.files)
         return next
       })
-      if (pageNum === page) {
+      if (pageNum === 0) {
         setData(r)
       }
     } catch (e) {
       console.error(`Failed to load page ${pageNum}:`, e)
-    } finally {
-      preloadQueue.current.delete(pageNum)
     }
-  }, [rootDir, pageSize, page])
+  }, [rootDir, pageSize])
 
   const browse = useCallback(async () => {
     if (!rootDir) return
     setLoading(true); setError(null); setPage(0); setLoadedPages(new Map())
     localStorage.setItem("library_root", rootDir)
+    setElapsed(0)
+    elapsedRef.current = setInterval(() => setElapsed(e => e + 1), 1000)
     try {
       await loadPageData(0)
     } catch (e) { setError(String(e)) }
-    finally { setLoading(false) }
+    finally {
+      setLoading(false)
+      if (elapsedRef.current) { clearInterval(elapsedRef.current); elapsedRef.current = null }
+    }
   }, [rootDir, loadPageData])
 
   useEffect(() => {
@@ -500,7 +504,6 @@ export default function LibraryPage() {
                 <ArrowLeftRight className="h-3 w-3 mr-1" /> {t("Compare", "Vergleichen")}
               </Button>
             )}
-            <span className="text-xs text-muted-foreground">{t("Per page:", "Pro Seite:")}</span>
             <button onClick={() => {
               const next = thumbQuality === "fast" ? "quality" : "fast"
               setThumbQuality(next)
@@ -554,18 +557,35 @@ export default function LibraryPage() {
         </div>
       )}
 
-      {/* Loading skeleton */}
+      {/* Loading overlay */}
       {loading && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
-          {Array.from({ length: pageSize }).map((_, i) => (
-            <Card key={i} className="overflow-hidden">
-              <Skeleton className="aspect-square w-full" />
-              <CardContent className="p-2 space-y-1">
-                <Skeleton className="h-3 w-3/4" />
-                <Skeleton className="h-2 w-1/2" />
-              </CardContent>
-            </Card>
-          ))}
+        <div className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-card border rounded-xl shadow-xl p-8 max-w-md w-full mx-4 text-center space-y-4">
+            <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
+            <h2 className="text-lg font-semibold">{t("Scanning Library", "Bibliothek wird gescannt")}</h2>
+            <p className="text-sm text-muted-foreground">
+              {rootDir && (
+                <span className="break-all">{rootDir.split("/").pop() || rootDir.split("\\").pop()}</span>
+              )}
+            </p>
+            
+            <div className="space-y-2">
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary rounded-full transition-all duration-500 animate-pulse"
+                  style={{ width: `${Math.min(95, (elapsed / 30) * 100)}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{t("Scanning files...", "Dateien werden gescannt...")}</span>
+                <span>{elapsed}s</span>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-muted-foreground">
+              {t("This may take a moment for large libraries.", "Bei großen Bibliotheken kann dies einen Moment dauern.")}
+            </p>
+          </div>
         </div>
       )}
 
@@ -620,7 +640,11 @@ export default function LibraryPage() {
                         (e.target as HTMLImageElement).style.opacity = "1"
                       }}
                       onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none"
+                        const target = e.target as HTMLImageElement
+                        target.style.display = "none"
+                        if (target.parentElement) {
+                          target.parentElement.classList.add("fallback-visible")
+                        }
                       }}
                     />
                   </>
