@@ -209,3 +209,78 @@ def test_second_rename_run_becomes_skipped_due_to_matching_name(monkeypatch, tmp
 
     assert second_run.skipped_count == 1
     assert second_run.entries[0].status == "skipped"
+
+
+# --- media groups integration ---
+
+def test_include_associated_files_sidecar_group_kind(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    jpg = source / "IMG_0001.jpg"
+    xmp = source / "IMG_0001.xmp"
+    jpg.write_bytes(b"jpg"); xmp.write_bytes(b"xmp")
+    monkeypatch.setattr("media_manager.core.renamer.planner.resolve_capture_datetime", lambda path, exiftool_path=None, **kwargs: _resolution(path))
+    dry_run = build_rename_dry_run(RenamePlannerOptions(source_dirs=(source,), template="{date:%Y-%m-%d}_{stem}", include_associated_files=True))
+    assert dry_run.planned_count == 1
+    entry = dry_run.entries[0]
+    assert entry.group_kind == "sidecar"
+    assert entry.group_id is not None
+    assert entry.group_id.startswith("media-group-")
+    assert entry.associated_file_count == 1
+
+
+def test_include_associated_files_member_targets(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    jpg = source / "IMG_0001.jpg"
+    xmp = source / "IMG_0001.xmp"
+    jpg.write_bytes(b"jpg"); xmp.write_bytes(b"xmp")
+    monkeypatch.setattr("media_manager.core.renamer.planner.resolve_capture_datetime", lambda path, exiftool_path=None, **kwargs: _resolution(path))
+    dry_run = build_rename_dry_run(RenamePlannerOptions(source_dirs=(source,), template="{stem}", include_associated_files=True))
+    entry = dry_run.entries[0]
+    assert len(entry.member_targets) >= 2
+    source_paths = {mt.source_path for mt in entry.member_targets}
+    assert jpg in source_paths
+    assert xmp in source_paths
+
+
+def test_include_associated_files_dry_run_summary(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    jpg = source / "IMG_0001.jpg"
+    xmp = source / "IMG_0001.xmp"
+    jpg.write_bytes(b"jpg"); xmp.write_bytes(b"xmp")
+    monkeypatch.setattr("media_manager.core.renamer.planner.resolve_capture_datetime", lambda path, exiftool_path=None, **kwargs: _resolution(path))
+    dry_run = build_rename_dry_run(RenamePlannerOptions(source_dirs=(source,), template="{stem}", include_associated_files=True))
+    assert dry_run.media_group_count == 1
+    assert dry_run.associated_file_count == 1
+    assert dry_run.group_kind_summary == {"sidecar": 1}
+
+
+def test_include_associated_files_false_single_entries(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    jpg = source / "IMG_0001.jpg"
+    xmp = source / "IMG_0001.xmp"
+    jpg.write_bytes(b"jpg"); xmp.write_bytes(b"xmp")
+    monkeypatch.setattr("media_manager.core.renamer.planner.resolve_capture_datetime", lambda path, exiftool_path=None, **kwargs: _resolution(path))
+    dry_run = build_rename_dry_run(RenamePlannerOptions(source_dirs=(source,), template="{stem}", include_associated_files=False))
+    for entry in dry_run.entries:
+        assert entry.group_kind == "single"
+        assert entry.associated_paths == ()
+
+
+def test_include_associated_files_mixed_group(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    jpg = source / "IMG_0001.jpg"
+    xmp = source / "IMG_0001.xmp"
+    mov = source / "IMG_0001.mov"
+    jpg.write_bytes(b"jpg"); xmp.write_bytes(b"xmp"); mov.write_bytes(b"mov")
+    monkeypatch.setattr("media_manager.core.renamer.planner.resolve_capture_datetime", lambda path, exiftool_path=None, **kwargs: _resolution(path))
+    dry_run = build_rename_dry_run(RenamePlannerOptions(source_dirs=(source,), template="{stem}", include_associated_files=True))
+    entry = dry_run.entries[0]
+    assert entry.group_kind == "mixed"
+    assert entry.associated_file_count == 2
+    assert dry_run.media_group_count == 1
+    assert dry_run.associated_file_count == 2

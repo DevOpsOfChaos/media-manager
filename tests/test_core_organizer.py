@@ -149,3 +149,78 @@ def test_execute_organize_plan_skips_identical_target_that_appears_after_plannin
     assert result.executed_count == 0
     assert result.skipped_count == 1
     assert result.entries[0].reason == "target already exists with identical file content at apply time"
+
+
+# --- media groups integration ---
+
+def test_include_associated_files_sidecar_group_one_entry(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"; target = tmp_path / "target"
+    source.mkdir(); target.mkdir()
+    jpg = source / "photo.jpg"
+    xmp = source / "photo.xmp"
+    jpg.write_bytes(b"jpg"); xmp.write_bytes(b"xmp")
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN, include_associated_files=True))
+    assert plan.planned_count == 1
+    entry = plan.entries[0]
+    assert entry.source_path == jpg
+    assert entry.media_group is not None
+    assert entry.group_kind == "sidecar"
+    assert entry.group_id is not None
+    assert entry.group_id.startswith("media-group-")
+
+
+def test_include_associated_files_group_target_paths_cover_all_members(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"; target = tmp_path / "target"
+    source.mkdir(); target.mkdir()
+    jpg = source / "photo.jpg"
+    xmp = source / "photo.xmp"
+    jpg.write_bytes(b"jpg"); xmp.write_bytes(b"xmp")
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN, include_associated_files=True))
+    entry = plan.entries[0]
+    assert len(entry.group_target_paths) >= 2
+    assert jpg in entry.group_target_paths
+    assert xmp in entry.group_target_paths
+    assert entry.group_target_paths[jpg] is not None
+    assert entry.group_target_paths[xmp] is not None
+
+
+def test_include_associated_files_false_no_group_data(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"; target = tmp_path / "target"
+    source.mkdir(); target.mkdir()
+    jpg = source / "photo.jpg"
+    xmp = source / "photo.xmp"
+    jpg.write_bytes(b"jpg"); xmp.write_bytes(b"xmp")
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN, include_associated_files=False))
+    for entry in plan.entries:
+        assert entry.media_group is None
+        assert entry.group_kind is None
+        assert entry.group_id is None
+        assert len(entry.group_target_paths) == 1
+
+
+def test_include_associated_files_raw_jpeg_pair_group_kind(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"; target = tmp_path / "target"
+    source.mkdir(); target.mkdir()
+    raw = source / "photo.cr3"
+    jpg = source / "photo.jpg"
+    raw.write_bytes(b"raw"); jpg.write_bytes(b"jpg")
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN, include_associated_files=True))
+    assert plan.planned_count == 1
+    assert plan.entries[0].group_kind == "raw_jpeg_pair"
+
+
+def test_organize_dry_run_group_summary_properties(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"; target = tmp_path / "target"
+    source.mkdir(); target.mkdir()
+    jpg = source / "photo.jpg"
+    xmp = source / "photo.xmp"
+    jpg.write_bytes(b"jpg"); xmp.write_bytes(b"xmp")
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN, include_associated_files=True))
+    assert plan.media_group_count >= 1
+    assert plan.associated_file_count >= 1
+    assert plan.group_kind_summary == {"sidecar": 1}
