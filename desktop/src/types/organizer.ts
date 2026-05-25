@@ -14,6 +14,7 @@ export interface OrganizePlannerOptions {
   exiftool_path: string | null
   include_associated_files: boolean
   conflict_policy: ConflictPolicy
+  cleanup_empty_dirs?: boolean
   include_patterns: string[]
   exclude_patterns: string[]
   batch_size: number
@@ -101,6 +102,8 @@ export interface OrganizeExecutionResult {
   error_count: number
   outcome_summary: Record<string, number>
   reason_summary: Record<string, number>
+  removed_empty_dirs?: string[]
+  removed_empty_dir_count?: number
 }
 
 // ── Bridge preview response (from bridge_organize_preview.py) ──

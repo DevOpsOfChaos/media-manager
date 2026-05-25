@@ -16,6 +16,7 @@ import sys
 import traceback
 from pathlib import Path
 
+from media_manager.core.leftover import remove_empty_directories
 from media_manager.core.organizer import OrganizePlannerOptions, build_organize_dry_run, execute_organize_plan
 from media_manager.core.outcome_report import build_execution_outcome_report
 
@@ -124,6 +125,16 @@ def cmd_apply() -> int:
     except Exception as exc:
         return _fail(f"Execution failed: {exc}\nTraceback:\n{traceback.format_exc()}")
 
+    # Cleanup empty directories if requested
+    removed_dirs: list[str] = []
+    if payload.get("cleanup_empty_dirs", False):
+        for sd in options.source_dirs:
+            try:
+                dirs = remove_empty_directories(sd, "")
+                removed_dirs.extend([str(d) for d in dirs])
+            except Exception:
+                pass
+
     # Build journal entries
     journal_entries = _build_journal_entries(result)
 
@@ -158,6 +169,8 @@ def cmd_apply() -> int:
         "error_count": result.error_count,
         "outcome_summary": result.outcome_summary,
         "reason_summary": result.reason_summary,
+        "removed_empty_dirs": removed_dirs,
+        "removed_empty_dir_count": len(removed_dirs),
         "outcome_report": outcome,
         "entries": [
             {

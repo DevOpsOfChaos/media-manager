@@ -720,6 +720,16 @@ export default function OrganizePage() {
                   ))}
                 </div>
               </div>
+
+              <label className="flex items-center gap-2 text-sm cursor-pointer mt-3">
+                <input
+                  type="checkbox"
+                  checked={options.cleanup_empty_dirs || false}
+                  onChange={(e) => setOptions({ cleanup_empty_dirs: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <span>{t("Remove empty directories after moving", "Leere Ordner nach dem Verschieben löschen")}</span>
+              </label>
             </CardContent>
           </Card>
 
@@ -1039,6 +1049,9 @@ export default function OrganizePage() {
                 <p>{t(`Skipped: ${applyResult.skipped_count}`, `Übersprungen: ${applyResult.skipped_count}`)}</p>
                 {applyResult.error_count > 0 && (
                   <p className="text-red-400">{t(`Errors: ${applyResult.error_count}`, `Fehler: ${applyResult.error_count}`)}</p>
+                )}
+                {(applyResult.removed_empty_dir_count ?? 0) > 0 && (
+                  <p>{t(`Empty directories removed: ${applyResult.removed_empty_dir_count}`, `${applyResult.removed_empty_dir_count} leere Ordner gelöscht`)}</p>
                 )}
               </CardContent>
             </Card>
