@@ -51,13 +51,13 @@ export default function OnboardingPage() {
   const handleFinish = async () => {
     updateSettings({ show_onboarding: false })
     await save()
-    navigate("/dashboard")
+    navigate("/")
   }
 
   const handleSkip = async () => {
     updateSettings({ show_onboarding: false })
     await save()
-    navigate("/dashboard")
+    navigate("/")
   }
 
   return (
