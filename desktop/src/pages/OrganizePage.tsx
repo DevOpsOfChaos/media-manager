@@ -16,6 +16,7 @@ import type { OrganizePreviewResponse, OrganizeExecutionResult } from "@/types"
 import { useOrganizeStore } from "@/stores/organize-store"
 import { useSettingsStore } from "@/stores/settings-store"
 import { EmptyState } from "@/components/shared/EmptyState"
+import { AlertTriangle } from "lucide-react"
 
 // ── Pattern presets ──
 
@@ -244,9 +245,17 @@ export default function OrganizePage() {
     setApplyLoading(true)
     setApplyResult(null)
     try {
+      console.log("Applying organize with options:", JSON.stringify({ 
+        source_dirs: options.source_dirs, 
+        target_root: options.target_root,
+        pattern: options.pattern,
+        operation_mode: options.operation_mode 
+      }))
       const result = await organizeApply(options)
+      console.log("Apply result:", result)
       setApplyResult(result)
     } catch (e: unknown) {
+      console.error("Apply failed:", e)
       setError(String(e))
     } finally {
       setApplyLoading(false)
@@ -293,14 +302,8 @@ export default function OrganizePage() {
           <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-4 py-3 text-sm text-blue-800 dark:text-blue-200">
             <p className="font-medium">
               {t(
-                "Preview only. No files are modified.",
-                "Nur Vorschau. Es werden keine Dateien verändert.",
-              )}
-            </p>
-            <p className="text-xs mt-0.5">
-              {t(
-                "The preview shows what would happen. Apply will be available once preview completes successfully.",
-                "Die Vorschau zeigt, was passieren würde. Die Ausführung ist verfügbar, sobald die Vorschau erfolgreich abgeschlossen ist.",
+                "Preview shows planned changes. Click Apply to execute.",
+                "Vorschau zeigt geplante Änderungen. Klicken Sie auf Ausführen.",
               )}
             </p>
           </div>
@@ -840,8 +843,8 @@ export default function OrganizePage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <div className="overflow-auto max-h-96">
-                      <table className="w-full text-sm">
+                    <div className="overflow-x-auto max-h-96">
+                      <table className="w-full min-w-[700px] text-sm">
                         <thead>
                           <tr className="border-b text-xs text-muted-foreground">
                             <th className="text-left px-4 py-2 font-medium">
@@ -898,6 +901,36 @@ export default function OrganizePage() {
                           `Zeige erste 200 von ${preview.entries.length} Einträgen.`,
                         )}
                       </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {preview && preview.conflict_count > 0 && (
+                <Card className="border-yellow-500/30 mt-4">
+                  <CardHeader>
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                      Conflicts ({preview.conflict_count})
+                    </CardTitle>
+                    <CardDescription>
+                      These files have naming conflicts with existing files. Choose an action for each conflict.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2 max-h-60 overflow-y-auto">
+                    {preview.entries
+                      .filter(e => e.status === "conflict" || e.reason?.includes("conflict"))
+                      .map((entry, i) => (
+                        <div key={i} className="flex items-center justify-between p-2 rounded bg-yellow-500/5 border border-yellow-500/10 text-xs">
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate font-medium">{entry.source_path?.split(/[\\/]/).pop()}</p>
+                            <p className="text-muted-foreground truncate">{entry.reason}</p>
+                          </div>
+                          <Badge variant="outline" className="ml-2 shrink-0">{entry.status}</Badge>
+                        </div>
+                      ))}
+                    {preview.entries.filter(e => e.status === "conflict" || e.reason?.includes("conflict")).length === 0 && (
+                      <p className="text-xs text-muted-foreground">No individual conflicts to display. Conflicts are shown per file above.</p>
                     )}
                   </CardContent>
                 </Card>
