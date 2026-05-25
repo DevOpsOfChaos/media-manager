@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -15,6 +15,44 @@ interface TripEntry {
   path: string
   fileCount: number
   thumbnail: string | null
+}
+
+function TripDetailView({ trip, onBack }: { trip: TripEntry; onBack: () => void }) {
+  const [files, setFiles] = useState<Array<{path:string;name:string;suffix:string;size:number}>>([])
+  const [loadingFiles, setLoadingFiles] = useState(false)
+
+  useEffect(() => {
+    setLoadingFiles(true)
+    libraryBrowse({ root_dir: trip.path }).then(r => { setFiles(r.files); setLoadingFiles(false) }).catch(() => setLoadingFiles(false))
+  }, [trip.path])
+
+  return (
+    <div className="max-w-6xl mx-auto p-6 space-y-4">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={onBack}>← Back</Button>
+        <h1 className="text-xl font-bold">{trip.name}</h1>
+        <Badge variant="secondary">{trip.fileCount} files</Badge>
+      </div>
+      {trip.thumbnail && (
+        <img src={convertFileSrc(trip.thumbnail)} alt="" className="w-full max-h-48 object-cover rounded-lg" />
+      )}
+      {loadingFiles ? (
+        <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+      ) : (
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+          {files.slice(0, 200).map((f, i) => (
+            <div key={i} className="aspect-square bg-muted rounded overflow-hidden">
+              {[".jpg",".jpeg",".png"].includes(f.suffix) ? (
+                <img src={convertFileSrc(f.path)} alt="" className="w-full h-full object-cover" loading="lazy" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><FolderOpen className="w-8 h-8" /></div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function TripPage() {
@@ -62,7 +100,7 @@ export default function TripPage() {
   }, [tripsRoot])
 
   // Load trips on mount if root is set
-  useState(() => { if (tripsRoot) loadTrips() })
+  useEffect(() => { if (tripsRoot) loadTrips() }, [tripsRoot])
 
   const handleCreate = async () => {
     if (!sourceDir || !label || !startDate || !endDate) return
@@ -88,42 +126,7 @@ export default function TripPage() {
 
   // ── Trip Detail View ──
   if (selectedTrip) {
-    const TripDetailView = () => {
-      const [files, setFiles] = useState<Array<{path:string;name:string;suffix:string;size:number}>>([])
-      const [loadingFiles, setLoadingFiles] = useState(false)
-      useState(() => {
-        setLoadingFiles(true)
-        libraryBrowse({ root_dir: selectedTrip.path }).then(r => { setFiles(r.files); setLoadingFiles(false) }).catch(() => setLoadingFiles(false))
-      })
-      return (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => setSelectedTrip(null)}>← Back</Button>
-            <h1 className="text-xl font-bold">{selectedTrip.name}</h1>
-            <Badge variant="secondary">{selectedTrip.fileCount} files</Badge>
-          </div>
-          {selectedTrip.thumbnail && (
-            <img src={convertFileSrc(selectedTrip.thumbnail)} alt="" className="w-full max-h-48 object-cover rounded-lg" />
-          )}
-          {loadingFiles ? (
-            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
-          ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-              {files.slice(0, 200).map((f, i) => (
-                <div key={i} className="aspect-square bg-muted rounded overflow-hidden">
-                  {[".jpg",".jpeg",".png"].includes(f.suffix) ? (
-                    <img src={convertFileSrc(f.path)} alt="" className="w-full h-full object-cover" loading="lazy" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><FolderOpen className="w-8 h-8" /></div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )
-    }
-    return <div className="max-w-6xl mx-auto p-6"><TripDetailView /></div>
+    return <TripDetailView trip={selectedTrip} onBack={() => setSelectedTrip(null)} />
   }
 
   // ── Main Dashboard ──
