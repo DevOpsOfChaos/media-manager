@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { invoke } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
@@ -9,12 +10,15 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import { useSettingsStore } from "@/stores/settings-store"
 import {
   runtimeDiagnostics,
   type RuntimeDiagnostics,
 } from "@/lib/tauri-bridge"
 import type { Language, Theme } from "@/types"
+import { FolderSearch } from "lucide-react"
 
 export default function SettingsPage() {
   const t = useT()
@@ -34,6 +38,11 @@ export default function SettingsPage() {
   const [diagLoading, setDiagLoading] = useState(false)
   const [diagError, setDiagError] = useState<string | null>(null)
   const [diagOpen, setDiagOpen] = useState(false)
+  const [discoveredFolders, setDiscoveredFolders] = useState<string[]>([])
+  const [scanningFolders, setScanningFolders] = useState(false)
+  const [defaultSourceDir, setDefaultSourceDir] = useState(
+    () => localStorage.getItem("default_source_dir") || ""
+  )
 
   useEffect(() => {
     load()
@@ -53,6 +62,46 @@ export default function SettingsPage() {
   }, [])
 
   const pythonOk = diag?.python_reachable === true
+
+  const handleScanMediaFolders = useCallback(async () => {
+    setScanningFolders(true)
+    setDiscoveredFolders([])
+    try {
+      const home = await invoke<string>("get_home_dir").catch(() => {
+        const env = typeof process !== "undefined" ? (process.env.HOME || process.env.USERPROFILE || "C:\\Users") : "C:\\Users"
+        return env
+      })
+      const isWin = home.includes("\\")
+      const candidates: string[] = isWin
+        ? [home, `${home}\\Pictures`, `${home}\\Desktop`, `${home}\\Downloads`, `${home}\\Documents`, `${home}\\Videos`]
+        : [`${home}/Pictures`, `${home}/Desktop`, `${home}/Downloads`, `${home}/Documents`, `${home}/Videos`]
+
+      const existing: string[] = []
+      for (const c of [...new Set(candidates)]) {
+        try {
+          const exists = await invoke<boolean>("path_exists", { path: c }).catch(() => false)
+          if (exists) existing.push(c)
+        } catch {
+          // skip
+        }
+      }
+      setDiscoveredFolders(existing)
+    } catch {
+      // fallback: suggest common paths
+      const home = typeof process !== "undefined" ? (process.env.HOME || process.env.USERPROFILE || "C:\\Users") : "C:\\Users"
+      const isWin = home.includes("\\")
+      setDiscoveredFolders(isWin
+        ? ["C:\\Users\\Public\\Pictures", `${home}\\Pictures`, `${home}\\Desktop`, `${home}\\Downloads`]
+        : [`${home}/Pictures`, `${home}/Desktop`, `${home}/Downloads`])
+    } finally {
+      setScanningFolders(false)
+    }
+  }, [])
+
+  const handleSetDefaultSource = (folder: string) => {
+    setDefaultSourceDir(folder)
+    localStorage.setItem("default_source_dir", folder)
+  }
 
   return (
     <>
@@ -171,6 +220,50 @@ export default function SettingsPage() {
                 />
                 <span className="text-sm">{t("Show onboarding for new users", "Onboarding für neue Benutzer anzeigen")}</span>
               </label>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("Media Folders", "Medienordner")}</CardTitle>
+              <CardDescription>
+                {t("Default source directory and auto-discovery of media folders.", "Standard-Quellverzeichnis und automatische Erkennung von Medienordnern.")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("Default source directory", "Standard-Quellverzeichnis")}</label>
+                <Input
+                  type="text"
+                  placeholder={t("e.g. C:\\Photos", "z.B. C:\\Fotos")}
+                  value={defaultSourceDir}
+                  onChange={(e) => { setDefaultSourceDir(e.target.value); localStorage.setItem("default_source_dir", e.target.value) }}
+                />
+              </div>
+              <Button variant="outline" size="sm" onClick={handleScanMediaFolders} disabled={scanningFolders}>
+                <FolderSearch className="h-4 w-4 mr-2" />
+                {scanningFolders ? t("Scanning...", "Suche...") : t("Scan for media folders", "Nach Medienordnern suchen")}
+              </Button>
+              {discoveredFolders.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">{t("Discovered folders:", "Gefundene Ordner:")}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {discoveredFolders.map((folder) => (
+                      <Badge
+                        key={folder}
+                        variant={folder === defaultSourceDir ? "default" : "secondary"}
+                        className="cursor-pointer hover:opacity-80"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleSetDefaultSource(folder)}
+                        onKeyDown={(e) => e.key === "Enter" && handleSetDefaultSource(folder)}
+                      >
+                        {folder}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

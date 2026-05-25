@@ -11,6 +11,40 @@ import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff } from "lucide-react"
 
+function friendlyPeopleError(e: unknown, context: "scan" | "load" | "rename" | "create" | "reassign"): string {
+  const msg = String(e).toLowerCase()
+  if (context === "scan") {
+    if (msg.includes("no module") || msg.includes("importerror") || msg.includes("module"))
+      return "Could not scan for faces. Make sure the 'people' dependencies are installed."
+    if (msg.includes("permission") || msg.includes("access"))
+      return "Cannot access source directory. Check folder permissions."
+    return `Scan failed: ${String(e)}`
+  }
+  if (context === "load") {
+    if (msg.includes("not found") || msg.includes("no such file") || msg.includes("enoent"))
+      return "Catalog file not found. Create one with the button below."
+    if (msg.includes("invalid") || msg.includes("parse"))
+      return "Catalog file appears to be corrupted or invalid."
+    return `Could not load catalog: ${String(e)}`
+  }
+  if (context === "rename") {
+    if (msg.includes("not found"))
+      return "Person not found in catalog. Refresh and try again."
+    return `Could not rename person: ${String(e)}`
+  }
+  if (context === "create") {
+    if (msg.includes("exists") || msg.includes("duplicate"))
+      return "A person with that name already exists."
+    return `Could not create person: ${String(e)}`
+  }
+  if (context === "reassign") {
+    if (msg.includes("not found"))
+      return "Source face or person not found. Refresh and try again."
+    return `Could not reassign face: ${String(e)}`
+  }
+  return `Error: ${String(e)}`
+}
+
 // ── Thumbnail component ──
 function FaceThumb({ path, size = 96, alt }: { path: string; size?: number; alt?: string }) {
   const [loaded, setLoaded] = useState(false)
@@ -62,7 +96,7 @@ export default function PeoplePage() {
     try {
       const data = await peopleCatalogList({ catalog_path: catalogPath })
       setCatalog(data)
-    } catch (e) { setError(String(e)) }
+    } catch (e) { setError(friendlyPeopleError(e, "load")) }
     finally { void setLoading(false) }
   }, [catalogPath])
 
@@ -94,7 +128,7 @@ export default function PeoplePage() {
       setLastScanTime(new Date().toLocaleTimeString())
       const status = await peopleScanStatus({ source_dirs: [sourceDir] })
       setScanStatus(status)
-    } catch (e) { setError(String(e)) }
+    } catch (e) { setError(friendlyPeopleError(e, "scan")) }
     finally { setLoading(false) }
   }
 
@@ -104,7 +138,7 @@ export default function PeoplePage() {
       await peoplePersonRename({ catalog_path: catalogPath, person_id: selectedPerson.person_id, name: editName.trim() })
       setEditingName(false)
       loadCatalog()
-    } catch (e) { setError(String(e)) }
+    } catch (e) { setError(friendlyPeopleError(e, "rename")) }
   }
 
   const handleCreatePerson = async () => {
@@ -114,7 +148,7 @@ export default function PeoplePage() {
       setShowCreatePerson(false)
       setCreateName("")
       loadCatalog()
-    } catch (e) { setError(String(e)) }
+    } catch (e) { setError(friendlyPeopleError(e, "create")) }
   }
 
   const handleReassign = async () => {
@@ -133,7 +167,7 @@ export default function PeoplePage() {
       setReassignToId("")
       setNewPersonName("")
       loadCatalog()
-    } catch (e) { setError(String(e)) }
+    } catch (e) { setError(friendlyPeopleError(e, "reassign")) }
   }
 
   // ── Person Grid View ──

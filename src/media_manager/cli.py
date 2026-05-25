@@ -67,10 +67,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Command to run.",
     )
     parser.add_argument("args", nargs=argparse.REMAINDER)
+    parser.epilog = (
+        "Examples:\n"
+        "  media-manager organize --source ~/Photos --target ~/Organized\n"
+        "  media-manager duplicates --source ~/Photos\n"
+        "  media-manager people scan --source ~/Photos --catalog catalog.json\n"
+        "  media-manager trip --source ~/Photos --label \"Italy 2024\"\n"
+        "\n"
+        "For detailed help on a subcommand:\n"
+        "  media-manager <subcommand> --help"
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    if "--version" in sys.argv or "-V" in sys.argv:
+        from . import __version__
+        print(f"media-manager v{__version__}")
+        return 0
+
     _setup_logging()
     argv = list(sys.argv[1:] if argv is None else argv)
     parser = build_parser()

@@ -15,12 +15,17 @@ import {
   runtimeDiagnostics,
   settingsRead,
   historyList,
+  organizePreview,
+  organizeApply,
   type RuntimeDiagnostics,
   type HistoryListPayload,
   type HistoryRunEntry,
 } from "@/lib/tauri-bridge"
-import type { GuiSettings } from "@/types"
+import type { GuiSettings, OrganizePreviewResponse, OperationMode } from "@/types"
 import { EmptyState } from "@/components/shared/EmptyState"
+import { cn } from "@/lib/utils"
+import { runPreflight } from "@/lib/preflight-guard"
+import { Zap, Loader2, Copy, MoveRight } from "lucide-react"
 
 const QUICK_WORKFLOWS = [
   { id: "organize-date-library", label: "Organize Library", desc: "Sort photos into year/month/day folders", page: "/organize", icon: "📁" },
@@ -39,6 +44,13 @@ interface DashboardData {
   historyError: string | null
 }
 
+const getGreeting = (t: (en: string, de: string) => string) => {
+  const hour = new Date().getHours()
+  if (hour < 12) return t("Good morning!", "Guten Morgen!")
+  if (hour < 18) return t("Good afternoon!", "Guten Tag!")
+  return t("Good evening!", "Guten Abend!")
+}
+
 export default function DashboardPage() {
   const t = useT()
   const [data, setData] = useState<DashboardData>({
@@ -50,7 +62,80 @@ export default function DashboardPage() {
     historyError: null,
   })
   const [loading, setLoading] = useState(false)
+  const [organizing, setOrganizing] = useState(false)
+  const [quickResult, setQuickResult] = useState<OrganizePreviewResponse | null>(null)
+  const [quickMode, setQuickMode] = useState<OperationMode>("copy")
+  const [preflight, setPreflight] = useState<{ ok: boolean; issues: string[] } | null>(null)
   const navigate = useNavigate()
+
+  const defaultSource = data.settings?.recent_paths?.profile_dir || localStorage.getItem("default_source_dir") || ""
+
+  useEffect(() => {
+    const src = defaultSource
+    if (src) {
+      runPreflight(src).then(setPreflight)
+    } else {
+      runtimeDiagnostics().then(d => {
+        setPreflight({ ok: d.python_reachable, issues: d.python_reachable ? [] : [d.python_error ?? "Python not reachable"] })
+      })
+    }
+  }, [defaultSource])
+
+  const handleQuickOrganize = async () => {
+    if (!defaultSource) return
+    setOrganizing(true)
+    setQuickResult(null)
+    try {
+      const options = {
+        source_dirs: [defaultSource],
+        target_root: defaultSource,
+        pattern: "{YYYY}/{MM}/{DD}_{stem}",
+        recursive: true,
+        include_hidden: false,
+        follow_symlinks: false,
+        operation_mode: quickMode,
+        exiftool_path: null,
+        include_associated_files: true,
+        conflict_policy: "rename" as const,
+        include_patterns: [],
+        exclude_patterns: [],
+        batch_size: 0,
+      }
+      const preview = await organizePreview(options)
+      setQuickResult(preview)
+    } catch (err) {
+      setQuickResult(null)
+    } finally {
+      setOrganizing(false)
+    }
+  }
+
+  const handleQuickApply = async () => {
+    if (!defaultSource || !quickResult) return
+    setOrganizing(true)
+    try {
+      await organizeApply(quickResult.options ?? {
+        source_dirs: [defaultSource],
+        target_root: defaultSource,
+        pattern: "{YYYY}/{MM}/{DD}_{stem}",
+        recursive: true,
+        include_hidden: false,
+        follow_symlinks: false,
+        operation_mode: quickMode,
+        exiftool_path: null,
+        include_associated_files: true,
+        conflict_policy: "rename",
+        include_patterns: [],
+        exclude_patterns: [],
+        batch_size: 0,
+      })
+      setQuickResult(null)
+    } catch {
+      // ignore
+    } finally {
+      setOrganizing(false)
+    }
+  }
 
   const load = useCallback(async () => {
     const result: DashboardData = {
@@ -130,7 +215,10 @@ export default function DashboardPage() {
 
   return (
     <>
-      <PageHeader title={t("Dashboard", "Dashboard")}>
+      <PageHeader
+        title={t("Dashboard", "Dashboard")}
+        subtitle={getGreeting(t)}
+      >
         <Button
           variant="outline"
           size="sm"
@@ -150,6 +238,102 @@ export default function DashboardPage() {
               {data.historyError && <p>History: {data.historyError}</p>}
             </div>
           )}
+
+          {/* Preflight status */}
+          {preflight && !preflight.ok && preflight.issues.length > 0 && (
+            <div className="rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950 px-4 py-3 text-sm text-yellow-800 dark:text-yellow-200 space-y-1">
+              {preflight.issues.map((issue, i) => (
+                <p key={i}>⚠ {issue}</p>
+              ))}
+            </div>
+          )}
+
+          {/* Quick Organize Card */}
+          <Card className="col-span-2 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-blue-500" />
+                {t("Quick Organize", "Schnell-Organisieren")}
+              </CardTitle>
+              <CardDescription>
+                {t("One-click organization of your default source directory",
+                   "Ein-Klick-Organisation deines Standard-Quellverzeichnisses")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {defaultSource ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground truncate">
+                    {t(`Source: ${defaultSource}`, `Quelle: ${defaultSource}`)}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant={quickMode === "copy" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setQuickMode("copy")}
+                    >
+                      <Copy className="h-3.5 w-3.5 mr-1" />
+                      {t("Copy", "Kopieren")}
+                    </Button>
+                    <Button
+                      variant={quickMode === "move" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setQuickMode("move")}
+                    >
+                      <MoveRight className="h-3.5 w-3.5 mr-1" />
+                      {t("Move", "Verschieben")}
+                    </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleQuickOrganize} disabled={organizing}>
+                      <Loader2 className={cn("h-4 w-4 mr-2", organizing && "animate-spin")} />
+                      {organizing ? t("Organizing...", "Organisiere...") : t("Organize Now", "Jetzt organisieren")}
+                    </Button>
+                    {quickResult && (
+                      <Button variant="outline" onClick={() => navigate("/organize")}>
+                        {t("Review Details", "Details prüfen")}
+                      </Button>
+                    )}
+                  </div>
+                  {quickResult && (
+                    <div className="rounded-lg border bg-background/50 p-3 space-y-1 text-sm">
+                      <p>
+                        <span className="font-medium">{quickResult.planned_count}</span>{" "}
+                        {t("files planned", "Dateien geplant")}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {quickResult.conflict_count} {t("conflicts", "Konflikte")},{" "}
+                        {quickResult.error_count} {t("errors", "Fehler")}
+                      </p>
+                      {quickResult.skipped_count > 0 && (
+                        <p className="text-muted-foreground">
+                          {quickResult.skipped_count} {t("skipped", "übersprungen")}
+                        </p>
+                      )}
+                      <div className="flex gap-2 pt-2">
+                        <Button size="sm" variant="default" onClick={handleQuickApply} disabled={organizing || quickResult.planned_count === 0}>
+                          {organizing ? t("Applying...", "Wende an...") : t("Apply", "Anwenden")}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setQuickResult(null)}>
+                          {t("Dismiss", "Verwerfen")}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-muted-foreground mb-3">
+                    {t("Set a default source directory in Settings first.",
+                       "Lege zuerst ein Standard-Quellverzeichnis in den Einstellungen fest.")}
+                  </p>
+                  <Button variant="outline" onClick={() => navigate("/settings")}>
+                    {t("Open Settings", "Einstellungen öffnen")}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {stats && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">

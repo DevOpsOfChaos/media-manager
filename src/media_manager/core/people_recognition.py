@@ -164,6 +164,8 @@ class PeopleScanConfig:
     media_extensions: frozenset[str] | None = None
     include_encodings_in_report: bool = False
     require_backend: bool = False
+    use_fast_detector: bool = False
+    deep_verify: bool = False
 
 
 @dataclass(slots=True)
@@ -214,6 +216,7 @@ class PeopleScanResult:
     dlib_available: bool = False
     face_recognition_available: bool = False
     opencv_available: bool = False
+    yunet_available: bool = False
     detection_available: bool = False
     matching_available: bool = False
     unknown_grouping_available: bool = False
@@ -241,6 +244,7 @@ class PeopleScanResult:
             "dlib_available": self.dlib_available,
             "face_recognition_available": self.face_recognition_available,
             "opencv_available": self.opencv_available,
+            "yunet_available": self.yunet_available,
             "strong_backend_available": self.dlib_available or self.face_recognition_available,
             "capabilities": {
                 "face_detection": self.detection_available,
@@ -668,6 +672,32 @@ def _detect_faces_with_dlib(path: Path, backend) -> list[tuple[FaceBox, tuple[fl
     return records
 
 
+def _detect_faces_with_yunet_dlib(path: Path, dlib_backend) -> list[tuple[FaceBox, tuple[float, ...]]]:
+    """Stage 1: Fast YuNet detection + dlib encoding.
+
+    Uses YuNet ONNX model for face detection (10-50x faster than dlib HOG)
+    and dlib shape predictor + face encoder for 128-d embeddings.
+    Falls back to full dlib if YuNet fails.
+    """
+    from .people_fast_detector import detect_faces_yunet
+
+    yunet_faces = detect_faces_yunet(path)
+    if not yunet_faces:
+        return _detect_faces_with_dlib(path, dlib_backend)
+
+    image = _load_image_array_for_dlib(path, dlib_backend)
+    records: list[tuple[FaceBox, tuple[float, ...]]] = []
+    for x, y, w, h, _confidence in yunet_faces:
+        try:
+            rectangle = dlib_backend["dlib"].rectangle(int(x), int(y), int(x + w), int(y + h))
+            shape = dlib_backend["shape_predictor"](image, rectangle)
+            descriptor = dlib_backend["face_encoder"].compute_face_descriptor(image, shape)
+            records.append((FaceBox.from_dlib_rect(rectangle), tuple(float(value) for value in descriptor)))
+        except Exception:
+            continue
+    return records
+
+
 def _detect_faces_with_opencv(path: Path, backend) -> list[tuple[FaceBox, tuple[float, ...]]]:
     cv2 = backend["cv2"]
     classifier = backend["classifier"]
@@ -728,6 +758,10 @@ def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
     result.unknown_grouping_available = backend_status.unknown_grouping_available
     result.backend = backend_status.selected_backend
 
+    if config.use_fast_detector:
+        from .people_fast_detector import is_available as yunet_available
+        result.yunet_available = yunet_available()
+
     selected_name, backend = _selected_backend(requested_backend)
     if backend is None or selected_name is None:
         result.status = "backend_missing"
@@ -755,7 +789,9 @@ def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
     detections: list[DetectedFace] = []
     for path in image_files:
         try:
-            if selected_name == "dlib":
+            if config.use_fast_detector and selected_name == "dlib":
+                faces = _detect_faces_with_yunet_dlib(path, backend)
+            elif selected_name == "dlib":
                 faces = _detect_faces_with_dlib(path, backend)
             elif selected_name == "face-recognition":
                 faces = _detect_faces_with_face_recognition(path, backend)
@@ -790,6 +826,149 @@ def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
             "Review detected faces. OpenCV detects faces locally, but named-person matching requires "
             "the optional people-dlib backend."
         )
+    return result
+
+
+def scan_people_two_stage(config: PeopleScanConfig) -> PeopleScanResult:
+    """Two-stage face scan: fast YuNet detection first, dlib verification on ambiguous matches.
+
+    Stage 1: Fast YuNet detection + dlib encoding + matching
+    Stage 2: Re-run full dlib pipeline only on faces with ambiguous matches or unknown clusters
+    """
+    import logging
+    _log = logging.getLogger(__name__)
+
+    from .people_fast_detector import is_available as yunet_available
+
+    if not yunet_available():
+        _log.info("YuNet not available, falling back to single-stage dlib scan")
+        return scan_people(config)
+
+    catalog = load_people_catalog(config.catalog_path, load_embeddings=True)
+    requested_backend = _validate_backend_name(config.backend)
+    backend_status = inspect_people_backend(requested_backend)
+
+    if not backend_status.dlib_available:
+        _log.info("dlib not available for deep verification, falling back to single-stage scan")
+        return scan_people(config)
+
+    selected_name, backend = _selected_backend(requested_backend)
+    if selected_name != "dlib" or backend is None:
+        return scan_people(config)
+
+    scan_extensions = SUPPORTED_FACE_IMAGE_EXTENSIONS
+    if config.media_extensions is not None:
+        scan_extensions = normalize_extensions(config.media_extensions) & set(SUPPORTED_FACE_IMAGE_EXTENSIONS)
+    media_files = iter_media_files(config.source_dirs, media_extensions=scan_extensions)
+
+    image_files: list[Path] = []
+    for path in media_files:
+        if path.suffix.lower() not in SUPPORTED_FACE_IMAGE_EXTENSIONS:
+            continue
+        if path_is_included_by_patterns(
+            path,
+            include_patterns=config.include_patterns,
+            exclude_patterns=config.exclude_patterns,
+            source_root=_source_root_for_path(path, config.source_dirs),
+        ):
+            image_files.append(path)
+
+    _log.info("Stage 1: Fast scan with YuNet detection on %d images...", len(image_files))
+    stage1_faces: list[DetectedFace] = []
+    ambiguous_indices: set[int] = set()
+    processed = 0
+
+    for path in image_files:
+        try:
+            faces = _detect_faces_with_yunet_dlib(path, backend)
+        except Exception:
+            continue
+        processed += 1
+        for face_index, (box, encoding) in enumerate(faces):
+            match = _best_match(encoding, catalog, tolerance=config.tolerance)
+            det = DetectedFace(
+                path=path,
+                face_index=face_index,
+                box=box,
+                encoding=encoding,
+                match=match,
+                backend="yunet+dlib",
+            )
+            stage1_faces.append(det)
+            if match is None or match.distance > config.tolerance * 0.85:
+                ambiguous_indices.add(len(stage1_faces) - 1)
+
+    if not ambiguous_indices:
+        _log.info("No ambiguous faces found - skipping Stage 2")
+        result = PeopleScanResult(
+            backend=selected_name,
+            backend_requested=requested_backend,
+            dlib_available=True,
+            yunet_available=True,
+            backend_available=True,
+            detection_available=True,
+            matching_available=True,
+            unknown_grouping_available=True,
+            scanned_files=len(image_files),
+            image_files=len(image_files),
+            processed_files=processed,
+            catalog_person_count=len(catalog.persons),
+        )
+        result.detections = _cluster_unknown_faces(stage1_faces, tolerance=config.tolerance)
+        result.face_count = len(result.detections)
+        result.matched_faces = sum(1 for item in result.detections if item.match is not None)
+        result.unknown_faces = result.face_count - result.matched_faces
+        result.unknown_cluster_count = len({item.cluster_id for item in result.detections if item.cluster_id})
+        return result
+
+    _log.info("Stage 2: Deep dlib verification on %d ambiguous faces...", len(ambiguous_indices))
+    for index in ambiguous_indices:
+        det = stage1_faces[index]
+        try:
+            dlib_faces = _detect_faces_with_dlib(det.path, backend)
+        except Exception:
+            continue
+        for dlib_box, dlib_encoding in dlib_faces:
+            if det.encoding:
+                try:
+                    overlap_distance = _euclidean_distance(det.encoding, dlib_encoding)
+                except (ValueError, TypeError):
+                    overlap_distance = 2.0
+            else:
+                overlap_distance = 0.0
+            if overlap_distance > 1.0:
+                continue
+            match = _best_match(dlib_encoding, catalog, tolerance=config.tolerance)
+            stage1_faces[index] = DetectedFace(
+                path=det.path,
+                face_index=det.face_index,
+                box=dlib_box,
+                encoding=dlib_encoding,
+                match=match,
+                backend="dlib-verify",
+            )
+            break
+
+    result = PeopleScanResult(
+        status="ok",
+        backend="yunet+dlib-verify",
+        backend_requested=requested_backend,
+        dlib_available=True,
+        yunet_available=True,
+        backend_available=True,
+        detection_available=True,
+        matching_available=True,
+        unknown_grouping_available=True,
+        scanned_files=len(image_files),
+        image_files=len(image_files),
+        processed_files=processed,
+        catalog_person_count=len(catalog.persons),
+    )
+    result.detections = _cluster_unknown_faces(stage1_faces, tolerance=config.tolerance)
+    result.face_count = len(result.detections)
+    result.matched_faces = sum(1 for item in result.detections if item.match is not None)
+    result.unknown_faces = result.face_count - result.matched_faces
+    result.unknown_cluster_count = len({item.cluster_id for item in result.detections if item.cluster_id})
     return result
 
 
@@ -840,5 +1019,6 @@ __all__ = [
     "load_people_catalog",
     "rename_person_in_catalog",
     "scan_people",
+    "scan_people_two_stage",
     "write_people_catalog",
 ]

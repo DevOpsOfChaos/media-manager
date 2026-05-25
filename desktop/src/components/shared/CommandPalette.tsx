@@ -6,14 +6,14 @@ const COMMANDS = [
   { label: "Organize Files", path: "/organize", keys: "Ctrl+O" },
   { label: "Rename Files", path: "/rename", keys: "Ctrl+R" },
   { label: "Find Duplicates", path: "/duplicates", keys: "Ctrl+D" },
-  { label: "People & Faces", path: "/people" },
-  { label: "Trip Collection", path: "/trip" },
-  { label: "Workflow Runner", path: "/workflow" },
-  { label: "Library Browser", path: "/library" },
-  { label: "Run History", path: "/history" },
+  { label: "People & Faces", path: "/people", keys: "Ctrl+P" },
+  { label: "Trip Collection", path: "/trip", keys: "Ctrl+T" },
+  { label: "Workflow Runner", path: "/workflow", keys: "Ctrl+W" },
+  { label: "Library Browser", path: "/library", keys: "Ctrl+L" },
+  { label: "Run History", path: "/history", keys: "Ctrl+H" },
   { label: "Review Workbench", path: "/review" },
   { label: "Settings", path: "/settings", keys: "Ctrl+," },
-  { label: "Dashboard", path: "/" },
+  { label: "Dashboard", path: "/", keys: "Ctrl+K" },
 ]
 
 export function CommandPalette() {
@@ -84,6 +84,11 @@ export function CommandPalette() {
             </button>
           ))}
           {filtered.length === 0 && <p className="px-4 py-2 text-sm text-muted-foreground">No commands found</p>}
+        </div>
+        <div className="flex items-center gap-4 px-4 py-2 border-t border-border text-[10px] text-muted-foreground">
+          <span><kbd className="px-1 py-0.5 rounded border border-border">↑↓</kbd> Navigate</span>
+          <span><kbd className="px-1 py-0.5 rounded border border-border">Enter</kbd> Select</span>
+          <span><kbd className="px-1 py-0.5 rounded border border-border">Esc</kbd> Close</span>
         </div>
       </div>
     </div>

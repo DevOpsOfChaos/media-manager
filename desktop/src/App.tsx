@@ -30,7 +30,11 @@ function App() {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <ErrorBoundary><Outlet /></ErrorBoundary>
+          <ErrorBoundary>
+            <div key={location.pathname} className="page-enter">
+              <Outlet />
+            </div>
+          </ErrorBoundary>
         </SidebarInset>
       </SidebarProvider>
       <ProgressOverlay />

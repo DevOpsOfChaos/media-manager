@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
-import { CheckSquare, Square, Trash2, Info, Loader2 } from "lucide-react"
+import { CheckSquare, Square, Trash2, Info, Loader2, ScanText, Wand2 } from "lucide-react"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
 import { userFriendlyError } from "@/lib/error-utils"
@@ -25,7 +25,7 @@ import type {
   SimilarImageGroup,
 } from "@/types"
 
-type Tab = "exact" | "similar"
+type Tab = "exact" | "similar" | "all"
 
 const srcCache = new Map<string, string>()
 function fileSrc(path: string): string {
@@ -88,6 +88,43 @@ export default function DuplicatesPage() {
   const [deleteResult, setDeleteResult] = useState<{ executed_rows: number; error_rows: number } | null>(null)
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [scanAllLoading, setScanAllLoading] = useState(false)
+
+  const handleScanAll = async () => {
+    if (!sourceDir.trim()) {
+      setError(t("Please select a source directory.", "Bitte wählen Sie ein Quellverzeichnis aus."))
+      return
+    }
+    setScanAllLoading(true)
+    setError(null)
+    setExactPreview(null)
+    setSimilarPreview(null)
+    setExpandedGroups(new Set())
+    try {
+      const config = { source_dirs: [sourceDir.trim()], include_patterns: [], exclude_patterns: [] }
+      const [exact, similar] = await Promise.all([
+        duplicateScan(config),
+        similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages, max_pairs: maxPairs }),
+      ])
+      setExactPreview(exact)
+      setSimilarPreview(similar)
+      setTab("all")
+    } catch (err) {
+      setError(userFriendlyError(err))
+    } finally {
+      setScanAllLoading(false)
+    }
+  }
+
+  const handleSmartClean = useCallback(() => {
+    if (!exactPreview?.exact_groups) return
+    const smartSelected = new Set<string>()
+    for (const g of exactPreview.exact_groups) {
+      if (g.files.length <= 1) continue
+      smartSelected.add(g.full_digest)
+    }
+    setSelectedGroups(smartSelected)
+  }, [exactPreview])
 
   const handleScan = async () => {
     if (!sourceDir.trim()) {
@@ -103,8 +140,15 @@ export default function DuplicatesPage() {
       const config = { source_dirs: [sourceDir.trim()], include_patterns: [], exclude_patterns: [] }
       if (tab === "exact") {
         setExactPreview(await duplicateScan(config))
-      } else {
+      } else if (tab === "similar") {
         setSimilarPreview(await similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages, max_pairs: maxPairs }))
+      } else {
+        const [exact, similar] = await Promise.all([
+          duplicateScan(config),
+          similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages, max_pairs: maxPairs }),
+        ])
+        setExactPreview(exact)
+        setSimilarPreview(similar)
       }
     } catch (err) {
       setError(userFriendlyError(err))
@@ -292,6 +336,14 @@ export default function DuplicatesPage() {
                 >
                   {t("Similar images", "Ähnliche Bilder")}
                 </Button>
+                <Button
+                  variant={tab === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => { setTab("all"); setFilterPath(""); setExpandedGroups(new Set()) }}
+                >
+                  <ScanText className="h-3.5 w-3.5 mr-1" />
+                  {t("Scan All", "Alle scannen")}
+                </Button>
               </div>
 
               {tab === "exact" && (
@@ -300,7 +352,7 @@ export default function DuplicatesPage() {
                 </p>
               )}
 
-              {tab === "similar" && (
+              {(tab === "similar" || tab === "all") && (
                 <div className="space-y-3 rounded-lg border p-3 bg-muted/20">
                   <p className="text-xs text-muted-foreground">
                     {t("Finds visually similar images using perceptual hashing. Higher distance = more matches but more false positives.", "Findet visuell ähnliche Bilder mittels Perceptual-Hashing. Höhere Distanz = mehr Treffer aber mehr Fehlalarme.")}
@@ -355,12 +407,18 @@ export default function DuplicatesPage() {
               )}
 
               <div className="flex items-center gap-3">
-                <Button onClick={handleScan} disabled={loading} size="sm">
-                  {loading ? t("Scanning...", "Scanne...") : tab === "exact" ? t("Scan for exact duplicates", "Nach exakten Duplikaten scannen") : t("Scan for similar images", "Nach ähnlichen Bildern scannen")}
+                <Button onClick={tab === "all" ? handleScanAll : handleScan} disabled={loading || scanAllLoading} size="sm">
+                  {loading || scanAllLoading ? t("Scanning...", "Scanne...") : tab === "exact" ? t("Scan for exact duplicates", "Nach exakten Duplikaten scannen") : tab === "similar" ? t("Scan for similar images", "Nach ähnlichen Bildern scannen") : t("Scan All", "Alle scannen")}
                 </Button>
-                {exactPreview && exactPreview.exact_groups.length > 0 && tab === "exact" && (
+                {exactPreview && exactPreview.exact_groups.length > 0 && (tab === "exact" || tab === "all") && (
                   <Button onClick={handleDeleteSelected} disabled={deleteLoading} variant="destructive" size="sm">
                     {deleteLoading ? t("Deleting...", "Lösche...") : t(`Delete ${selectedGroups.size} Groups`, `${selectedGroups.size} Gruppen löschen`)}
+                  </Button>
+                )}
+                {exactPreview && exactPreview.exact_groups.length > 0 && (tab === "exact" || tab === "all") && (
+                  <Button onClick={handleSmartClean} disabled={loading || scanAllLoading} variant="secondary" size="sm">
+                    <Wand2 className="h-3.5 w-3.5 mr-1" />
+                    {t("Smart Clean", "Smart Clean")}
                   </Button>
                 )}
                 {showDeleteConfirm && (
@@ -414,7 +472,7 @@ export default function DuplicatesPage() {
           )}
 
           {/* Exact duplicates results */}
-          {exactPreview && tab === "exact" && (
+          {(exactPreview && (tab === "exact" || tab === "all")) && (
             <ExactResults
               preview={exactPreview}
               filteredGroups={exactFiltered}
@@ -436,7 +494,7 @@ export default function DuplicatesPage() {
           )}
 
           {/* Similar images results */}
-          {similarPreview && tab === "similar" && (
+          {(similarPreview && (tab === "similar" || tab === "all")) && (
             <SimilarResults
               preview={similarPreview}
               filteredGroups={similarFiltered}

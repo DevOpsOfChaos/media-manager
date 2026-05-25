@@ -1,3 +1,5 @@
+import { Inbox } from "lucide-react"
+
 interface EmptyStateProps {
   title: string
   description?: string
@@ -6,30 +8,17 @@ interface EmptyStateProps {
 
 export function EmptyState({ title, description, action }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="rounded-full bg-muted p-3 mb-3">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="size-6 text-muted-foreground"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-          />
-        </svg>
+    <div className="flex flex-col items-center justify-center py-16 text-center rounded-lg bg-gradient-to-b from-muted/30 to-muted/10">
+      <div className="rounded-full bg-gradient-to-br from-primary/10 to-primary/5 p-5 mb-4 animate-pulse">
+        <Inbox className="size-10 text-primary/50" strokeWidth={1.5} />
       </div>
-      <p className="text-sm font-medium">{title}</p>
+      <p className="text-base font-semibold">{title}</p>
       {description && (
-        <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+        <p className="text-sm text-muted-foreground mt-2 max-w-sm">
           {description}
         </p>
       )}
-      {action && <div className="mt-4">{action}</div>}
+      {action && <div className="mt-6">{action}</div>}
     </div>
   )
 }

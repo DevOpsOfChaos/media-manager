@@ -183,6 +183,8 @@ def _append_people_scan(parts: list[str], values: dict[str, Any]) -> None:
     _append_value(parts, "--review-json", values.get("review_json"))
     _append_flag(parts, "--include-encodings", values.get("include_encodings"))
     _append_flag(parts, "--require-backend", values.get("require_backend"))
+    _append_flag(parts, "--fast", values.get("fast", values.get("use_fast_detector")))
+    _append_flag(parts, "--deep-verify", values.get("deep_verify"))
     _append_flag(parts, "--json", values.get("json_output", values.get("json")))
 
 

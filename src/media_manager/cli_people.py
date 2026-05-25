@@ -15,6 +15,7 @@ from .core.people_recognition import (
     load_people_catalog,
     rename_person_in_catalog,
     scan_people,
+    scan_people_two_stage,
     write_people_catalog,
 )
 from .core.people_review_assets import build_people_review_assets, write_people_review_asset_manifest
@@ -55,6 +56,8 @@ def build_parser() -> argparse.ArgumentParser:
     scan_parser.add_argument("--review-json", type=Path, help="Write compact review payload for unknown faces.")
     scan_parser.add_argument("--include-encodings", action="store_true", help="Include face encodings in the report. Sensitive biometric metadata; keep private. Only meaningful for embedding-capable backends.")
     scan_parser.add_argument("--require-backend", action="store_true", help="Return exit code 1 when the requested people backend is unavailable.")
+    scan_parser.add_argument("--fast", action="store_true", help="Use fast YuNet ONNX detector instead of dlib HOG for face detection. 10-50x faster on CPU.")
+    scan_parser.add_argument("--deep-verify", action="store_true", help="Two-stage pipeline: fast YuNet scan + deep dlib verification of ambiguous matches.")
 
     backend_parser = subparsers.add_parser("backend", help="Check local people backend availability and capabilities.")
     backend_parser.add_argument("--backend", choices=BACKEND_CHOICES, default=DEFAULT_BACKEND, help="Backend to inspect. Default: auto.")
@@ -290,9 +293,14 @@ def main(argv: list[str] | None = None) -> int:
             media_extensions=media_extensions,
             include_encodings_in_report=args.include_encodings,
             require_backend=args.require_backend,
+            use_fast_detector=getattr(args, "fast", False),
+            deep_verify=getattr(args, "deep_verify", False),
         )
         try:
-            result = scan_people(config)
+            if args.deep_verify:
+                result = scan_people_two_stage(config)
+            else:
+                result = scan_people(config)
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             parser.error(str(exc))
         payload = result.to_dict(include_encoding=args.include_encodings)
