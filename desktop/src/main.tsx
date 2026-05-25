@@ -13,6 +13,9 @@ const HistoryPage = lazy(() => import("./pages/HistoryPage"))
 const RunDetailPage = lazy(() => import("./pages/RunDetailPage"))
 const ReviewWorkbenchPage = lazy(() => import("./pages/ReviewWorkbenchPage"))
 const SettingsPage = lazy(() => import("./pages/SettingsPage"))
+const OnboardingPage = lazy(() => import("./pages/OnboardingPage"))
+const TripPage = lazy(() => import("./pages/TripPage"))
+const WorkflowRunnerPage = lazy(() => import("./pages/WorkflowRunnerPage"))
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
@@ -84,10 +87,34 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
             }
           />
           <Route
+            path="onboarding"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <OnboardingPage />
+              </Suspense>
+            }
+          />
+          <Route
             path="settings"
             element={
               <Suspense fallback={<PageFallback />}>
                 <SettingsPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="trip"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <TripPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="workflow"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <WorkflowRunnerPage />
               </Suspense>
             }
           />

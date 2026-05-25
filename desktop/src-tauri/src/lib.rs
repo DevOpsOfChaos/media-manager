@@ -24,6 +24,7 @@ pub fn run() {
             media_commands::review_load_session,
             // People
             media_commands::people_scan,
+            media_commands::people_catalog_info,
             // History
             media_commands::history_list,
             media_commands::history_get,
@@ -32,6 +33,9 @@ pub fn run() {
             media_commands::undo_apply,
             // Diagnostics
             media_commands::runtime_diagnostics,
+            // Trip
+            media_commands::trip_preview,
+            media_commands::trip_apply,
             // Doctor
             media_commands::doctor_check,
         ])

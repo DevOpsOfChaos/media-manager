@@ -109,10 +109,37 @@ export async function reviewLoadSession(payload: {
 
 // ── People ──
 
-export async function peopleScan(config: {
+export interface PeopleScanConfig {
   source_dirs: string[]
-}): Promise<unknown> {
+  catalog_path?: string
+  tolerance?: number
+  backend?: string
+  recursive?: boolean
+}
+
+export interface PeopleScanResult {
+  kind: string
+  total_faces: number
+  matched_faces: number
+  unknown_faces: number
+  people_count: number
+  image_count: number
+  entries: Array<{ source_path: string; face_count: number; matched_count: number }>
+}
+
+export interface CatalogInfo {
+  kind: string
+  path: string
+  person_count: number
+  people: Array<{ person_id: string; name: string; face_count: number }>
+}
+
+export async function peopleScan(config: PeopleScanConfig): Promise<PeopleScanResult> {
   return invoke("people_scan", { config })
+}
+
+export async function peopleCatalogInfo(options: { catalog_path: string }): Promise<CatalogInfo> {
+  return invoke("people_catalog_info", { options })
 }
 
 // ── History ──
@@ -211,6 +238,42 @@ export interface RuntimeDiagnostics {
 
 export async function runtimeDiagnostics(): Promise<RuntimeDiagnostics> {
   return invoke("runtime_diagnostics")
+}
+
+// ── Trip ──
+
+export interface TripOptions {
+  source_dirs: string[]
+  target_root: string
+  label: string
+  start_date: string
+  end_date: string
+  use_hardlinks?: boolean
+  recursive?: boolean
+}
+
+export interface TripPreviewResponse {
+  kind: string
+  planned_count: number
+  matched_count: number
+  skipped_count: number
+  entries: Array<{ source_path: string; target_path: string | null; status: string }>
+}
+
+export interface TripApplyResponse {
+  kind: string
+  executed_count: number
+  linked_count: number
+  copied_count: number
+  skipped_count: number
+}
+
+export async function tripPreview(options: TripOptions): Promise<TripPreviewResponse> {
+  return invoke("trip_preview", { options })
+}
+
+export async function tripApply(options: TripOptions): Promise<TripApplyResponse> {
+  return invoke("trip_apply", { options })
 }
 
 // ── Doctor ──

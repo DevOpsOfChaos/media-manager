@@ -21,12 +21,16 @@ import {
   Clock,
   Settings,
   Library,
+  Plane,
+  Workflow,
 } from "lucide-react"
 
 const navItems = [
   { icon: FolderOpen, label: "Library", path: "/library" },
   { icon: FolderSync, label: "Organize", path: "/organize" },
   { icon: CopyX, label: "Duplicates", path: "/duplicates" },
+  { icon: Plane, label: "Trip", path: "/trip" },
+  { icon: Workflow, label: "Workflow", path: "/workflow" },
   { icon: Eye, label: "Review", path: "/review" },
   { icon: Users, label: "People", path: "/people" },
   { icon: Clock, label: "History", path: "/history" },

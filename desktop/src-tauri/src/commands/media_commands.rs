@@ -113,6 +113,30 @@ pub async fn duplicates_apply(app: tauri::AppHandle, payload: Value) -> Result<V
     result
 }
 
+// ── Trip ──
+
+#[tauri::command]
+pub async fn trip_preview(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Trip Preview", None);
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    let result = bridge()?.run_module("bridge_trip", "preview", &[], Some(&json));
+    emit_progress(&app, "operation:completed", "Trip Preview",
+        Some(if result.is_ok() { "success" } else { "failed" }));
+    result
+}
+
+#[tauri::command]
+pub async fn trip_apply(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Trip Apply", None);
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    let result = bridge()?.run_module("bridge_trip", "apply", &[], Some(&json));
+    emit_progress(&app, "operation:completed", "Trip Apply",
+        Some(if result.is_ok() { "success" } else { "failed" }));
+    result
+}
+
 // ── Review ──
 
 #[tauri::command]
@@ -132,9 +156,25 @@ pub async fn review_load_session(payload: Value) -> Result<Value, String> {
 // ── People ──
 
 #[tauri::command]
-pub async fn people_scan(config: Value) -> Result<Value, String> {
-    let _ = config;
-    Err("media_commands: people_scan not yet implemented".into())
+pub async fn people_scan(app: tauri::AppHandle, config: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Face Scan", None);
+    let json = serde_json::to_string(&config)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    let result = bridge()?.run_module("bridge_people", "scan", &[], Some(&json));
+    emit_progress(&app, "operation:completed", "Face Scan",
+        Some(if result.is_ok() { "success" } else { "failed" }));
+    result
+}
+
+#[tauri::command]
+pub async fn people_catalog_info(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Catalog Info", None);
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    let result = bridge()?.run_module("bridge_people", "catalog-info", &[], Some(&json));
+    emit_progress(&app, "operation:completed", "Catalog Info",
+        Some(if result.is_ok() { "success" } else { "failed" }));
+    result
 }
 
 // ── History / Runs ──
