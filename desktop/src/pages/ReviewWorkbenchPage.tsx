@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { useT } from "@/lib/i18n"
 import { appLocalDataDir, join } from "@tauri-apps/api/path"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
@@ -20,6 +21,7 @@ import {
 import { useReviewStore } from "@/stores/review-store"
 
 export default function ReviewWorkbenchPage() {
+  const t = useT()
   const navigate = useNavigate()
   const [, setSearchParams] = useSearchParams()
   const {
@@ -78,40 +80,38 @@ export default function ReviewWorkbenchPage() {
 
   return (
     <>
-      <PageHeader title="Review Workbench">
+      <PageHeader title={t("Review Workbench", "Prüf-Workbench")}>
         {groups.length > 0 && (
           <Button variant="outline" size="sm" onClick={reset}>
-            Reset session
+            {t("Reset session", "Sitzung zurücksetzen")}
           </Button>
         )}
       </PageHeader>
       <main className="flex flex-1 gap-4 p-4">
         <div className="flex-1 max-w-4xl space-y-4">
-          {/* Safety banner */}
           {persistError ? (
             <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-800 dark:text-red-200">
-              <p className="font-medium">Save failed</p>
+              <p className="font-medium">{t("Save failed", "Speichern fehlgeschlagen")}</p>
               <p className="text-xs">{persistError}</p>
             </div>
           ) : sessionPath ? (
             <div className="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 px-4 py-3 text-sm text-green-800 dark:text-green-200">
-              <p className="font-medium">Decisions are persisted to disk.</p>
-              <p className="text-xs">Draft decisions are saved automatically and restored when you return.</p>
+              <p className="font-medium">{t("Decisions are persisted to disk.", "Entscheidungen werden auf Datenträger gespeichert.")}</p>
+              <p className="text-xs">{t("Draft decisions are saved automatically and restored when you return.", "Entscheidungsentwürfe werden automatisch gespeichert und beim Zurückkehren wiederhergestellt.")}</p>
             </div>
           ) : (
             <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-4 py-3 text-sm text-blue-800 dark:text-blue-200">
-              <p className="font-medium">No session active.</p>
-              <p className="text-xs">Run a scan first to load candidates. Decisions will be persisted to disk.</p>
+              <p className="font-medium">{t("No session active.", "Keine Sitzung aktiv.")}</p>
+              <p className="text-xs">{t("Run a scan first to load candidates. Decisions will be persisted to disk.", "Führen Sie zuerst einen Scan durch, um Kandidaten zu laden. Entscheidungen werden auf Datenträger gespeichert.")}</p>
             </div>
           )}
 
-          {/* Source selection + status */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Source</CardTitle>
+                <CardTitle className="text-sm">{t("Source", "Quelle")}</CardTitle>
                 <CardDescription className="text-xs">
-                  Select which preview results to review.
+                  {t("Select which preview results to review.", "Wählen Sie, welche Vorschau-Ergebnisse geprüft werden sollen.")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -121,14 +121,14 @@ export default function ReviewWorkbenchPage() {
                     size="sm"
                     onClick={() => handleSourceSelect("exact_duplicates")}
                   >
-                    Exact duplicates
+                    {t("Exact duplicates", "Exakte Duplikate")}
                   </Button>
                   <Button
                     variant={activeSourceKind === "similar_images" ? "default" : "outline"}
                     size="sm"
                     onClick={() => handleSourceSelect("similar_images")}
                   >
-                    Similar images
+                    {t("Similar images", "Ähnliche Bilder")}
                   </Button>
                 </div>
               </CardContent>
@@ -136,42 +136,41 @@ export default function ReviewWorkbenchPage() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Status</CardTitle>
+                <CardTitle className="text-sm">{t("Status", "Status")}</CardTitle>
                 <CardDescription className="text-xs">
-                  Current session overview.
+                  {t("Current session overview.", "Übersicht der aktuellen Sitzung.")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2 text-xs">
                   <Badge variant="secondary">
-                    {totalCandidates} candidates
+                    {totalCandidates} {t("candidates", "Kandidaten")}
                   </Badge>
                   <Badge variant={reviewedCount > 0 ? "default" : "secondary"}>
-                    {reviewedCount} reviewed
+                    {reviewedCount} {t("reviewed", "geprüft")}
                   </Badge>
-                  <Badge variant={sessionPath ? "default" : "secondary"}>{sessionPath ? "persisted" : "in-memory only"}</Badge>
+                  <Badge variant={sessionPath ? "default" : "secondary"}>{sessionPath ? t("persisted", "gespeichert") : t("in-memory only", "nur im Speicher")}</Badge>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Groups, loading, or empty state */}
           {groups.length === 0 && !sessionPath ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              <span className="ml-3 text-sm text-muted-foreground">Waiting for scan data...</span>
+              <span className="ml-3 text-sm text-muted-foreground">{t("Waiting for scan data...", "Warte auf Scandaten...")}</span>
             </div>
           ) : groups.length === 0 ? (
             <EmptyState
-              title="No candidates loaded"
-              description="Run a duplicate scan first, then return here. Decisions are persisted to disk and restored when you come back."
+              title={t("No candidates loaded", "Keine Kandidaten geladen")}
+              description={t("Run a duplicate scan first, then return here. Decisions are persisted to disk and restored when you come back.", "Führen Sie zuerst einen Duplikatscan durch und kehren Sie dann hierher zurück. Entscheidungen werden gespeichert und beim Zurückkehren wiederhergestellt.")}
             />
           ) : (
             <Card>
               <CardHeader>
-                <CardTitle>Candidates ({filteredGroups.length} groups)</CardTitle>
+                <CardTitle>{t(`Candidates (${filteredGroups.length} groups)`, `Kandidaten (${filteredGroups.length} Gruppen)`)}</CardTitle>
                 <CardDescription>
-                  Decisions are saved to disk automatically.
+                  {t("Decisions are saved to disk automatically.", "Entscheidungen werden automatisch auf Datenträger gespeichert.")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -194,10 +193,10 @@ export default function ReviewWorkbenchPage() {
                             {group.label}
                           </span>
                           <Badge variant="secondary" className="text-xs">
-                            {group.candidates.length} candidates
+                            {group.candidates.length} {t("candidates", "Kandidaten")}
                           </Badge>
                           <Badge variant="outline" className="text-xs">
-                            {group.source_kind === "exact_duplicates" ? "exact" : "similar"}
+                            {group.source_kind === "exact_duplicates" ? t("exact", "exakt") : t("similar", "ähnlich")}
                           </Badge>
                         </div>
                       </div>
@@ -250,10 +249,10 @@ export default function ReviewWorkbenchPage() {
                                     onClick={() => handleDecision(c.id, d)}
                                   >
                                     {d === "keep_reference"
-                                      ? "keep"
+                                      ? t("keep", "behalten")
                                       : d === "remove_later"
-                                        ? "remove"
-                                        : "ignore"}
+                                        ? t("remove", "entfernen")
+                                        : t("ignore", "ignorieren")}
                                   </Button>
                                 ),
                               )}
@@ -266,21 +265,18 @@ export default function ReviewWorkbenchPage() {
                 ))}
                 {filteredGroups.length > 50 && (
                   <p className="text-xs text-muted-foreground">
-                    Showing first 50 of {filteredGroups.length} groups.
+                    {t(`Showing first 50 of ${filteredGroups.length} groups.`, `Zeige erste 50 von ${filteredGroups.length} Gruppen.`)}
                   </p>
                 )}
               </CardContent>
             </Card>
           )}
 
-          {/* Unsupported features */}
           <Card>
             <CardHeader>
-              <CardTitle>Planned features</CardTitle>
+              <CardTitle>{t("Planned features", "Geplante Funktionen")}</CardTitle>
               <CardDescription>
-                These features are planned but require additional safety
-                infrastructure before they can be enabled. Decision drafts
-                are already persisted to disk via the session bridge.
+                {t("These features are planned but require additional safety infrastructure before they can be enabled. Decision drafts are already persisted to disk via the session bridge.", "Diese Funktionen sind geplant, benötigen aber zusätzliche Sicherheitsinfrastruktur. Entscheidungsentwürfe werden bereits über die Sitzungsbrücke gespeichert.")}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -288,7 +284,7 @@ export default function ReviewWorkbenchPage() {
                 {UNSUPPORTED_FEATURES.map((f) => (
                   <div key={f.feature} className="flex items-start gap-3 rounded-lg border p-3 opacity-60">
                     <Badge variant="secondary" className="text-xs shrink-0 mt-0.5">
-                      planned
+                      {t("planned", "geplant")}
                     </Badge>
                     <div>
                       <p className="text-sm font-medium">{f.feature}</p>
@@ -300,13 +296,12 @@ export default function ReviewWorkbenchPage() {
             </CardContent>
           </Card>
 
-          {/* Quick links */}
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => navigate("/duplicates")}>
-              Go to Duplicates Preview
+              {t("Go to Duplicates Preview", "Zur Duplikatvorschau")}
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate("/history")}>
-              Go to History
+              {t("Go to History", "Zum Verlauf")}
             </Button>
           </div>
         </div>

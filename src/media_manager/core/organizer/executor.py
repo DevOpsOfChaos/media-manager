@@ -139,7 +139,7 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None,
             start_index = int(checkpoint_data.get("last_processed_index", 0))
             if start_index >= total:
                 start_index = total
-        except Exception:
+        except (OSError, IOError) as exc:
             start_index = 0
 
     # ── Phase: create directories ──
@@ -284,14 +284,14 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None,
                     }),
                     encoding="utf-8",
                 )
-            except Exception:
+            except OSError as exc:
                 pass
 
     # ── Final checkpoint + cleanup ──
     if checkpoint_path and checkpoint_path.exists():
         try:
             checkpoint_path.unlink()
-        except Exception:
+        except OSError:
             pass
 
     if progress:

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { useT } from "@/lib/i18n"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -39,6 +40,7 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
+  const t = useT()
   const [data, setData] = useState<DashboardData>({
     diag: null,
     diagError: null,
@@ -128,14 +130,14 @@ export default function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Dashboard">
+      <PageHeader title={t("Dashboard", "Dashboard")}>
         <Button
           variant="outline"
           size="sm"
           onClick={load}
           disabled={loading}
         >
-          {loading ? "Refreshing..." : "Refresh"}
+          {loading ? t("Refreshing...", "Aktualisiere...") : t("Refresh", "Aktualisieren")}
         </Button>
       </PageHeader>
       <main className="flex flex-1 gap-4 p-4">
@@ -153,19 +155,19 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
               <Card className="p-4">
                 <p className="text-2xl font-bold">{stats.totalRuns}</p>
-                <p className="text-xs text-muted-foreground">Total runs</p>
+                <p className="text-xs text-muted-foreground">{t("Total runs", "Durchläufe gesamt")}</p>
               </Card>
               <Card className="p-4">
                 <p className="text-2xl font-bold text-green-400">{stats.applyRuns}</p>
-                <p className="text-xs text-muted-foreground">Applied runs</p>
+                <p className="text-xs text-muted-foreground">{t("Applied runs", "Angewendet")}</p>
               </Card>
               <Card className="p-4">
                 <p className="text-2xl font-bold">{stats.successRate}%</p>
-                <p className="text-xs text-muted-foreground">Success rate</p>
+                <p className="text-xs text-muted-foreground">{t("Success rate", "Erfolgsquote")}</p>
               </Card>
               <Card className="p-4">
                 <p className="text-2xl font-bold">{stats.totalActions}</p>
-                <p className="text-xs text-muted-foreground">Total actions</p>
+                <p className="text-xs text-muted-foreground">{t("Total actions", "Aktionen gesamt")}</p>
               </Card>
             </div>
           )}
@@ -184,14 +186,14 @@ export default function DashboardPage() {
             {/* System Status */}
             <Card>
               <CardHeader>
-                <CardTitle>System Status</CardTitle>
+                <CardTitle>{t("System Status", "Systemstatus")}</CardTitle>
                 <CardDescription>
-                  Python bridge health and environment.
+                  {t("Python bridge health and environment.", "Python-Bridge-Status und Umgebung.")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <StatusRow
-                  label="Python bridge"
+                  label={t("Python bridge", "Python-Bridge")}
                   ok={pythonOk}
                   detail={
                     data.diag
@@ -202,7 +204,7 @@ export default function DashboardPage() {
                   }
                 />
                 <StatusRow
-                  label="Settings file"
+                  label={t("Settings file", "Einstellungsdatei")}
                   ok={data.diag?.settings_file_exists}
                   detail={
                     data.diag?.settings_file_exists
@@ -213,7 +215,7 @@ export default function DashboardPage() {
                   }
                 />
                 <StatusRow
-                  label="Project root"
+                  label={t("Project root", "Projektstamm")}
                   ok={!!data.diag?.project_root}
                   detail={data.diag?.project_root ? "resolved" : "—"}
                 />
@@ -236,9 +238,9 @@ export default function DashboardPage() {
             {/* Recent Activity */}
             <Card>
               <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
+                <CardTitle>{t("Recent Activity", "Letzte Aktivität")}</CardTitle>
                 <CardDescription>
-                  Run history and operation summary.
+                  {t("Run history and operation summary.", "Verlauf und Zusammenfassung.")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -249,17 +251,17 @@ export default function DashboardPage() {
                         {data.history.run_count}
                       </span>
                       <span className="text-sm text-muted-foreground">
-                        total runs
+                        {t("total runs", "Durchläufe gesamt")}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-3 text-sm">
                       <Badge variant="secondary">
-                        {data.history.valid_count} valid
+                        {data.history.valid_count} {t("valid", "gültig")}
                       </Badge>
                       {data.history.invalid_count > 0 && (
                         <Badge variant="destructive">
-                          {data.history.invalid_count} invalid
+                          {data.history.invalid_count} {t("invalid", "ungültig")}
                         </Badge>
                       )}
                     </div>
@@ -269,10 +271,11 @@ export default function DashboardPage() {
                         onClick={() =>
                           navigate(`/history/${latestRun.run_id}`)
                         }
+                        aria-label={`View run ${latestRun.run_id}`}
                         className="w-full rounded-lg border p-3 text-left hover:bg-muted/50 transition-colors"
                       >
                         <p className="text-xs text-muted-foreground">
-                          Latest run
+                          {t("Latest run", "Letzter Durchlauf")}
                         </p>
                         <p className="truncate font-mono text-sm font-medium">
                           {latestRun.run_id}
@@ -287,9 +290,9 @@ export default function DashboardPage() {
                             className="text-xs"
                           >
                             {latestRun.mode === "apply"
-                              ? "Applied"
+                              ? t("Applied", "Angewendet")
                               : latestRun.mode === "preview"
-                                ? "Preview"
+                                ? t("Preview", "Vorschau")
                                 : "—"}
                           </Badge>
                           <span className="text-xs text-muted-foreground">
@@ -312,7 +315,7 @@ export default function DashboardPage() {
                             </div>
                             {latestRun.review_candidate_count > 0 && (
                               <p className="text-xs text-yellow-400">
-                                {latestRun.review_candidate_count} items need review
+                                {latestRun.review_candidate_count} {t("items need review", "Elemente benötigen Prüfung")}
                               </p>
                             )}
                           </div>
@@ -320,19 +323,19 @@ export default function DashboardPage() {
                       </button>
                     ) : (
                       <EmptyState
-                        title="No activity yet"
-                        description="Run your first organize, duplicates scan, or cleanup workflow to see results here."
+                        title={t("No activity yet", "Noch keine Aktivität")}
+                        description={t("Run your first organize, duplicates scan, or cleanup workflow to see results here.", "Führen Sie Ihren ersten Organisieren-, Duplikate-Scan oder Bereinigungs-Workflow aus, um hier Ergebnisse zu sehen.")}
                       />
                     )}
                   </>
                 ) : (
                   <div className="text-sm text-muted-foreground">
                     {data.historyError
-                      ? "Could not load history."
+                      ? t("Could not load history.", "Verlauf konnte nicht geladen werden.")
                       : (
                         <span className="inline-flex items-center gap-2">
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                          Loading...
+                          {t("Loading...", "Lädt...")}
                         </span>
                       )}
                   </div>
@@ -345,29 +348,29 @@ export default function DashboardPage() {
           {data.settings && (
             <Card>
               <CardHeader>
-                <CardTitle>Configuration</CardTitle>
+                <CardTitle>{t("Configuration", "Konfiguration")}</CardTitle>
                 <CardDescription>
-                  Current settings at a glance.
+                  {t("Current settings at a glance.", "Aktuelle Einstellungen auf einen Blick.")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
-                    <p className="text-xs text-muted-foreground">Language</p>
+                    <p className="text-xs text-muted-foreground">{t("Language", "Sprache")}</p>
                     <p className="font-medium">
                       {data.settings.language === "de" ? "Deutsch" : "English"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Theme</p>
+                    <p className="text-xs text-muted-foreground">{t("Theme", "Design")}</p>
                     <p className="font-medium">
                       {data.settings.theme === "modern-light"
-                        ? "Light"
-                        : "Dark"}
+                        ? t("Light", "Hell")
+                        : t("Dark", "Dunkel")}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Start page</p>
+                    <p className="text-xs text-muted-foreground">{t("Start page", "Startseite")}</p>
                     <p className="font-medium capitalize">
                       {data.settings.start_page_id}
                     </p>
@@ -380,40 +383,40 @@ export default function DashboardPage() {
           {/* Quick navigation */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <QuickNavCard
-              label="Organize"
-              desc="Preview folder organization."
+              label={t("Organize", "Organisieren")}
+              desc={t("Preview folder organization.", "Vorschau der Ordnerorganisation.")}
               onClick={() => navigate("/organize")}
             />
             <QuickNavCard
-              label="Exact duplicates"
-              desc="Find byte-identical files."
+              label={t("Exact duplicates", "Exakte Duplikate")}
+              desc={t("Find byte-identical files.", "Finde byte-identische Dateien.")}
               onClick={() => navigate("/duplicates")}
             />
             <QuickNavCard
-              label="Similar images"
-              desc="Find visually similar images."
+              label={t("Similar images", "Ähnliche Bilder")}
+              desc={t("Find visually similar images.", "Finde visuell ähnliche Bilder.")}
               onClick={() => navigate("/duplicates")}
             />
             <QuickNavCard
-              label="Review"
-              desc="Review candidates and record decisions."
+              label={t("Review", "Prüfung")}
+              desc={t("Review candidates and record decisions.", "Kandidaten prüfen und Entscheidungen speichern.")}
               onClick={() => navigate("/review")}
             />
             <QuickNavCard
-              label="History"
-              desc="Browse past runs."
+              label={t("History", "Verlauf")}
+              desc={t("Browse past runs.", "Vergangene Durchläufe durchsuchen.")}
               onClick={() => navigate("/history")}
             />
             <QuickNavCard
-              label="Settings"
-              desc="Language, theme, diagnostics."
+              label={t("Settings", "Einstellungen")}
+              desc={t("Language, theme, diagnostics.", "Sprache, Design, Diagnose.")}
               onClick={() => navigate("/settings")}
             />
           </div>
 
           {/* Quick Workflows */}
           <div className="mt-6">
-            <h3 className="text-sm font-medium mb-3">Quick Workflows</h3>
+            <h3 className="text-sm font-medium mb-3">{t("Quick Workflows", "Schnell-Workflows")}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {QUICK_WORKFLOWS.map((wf) => (
                 <Card
@@ -424,8 +427,8 @@ export default function DashboardPage() {
                   <div className="flex items-start gap-3">
                     <span className="text-xl">{wf.icon}</span>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{wf.label}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{wf.desc}</p>
+                      <p className="text-sm font-medium truncate">{t(wf.label, wf.label)}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{t(wf.desc, wf.desc)}</p>
                     </div>
                   </div>
                 </Card>
@@ -473,10 +476,12 @@ function QuickNavCard({
   onClick: () => void
   disabled?: boolean
 }) {
+  const t = useT()
   return (
     <button
       onClick={onClick}
       disabled={disabled}
+      aria-label={`Navigate to ${label}`}
       className={`rounded-lg border p-3 text-left transition-colors ${
         disabled
           ? "opacity-50 cursor-not-allowed"
@@ -487,7 +492,7 @@ function QuickNavCard({
         {label}
         {disabled && (
           <span className="ml-1.5 text-[10px] text-muted-foreground font-normal">
-            coming soon
+            {t("coming soon", "demnächst")}
           </span>
         )}
       </p>

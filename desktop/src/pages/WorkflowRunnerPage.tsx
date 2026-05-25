@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,6 +20,7 @@ interface WorkflowStep {
 }
 
 export default function WorkflowRunnerPage() {
+  const t = useT()
   const [sourceDir, setSourceDir] = useState(() => localStorage.getItem("default_source_dir") || "")
   const [targetDir, setTargetDir] = useState("")
   const [running, setRunning] = useState(false)
@@ -34,9 +36,9 @@ export default function WorkflowRunnerPage() {
   }, [])
 
   const [steps, setSteps] = useState<WorkflowStep[]>([
-    { key: "organize", label: "Organize Files", status: "pending" },
-    { key: "duplicates", label: "Find Duplicates", status: "pending" },
-    { key: "leftovers", label: "Consolidate Leftovers", status: "pending" },
+    { key: "organize", label: t("Organize Files", "Dateien organisieren"), status: "pending" },
+    { key: "duplicates", label: t("Find Duplicates", "Duplikate finden"), status: "pending" },
+    { key: "leftovers", label: t("Consolidate Leftovers", "Überreste konsolidieren"), status: "pending" },
   ])
 
   const updateStep = (key: string, update: Partial<WorkflowStep>) => {
@@ -49,8 +51,8 @@ export default function WorkflowRunnerPage() {
     setError(null)
 
     const allSteps = [...steps]
-    if (includePeople) allSteps.push({ key: "people", label: "People Scan", status: "pending" })
-    if (includeTrip) allSteps.push({ key: "trip", label: "Trip Collection", status: "pending" })
+    if (includePeople) allSteps.push({ key: "people", label: t("People Scan", "Personenscan"), status: "pending" })
+    if (includeTrip) allSteps.push({ key: "trip", label: t("Trip Collection", "Reisesammlung"), status: "pending" })
 
     const options = {
       source_dirs: [sourceDir],
@@ -76,10 +78,10 @@ export default function WorkflowRunnerPage() {
         const result = await organizeApply(options)
         updateStep("organize", {
           status: "done",
-          summary: `${result.executed_count} files organized (${result.copied_count} copied, ${result.moved_count} moved)`,
+          summary: t(`${result.executed_count} files organized (${result.copied_count} copied, ${result.moved_count} moved)`, `${result.executed_count} Dateien organisiert (${result.copied_count} kopiert, ${result.moved_count} verschoben)`),
         })
       } else {
-        updateStep("organize", { status: "skipped", summary: "No files to organize" })
+        updateStep("organize", { status: "skipped", summary: t("No files to organize", "Keine Dateien zum Organisieren") })
       }
     } catch (e) {
       updateStep("organize", { status: "error", summary: String(e) })
@@ -111,13 +113,13 @@ export default function WorkflowRunnerPage() {
           })
           updateStep("duplicates", {
             status: "done",
-            summary: `${delResult.executed_rows} duplicate groups removed`,
+            summary: t(`${delResult.executed_rows} duplicate groups removed`, `${delResult.executed_rows} Duplikatgruppen entfernt`),
           })
         } else {
-          updateStep("duplicates", { status: "skipped", summary: "No duplicates to remove" })
+          updateStep("duplicates", { status: "skipped", summary: t("No duplicates to remove", "Keine Duplikate zum Entfernen") })
         }
       } else {
-        updateStep("duplicates", { status: "skipped", summary: "No duplicates found" })
+        updateStep("duplicates", { status: "skipped", summary: t("No duplicates found", "Keine Duplikate gefunden") })
       }
     } catch (e) {
       updateStep("duplicates", { status: "error", summary: String(e) })
@@ -134,13 +136,13 @@ export default function WorkflowRunnerPage() {
       if (remaining.length > 0) {
         updateStep("leftovers", {
           status: "done",
-          summary: `${remaining.length} files remain in source. Use Organize page with --consolidate-leftovers.`,
+          summary: t(`${remaining.length} files remain in source. Use Organize page with --consolidate-leftovers.`, `${remaining.length} Dateien verbleiben in der Quelle. Verwenden Sie die Organisieren-Seite mit --consolidate-leftovers.`),
         })
       } else {
-        updateStep("leftovers", { status: "done", summary: "No leftover files found" })
+        updateStep("leftovers", { status: "done", summary: t("No leftover files found", "Keine übriggebliebenen Dateien gefunden") })
       }
     } catch {
-      updateStep("leftovers", { status: "done", summary: "Leftover check complete" })
+      updateStep("leftovers", { status: "done", summary: t("Leftover check complete", "Überrest-Prüfung abgeschlossen") })
     }
 
     // Optional: People scan
@@ -148,13 +150,12 @@ export default function WorkflowRunnerPage() {
       updateStep("people", { status: "running" })
       try {
         await peopleScan({ source_dirs: [targetDir], incremental: false, force_full: true })
-        updateStep("people", { status: "done", summary: "Face scan complete" })
+        updateStep("people", { status: "done", summary: t("Face scan complete", "Gesichtsscan abgeschlossen") })
       } catch (e) {
         updateStep("people", { status: "error", summary: String(e) })
       }
     }
 
-    // Optional: Trip
     if (includeTrip) {
       updateStep("trip", { status: "running" })
       try {
@@ -167,7 +168,7 @@ export default function WorkflowRunnerPage() {
           end_date: today,
           use_hardlinks: true,
         })
-        updateStep("trip", { status: "done", summary: "Trip created" })
+        updateStep("trip", { status: "done", summary: t("Trip created", "Reise erstellt") })
       } catch (e) {
         updateStep("trip", { status: "error", summary: String(e) })
       }
@@ -193,43 +194,43 @@ export default function WorkflowRunnerPage() {
       <div className="flex items-center gap-3">
         <Workflow className="w-6 h-6 text-primary" />
         <div>
-          <h1 className="text-xl font-bold">Workflow Runner</h1>
-          <p className="text-sm text-muted-foreground">Run organize → duplicates → leftovers in sequence.</p>
+          <h1 className="text-xl font-bold">{t("Workflow Runner", "Workflow-Ausführung")}</h1>
+          <p className="text-sm text-muted-foreground">{t("Run organize → duplicates → leftovers in sequence.", "Führen Sie Organisieren → Duplikate → Überreste in Folge aus.")}</p>
         </div>
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Source & Target</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">{t("Source & Target", "Quelle & Ziel")}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-1">
-            <span className="text-xs font-medium">Source Directory</span>
+            <span className="text-xs font-medium">{t("Source Directory", "Quellverzeichnis")}</span>
             <div className="flex gap-1">
               <Input value={sourceDir} onChange={e => setSourceDir(e.target.value)} placeholder="C:\Photos" className="text-xs flex-1" disabled={running} />
-              <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => browseDir(setSourceDir)} disabled={running}>Browse</Button>
+              <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => browseDir(setSourceDir)} disabled={running}>{t("Browse", "Durchsuchen")}</Button>
             </div>
           </div>
           <div className="space-y-1">
-            <span className="text-xs font-medium">Target Directory</span>
+            <span className="text-xs font-medium">{t("Target Directory", "Zielverzeichnis")}</span>
             <div className="flex gap-1">
               <Input value={targetDir} onChange={e => setTargetDir(e.target.value)} placeholder="C:\Organized" className="text-xs flex-1" disabled={running} />
-              <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => browseDir(setTargetDir)} disabled={running}>Browse</Button>
+              <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => browseDir(setTargetDir)} disabled={running}>{t("Browse", "Durchsuchen")}</Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Optional Steps</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">{t("Optional Steps", "Optionale Schritte")}</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={includePeople} onChange={e => setIncludePeople(e.target.checked)} className="w-4 h-4" />
-            <span>People Scan</span>
-            <span className="text-xs text-muted-foreground">— Scan for faces after organizing</span>
+            <span>{t("People Scan", "Personenscan")}</span>
+            <span className="text-xs text-muted-foreground">{t("— Scan for faces after organizing", "— Nach Gesichtern scannen nach dem Organisieren")}</span>
           </label>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={includeTrip} onChange={e => setIncludeTrip(e.target.checked)} className="w-4 h-4" />
-            <span>Trip Collection</span>
-            <span className="text-xs text-muted-foreground">— Create trip from date range (requires label + dates)</span>
+            <span>{t("Trip Collection", "Reisesammlung")}</span>
+            <span className="text-xs text-muted-foreground">{t("— Create trip from date range (requires label + dates)", "— Reise aus Datumsbereich erstellen (benötigt Bezeichnung + Daten)")}</span>
           </label>
         </CardContent>
       </Card>
@@ -242,13 +243,13 @@ export default function WorkflowRunnerPage() {
         size="sm"
         className="w-full"
       >
-        {running ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Running workflow...</> : <><Play className="w-4 h-4 mr-2" /> Run Full Workflow</>}
+        {running ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t("Running workflow...", "Workflow läuft...")}</> : <><Play className="w-4 h-4 mr-2" /> {t("Run Full Workflow", "Vollständigen Workflow ausführen")}</>}
       </Button>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       <Card className={allDone ? "border-green-500/30" : ""}>
-        <CardHeader><CardTitle className="text-sm">Progress</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-sm">{t("Progress", "Fortschritt")}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {steps.map(step => (
             <div key={step.key} className="flex items-center gap-3 p-2 rounded bg-muted/30">
@@ -267,10 +268,10 @@ export default function WorkflowRunnerPage() {
 
       {allDone && (
         <Card className="border-green-500/30">
-          <CardHeader><CardTitle className="text-sm text-green-400">Workflow Complete</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm text-green-400">{t("Workflow Complete", "Workflow abgeschlossen")}</CardTitle></CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              All steps finished. Check History for undo options or run another workflow.
+              {t("All steps finished. Check History for undo options or run another workflow.", "Alle Schritte abgeschlossen. Prüfen Sie den Verlauf für Rückgängig-Optionen oder führen Sie einen weiteren Workflow aus.")}
             </p>
           </CardContent>
         </Card>

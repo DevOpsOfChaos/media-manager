@@ -60,12 +60,16 @@ def cmd_browse() -> int:
                     "suffix": fp.suffix.lower(),
                 })
 
+    truncated = len(files) > 5000
+    output_files = files[:5000]
     _emit({
         "kind": "browse",
         "root": str(root),
         "file_count": len(files),
         "depth": max_depth,
-        "files": files[:5000],
+        "files": output_files,
+        "truncated": truncated,
+        "truncated_message": f"Showing 5000 of {len(files)} files. Narrow your filter." if truncated else None,
     })
     return 0
 

@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react"
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,6 +19,7 @@ interface TripEntry {
 }
 
 function TripDetailView({ trip, onBack }: { trip: TripEntry; onBack: () => void }) {
+  const t = useT()
   const [files, setFiles] = useState<Array<{path:string;name:string;suffix:string;size:number}>>([])
   const [loadingFiles, setLoadingFiles] = useState(false)
 
@@ -29,9 +31,9 @@ function TripDetailView({ trip, onBack }: { trip: TripEntry; onBack: () => void 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-4">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={onBack}>← Back</Button>
+        <Button variant="ghost" size="sm" onClick={onBack}>{t("← Back", "← Zurück")}</Button>
         <h1 className="text-xl font-bold">{trip.name}</h1>
-        <Badge variant="secondary">{trip.fileCount} files</Badge>
+        <Badge variant="secondary">{trip.fileCount} {t("files", "Dateien")}</Badge>
       </div>
       {trip.thumbnail && (
         <img src={convertFileSrc(trip.thumbnail)} alt="" className="w-full max-h-48 object-cover rounded-lg" />
@@ -56,6 +58,7 @@ function TripDetailView({ trip, onBack }: { trip: TripEntry; onBack: () => void 
 }
 
 export default function TripPage() {
+  const t = useT()
   const [tripsRoot, setTripsRoot] = useState(() => localStorage.getItem("trips_root") || localStorage.getItem("default_source_dir") || "")
   const [trips, setTrips] = useState<TripEntry[]>([])
   const [loadingTrips, setLoadingTrips] = useState(false)
@@ -136,21 +139,21 @@ export default function TripPage() {
         <div className="flex items-center gap-3">
           <Plane className="w-6 h-6 text-primary" />
           <div>
-            <h1 className="text-xl font-bold">Trips</h1>
-            <p className="text-sm text-muted-foreground">Your trip collections.</p>
+            <h1 className="text-xl font-bold">{t("Trips", "Reisen")}</h1>
+            <p className="text-sm text-muted-foreground">{t("Your trip collections.", "Ihre Reisesammlungen.")}</p>
           </div>
         </div>
         <Button onClick={() => setShowCreate(true)} size="sm">
-          <Plus className="w-4 h-4 mr-1" /> New Trip
+          <Plus className="w-4 h-4 mr-1" /> {t("New Trip", "Neue Reise")}
         </Button>
       </div>
 
       <div className="flex items-center gap-2">
-        <Input value={tripsRoot} onChange={e => { setTripsRoot(e.target.value); localStorage.setItem("trips_root", e.target.value) }} placeholder="Trips root directory (e.g. C:\Trips)" className="text-xs w-64" />
+        <Input value={tripsRoot} onChange={e => { setTripsRoot(e.target.value); localStorage.setItem("trips_root", e.target.value) }} placeholder={t("Trips root directory (e.g. C:\\Trips)", "Reise-Stammverzeichnis (z.B. C:\\Reisen)")} className="text-xs w-64" />
         <Button onClick={loadTrips} variant="outline" size="sm" disabled={!tripsRoot || loadingTrips}>
-          {loadingTrips ? <Loader2 className="w-4 h-4 animate-spin" /> : "Refresh"}
+          {loadingTrips ? <Loader2 className="w-4 h-4 animate-spin" /> : t("Refresh", "Aktualisieren")}
         </Button>
-        {trips.length > 0 && <Badge variant="secondary" className="ml-auto">{trips.length} trips</Badge>}
+        {trips.length > 0 && <Badge variant="secondary" className="ml-auto">{trips.length} {t("trips", "Reisen")}</Badge>}
       </div>
 
       {trips.length > 0 ? (
@@ -168,7 +171,7 @@ export default function TripPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">{trip.name}</p>
-                    <p className="text-xs text-muted-foreground">{trip.fileCount} files</p>
+                    <p className="text-xs text-muted-foreground">{trip.fileCount} {t("files", "Dateien")}</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </div>
@@ -177,47 +180,46 @@ export default function TripPage() {
           ))}
         </div>
       ) : !loadingTrips ? (
-        <EmptyState title="No trips yet" description={tripsRoot ? "Click 'New Trip' to create your first trip collection." : "Set your trips root directory above, then click Refresh."} />
+        <EmptyState title={t("No trips yet", "Noch keine Reisen")} description={tripsRoot ? t("Click 'New Trip' to create your first trip collection.", "Klicken Sie 'Neue Reise', um Ihre erste Reisesammlung zu erstellen.") : t("Set your trips root directory above, then click Refresh.", "Legen Sie oben Ihr Reise-Stammverzeichnis fest und klicken Sie Aktualisieren.")} />
       ) : null}
 
-      {/* Create Trip Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>New Trip</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("New Trip", "Neue Reise")}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
-              <label className="text-xs font-medium">Source Directory</label>
-              <Input value={sourceDir} onChange={e => setSourceDir(e.target.value)} placeholder="C:\Photos" className="text-xs" />
+              <label className="text-xs font-medium">{t("Source Directory", "Quellverzeichnis")}</label>
+              <Input value={sourceDir} onChange={e => setSourceDir(e.target.value)} placeholder={t("C:\\Photos", "C:\\Fotos")} className="text-xs" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium">Trip Label</label>
+              <label className="text-xs font-medium">{t("Trip Label", "Reisebezeichnung")}</label>
               <Input value={label} onChange={e => setLabel(e.target.value)} placeholder="Italy_2025" className="text-xs" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium">Start (YYYY-MM-DD)</label>
+                <label className="text-xs font-medium">{t("Start (YYYY-MM-DD)", "Start (JJJJ-MM-TT)")}</label>
                 <Input value={startDate} onChange={e => setStartDate(e.target.value)} placeholder="2025-06-01" className="text-xs" />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium">End (YYYY-MM-DD)</label>
+                <label className="text-xs font-medium">{t("End (YYYY-MM-DD)", "Ende (JJJJ-MM-TT)")}</label>
                 <Input value={endDate} onChange={e => setEndDate(e.target.value)} placeholder="2025-06-15" className="text-xs" />
               </div>
             </div>
             <div className="flex items-center gap-4 text-xs">
-              <label className="flex items-center gap-1"><input type="radio" checked={useHardlinks} onChange={() => setUseHardlinks(true)} /> Hardlinks</label>
-              <label className="flex items-center gap-1"><input type="radio" checked={!useHardlinks} onChange={() => setUseHardlinks(false)} /> Copy</label>
+              <label className="flex items-center gap-1"><input type="radio" checked={useHardlinks} onChange={() => setUseHardlinks(true)} /> {t("Hardlinks", "Hardlinks")}</label>
+              <label className="flex items-center gap-1"><input type="radio" checked={!useHardlinks} onChange={() => setUseHardlinks(false)} /> {t("Copy", "Kopieren")}</label>
             </div>
             {createError && <p className="text-xs text-red-400">{createError}</p>}
             {createResult && (
               <Card className="border-green-500/30"><CardContent className="py-2 text-xs">
-                <p className="text-green-400">Trip created! {createResult.linked_count} linked, {createResult.copied_count} copied</p>
+                <p className="text-green-400">{t("Trip created!", "Reise erstellt!")} {createResult.linked_count} {t("linked", "verknüpft")}, {createResult.copied_count} {t("copied", "kopiert")}</p>
               </CardContent></Card>
             )}
           </div>
           <div className="flex justify-end gap-2 mt-2">
-            <Button variant="ghost" size="sm" onClick={() => setShowCreate(false)}>Cancel</Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowCreate(false)}>{t("Cancel", "Abbrechen")}</Button>
             <Button size="sm" onClick={handleCreate} disabled={creating || !sourceDir || !label || !startDate || !endDate}>
-              {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Trip"}
+              {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : t("Create Trip", "Reise erstellen")}
             </Button>
           </div>
         </DialogContent>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { useT } from "@/lib/i18n"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -19,6 +20,7 @@ import {
 import { EmptyState } from "@/components/shared/EmptyState"
 
 export default function HistoryPage() {
+  const t = useT()
   const [data, setData] = useState<HistoryListPayload | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -72,7 +74,7 @@ export default function HistoryPage() {
 
   return (
     <>
-      <PageHeader title="History">
+      <PageHeader title={t("History", "Verlauf")}>
         <Button
           variant="outline"
           size="sm"
@@ -82,9 +84,9 @@ export default function HistoryPage() {
           {loading ? (
             <span className="inline-flex items-center gap-1">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-              Loading...
+              {t("Loading...", "Lädt...")}
             </span>
-          ) : "Refresh"}
+          ) : t("Refresh", "Aktualisieren")}
         </Button>
       </PageHeader>
       <main className="flex flex-1 gap-4 p-4">
@@ -97,41 +99,41 @@ export default function HistoryPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Run History</CardTitle>
+              <CardTitle>{t("Run History", "Durchlauf-Verlauf")}</CardTitle>
               <CardDescription>
-                Browse past runs and inspect results.
+                {t("Browse past runs and inspect results.", "Vergangene Durchläufe durchsuchen und Ergebnisse prüfen.")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {loading && !data ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  <span className="ml-3 text-sm text-muted-foreground">Loading history...</span>
+                  <span className="ml-3 text-sm text-muted-foreground">{t("Loading history...", "Lade Verlauf...")}</span>
                 </div>
               ) : null}
 
               {data && data.runs.length === 0 && (
                 <EmptyState
-                  title="No runs found"
-                  description="Run an organize, rename, or duplicates command first. Apply-mode runs will appear here with undo support."
+                  title={t("No runs found", "Keine Durchläufe gefunden")}
+                  description={t("Run an organize, rename, or duplicates command first. Apply-mode runs will appear here with undo support.", "Führen Sie zuerst einen Organisieren-, Umbenennen- oder Duplikate-Befehl aus. Angewendete Durchläufe erscheinen hier mit Rückgängig-Option.")}
                 />
               )}
 
               {data && data.runs.length > 0 && (
                 <>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>{data.run_count} runs</span>
-                    <span>{data.valid_count} valid</span>
+                    <span>{data.run_count} {t("runs", "Durchläufe")}</span>
+                    <span>{data.valid_count} {t("valid", "gültig")}</span>
                     {data.invalid_count > 0 && (
                       <span className="text-destructive">
-                        {data.invalid_count} invalid
+                        {data.invalid_count} {t("invalid", "ungültig")}
                       </span>
                     )}
                   </div>
 
                   <Input
                     type="text"
-                    placeholder="Filter by run ID, command, mode, or status..."
+                    placeholder={t("Filter by run ID, command, mode, or status...", "Nach Durchlauf-ID, Befehl, Modus oder Status filtern...")}
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                     className="h-8 text-sm"
@@ -143,7 +145,7 @@ export default function HistoryPage() {
             onChange={(e) => setFilterCommand(e.target.value)}
             className="text-xs rounded-md border border-border bg-background px-2 py-1.5 text-foreground"
           >
-            <option value="all">All commands</option>
+            <option value="all">{t("All commands", "Alle Befehle")}</option>
             {availableCommands.map(cmd => (
               <option key={cmd} value={cmd || ""}>{cmd}</option>
             ))}
@@ -153,19 +155,19 @@ export default function HistoryPage() {
             onChange={(e) => setFilterMode(e.target.value)}
             className="text-xs rounded-md border border-border bg-background px-2 py-1.5 text-foreground"
           >
-            <option value="all">All modes</option>
-            <option value="apply">Apply</option>
-            <option value="preview">Preview</option>
+            <option value="all">{t("All modes", "Alle Modi")}</option>
+            <option value="apply">{t("Apply", "Anwenden")}</option>
+            <option value="preview">{t("Preview", "Vorschau")}</option>
           </select>
           <span className="text-xs text-muted-foreground ml-auto">
-            {filteredRuns.length} of {data?.runs?.length || 0} runs
+            {filteredRuns.length} {t("of", "von")} {data?.runs?.length || 0} {t("runs", "Durchläufen")}
           </span>
         </div>
 
                   {filteredRuns.length === 0 ? (
                     <EmptyState
-                      title="No matching runs"
-                      description="No runs match the current filters. Try a different command or mode."
+                      title={t("No matching runs", "Keine passenden Durchläufe")}
+                      description={t("No runs match the current filters. Try a different command or mode.", "Keine Durchläufe entsprechen den aktuellen Filtern. Versuchen Sie einen anderen Befehl oder Modus.")}
                     />
                   ) : (
                     <div className="space-y-2">
@@ -195,7 +197,8 @@ function RunRow({
   run: HistoryRunEntry
   onClick: () => void
 }) {
-  const modeLabel = run.mode === "apply" ? "Applied" : run.mode === "preview" ? "Preview" : "—"
+  const t = useT()
+  const modeLabel = run.mode === "apply" ? t("Applied", "Angewendet") : run.mode === "preview" ? t("Preview", "Vorschau") : "—"
   const modeVariant = run.mode === "apply" ? "default" : "secondary" as const
 
   return (
@@ -218,7 +221,7 @@ function RunRow({
           </Badge>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{run.command ?? "unknown"}</span>
+          <span>{run.command ?? t("unknown", "unbekannt")}</span>
           {run.status && <span>· {run.status}</span>}
           {run.created_at_utc && <span>· {run.created_at_utc.slice(0, 10)}</span>}
         </div>

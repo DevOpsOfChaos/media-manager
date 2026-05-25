@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import json
+import logging
 import os
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+logger = logging.getLogger(__name__)
 
 from media_manager.core.date_resolver import resolve_capture_datetime
 from media_manager.core.file_identity import files_have_identical_content
@@ -157,8 +161,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
             )
             cache._conn().commit()
         scan_summary = cache.build_scan_summary(source_roots)
-    except Exception:
-        pass
+    except (OSError, json.JSONDecodeError, KeyError) as exc:
+        logger.warning("Cache load failed: %s", exc)
 
     if scan_summary is None or not scan_summary.files:
         scan_summary = scan_media_sources(
@@ -271,8 +275,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
             source_roots = [str(d) for d in options.source_dirs]
             cached_dates = {os.path.normcase(k): (v.split("|", 1)[0], v.split("|", 1)[1] if "|" in v else "metadata")
                            for k, v in cache.get_resolved_dates(source_roots).items()}
-        except Exception:
-            pass
+        except (OSError, ValueError) as exc:
+            logger.debug("Date resolution fallback: %s", exc)
 
         # ── Build inspections for uncached files (batch ExifTool) ──
         inspections: dict[Path, FileInspection] = {}
@@ -311,8 +315,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
         if new_date_entries:
             try:
                 cache.set_dates_batch(new_date_entries)
-            except Exception:
-                pass
+            except (OSError, KeyError) as exc:
+                logger.debug("Metadata parse failed: %s", exc)
 
         # ── Phase: building plan ──
         if progress:

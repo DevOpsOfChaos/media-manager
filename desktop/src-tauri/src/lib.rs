@@ -1,9 +1,31 @@
 mod commands;
 
 use commands::media_commands;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::panic;
+
+fn setup_crash_log() {
+    let log_path = std::env::temp_dir().join("media-manager-crash.log");
+
+    panic::set_hook(Box::new(move |info| {
+        let msg = info.payload().downcast_ref::<&str>().map(|s| s.to_string())
+            .or_else(|| info.payload().downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "unknown panic".to_string());
+
+        let loc = info.location().map(|l| format!("{}:{}", l.file(), l.line())).unwrap_or_default();
+        let entry = format!("CRASH | {} | {}\n", msg, loc);
+
+        if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&log_path) {
+            let _ = writeln!(f, "{}", entry);
+        }
+        eprintln!("{}", entry);
+    }));
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    setup_crash_log();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())

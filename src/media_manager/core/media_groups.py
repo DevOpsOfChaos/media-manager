@@ -143,12 +143,26 @@ def _build_single_group(item: ScannedFile, warnings: tuple[MediaAssociationWarni
 
 def _build_groups_for_bucket(files_in_bucket: list[ScannedFile]) -> list[MediaGroup]:
     files_in_bucket = sorted(files_in_bucket, key=lambda item: _normalized_sort_key(item.path))
-    sidecars = [item for item in files_in_bucket if _normalized_extension(item.path) in SIDECARExt]
-    raws = [item for item in files_in_bucket if _normalized_extension(item.path) in RAW_EXTENSIONS]
-    jpegs = [item for item in files_in_bucket if _normalized_extension(item.path) in JPEG_EXTENSIONS]
-    image_video_images = [item for item in files_in_bucket if _normalized_extension(item.path) in PHOTO_VIDEO_IMAGE_EXTENSIONS]
-    image_video_videos = [item for item in files_in_bucket if _normalized_extension(item.path) in PHOTO_VIDEO_VIDEO_EXTENSIONS]
-    media_files = [item for item in files_in_bucket if _normalized_extension(item.path) not in SIDECARExt]
+    sidecars: list[ScannedFile] = []
+    raws: list[ScannedFile] = []
+    jpegs: list[ScannedFile] = []
+    image_video_images: list[ScannedFile] = []
+    image_video_videos: list[ScannedFile] = []
+    media_files: list[ScannedFile] = []
+    for item in files_in_bucket:
+        ext = _normalized_extension(item.path)
+        if ext in SIDECARExt:
+            sidecars.append(item)
+        else:
+            media_files.append(item)
+        if ext in RAW_EXTENSIONS:
+            raws.append(item)
+        if ext in JPEG_EXTENSIONS:
+            jpegs.append(item)
+        if ext in PHOTO_VIDEO_IMAGE_EXTENSIONS:
+            image_video_images.append(item)
+        if ext in PHOTO_VIDEO_VIDEO_EXTENSIONS:
+            image_video_videos.append(item)
 
     if len(files_in_bucket) == 1:
         return [_build_single_group(files_in_bucket[0])]

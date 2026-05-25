@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { RotateCcw } from "lucide-react"
+import { useT } from "@/lib/i18n"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -16,6 +17,7 @@ import { undoPreview, undoApply } from "@/lib/tauri-bridge"
 import type { UndoExecutionResult } from "@/types"
 
 export default function RunDetailPage() {
+  const t = useT()
   const { runId } = useParams<{ runId: string }>()
   const navigate = useNavigate()
   const [detail, setDetail] = useState<HistoryDetail | null>(null)
@@ -44,7 +46,7 @@ export default function RunDetailPage() {
   }, [load])
 
   const modeLabel =
-    detail?.mode === "apply" ? "Applied" : detail?.mode === "preview" ? "Preview" : "—"
+    detail?.mode === "apply" ? t("Applied", "Angewendet") : detail?.mode === "preview" ? t("Preview", "Vorschau") : "—"
 
   const handleUndoPreview = useCallback(async () => {
     if (!detail?.has_journal || !runId) return
@@ -85,7 +87,7 @@ export default function RunDetailPage() {
 
   return (
     <>
-      <PageHeader title={`Run: ${runId ?? "unknown"}`} />
+      <PageHeader title={t(`Run: ${runId ?? "unknown"}`, `Durchlauf: ${runId ?? "unbekannt"}`)} />
       <main className="flex flex-1 gap-4 p-4">
         <div className="flex-1 max-w-3xl space-y-4">
           <div className="flex items-center gap-2">
@@ -93,22 +95,22 @@ export default function RunDetailPage() {
               <>
               <Button onClick={handleUndoPreview} disabled={undoLoading} variant="destructive" size="sm">
                 <RotateCcw className="w-4 h-4 mr-1" />
-                Undo
+                {t("Undo", "Rückgängig")}
               </Button>
-              <span className="text-xs text-muted-foreground hidden sm:inline">→ preview, then confirm</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">{t("→ preview, then confirm", "→ Vorschau, dann bestätigen")}</span>
               <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[10px] rounded border border-border ml-2 text-muted-foreground">Ctrl+Z</kbd>
               </>
             )}
             <Button variant="outline" size="sm" onClick={() => navigate("/history")}>
-              Back to history
+              {t("Back to history", "Zurück zum Verlauf")}
             </Button>
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               {loading ? (
                 <span className="inline-flex items-center gap-1">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-                  Loading...
+                  {t("Loading...", "Lädt...")}
                 </span>
-              ) : "Refresh"}
+              ) : t("Refresh", "Aktualisieren")}
             </Button>
           </div>
 
@@ -123,7 +125,7 @@ export default function RunDetailPage() {
               <CardContent className="py-8">
                 <div className="flex items-center justify-center gap-3">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                  <span className="text-sm text-muted-foreground">Loading run details...</span>
+                  <span className="text-sm text-muted-foreground">{t("Loading run details...", "Lade Durchlauf-Details...")}</span>
                 </div>
               </CardContent>
             </Card>
@@ -133,44 +135,44 @@ export default function RunDetailPage() {
             <>
               <Card>
                 <CardHeader>
-                  <CardTitle>Overview</CardTitle>
+                  <CardTitle>{t("Overview", "Übersicht")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <InfoRow label="Run ID" value={detail.run_id} mono />
-                  <InfoRow label="Command" value={detail.command ?? "—"} />
-                  <InfoRow label="Mode">
+                  <InfoRow label={t("Run ID", "Durchlauf-ID")} value={detail.run_id} mono />
+                  <InfoRow label={t("Command", "Befehl")} value={detail.command ?? "—"} />
+                  <InfoRow label={t("Mode", "Modus")}>
                     <Badge variant={detail.mode === "apply" ? "default" : "secondary"}>
                       {modeLabel}
                     </Badge>
                   </InfoRow>
-                  <InfoRow label="Status" value={detail.status ?? "—"} />
-                  <InfoRow label="Created" value={detail.created_at_utc ?? "—"} />
+                  <InfoRow label={t("Status", "Status")} value={detail.status ?? "—"} />
+                  <InfoRow label={t("Created", "Erstellt")} value={detail.created_at_utc ?? "—"} />
                   <InfoRow
-                    label="Exit code"
+                    label={t("Exit code", "Exit-Code")}
                     value={detail.exit_code !== null ? String(detail.exit_code) : "—"}
                   />
                   {detail.next_action && (
-                    <InfoRow label="Next action" value={detail.next_action} />
+                    <InfoRow label={t("Next action", "Nächste Aktion")} value={detail.next_action} />
                   )}
-                  <InfoRow label="Valid" value={detail.valid ? "Yes" : "No"} />
+                  <InfoRow label={t("Valid", "Gültig")} value={detail.valid ? t("Yes", "Ja") : t("No", "Nein")} />
                 {detail.has_journal && (
                   <>
-                    <InfoRow label="Journal">
-                      <span className="text-sm text-green-400">Available</span>
+                    <InfoRow label={t("Journal", "Journal")}>
+                      <span className="text-sm text-green-400">{t("Available", "Verfügbar")}</span>
                     </InfoRow>
                     <div className="mt-2 pt-2 border-t border-border/50">
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        An execution journal records every file operation from the apply run —
-                        source paths, target paths, and how to reverse each action.
-                        Click <span className="font-medium text-foreground">Undo</span> to preview
-                        and reverse these operations.
+                        {t(
+                          "An execution journal records every file operation from the apply run — source paths, target paths, and how to reverse each action. Click Undo to preview and reverse these operations.",
+                          "Ein Ausführungsjournal zeichnet jede Dateioperation des Anwendungsdurchlaufs auf — Quellpfade, Zielpfade und wie jede Aktion rückgängig gemacht werden kann. Klicken Sie Rückgängig, um diese Operationen in der Vorschau zu sehen und rückgängig zu machen."
+                        )}
                       </p>
                     </div>
                   </>
                 )}
                   {detail.missing_files.length > 0 && (
                     <InfoRow
-                      label="Missing files"
+                      label={t("Missing files", "Fehlende Dateien")}
                       value={detail.missing_files.join(", ")}
                     />
                   )}
@@ -185,7 +187,7 @@ export default function RunDetailPage() {
               {detail.summary && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Summary</CardTitle>
+                    <CardTitle>{t("Summary", "Zusammenfassung")}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <pre className="whitespace-pre-wrap text-xs font-mono text-muted-foreground max-h-64 overflow-y-auto">
@@ -198,7 +200,7 @@ export default function RunDetailPage() {
               {detail.report_outcome && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Outcome</CardTitle>
+                    <CardTitle>{t("Outcome", "Ergebnis")}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <pre className="whitespace-pre-wrap text-xs font-mono text-muted-foreground max-h-64 overflow-y-auto">
@@ -211,9 +213,9 @@ export default function RunDetailPage() {
               {detail.command_json && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Command</CardTitle>
+                    <CardTitle>{t("Command", "Befehl")}</CardTitle>
                     <CardDescription>
-                      CLI arguments and metadata for this run.
+                      {t("CLI arguments and metadata for this run.", "CLI-Argumente und Metadaten für diesen Durchlauf.")}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -227,29 +229,29 @@ export default function RunDetailPage() {
           )}
           {undoPreviewResult && !undoResult && (
             <Card className="border-yellow-500/50 mt-4">
-              <CardHeader><CardTitle className="text-yellow-400">Undo Preview</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-yellow-400">{t("Undo Preview", "Vorschau Rückgängig")}</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <p>This will reverse {undoPreviewResult.planned_count} file operations.</p>
+                <p>{t(`This will reverse ${undoPreviewResult.planned_count} file operations.`, `Dies wird ${undoPreviewResult.planned_count} Dateioperationen rückgängig machen.`)}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {undoPreviewResult.reversible_entry_count} of {undoPreviewResult.planned_count} operations can be safely reversed.
+                  {t(`${undoPreviewResult.reversible_entry_count} of ${undoPreviewResult.planned_count} operations can be safely reversed.`, `${undoPreviewResult.reversible_entry_count} von ${undoPreviewResult.planned_count} Operationen können sicher rückgängig gemacht werden.`)}
                   {undoPreviewResult.planned_count - undoPreviewResult.reversible_entry_count > 0
-                    ? `${undoPreviewResult.planned_count - undoPreviewResult.reversible_entry_count} operations cannot be undone (files may no longer exist at their original location).`
-                    : "All operations can be fully reversed."}
+                    ? t(`${undoPreviewResult.planned_count - undoPreviewResult.reversible_entry_count} operations cannot be undone (files may no longer exist at their original location).`, `${undoPreviewResult.planned_count - undoPreviewResult.reversible_entry_count} Operationen können nicht rückgängig gemacht werden (Dateien existieren möglicherweise nicht mehr am ursprünglichen Ort).`)
+                    : t("All operations can be fully reversed.", "Alle Operationen können vollständig rückgängig gemacht werden.")}
                 </p>
                 <div className="flex gap-2 mt-2">
-                  <Button onClick={handleUndoApply} variant="default" size="sm">Confirm Undo</Button>
-                  <Button onClick={() => setUndoPreviewResult(null)} variant="ghost" size="sm">Cancel</Button>
+                  <Button onClick={handleUndoApply} variant="default" size="sm">{t("Confirm Undo", "Rückgängig bestätigen")}</Button>
+                  <Button onClick={() => setUndoPreviewResult(null)} variant="ghost" size="sm">{t("Cancel", "Abbrechen")}</Button>
                 </div>
               </CardContent>
             </Card>
           )}
           {undoResult && (
             <Card className={undoResult.error_count === 0 ? "border-green-500/50" : "border-red-500/50 mt-4"}>
-              <CardHeader><CardTitle className={undoResult.error_count === 0 ? "text-green-400" : "text-red-400"}>Undo Result</CardTitle></CardHeader>
+              <CardHeader><CardTitle className={undoResult.error_count === 0 ? "text-green-400" : "text-red-400"}>{t("Undo Result", "Ergebnis Rückgängig")}</CardTitle></CardHeader>
               <CardContent className="space-y-1 text-sm">
-                <p>Undone: {undoResult.undone_count}</p>
-                <p>Skipped: {undoResult.skipped_count}</p>
-                {undoResult.error_count > 0 && <p className="text-red-400">Errors: {undoResult.error_count}</p>}
+                <p>{t("Undone:", "Rückgängig:")} {undoResult.undone_count}</p>
+                <p>{t("Skipped:", "Übersprungen:")} {undoResult.skipped_count}</p>
+                {undoResult.error_count > 0 && <p className="text-red-400">{t("Errors:", "Fehler:")} {undoResult.error_count}</p>}
               </CardContent>
             </Card>
           )}

@@ -12,27 +12,19 @@ import json
 import sys
 from pathlib import Path
 
+from media_manager.bridge_base import emit, fail
 from media_manager.core.doctor import DoctorOptions, build_doctor_report
-
-
-def _emit(payload: dict) -> None:
-    print(json.dumps(payload, indent=2, ensure_ascii=False))
-
-
-def _fail(message: str, exit_code: int = 1) -> int:
-    print(json.dumps({"error": message}), file=sys.stderr)
-    return exit_code
 
 
 def cmd_check() -> int:
     raw = sys.stdin.read()
     if not raw.strip():
-        return _fail("Empty stdin. Expected JSON doctor options.")
+        return fail("Empty stdin. Expected JSON doctor options.")
 
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
-        return _fail(f"Invalid JSON: {exc}")
+        return fail(f"Invalid JSON: {exc}")
 
     try:
         options = DoctorOptions(
@@ -48,12 +40,12 @@ def cmd_check() -> int:
             exiftool_path=Path(payload["exiftool_path"]) if payload.get("exiftool_path") else None,
         )
     except (TypeError, ValueError) as exc:
-        return _fail(f"Invalid options: {exc}")
+        return fail(f"Invalid options: {exc}")
 
     try:
         report = build_doctor_report(options)
     except Exception as exc:
-        return _fail(f"Doctor check failed: {exc}")
+        return fail(f"Doctor check failed: {exc}")
 
     output: dict = {
         "command": report.options.command,
@@ -93,7 +85,7 @@ def cmd_check() -> int:
             for s in report.source_previews
         ],
     }
-    _emit(output)
+    emit(output)
     return 0
 
 

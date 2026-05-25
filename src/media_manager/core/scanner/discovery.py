@@ -49,6 +49,8 @@ def scan_media_sources(options: ScanOptions) -> ScanSummary:
 
         if options.recursive:
             candidate_iterator = []
+            # os.walk uses scandir internally (Python 3.5+), ~3-10x faster
+            # on Windows vs the legacy listdir-based walk.
             for current_root, dirnames, filenames in os.walk(source_root, followlinks=options.follow_symlinks):
                 current_root_path = Path(current_root)
                 if not options.include_hidden:

@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react"
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -25,6 +26,7 @@ function FaceThumb({ path, size = 96 }: { path: string; size?: number }) {
 
 // ── Main component ──
 export default function PeoplePage() {
+  const t = useT()
   const [catalogPath, setCatalogPath] = useState(() => localStorage.getItem("people_catalog_path") || "")
   const [enabled, setEnabled] = useState(() => localStorage.getItem("people_scan_enabled") === "true")
   const [catalog, setCatalog] = useState<CatalogListResponse | null>(null)
@@ -74,7 +76,7 @@ export default function PeoplePage() {
       return
     }
     if (!sourceDir) {
-      setError("Please set a source directory first")
+      setError(t("Please set a source directory first", "Bitte zuerst ein Quellverzeichnis festlegen"))
       return
     }
     localStorage.setItem("people_scan_source", sourceDir)
@@ -142,20 +144,20 @@ export default function PeoplePage() {
           <div className="flex items-center gap-3">
             <Users className="w-6 h-6 text-primary" />
             <div>
-              <h1 className="text-xl font-bold">People</h1>
-              <p className="text-sm text-muted-foreground">Recognized people from your photo library.</p>
+              <h1 className="text-xl font-bold">{t("People", "Personen")}</h1>
+              <p className="text-sm text-muted-foreground">{t("Recognized people from your photo library.", "Erkannte Personen aus Ihrer Fotobibliothek.")}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <Input value={catalogPath} onChange={e => { setCatalogPath(e.target.value); localStorage.setItem("people_catalog_path", e.target.value) }} placeholder="catalog.json" className="text-xs w-48" />
-            <Button onClick={loadCatalog} size="sm" variant="outline" disabled={!catalogPath}>Refresh</Button>
+            <Button onClick={loadCatalog} size="sm" variant="outline" disabled={!catalogPath}>{t("Refresh", "Aktualisieren")}</Button>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <Switch checked={enabled} onCheckedChange={handleToggle} />
-          <span className="text-sm text-muted-foreground">Auto-scan</span>
-          {catalog && <Badge variant="secondary" className="ml-auto">{catalog.person_count} people</Badge>}
+          <span className="text-sm text-muted-foreground">{t("Auto-scan", "Auto-Scan")}</span>
+          {catalog && <Badge variant="secondary" className="ml-auto">{catalog.person_count} {t("people", "Personen")}</Badge>}
         </div>
 
         {error && <p className="text-sm text-red-400">{error}</p>}
@@ -177,33 +179,31 @@ export default function PeoplePage() {
                 </div>
                 <CardContent className="p-3">
                   <p className="text-sm font-medium truncate">{person.name}</p>
-                  <p className="text-xs text-muted-foreground">{person.face_count} faces</p>
+                  <p className="text-xs text-muted-foreground">{person.face_count} {t("faces", "Gesichter")}</p>
                 </CardContent>
               </Card>
             ))}
-            {/* Add Person card */}
             <Card className="cursor-pointer hover:border-primary/50 border-dashed flex items-center justify-center min-h-[200px]" onClick={() => setShowCreatePerson(true)}>
               <div className="text-center text-muted-foreground">
                 <UserPlus className="w-8 h-8 mx-auto mb-2" />
-                <p className="text-sm">Add Person</p>
+                <p className="text-sm">{t("Add Person", "Person hinzufügen")}</p>
               </div>
             </Card>
           </div>
         ) : catalog ? (
-          <EmptyState title="No people yet" description="Scan photos with a catalog to recognize people, or add them manually." />
+          <EmptyState title={t("No people yet", "Noch keine Personen")} description={t("Scan photos with a catalog to recognize people, or add them manually.", "Scannen Sie Fotos mit einem Katalog, um Personen zu erkennen, oder fügen Sie sie manuell hinzu.")} />
         ) : (
-          <EmptyState title="No catalog loaded" description="Enter a catalog path above and click Refresh to see recognized people." />
+          <EmptyState title={t("No catalog loaded", "Kein Katalog geladen")} description={t("Enter a catalog path above and click Refresh to see recognized people.", "Geben Sie oben einen Katalogpfad ein und klicken Sie Aktualisieren, um erkannte Personen zu sehen.")} />
         )}
 
-        {/* Create Person Dialog */}
         <Dialog open={showCreatePerson} onOpenChange={setShowCreatePerson}>
           <DialogContent className="max-w-sm">
-            <DialogHeader><DialogTitle>Add Person</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{t("Add Person", "Person hinzufügen")}</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <Input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Person name" autoFocus onKeyDown={e => e.key === "Enter" && handleCreatePerson()} />
+              <Input value={createName} onChange={e => setCreateName(e.target.value)} placeholder={t("Person name", "Name der Person")} autoFocus onKeyDown={e => e.key === "Enter" && handleCreatePerson()} />
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setShowCreatePerson(false)}>Cancel</Button>
-                <Button size="sm" onClick={handleCreatePerson} disabled={!createName.trim()}>Create</Button>
+                <Button variant="ghost" size="sm" onClick={() => setShowCreatePerson(false)}>{t("Cancel", "Abbrechen")}</Button>
+                <Button size="sm" onClick={handleCreatePerson} disabled={!createName.trim()}>{t("Create", "Erstellen")}</Button>
               </div>
             </div>
           </DialogContent>
@@ -215,9 +215,8 @@ export default function PeoplePage() {
   // ── Person Detail View ──
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => setSelectedPerson(null)}><ArrowLeft className="w-4 h-4 mr-1" /> Back</Button>
+        <Button variant="ghost" size="sm" onClick={() => setSelectedPerson(null)}><ArrowLeft className="w-4 h-4 mr-1" /> {t("Back", "Zurück")}</Button>
         <div className="flex-1">
           {editingName ? (
             <div className="flex items-center gap-2">
@@ -231,11 +230,10 @@ export default function PeoplePage() {
               <Button variant="ghost" size="sm" onClick={() => { setEditName(selectedPerson.name); setEditingName(true) }}><Pencil className="w-3.5 h-3.5" /></Button>
             </h1>
           )}
-          <p className="text-sm text-muted-foreground">{selectedPerson.face_count} faces recognized</p>
+          <p className="text-sm text-muted-foreground">{selectedPerson.face_count} {t("faces recognized", "Gesichter erkannt")}</p>
         </div>
       </div>
 
-      {/* Image Grid */}
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
         {selectedPerson.source_paths.map((path, i) => (
           <div
@@ -249,12 +247,11 @@ export default function PeoplePage() {
         {selectedPerson.source_paths.length === 0 && (
           <div className="col-span-full py-12 text-center text-muted-foreground">
             <ImageOff className="w-10 h-10 mx-auto mb-2" />
-            <p>No images for this person yet. Run a face scan to find matches.</p>
+            <p>{t("No images for this person yet. Run a face scan to find matches.", "Noch keine Bilder für diese Person. Führen Sie einen Gesichtsscan durch, um Übereinstimmungen zu finden.")}</p>
           </div>
         )}
       </div>
 
-      {/* Image Modal */}
       <Dialog open={!!modalImage} onOpenChange={(o: boolean) => { if (!o) { setModalImage(null); setShowReassign(false) } }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle className="text-sm">{modalImage?.split(/[\\/]/).pop()}</DialogTitle></DialogHeader>
@@ -263,31 +260,31 @@ export default function PeoplePage() {
               <img src={convertFileSrc(modalImage)} alt="" className="w-full max-h-[60vh] object-contain rounded" />
               {!showReassign ? (
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Person: {selectedPerson?.name}</span>
+                  <span className="text-sm text-muted-foreground">{t("Person:", "Person:")} {selectedPerson?.name}</span>
                   <Button variant="outline" size="sm" onClick={() => setShowReassign(true)}>
-                    Not this person?
+                    {t("Not this person?", "Nicht diese Person?")}
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-3 p-3 border rounded border-yellow-500/30 bg-yellow-500/5">
-                  <p className="text-sm font-medium">Reassign this face</p>
+                  <p className="text-sm font-medium">{t("Reassign this face", "Dieses Gesicht neu zuweisen")}</p>
                   <select
                     value={reassignToId}
                     onChange={e => setReassignToId(e.target.value)}
                     className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
                   >
-                    <option value="">-- Create new person --</option>
+                    <option value="">{t("-- Create new person --", "-- Neue Person erstellen --")}</option>
                     {catalog?.people.filter(p => p.person_id !== selectedPerson?.person_id).map(p => (
-                      <option key={p.person_id} value={p.person_id}>{p.name} ({p.face_count} faces)</option>
+                      <option key={p.person_id} value={p.person_id}>{p.name} ({p.face_count} {t("faces", "Gesichter")})</option>
                     ))}
                   </select>
                   {!reassignToId && (
-                    <Input value={newPersonName} onChange={e => setNewPersonName(e.target.value)} placeholder="New person name" className="text-xs" />
+                    <Input value={newPersonName} onChange={e => setNewPersonName(e.target.value)} placeholder={t("New person name", "Neuer Personenname")} className="text-xs" />
                   )}
                   <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => setShowReassign(false)}>Cancel</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setShowReassign(false)}>{t("Cancel", "Abbrechen")}</Button>
                     <Button size="sm" onClick={handleReassign} disabled={!reassignToId && !newPersonName.trim()}>
-                      {reassignToId ? "Reassign" : "Create & Reassign"}
+                      {reassignToId ? t("Reassign", "Neu zuweisen") : t("Create & Reassign", "Erstellen & Zuweisen")}
                     </Button>
                   </div>
                 </div>

@@ -48,6 +48,8 @@ def discover_leftover_files(source_root: Path, leftover_dir_name: str) -> list[P
     files: list[Path] = []
     if not source_root.exists():
         return files
+    # os.walk uses scandir internally (Python 3.5+). topdown=True with
+    # dirnames[:] pruning is optimal for directory-level filtering here.
     for current_root, dirnames, filenames in os.walk(source_root, topdown=True):
         current_root_path = Path(current_root)
         if current_root_path == leftover_dir:
@@ -91,6 +93,8 @@ def remove_empty_directories(source_root: Path, leftover_dir_name: str) -> list[
     """Remove empty subdirectories under source_root, excluding the leftover dir itself."""
     leftover_dir = source_root / leftover_dir_name
     removed: list[Path] = []
+    # os.walk uses scandir internally. topdown=False ensures bottom-up
+    # traversal so we remove nested empty dirs before their parents.
     for current_root, dirnames, filenames in os.walk(source_root, topdown=False):
         current_root_path = Path(current_root)
         if current_root_path == source_root:

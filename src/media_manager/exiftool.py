@@ -151,6 +151,7 @@ def read_exiftool_metadata(
         command.append("-time:all")
     if group_names:
         command.extend(["-G0:1", "-s"])
+    command.append("--")
     command.append(str(file_path))
 
     try:
@@ -206,6 +207,7 @@ def read_exiftool_metadata_batch(
         command.append("-time:all")
     if group_names:
         command.extend(["-G0:1", "-s"])
+    command.append("--")
     for fp in file_paths:
         command.append(str(fp))
 

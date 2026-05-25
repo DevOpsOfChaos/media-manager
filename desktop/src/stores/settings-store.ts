@@ -27,6 +27,7 @@ export const defaultSettings: GuiSettings = {
 
 interface SettingsState {
   settings: GuiSettings
+  loaded: boolean
   loading: boolean
   error: string | null
   dirty: boolean
@@ -48,6 +49,7 @@ interface SettingsActions {
 export const useSettingsStore = create<SettingsState & SettingsActions>(
   (set, get) => ({
     settings: { ...defaultSettings },
+    loaded: false,
     loading: false,
     error: null,
     dirty: false,
@@ -69,9 +71,9 @@ export const useSettingsStore = create<SettingsState & SettingsActions>(
       set({ loading: true, error: null })
       try {
         const settings = await settingsRead()
-        set({ settings, loading: false, dirty: false, saved: false })
+        set({ settings, loaded: true, loading: false, dirty: false, saved: false })
       } catch (err) {
-        set({ error: String(err), loading: false })
+        set({ error: String(err), loaded: true, loading: false })
       }
     },
 

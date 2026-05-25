@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -24,6 +25,7 @@ function formatSize(bytes: number): string {
 }
 
 export default function LibraryPage() {
+  const t = useT()
   const [rootDir, setRootDir] = useState(() => localStorage.getItem("library_root") || localStorage.getItem("default_source_dir") || "")
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<LibraryBrowseResult | null>(null)
@@ -48,15 +50,15 @@ export default function LibraryPage() {
       <div className="flex items-center gap-3">
         <FolderOpen className="w-6 h-6 text-primary" />
         <div className="flex-1">
-          <h1 className="text-xl font-bold">Library</h1>
-          <p className="text-sm text-muted-foreground">Browse your organized media files.</p>
+          <h1 className="text-xl font-bold">{t("Library", "Bibliothek")}</h1>
+          <p className="text-sm text-muted-foreground">{t("Browse your organized media files.", "Durchsuchen Sie Ihre organisierten Mediendateien.")}</p>
         </div>
       </div>
 
       <div className="flex gap-2">
-        <Input value={rootDir} onChange={e => setRootDir(e.target.value)} placeholder="Root directory (e.g. organized folder)" className="text-xs flex-1" />
+        <Input value={rootDir} onChange={e => setRootDir(e.target.value)} placeholder={t("Root directory (e.g. organized folder)", "Stammverzeichnis (z.B. organisierter Ordner)")} className="text-xs flex-1" />
         <Button onClick={browse} disabled={loading || !rootDir} size="sm">
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Browse"}
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : t("Browse", "Durchsuchen")}
         </Button>
       </div>
 
@@ -65,8 +67,8 @@ export default function LibraryPage() {
       {data && (
         <>
           <div className="flex items-center gap-2">
-            <Badge variant="outline">{data.file_count} files</Badge>
-            <Input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter by name..." className="text-xs w-48" />
+            <Badge variant="outline">{data.file_count} {t("files", "Dateien")}</Badge>
+            <Input value={filter} onChange={e => setFilter(e.target.value)} placeholder={t("Filter by name...", "Nach Name filtern...")} className="text-xs w-48" />
           </div>
 
           {filtered.length > 0 ? (
@@ -93,13 +95,13 @@ export default function LibraryPage() {
               ))}
             </div>
           ) : (
-            <EmptyState title={filter ? "No matches" : "No files found"} description={filter ? "Try a different filter." : "The directory is empty or contains no supported media files."} />
+            <EmptyState title={filter ? t("No matches", "Keine Treffer") : t("No files found", "Keine Dateien gefunden")} description={filter ? t("Try a different filter.", "Versuchen Sie einen anderen Filter.") : t("The directory is empty or contains no supported media files.", "Das Verzeichnis ist leer oder enthält keine unterstützten Mediendateien.")} />
           )}
         </>
       )}
 
       {!data && !loading && (
-        <EmptyState title="No directory selected" description="Enter a root directory above and click Browse to explore your library." />
+        <EmptyState title={t("No directory selected", "Kein Verzeichnis ausgewählt")} description={t("Enter a root directory above and click Browse to explore your library.", "Geben Sie oben ein Stammverzeichnis ein und klicken Sie Durchsuchen, um Ihre Bibliothek zu erkunden.")} />
       )}
     </div>
   )

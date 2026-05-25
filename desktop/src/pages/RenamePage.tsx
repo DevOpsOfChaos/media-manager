@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card"
@@ -20,6 +21,7 @@ const RENAME_TEMPLATES = [
 ]
 
 export default function RenamePage() {
+  const t = useT()
   const [sourceDir, setSourceDir] = useState(() => localStorage.getItem("default_source_dir") || "")
   const [template, setTemplate] = useState(RENAME_TEMPLATES[0].value)
   const [loading, setLoading] = useState(false)
@@ -55,27 +57,27 @@ export default function RenamePage() {
       <div className="flex items-center gap-3">
         <Pencil className="w-6 h-6 text-primary" />
         <div>
-          <h1 className="text-xl font-bold">Rename Files</h1>
-          <p className="text-sm text-muted-foreground">Standardize file names using metadata patterns.</p>
+          <h1 className="text-xl font-bold">{t("Rename Files", "Dateien umbenennen")}</h1>
+          <p className="text-sm text-muted-foreground">{t("Standardize file names using metadata patterns.", "Dateinamen mit Metadaten-Mustern standardisieren.")}</p>
         </div>
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Source & Pattern</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">{t("Source & Pattern", "Quelle & Muster")}</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <Input value={sourceDir} onChange={e => setSourceDir(e.target.value)} placeholder="Source directory" className="text-xs" disabled={loading} />
+          <Input value={sourceDir} onChange={e => setSourceDir(e.target.value)} placeholder={t("Source directory", "Quellverzeichnis")} className="text-xs" disabled={loading} />
           <div className="space-y-2">
-            <label className="text-xs font-medium">Rename Template</label>
+            <label className="text-xs font-medium">{t("Rename Template", "Umbenennungsvorlage")}</label>
             <div className="grid grid-cols-1 gap-1">
-              {RENAME_TEMPLATES.map(t => (
-                <label key={t.value} className={`flex items-center gap-2 p-2 rounded cursor-pointer text-xs ${template === t.value ? 'bg-primary/10 border border-primary/30' : 'hover:bg-muted/50'}`}>
-                  <input type="radio" name="template" checked={template === t.value} onChange={() => setTemplate(t.value)} />
-                  <span className="font-mono text-[11px]">{t.value}</span>
-                  <span className="text-muted-foreground ml-auto">{t.label}</span>
+              {RENAME_TEMPLATES.map(t2 => (
+                <label key={t2.value} className={`flex items-center gap-2 p-2 rounded cursor-pointer text-xs ${template === t2.value ? 'bg-primary/10 border border-primary/30' : 'hover:bg-muted/50'}`}>
+                  <input type="radio" name="template" checked={template === t2.value} onChange={() => setTemplate(t2.value)} />
+                  <span className="font-mono text-[11px]">{t2.value}</span>
+                  <span className="text-muted-foreground ml-auto">{t(t2.label, t2.label)}</span>
                 </label>
               ))}
             </div>
-            <Input value={template} onChange={e => setTemplate(e.target.value)} placeholder="Custom pattern..." className="text-xs font-mono mt-1" />
+            <Input value={template} onChange={e => setTemplate(e.target.value)} placeholder={t("Custom pattern...", "Eigenes Muster...")} className="text-xs font-mono mt-1" />
           </div>
         </CardContent>
       </Card>
@@ -83,19 +85,19 @@ export default function RenamePage() {
       <PreflightCheck sourceDirs={sourceDir ? [sourceDir] : []} command="rename" />
 
       <Button onClick={handlePreview} disabled={loading || !sourceDir} size="sm">
-        {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}Preview Rename
+        {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}{t("Preview Rename", "Vorschau Umbenennung")}
       </Button>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {preview && (
         <Card className="border-blue-500/30">
-          <CardHeader><CardTitle className="text-sm">Preview</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">{t("Preview", "Vorschau")}</CardTitle></CardHeader>
           <CardContent>
             <div className="flex gap-2 mb-3">
-              <Badge variant="outline">{preview.planned_count} files</Badge>
-              <Badge variant="secondary">{preview.skipped_count} skipped</Badge>
-              {preview.conflict_count > 0 && <Badge variant="destructive">{preview.conflict_count} conflicts</Badge>}
+              <Badge variant="outline">{preview.planned_count} {t("files", "Dateien")}</Badge>
+              <Badge variant="secondary">{preview.skipped_count} {t("skipped", "übersprungen")}</Badge>
+              {preview.conflict_count > 0 && <Badge variant="destructive">{preview.conflict_count} {t("conflicts", "Konflikte")}</Badge>}
             </div>
             <div className="max-h-60 overflow-y-auto space-y-1">
               {preview.entries.slice(0, 50).map((e, i) => (
@@ -109,7 +111,7 @@ export default function RenamePage() {
         </Card>
       )}
 
-      {!preview && !loading && <EmptyState title="No preview yet" description="Select a source directory and a rename template, then click Preview." />}
+      {!preview && !loading && <EmptyState title={t("No preview yet", "Noch keine Vorschau")} description={t("Select a source directory and a rename template, then click Preview.", "Wählen Sie ein Quellverzeichnis und eine Umbenennungsvorlage, dann klicken Sie Vorschau.")} />}
     </div>
   )
 }
