@@ -114,17 +114,37 @@ export interface PeopleScanConfig {
   catalog_path?: string
   tolerance?: number
   backend?: string
-  recursive?: boolean
+  incremental?: boolean
+  force_full?: boolean
 }
 
 export interface PeopleScanResult {
   kind: string
+  incremental: boolean
+  scanned_files: number
+  skipped_files: number
+  total_files: number
   total_faces: number
   matched_faces: number
   unknown_faces: number
   people_count: number
   image_count: number
+  cache_path: string
   entries: Array<{ source_path: string; face_count: number; matched_count: number }>
+}
+
+export interface PeopleScanStatus {
+  kind: string
+  has_cache: boolean
+  cache_path: string
+  cached_files: number
+  scan_summary: {
+    total_faces: number
+    matched_faces: number
+    unknown_faces: number
+    people_count: number
+    image_count: number
+  } | null
 }
 
 export interface CatalogInfo {
@@ -136,6 +156,14 @@ export interface CatalogInfo {
 
 export async function peopleScan(config: PeopleScanConfig): Promise<PeopleScanResult> {
   return invoke("people_scan", { config })
+}
+
+export async function peopleScanStatus(options: { source_dirs: string[] }): Promise<PeopleScanStatus> {
+  return invoke("people_scan_status", { options })
+}
+
+export async function peopleScanReset(options: { source_dirs: string[] }): Promise<{ kind: string; cleared: boolean }> {
+  return invoke("people_scan_reset", { options })
 }
 
 export async function peopleCatalogInfo(options: { catalog_path: string }): Promise<CatalogInfo> {

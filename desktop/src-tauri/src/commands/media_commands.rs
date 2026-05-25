@@ -167,6 +167,20 @@ pub async fn people_scan(app: tauri::AppHandle, config: Value) -> Result<Value, 
 }
 
 #[tauri::command]
+pub async fn people_scan_status(_app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_people", "status", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn people_scan_reset(_app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_people", "reset", &[], Some(&json))
+}
+
+#[tauri::command]
 pub async fn people_catalog_info(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
     emit_progress(&app, "operation:started", "Catalog Info", None);
     let json = serde_json::to_string(&options)

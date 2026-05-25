@@ -24,6 +24,8 @@ pub fn run() {
             media_commands::review_load_session,
             // People
             media_commands::people_scan,
+            media_commands::people_scan_status,
+            media_commands::people_scan_reset,
             media_commands::people_catalog_info,
             // History
             media_commands::history_list,
