@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -14,6 +14,7 @@ import { organizePreview, organizeApply } from "@/lib/tauri-bridge"
 import type { OrganizePreviewResponse, OrganizeExecutionResult } from "@/types"
 import { useOrganizeStore } from "@/stores/organize-store"
 import { useSettingsStore } from "@/stores/settings-store"
+import { EmptyState } from "@/components/shared/EmptyState"
 
 // ── Pattern presets ──
 
@@ -248,6 +249,16 @@ export default function OrganizePage() {
     }
   }, [options])
 
+  useEffect(() => {
+    if (!showApplyConfirm) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowApplyConfirm(false)
+      if (e.key === "Enter") confirmApply()
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [showApplyConfirm, confirmApply])
+
   const oc = preview?.outcome_report
 
   // Build live example from current pattern
@@ -295,59 +306,65 @@ export default function OrganizePage() {
                 <label className="text-sm font-medium">
                   {t("Source folder", "Quellordner")}
                 </label>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder={
-                      lang === "de"
-                        ? "z.B. C:\\Fotos\\Import"
-                        : "e.g. C:\\Photos\\import"
-                    }
-                    value={sourceDir}
-                    onChange={(e) =>
-                      setOptions({
-                        source_dirs: e.target.value ? [e.target.value] : [],
-                      })
-                    }
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => browseDirectory("source")}
-                  >
-                    {t("Browse...", "Durchsuchen...")}
-                  </Button>
-                </div>
-              </div>
+                    <div className="flex gap-2">
+                      <Input
+                        type="text"
+                        placeholder={
+                          lang === "de"
+                            ? "z.B. C:\\Fotos\\Import"
+                            : "e.g. C:\\Photos\\import"
+                        }
+                        value={sourceDir}
+                        onChange={(e) =>
+                          setOptions({
+                            source_dirs: e.target.value ? [e.target.value] : [],
+                          })
+                        }
+                        className="flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => browseDirectory("source")}
+                      >
+                        {t("Browse...", "Durchsuchen...")}
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {t("Drop a folder here or click Browse", "Ordner hier ablegen oder auf Durchsuchen klicken")}
+                    </p>
+                  </div>
 
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">
                   {t("Target folder", "Zielordner")}
                 </label>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder={
-                      lang === "de"
-                        ? "z.B. C:\\Fotos\\Organisiert"
-                        : "e.g. C:\\Photos\\organized"
-                    }
-                    value={options.target_root}
-                    onChange={(e) =>
-                      setOptions({ target_root: e.target.value })
-                    }
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => browseDirectory("target")}
-                  >
-                    {t("Browse...", "Durchsuchen...")}
-                  </Button>
-                </div>
-              </div>
+                    <div className="flex gap-2">
+                      <Input
+                        type="text"
+                        placeholder={
+                          lang === "de"
+                            ? "z.B. C:\\Fotos\\Organisiert"
+                            : "e.g. C:\\Photos\\organized"
+                        }
+                        value={options.target_root}
+                        onChange={(e) =>
+                          setOptions({ target_root: e.target.value })
+                        }
+                        className="flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => browseDirectory("target")}
+                      >
+                        {t("Browse...", "Durchsuchen...")}
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {t("Drop a folder here or click Browse", "Ordner hier ablegen oder auf Durchsuchen klicken")}
+                    </p>
+                  </div>
             </CardContent>
           </Card>
 
@@ -662,6 +679,13 @@ export default function OrganizePage() {
             )}
           </div>
 
+          {loading && (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <span className="ml-3 text-sm text-muted-foreground">Scanning files...</span>
+            </div>
+          )}
+
           {/* Results */}
           {preview && (
             <>
@@ -820,15 +844,11 @@ export default function OrganizePage() {
                 </Card>
               )}
 
-              {preview.entries.length === 0 && (
-                <Card>
-                  <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                    {t(
-                      "No files found to organize in the source directory.",
-                      "Keine Dateien zum Organisieren im Quellverzeichnis gefunden.",
-                    )}
-                  </CardContent>
-                </Card>
+              {!loading && preview && preview.planned_count === 0 && (
+                <EmptyState
+                  title="No files found to organize"
+                  description="No media files were found in the selected source directories. Try a different directory or adjust your include patterns."
+                />
               )}
             </>
           )}

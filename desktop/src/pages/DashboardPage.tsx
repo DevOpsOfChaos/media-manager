@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
@@ -19,6 +19,7 @@ import {
   type HistoryRunEntry,
 } from "@/lib/tauri-bridge"
 import type { GuiSettings } from "@/types"
+import { EmptyState } from "@/components/shared/EmptyState"
 
 interface DashboardData {
   diag: RuntimeDiagnostics | null
@@ -91,6 +92,32 @@ export default function DashboardPage() {
     data.history && data.history.runs.length > 0 ? data.history.runs[0] : null
   const hasAnyError = data.diagError || data.settingsError || data.historyError
 
+  const stats = useMemo(() => {
+    if (!data.diag || !data.history) return null
+    const runs = data.history.runs || []
+    const applyRuns = runs.filter(r => r.mode === "apply")
+    const previewRuns = runs.filter(r => r.mode === "preview")
+    const successful = runs.filter(r => r.status === "success" || r.exit_code === 0)
+    const byCommand: Record<string, number> = {}
+    for (const r of runs) {
+      const cmd = r.command || "unknown"
+      byCommand[cmd] = (byCommand[cmd] || 0) + 1
+    }
+    const totalActions = runs.reduce((sum, r) => sum + (r.action_count || 0), 0)
+    const totalRecommended = runs.reduce((sum, r) => sum + (r.recommended_action_count || 0), 0)
+    return {
+      totalRuns: runs.length,
+      applyRuns: applyRuns.length,
+      previewRuns: previewRuns.length,
+      successRate: runs.length > 0 ? Math.round((successful.length / runs.length) * 100) : 100,
+      byCommand,
+      totalActions,
+      totalRecommended,
+      lastApply: applyRuns.length > 0 ? applyRuns[0] : null,
+      lastPreview: previewRuns.length > 0 ? previewRuns[0] : null,
+    }
+  }, [data.diag, data.history])
+
   return (
     <>
       <PageHeader title="Dashboard">
@@ -111,6 +138,37 @@ export default function DashboardPage() {
               {data.diagError && <p>Diagnostics: {data.diagError}</p>}
               {data.settingsError && <p>Settings: {data.settingsError}</p>}
               {data.historyError && <p>History: {data.historyError}</p>}
+            </div>
+          )}
+
+          {stats && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              <Card className="p-4">
+                <p className="text-2xl font-bold">{stats.totalRuns}</p>
+                <p className="text-xs text-muted-foreground">Total runs</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-2xl font-bold text-green-400">{stats.applyRuns}</p>
+                <p className="text-xs text-muted-foreground">Applied runs</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-2xl font-bold">{stats.successRate}%</p>
+                <p className="text-xs text-muted-foreground">Success rate</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-2xl font-bold">{stats.totalActions}</p>
+                <p className="text-xs text-muted-foreground">Total actions</p>
+              </Card>
+            </div>
+          )}
+
+          {stats && Object.keys(stats.byCommand).length > 1 && (
+            <div className="flex flex-wrap gap-2 mb-6">
+              {Object.entries(stats.byCommand).map(([cmd, count]) => (
+                <Badge key={cmd} variant="secondary" className="text-xs">
+                  {cmd}: {count}
+                </Badge>
+              ))}
             </div>
           )}
 
@@ -235,19 +293,40 @@ export default function DashboardPage() {
                             </span>
                           )}
                         </div>
+                        {latestRun && (
+                          <div className="space-y-1 mt-2">
+                            <div className="flex items-center gap-2">
+                              <Badge variant={latestRun.mode === "apply" ? "default" : "secondary"} className="text-xs">
+                                {latestRun.mode}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">{latestRun.command}</Badge>
+                              <span className="text-xs text-muted-foreground">{latestRun.run_id?.slice(0, 8)}</span>
+                            </div>
+                            {latestRun.review_candidate_count > 0 && (
+                              <p className="text-xs text-yellow-400">
+                                {latestRun.review_candidate_count} items need review
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </button>
                     ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No runs yet. Use the CLI to organize or scan files,
-                        then see results here.
-                      </p>
+                      <EmptyState
+                        title="No activity yet"
+                        description="Run your first organize, duplicates scan, or cleanup workflow to see results here."
+                      />
                     )}
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground">
                     {data.historyError
                       ? "Could not load history."
-                      : "Loading..."}
+                      : (
+                        <span className="inline-flex items-center gap-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                          Loading...
+                        </span>
+                      )}
                   </p>
                 )}
               </CardContent>

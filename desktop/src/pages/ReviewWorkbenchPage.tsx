@@ -155,8 +155,18 @@ export default function ReviewWorkbenchPage() {
             </Card>
           </div>
 
-          {/* Groups or empty state */}
-          {filteredGroups.length > 0 ? (
+          {/* Groups, loading, or empty state */}
+          {groups.length === 0 && !sessionPath ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <span className="ml-3 text-sm text-muted-foreground">Waiting for scan data...</span>
+            </div>
+          ) : groups.length === 0 ? (
+            <EmptyState
+              title="No candidates loaded"
+              description="Run a duplicate scan first, then return here. Decisions are persisted to disk and restored when you come back."
+            />
+          ) : (
             <Card>
               <CardHeader>
                 <CardTitle>Candidates ({filteredGroups.length} groups)</CardTitle>
@@ -261,11 +271,6 @@ export default function ReviewWorkbenchPage() {
                 )}
               </CardContent>
             </Card>
-          ) : (
-            <EmptyState
-              title="No candidates loaded"
-              description="Run a duplicate scan first, then return here. Decisions are persisted to disk and restored when you come back."
-            />
           )}
 
           {/* Unsupported features */}

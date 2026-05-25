@@ -16,6 +16,7 @@ import {
   type HistoryListPayload,
   type HistoryRunEntry,
 } from "@/lib/tauri-bridge"
+import { EmptyState } from "@/components/shared/EmptyState"
 
 export default function HistoryPage() {
   const [data, setData] = useState<HistoryListPayload | null>(null)
@@ -23,6 +24,8 @@ export default function HistoryPage() {
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState("")
   const navigate = useNavigate()
+  const [filterCommand, setFilterCommand] = useState<string>("all")
+  const [filterMode, setFilterMode] = useState<string>("all")
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -41,18 +44,31 @@ export default function HistoryPage() {
     load()
   }, [load])
 
+  const availableCommands = useMemo(() => {
+    if (!data?.runs) return []
+    const cmds = new Set(data.runs.map(r => r.command).filter(Boolean))
+    return Array.from(cmds).sort()
+  }, [data])
+
   const filteredRuns = useMemo(() => {
     if (!data) return []
-    if (!filter.trim()) return data.runs
-    const q = filter.toLowerCase()
-    return data.runs.filter(
-      (r) =>
-        r.run_id.toLowerCase().includes(q) ||
-        (r.command ?? "").toLowerCase().includes(q) ||
-        (r.mode ?? "").toLowerCase().includes(q) ||
-        (r.status ?? "").toLowerCase().includes(q),
-    )
-  }, [data, filter])
+    let runs = data.runs
+    const q = filter.trim().toLowerCase()
+    if (q) {
+      runs = runs.filter(
+        (r) =>
+          r.run_id.toLowerCase().includes(q) ||
+          (r.command ?? "").toLowerCase().includes(q) ||
+          (r.mode ?? "").toLowerCase().includes(q) ||
+          (r.status ?? "").toLowerCase().includes(q),
+      )
+    }
+    return runs.filter(r => {
+      if (filterCommand !== "all" && r.command !== filterCommand) return false
+      if (filterMode !== "all" && r.mode !== filterMode) return false
+      return true
+    })
+  }, [data, filter, filterCommand, filterMode])
 
   return (
     <>
@@ -63,7 +79,12 @@ export default function HistoryPage() {
           onClick={load}
           disabled={loading}
         >
-          {loading ? "Loading..." : "Refresh"}
+          {loading ? (
+            <span className="inline-flex items-center gap-1">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+              Loading...
+            </span>
+          ) : "Refresh"}
         </Button>
       </PageHeader>
       <main className="flex flex-1 gap-4 p-4">
@@ -82,14 +103,18 @@ export default function HistoryPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {loading && !data && (
-                <p className="text-sm text-muted-foreground">Loading runs...</p>
-              )}
+              {loading && !data ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <span className="ml-3 text-sm text-muted-foreground">Loading history...</span>
+                </div>
+              ) : null}
 
               {data && data.runs.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  No runs found. Run a command from the CLI to see history here.
-                </p>
+                <EmptyState
+                  title="No runs found"
+                  description="Run an organize, rename, or duplicates command first. Apply-mode runs will appear here with undo support."
+                />
               )}
 
               {data && data.runs.length > 0 && (
@@ -112,10 +137,36 @@ export default function HistoryPage() {
                     className="h-8 text-sm"
                   />
 
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <select
+            value={filterCommand}
+            onChange={(e) => setFilterCommand(e.target.value)}
+            className="text-xs rounded-md border border-border bg-background px-2 py-1.5 text-foreground"
+          >
+            <option value="all">All commands</option>
+            {availableCommands.map(cmd => (
+              <option key={cmd} value={cmd || ""}>{cmd}</option>
+            ))}
+          </select>
+          <select
+            value={filterMode}
+            onChange={(e) => setFilterMode(e.target.value)}
+            className="text-xs rounded-md border border-border bg-background px-2 py-1.5 text-foreground"
+          >
+            <option value="all">All modes</option>
+            <option value="apply">Apply</option>
+            <option value="preview">Preview</option>
+          </select>
+          <span className="text-xs text-muted-foreground ml-auto">
+            {filteredRuns.length} of {data?.runs?.length || 0} runs
+          </span>
+        </div>
+
                   {filteredRuns.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No runs match the filter.
-                    </p>
+                    <EmptyState
+                      title="No matching runs"
+                      description="No runs match the current filters. Try a different command or mode."
+                    />
                   ) : (
                     <div className="space-y-2">
                       {filteredRuns.map((run) => (

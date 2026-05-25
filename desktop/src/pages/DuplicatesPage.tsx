@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { CheckSquare, Square, Trash2, Info } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
@@ -144,6 +144,16 @@ export default function DuplicatesPage() {
     }
   }, [tab, exactPreview, sourceDir, selectedGroups, handleScan])
 
+  useEffect(() => {
+    if (!showDeleteConfirm) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowDeleteConfirm(false)
+      if (e.key === "Enter") confirmDelete()
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [showDeleteConfirm, confirmDelete])
+
   const exactFiltered = useMemo(() => {
     if (!exactPreview) return []
     if (!filterPath.trim()) return exactPreview.exact_groups
@@ -199,6 +209,9 @@ export default function DuplicatesPage() {
                     Browse...
                   </Button>
                 </div>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Drop a folder here or click Browse
+                </p>
               </div>
 
               <div className="flex items-center gap-2">

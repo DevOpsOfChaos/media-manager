@@ -73,6 +73,16 @@ export default function RunDetailPage() {
     }
   }, [runId])
 
+  useEffect(() => {
+    if (!undoPreviewResult || undoResult) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setUndoPreviewResult(null)
+      if (e.key === "Enter") handleUndoApply()
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [undoPreviewResult, undoResult, handleUndoApply])
+
   return (
     <>
       <PageHeader title={`Run: ${runId ?? "unknown"}`} />
@@ -93,7 +103,12 @@ export default function RunDetailPage() {
               Back to history
             </Button>
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-              {loading ? "Loading..." : "Refresh"}
+              {loading ? (
+                <span className="inline-flex items-center gap-1">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                  Loading...
+                </span>
+              ) : "Refresh"}
             </Button>
           </div>
 
@@ -106,7 +121,10 @@ export default function RunDetailPage() {
           {loading && !detail && (
             <Card>
               <CardContent className="py-8">
-                <p className="text-sm text-muted-foreground">Loading run details...</p>
+                <div className="flex items-center justify-center gap-3">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  <span className="text-sm text-muted-foreground">Loading run details...</span>
+                </div>
               </CardContent>
             </Card>
           )}

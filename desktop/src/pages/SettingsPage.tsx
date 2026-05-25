@@ -209,7 +209,12 @@ export default function SettingsPage() {
                     }}
                     disabled={diagLoading}
                   >
-                    {diagLoading ? "Checking..." : "Refresh"}
+                    {diagLoading ? (
+                      <span className="inline-flex items-center gap-1">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                        Checking...
+                      </span>
+                    ) : "Refresh"}
                   </Button>
                   <Button
                     variant="ghost"
