@@ -164,6 +164,13 @@ export default function OrganizePage() {
   const [showCustomPattern, setShowCustomPattern] = useState(false)
   const [showApplyConfirm, setShowApplyConfirm] = useState(false)
 
+  const [savedPatterns, setSavedPatterns] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("organize_patterns") || "[]") }
+    catch { return [] }
+  })
+  const [patternName, setPatternName] = useState("")
+  const [showSavePattern, setShowSavePattern] = useState(false)
+
   const t = <T extends string>(en: T, de: T): T => (lang === "de" ? de : en)
 
   // Keep source_dirs as a single string in the store but display as text input
@@ -531,6 +538,82 @@ export default function OrganizePage() {
                       className="h-8 font-mono text-xs"
                     />
                   </div>
+
+                  {/* Saved patterns dropdown + save button */}
+                  <div className="flex gap-1 mt-1">
+                    {savedPatterns.length > 0 && (
+                      <select
+                        className="text-xs rounded border border-border bg-background px-2 py-1 flex-1"
+                        value=""
+                        onChange={(e) => { if (e.target.value) setOptions({ pattern: e.target.value }) }}
+                      >
+                        <option value="">Saved patterns...</option>
+                        {savedPatterns.map((p, i) => (
+                          <option key={i} value={p}>{p}</option>
+                        ))}
+                      </select>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs h-7"
+                      onClick={() => setShowSavePattern(true)}
+                    >
+                      Save
+                    </Button>
+                  </div>
+
+                  {/* Save dialog */}
+                  {showSavePattern && (
+                    <div className="flex gap-1 mt-1">
+                      <Input
+                        value={patternName}
+                        onChange={e => setPatternName(e.target.value)}
+                        placeholder="Pattern name"
+                        className="text-xs h-7 flex-1"
+                        autoFocus
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            const newPatterns = [...savedPatterns, options.pattern].filter((v, i, a) => a.indexOf(v) === i)
+                            setSavedPatterns(newPatterns)
+                            localStorage.setItem("organize_patterns", JSON.stringify(newPatterns))
+                            setShowSavePattern(false)
+                            setPatternName("")
+                          }
+                          if (e.key === "Escape") { setShowSavePattern(false); setPatternName("") }
+                        }}
+                      />
+                      <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => { setShowSavePattern(false); setPatternName("") }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Manage saved patterns */}
+                  {savedPatterns.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {savedPatterns.map((p, i) => (
+                        <span key={i} className="inline-flex items-center gap-0.5 rounded border bg-muted/30 px-1.5 py-0.5 text-[10px] font-mono">
+                          <button
+                            className="underline hover:text-foreground"
+                            onClick={() => setOptions({ pattern: p })}
+                          >
+                            {p}
+                          </button>
+                          <button
+                            className="ml-0.5 text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              const newPatterns = savedPatterns.filter((_, j) => j !== i)
+                              setSavedPatterns(newPatterns)
+                              localStorage.setItem("organize_patterns", JSON.stringify(newPatterns))
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

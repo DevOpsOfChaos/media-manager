@@ -38,11 +38,23 @@ interface OrganizeActions {
   reset: () => void
 }
 
+const KEY = "organize_state"
+
+const saved = typeof localStorage !== "undefined" ? localStorage.getItem(KEY) : null
+const parsed = saved ? (() => { try { return JSON.parse(saved) } catch { return null } })() : null
+const restored = parsed
+  ? {
+      options: { ...defaultOrganizeOptions, ...(parsed.options || {}) },
+      dryRun: parsed.dryRun || null,
+      result: parsed.result || null,
+    }
+  : { options: { ...defaultOrganizeOptions }, dryRun: null, result: null }
+
 export const useOrganizeStore = create<OrganizeState & OrganizeActions>((set) => ({
   step: "sources",
-  options: { ...defaultOrganizeOptions },
-  dryRun: null,
-  result: null,
+  options: restored.options,
+  dryRun: restored.dryRun,
+  result: restored.result,
   loading: false,
   error: null,
 
@@ -63,3 +75,16 @@ export const useOrganizeStore = create<OrganizeState & OrganizeActions>((set) =>
       error: null,
     }),
 }))
+
+useOrganizeStore.subscribe((state) => {
+  try {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        options: state.options,
+        dryRun: state.dryRun,
+        result: state.result,
+      }),
+    )
+  } catch {}
+})
