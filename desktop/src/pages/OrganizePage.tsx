@@ -16,6 +16,7 @@ import type { OrganizePreviewResponse, OrganizeExecutionResult } from "@/types"
 import { useOrganizeStore } from "@/stores/organize-store"
 import { useSettingsStore } from "@/stores/settings-store"
 import { EmptyState } from "@/components/shared/EmptyState"
+import { FullPageProgress } from "@/components/shared/FullPageProgress"
 import { AlertTriangle } from "lucide-react"
 
 // ── Pattern presets ──
@@ -164,6 +165,8 @@ export default function OrganizePage() {
   const [selectedPreset, setSelectedPreset] = useState<string>("year-month")
   const [showCustomPattern, setShowCustomPattern] = useState(false)
   const [showApplyConfirm, setShowApplyConfirm] = useState(false)
+  const [applyProgress, setApplyProgress] = useState({ current: 0, total: 0, startedAt: 0 })
+  const [progressInterval, setProgressInterval] = useState<ReturnType<typeof setInterval> | null>(null)
 
   const [savedPatterns, setSavedPatterns] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("organize_patterns") || "[]") }
@@ -244,23 +247,34 @@ export default function OrganizePage() {
     setShowApplyConfirm(false)
     setApplyLoading(true)
     setApplyResult(null)
+    const total = preview?.planned_count || 0
+    const start = Date.now()
+    setApplyProgress({ current: 0, total, startedAt: start })
+
+    // Simulated progress updates while waiting for the subprocess
+    const interval = setInterval(() => {
+      setApplyProgress(prev => {
+        const elapsed = (Date.now() - prev.startedAt) / 1000
+        // Estimate: ~50ms per file, but cap at 95% until real completion
+        const estimated = Math.min(Math.floor(elapsed * 20), Math.floor(prev.total * 0.95))
+        return { ...prev, current: Math.max(prev.current, estimated) }
+      })
+    }, 200)
+    setProgressInterval(interval)
+
     try {
-      console.log("Applying organize with options:", JSON.stringify({ 
-        source_dirs: options.source_dirs, 
-        target_root: options.target_root,
-        pattern: options.pattern,
-        operation_mode: options.operation_mode 
-      }))
       const result = await organizeApply(options)
-      console.log("Apply result:", result)
+      clearInterval(interval)
+      setApplyProgress(prev => ({ ...prev, current: prev.total }))
       setApplyResult(result)
     } catch (e: unknown) {
-      console.error("Apply failed:", e)
+      clearInterval(interval)
       setError(String(e))
     } finally {
       setApplyLoading(false)
+      setProgressInterval(null)
     }
-  }, [options])
+  }, [options, preview])
 
   const handleApply = useCallback(async () => {
     if (!preview?.outcome_report?.safe_to_apply) return
@@ -284,6 +298,12 @@ export default function OrganizePage() {
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
   }, [showApplyConfirm, confirmApply])
+
+  useEffect(() => {
+    return () => {
+      if (progressInterval) clearInterval(progressInterval)
+    }
+  }, [progressInterval])
 
   const oc = preview?.outcome_report
 
@@ -948,6 +968,14 @@ export default function OrganizePage() {
                 </div>
               )}
             </>
+          )}
+          {applyLoading && (
+            <FullPageProgress
+              label={`${options.operation_mode === "move" ? "Moving" : "Copying"} files...`}
+              current={applyProgress.current}
+              total={applyProgress.total}
+              startedAt={applyProgress.startedAt}
+            />
           )}
           {applyResult && (
             <Card className="border-green-500/50 mt-4">
