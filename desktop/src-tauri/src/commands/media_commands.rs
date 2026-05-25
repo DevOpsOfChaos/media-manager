@@ -40,9 +40,15 @@ pub async fn organize_preview(options: Value) -> Result<Value, String> {
 }
 
 #[tauri::command]
-pub async fn organize_apply(plan: Value) -> Result<Value, String> {
-    let _ = plan;
-    Err("media_commands: organize_apply not yet implemented".into())
+pub async fn organize_apply(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize organize options: {e}"))?;
+    bridge()?.run_module(
+        "bridge_organize_apply",
+        "",
+        &[],
+        Some(&json),
+    )
 }
 
 // ── Duplicates ──
@@ -95,14 +101,18 @@ pub async fn history_get(run_id: String) -> Result<Value, String> {
 
 #[tauri::command]
 pub async fn undo_preview(journal_path: String) -> Result<Value, String> {
-    let _ = journal_path;
-    Err("media_commands: undo_preview not yet implemented".into())
+    let json = serde_json::json!({"journal_path": journal_path});
+    let json_str = serde_json::to_string(&json)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_undo", "preview", &[], Some(&json_str))
 }
 
 #[tauri::command]
 pub async fn undo_apply(journal_path: String) -> Result<Value, String> {
-    let _ = journal_path;
-    Err("media_commands: undo_apply not yet implemented".into())
+    let json = serde_json::json!({"journal_path": journal_path});
+    let json_str = serde_json::to_string(&json)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_undo", "apply", &[], Some(&json_str))
 }
 
 // ── Diagnostics ──
