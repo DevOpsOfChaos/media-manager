@@ -10,7 +10,7 @@ export const defaultOrganizeOptions: OrganizePlannerOptions = {
   recursive: true,
   include_hidden: false,
   follow_symlinks: false,
-  operation_mode: "copy",
+  operation_mode: "move",
   exiftool_path: null,
   include_associated_files: false,
   conflict_policy: "conflict",

@@ -168,9 +168,6 @@ export default function OrganizePage() {
     try { return JSON.parse(localStorage.getItem("organize_patterns") || "[]") }
     catch { return [] }
   })
-  const [patternName, setPatternName] = useState("")
-  const [showSavePattern, setShowSavePattern] = useState(false)
-
   const t = <T extends string>(en: T, de: T): T => (lang === "de" ? de : en)
 
   // Keep source_dirs as a single string in the store but display as text input
@@ -189,6 +186,14 @@ export default function OrganizePage() {
     if (preset) {
       setOptions({ pattern: preset.pattern })
     }
+  }
+
+  const handleSavePattern = () => {
+    const p = options.pattern
+    if (!p || savedPatterns.includes(p)) return
+    const newPatterns = [...savedPatterns, p]
+    setSavedPatterns(newPatterns)
+    localStorage.setItem("organize_patterns", JSON.stringify(newPatterns))
   }
 
   // Native directory picker (Tauri-only, graceful fallback)
@@ -553,41 +558,10 @@ export default function OrganizePage() {
                         ))}
                       </select>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs h-7"
-                      onClick={() => setShowSavePattern(true)}
-                    >
-                      Save
+                    <Button variant="ghost" size="sm" className="text-xs h-6" onClick={handleSavePattern} disabled={savedPatterns.includes(options.pattern)}>
+                      {savedPatterns.includes(options.pattern) ? "Saved" : "Save pattern"}
                     </Button>
                   </div>
-
-                  {/* Save dialog */}
-                  {showSavePattern && (
-                    <div className="flex gap-1 mt-1">
-                      <Input
-                        value={patternName}
-                        onChange={e => setPatternName(e.target.value)}
-                        placeholder="Pattern name"
-                        className="text-xs h-7 flex-1"
-                        autoFocus
-                        onKeyDown={e => {
-                          if (e.key === "Enter") {
-                            const newPatterns = [...savedPatterns, options.pattern].filter((v, i, a) => a.indexOf(v) === i)
-                            setSavedPatterns(newPatterns)
-                            localStorage.setItem("organize_patterns", JSON.stringify(newPatterns))
-                            setShowSavePattern(false)
-                            setPatternName("")
-                          }
-                          if (e.key === "Escape") { setShowSavePattern(false); setPatternName("") }
-                        }}
-                      />
-                      <Button size="sm" variant="ghost" className="text-xs h-7" onClick={() => { setShowSavePattern(false); setPatternName("") }}>
-                        Cancel
-                      </Button>
-                    </div>
-                  )}
 
                   {/* Manage saved patterns */}
                   {savedPatterns.length > 0 && (
@@ -668,20 +642,12 @@ export default function OrganizePage() {
                             "Dateien kopieren (sichere Vorschau)",
                           )
                         : t(
-                            "Move files (not yet available)",
-                            "Dateien verschieben (noch nicht verfügbar)",
+                            "Move files",
+                            "Dateien verschieben",
                           )}
                     </label>
                   ))}
                 </div>
-                {options.operation_mode === "move" && (
-                  <p className="text-xs text-muted-foreground ml-6">
-                    {t(
-                      "Move is currently preview-only. No files will be moved.",
-                      "Verschieben ist derzeit nur eine Vorschau. Es werden keine Dateien verschoben.",
-                    )}
-                  </p>
-                )}
               </div>
 
               <div className="space-y-1.5">
@@ -726,7 +692,7 @@ export default function OrganizePage() {
                   )
                 : t("Preview plan", "Vorschau erstellen")}
             </Button>
-            {preview?.outcome_report?.safe_to_apply && (
+            {preview && preview.planned_count > 0 && (
               <Button
                 onClick={handleApply}
                 disabled={applyLoading}
@@ -942,6 +908,11 @@ export default function OrganizePage() {
                   title="No files found to organize"
                   description="No media files were found in the selected source directories. Try a different directory or adjust your include patterns."
                 />
+              )}
+              {preview && preview.planned_count > 0 && !applyResult && (
+                <div className="flex items-center gap-2 p-3 rounded bg-primary/5 border border-primary/20">
+                  <p className="text-sm">Preview shows {preview.planned_count} files ready. Click Apply to execute.</p>
+                </div>
               )}
             </>
           )}
