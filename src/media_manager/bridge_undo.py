@@ -12,10 +12,26 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
+import os
 import sys
 from pathlib import Path
 
 from media_manager.core.state.undo import execute_undo_journal
+
+logger = logging.getLogger(__name__)
+
+
+def _get_app_dir() -> Path:
+    return Path(os.environ.get("MEDIA_MANAGER_HOME", Path.home() / ".media-manager")).resolve()
+
+
+def _validate_app_path(path: Path) -> Path:
+    app_dir = _get_app_dir()
+    resolved = path.resolve()
+    if not str(resolved).startswith(str(app_dir)):
+        raise ValueError(f"Path {resolved} is outside app directory {app_dir}")
+    return resolved
 
 
 def _emit(payload: dict) -> None:
@@ -37,10 +53,16 @@ def cmd_preview() -> int:
     journal_path = payload.get("journal_path", "")
     if not journal_path:
         return _fail("journal_path is required.")
+    try:
+        journal_path = _validate_app_path(Path(journal_path))
+    except ValueError as exc:
+        return _fail(str(exc))
 
     try:
-        result = execute_undo_journal(Path(journal_path), apply=False)
+        logger.info("Starting undo preview: %s", journal_path)
+        result = execute_undo_journal(journal_path, apply=False)
     except Exception as exc:
+        logger.error("Undo preview failed: %s", exc)
         return _fail(f"Undo preview failed: {exc}")
 
     output: dict = {
@@ -84,10 +106,16 @@ def cmd_apply() -> int:
     journal_path = payload.get("journal_path", "")
     if not journal_path:
         return _fail("journal_path is required.")
+    try:
+        journal_path = _validate_app_path(Path(journal_path))
+    except ValueError as exc:
+        return _fail(str(exc))
 
     try:
-        result = execute_undo_journal(Path(journal_path), apply=True)
+        logger.info("Starting undo apply: %s", journal_path)
+        result = execute_undo_journal(journal_path, apply=True)
     except Exception as exc:
+        logger.error("Undo apply failed: %s", exc)
         return _fail(f"Undo apply failed: {exc}")
 
     output: dict = {

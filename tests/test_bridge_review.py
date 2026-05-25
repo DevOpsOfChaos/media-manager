@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from io import StringIO
 from pathlib import Path
@@ -20,7 +21,9 @@ def test_save_session_writes_decisions(tmp_path: Path) -> None:
     }
     fake_stdin = StringIO(json.dumps(payload))
     fake_stdout = StringIO()
-    with mock.patch.object(sys, "stdin", fake_stdin), mock.patch.object(sys, "stdout", fake_stdout):
+    with mock.patch.dict(os.environ, {"MEDIA_MANAGER_HOME": str(tmp_path)}), \
+         mock.patch.object(sys, "stdin", fake_stdin), \
+         mock.patch.object(sys, "stdout", fake_stdout):
         exit_code = cmd_save_session()
 
     assert exit_code == 0
@@ -44,7 +47,9 @@ def test_load_session_reads_decisions(tmp_path: Path) -> None:
     payload = {"session_path": str(session_path)}
     fake_stdin = StringIO(json.dumps(payload))
     fake_stdout = StringIO()
-    with mock.patch.object(sys, "stdin", fake_stdin), mock.patch.object(sys, "stdout", fake_stdout):
+    with mock.patch.dict(os.environ, {"MEDIA_MANAGER_HOME": str(tmp_path)}), \
+         mock.patch.object(sys, "stdin", fake_stdin), \
+         mock.patch.object(sys, "stdout", fake_stdout):
         exit_code = cmd_load_session()
 
     assert exit_code == 0
@@ -61,14 +66,18 @@ def test_save_then_load_roundtrip(tmp_path: Path) -> None:
     payload = {"session_path": str(session_path), "decisions": decisions}
     fake_stdin = StringIO(json.dumps(payload))
     fake_stdout = StringIO()
-    with mock.patch.object(sys, "stdin", fake_stdin), mock.patch.object(sys, "stdout", fake_stdout):
+    with mock.patch.dict(os.environ, {"MEDIA_MANAGER_HOME": str(tmp_path)}), \
+         mock.patch.object(sys, "stdin", fake_stdin), \
+         mock.patch.object(sys, "stdout", fake_stdout):
         assert cmd_save_session() == 0
 
     # Load
     payload2 = {"session_path": str(session_path)}
     fake_stdin2 = StringIO(json.dumps(payload2))
     fake_stdout2 = StringIO()
-    with mock.patch.object(sys, "stdin", fake_stdin2), mock.patch.object(sys, "stdout", fake_stdout2):
+    with mock.patch.dict(os.environ, {"MEDIA_MANAGER_HOME": str(tmp_path)}), \
+         mock.patch.object(sys, "stdin", fake_stdin2), \
+         mock.patch.object(sys, "stdout", fake_stdout2):
         assert cmd_load_session() == 0
 
     output = json.loads(fake_stdout2.getvalue())

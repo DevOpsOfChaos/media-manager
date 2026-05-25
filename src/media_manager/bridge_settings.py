@@ -32,16 +32,28 @@ from media_manager.core.gui_settings_model import (
 DEFAULT_SETTINGS_PATH = Path.home() / ".media-manager" / "gui-settings.json"
 
 
+def _get_app_dir() -> Path:
+    return Path(os.environ.get("MEDIA_MANAGER_HOME", Path.home() / ".media-manager")).resolve()
+
+
+def _validate_app_path(path: Path) -> Path:
+    app_dir = _get_app_dir()
+    resolved = path.resolve()
+    if not str(resolved).startswith(str(app_dir)):
+        raise ValueError(f"Path {resolved} is outside app directory {app_dir}")
+    return resolved
+
+
 def _resolve_settings_path(cli_path: str | None = None) -> Path:
     """Resolve the settings file path.
 
     Precedence: CLI argument > MEDIA_MANAGER_SETTINGS_PATH env > default.
     """
     if cli_path:
-        return Path(cli_path)
+        return _validate_app_path(Path(cli_path))
     env_path = os.environ.get("MEDIA_MANAGER_SETTINGS_PATH")
     if env_path:
-        return Path(env_path)
+        return _validate_app_path(Path(env_path))
     return DEFAULT_SETTINGS_PATH
 
 

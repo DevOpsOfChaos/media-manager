@@ -237,7 +237,11 @@ def build_media_groups(files: Iterable[ScannedFile]) -> list[MediaGroup]:
     for _, bucket_files in sorted(buckets.items(), key=lambda item: item[0]):
         groups.extend(_build_groups_for_bucket(bucket_files))
 
-    groups.sort(key=lambda item: (os.path.normcase(str(item.source_root)), os.path.normcase(str(item.main_path))))
+    groups.sort(key=lambda item: (
+        os.path.normcase(str(item.source_root)),
+        os.path.normcase(str(item.main_path)),
+        item.main_path.stem.casefold(),
+    ))
     return groups
 
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -20,6 +21,8 @@ from media_manager.core.workflows import (
     execute_trip_plan,
     parse_trip_date,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _emit(payload: dict) -> None:
@@ -33,10 +36,13 @@ def _fail(message: str, exit_code: int = 1) -> int:
 
 def _parse_options(payload: dict) -> TripWorkflowOptions:
     use_hardlinks = payload.get("use_hardlinks", True)
+    target_root_str = payload.get("target_root", "")
+    if not target_root_str:
+        raise ValueError("target_root is required")
 
     return TripWorkflowOptions(
         source_dirs=tuple(Path(p) for p in payload.get("source_dirs", [])),
-        target_root=Path(payload["target_root"]),
+        target_root=Path(target_root_str),
         label=payload.get("label", "trip"),
         start_date=parse_trip_date(payload.get("start_date", "")),
         end_date=parse_trip_date(payload.get("end_date", "")),
@@ -57,12 +63,15 @@ def cmd_preview() -> int:
 
     try:
         options = _parse_options(payload)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, KeyError) as exc:
+        logger.error("Trip preview: invalid options: %s", exc)
         return _fail(f"Invalid options: {exc}")
 
     try:
+        logger.info("Starting trip plan preview: %s", options.label)
         plan = build_trip_dry_run(options)
     except Exception as exc:
+        logger.error("Trip preview: plan failed: %s", exc)
         return _fail(f"Trip plan failed: {exc}")
 
     _emit({
@@ -91,13 +100,16 @@ def cmd_apply() -> int:
 
     try:
         options = _parse_options(payload)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, KeyError) as exc:
+        logger.error("Trip apply: invalid options: %s", exc)
         return _fail(f"Invalid options: {exc}")
 
     try:
         plan = build_trip_dry_run(options)
+        logger.info("Starting trip apply execution: %s", options.label)
         result = execute_trip_plan(plan, apply=True)
     except Exception as exc:
+        logger.error("Trip apply: execution failed: %s", exc)
         return _fail(f"Trip execution failed: {exc}")
 
     _emit({

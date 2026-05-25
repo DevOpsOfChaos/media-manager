@@ -139,7 +139,7 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None,
             start_index = int(checkpoint_data.get("last_processed_index", 0))
             if start_index >= total:
                 start_index = total
-        except (OSError, IOError) as exc:
+        except (OSError, IOError, ValueError) as exc:
             start_index = 0
 
     # ── Phase: create directories ──
@@ -285,7 +285,8 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None,
                     encoding="utf-8",
                 )
             except OSError as exc:
-                pass
+                import sys
+                print(f"[media-manager] Warning: Failed to write checkpoint: {exc}", file=sys.stderr)
 
     # ── Final checkpoint + cleanup ──
     if checkpoint_path and checkpoint_path.exists():

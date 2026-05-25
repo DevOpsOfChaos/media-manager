@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -20,6 +21,8 @@ from media_manager.duplicate_workflow import (
     execute_duplicate_workflow_bundle,
 )
 from media_manager.duplicates import DuplicateScanConfig, scan_exact_duplicates
+
+logger = logging.getLogger(__name__)
 
 
 def _emit(payload: dict) -> None:
@@ -61,8 +64,10 @@ def cmd_apply() -> int:
 
     # Scan for duplicates
     try:
+        logger.info("Starting duplicate scan: %d source dirs", len(config.source_dirs))
         scan_result = scan_exact_duplicates(config)
     except Exception as exc:
+        logger.error("Duplicate scan failed: %s", exc)
         return _fail(f"Duplicate scan failed: {exc}")
 
     # Build workflow bundle with decisions
@@ -74,12 +79,15 @@ def cmd_apply() -> int:
             target_root=Path(target_root) if target_root else None,
         )
     except Exception as exc:
+        logger.error("Duplicate workflow build failed: %s", exc)
         return _fail(f"Workflow build failed: {exc}")
 
     # Execute
     try:
+        logger.info("Starting duplicate workflow execution")
         result = execute_duplicate_workflow_bundle(bundle, apply=True)
     except Exception as exc:
+        logger.error("Duplicate execution failed: %s", exc)
         return _fail(f"Execution failed: {exc}")
 
     # Build journal entries

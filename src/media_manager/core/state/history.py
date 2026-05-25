@@ -104,7 +104,7 @@ def _sorted_history_entries(entries: list[WorkflowHistoryEntry]) -> list[Workflo
 def _load_json_file(path: Path) -> dict[str, object] | None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except (OSError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
 

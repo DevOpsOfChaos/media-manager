@@ -194,6 +194,7 @@ export default function SettingsPage() {
                 <button
                   onClick={() => setDiagOpen(!diagOpen)}
                   className="text-left"
+                  aria-expanded={diagOpen}
                 >
                   <CardTitle>{t("Runtime Diagnostics", "Laufzeitdiagnose")}</CardTitle>
                   <CardDescription>
@@ -271,7 +272,7 @@ export default function SettingsPage() {
                     />
                     <InfoRow label={t("Project root", "Projektstamm")} value={diag.project_root} />
                     <InfoRow
-                      label="PYTHONPATH"
+                      label={t("PYTHONPATH", "PYTHONPATH")}
                       value={diag.pythonpath_prepended || "—"}
                     />
                     {diag.settings_path_override && (
@@ -361,6 +362,7 @@ function EnvHint({
   label: string
   value: string | null | undefined
 }) {
+  const t = useT()
   return (
     <div className="flex items-center gap-1.5">
       <span
@@ -369,7 +371,7 @@ function EnvHint({
         }`}
       />
       <span className="truncate">
-        {label}={value ? "set" : "—"}
+        {label}={value ? t("set", "gesetzt") : t("—", "—")}
       </span>
     </div>
   )

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -21,6 +22,8 @@ from media_manager.duplicates import (
     DuplicateScanConfig,
     scan_exact_duplicates,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _emit(payload: dict) -> None:
@@ -66,8 +69,10 @@ def cmd_preview() -> int:
     )
 
     try:
+        logger.info("Starting duplicate scan preview: %d source dirs", len(config.source_dirs))
         result = scan_exact_duplicates(config)
     except Exception as exc:
+        logger.error("Duplicate scan preview failed: %s", exc)
         return _fail(f"Duplicate scan failed: {exc}")
 
     output: dict = {

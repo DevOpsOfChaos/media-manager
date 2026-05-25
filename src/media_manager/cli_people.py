@@ -230,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if command == "catalog-list":
         try:
-            catalog = load_people_catalog(args.catalog)
+            catalog = load_people_catalog(args.catalog, load_embeddings=False)
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             parser.error(str(exc))
         payload = _catalog_summary(args.catalog, catalog)
@@ -246,7 +246,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if command == "person-add":
         try:
-            catalog = load_people_catalog(args.catalog)
+            catalog = load_people_catalog(args.catalog, load_embeddings=False)
             person = add_person_to_catalog(
                 catalog,
                 name=args.name,
@@ -266,7 +266,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if command == "person-rename":
         try:
-            catalog = load_people_catalog(args.catalog)
+            catalog = load_people_catalog(args.catalog, load_embeddings=False)
             person = rename_person_in_catalog(catalog, person_id=args.person_id, name=args.name)
             write_people_catalog(args.catalog, catalog)
         except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:

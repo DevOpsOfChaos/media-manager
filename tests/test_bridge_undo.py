@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from io import StringIO
 from pathlib import Path
@@ -44,7 +45,9 @@ def test_undo_preview_shows_planned_actions(tmp_path: Path) -> None:
 
     fake_stdin = StringIO(json.dumps({"journal_path": str(journal)}))
     fake_stdout = StringIO()
-    with mock.patch.object(sys, "stdin", fake_stdin), mock.patch.object(sys, "stdout", fake_stdout):
+    with mock.patch.dict(os.environ, {"MEDIA_MANAGER_HOME": str(tmp_path)}), \
+         mock.patch.object(sys, "stdin", fake_stdin), \
+         mock.patch.object(sys, "stdout", fake_stdout):
         exit_code = cmd_preview()
 
     assert exit_code == 0
@@ -73,7 +76,9 @@ def test_undo_apply_executes_reverse_actions(tmp_path: Path) -> None:
     assert target.exists()
     fake_stdin = StringIO(json.dumps({"journal_path": str(journal)}))
     fake_stdout = StringIO()
-    with mock.patch.object(sys, "stdin", fake_stdin), mock.patch.object(sys, "stdout", fake_stdout):
+    with mock.patch.dict(os.environ, {"MEDIA_MANAGER_HOME": str(tmp_path)}), \
+         mock.patch.object(sys, "stdin", fake_stdin), \
+         mock.patch.object(sys, "stdout", fake_stdout):
         exit_code = cmd_apply()
 
     assert exit_code == 0
@@ -104,7 +109,9 @@ def test_undo_apply_move_back(tmp_path: Path) -> None:
 
     fake_stdin = StringIO(json.dumps({"journal_path": str(journal)}))
     fake_stdout = StringIO()
-    with mock.patch.object(sys, "stdin", fake_stdin), mock.patch.object(sys, "stdout", fake_stdout):
+    with mock.patch.dict(os.environ, {"MEDIA_MANAGER_HOME": str(tmp_path)}), \
+         mock.patch.object(sys, "stdin", fake_stdin), \
+         mock.patch.object(sys, "stdout", fake_stdout):
         exit_code = cmd_apply()
 
     assert exit_code == 0

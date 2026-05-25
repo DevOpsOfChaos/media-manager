@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -21,6 +22,8 @@ from pathlib import Path
 from media_manager.core.organizer import OrganizePlannerOptions, build_organize_dry_run
 from media_manager.core.outcome_report import build_plan_outcome_report
 from media_manager.core.review_report import build_review_export
+
+logger = logging.getLogger(__name__)
 
 
 def _emit(payload: dict) -> None:
@@ -88,9 +91,18 @@ def cmd_preview() -> int:
         if not target_root_raw:
             return _fail("target_root is required.")
 
+        source_dirs = []
+        for p in source_dirs_raw:
+            resolved = Path(p).resolve()
+            if resolved.exists():
+                source_dirs.append(resolved)
+        target_root = Path(target_root_raw).resolve()
+
+        logger.info("Starting organize preview: %d source dirs -> %s", len(source_dirs), target_root)
+
         options = OrganizePlannerOptions(
-            source_dirs=tuple(Path(p) for p in source_dirs_raw),
-            target_root=Path(target_root_raw),
+            source_dirs=tuple(source_dirs),
+            target_root=target_root,
             pattern=payload.get("pattern", "{year}/{year_month_day}"),
             recursive=payload.get("recursive", True),
             include_hidden=payload.get("include_hidden", False),
@@ -103,12 +115,14 @@ def cmd_preview() -> int:
             batch_size=payload.get("batch_size", 0),
         )
     except (TypeError, ValueError) as exc:
+        logger.error("Organize preview: invalid options: %s", exc)
         return _fail(f"Invalid options: {exc}")
 
     # Build dry-run — this NEVER modifies files
     try:
         dry_run = build_organize_dry_run(options)
     except Exception as exc:
+        logger.error("Organize preview: plan build failed: %s", exc)
         return _fail(f"Preview failed: {exc}")
 
     # Build review candidates

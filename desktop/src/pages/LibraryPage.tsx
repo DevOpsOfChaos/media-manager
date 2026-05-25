@@ -74,7 +74,7 @@ export default function LibraryPage() {
           {filtered.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
               {filtered.slice(0, 500).map((f, i) => (
-                <Card key={i} className="overflow-hidden hover:border-primary/30 transition-colors cursor-pointer group">
+                <Card key={i} className="overflow-hidden hover:border-primary/30 transition-colors cursor-pointer group" role="button" tabIndex={0}>
                   <div className="aspect-square bg-muted relative overflow-hidden">
                     {[".jpg",".jpeg",".png",".webp",".bmp",".gif",".tiff"].includes(f.suffix) ? (
                       <img src={convertFileSrc(f.path)} alt={f.name} className="w-full h-full object-cover" loading="lazy" />

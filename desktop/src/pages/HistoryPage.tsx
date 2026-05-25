@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useT } from "@/lib/i18n"
+import { userFriendlyError } from "@/lib/error-utils"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -36,7 +37,7 @@ export default function HistoryPage() {
       const result = await historyList()
       setData(result)
     } catch (err) {
-      setError(String(err))
+      setError(userFriendlyError(err))
     } finally {
       setLoading(false)
     }
@@ -92,8 +93,11 @@ export default function HistoryPage() {
       <main className="flex flex-1 gap-4 p-4">
         <div className="flex-1 max-w-3xl space-y-4">
           {error && (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {error}
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive space-y-2">
+              <p>{error}</p>
+              <Button variant="outline" size="sm" onClick={load}>
+                {t("Retry", "Wiederholen")}
+              </Button>
             </div>
           )}
 
@@ -222,8 +226,8 @@ function RunRow({
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>{run.command ?? t("unknown", "unbekannt")}</span>
-          {run.status && <span>· {run.status}</span>}
-          {run.created_at_utc && <span>· {run.created_at_utc.slice(0, 10)}</span>}
+          {run.status && <span><span aria-hidden="true">· </span>{run.status}</span>}
+          {run.created_at_utc && <span><span aria-hidden="true">· </span>{run.created_at_utc.slice(0, 10)}</span>}
         </div>
       </div>
       <div className="shrink-0 text-xs text-muted-foreground">

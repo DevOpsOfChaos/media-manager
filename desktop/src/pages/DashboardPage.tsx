@@ -192,15 +192,21 @@ export default function DashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
+                {loading && !data.diag ? (
+                  <div className="flex justify-center py-4" aria-label={t("Loading diagnostics", "Diagnose wird geladen")}>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  </div>
+                ) : (
+                  <>
                 <StatusRow
                   label={t("Python bridge", "Python-Bridge")}
                   ok={pythonOk}
                   detail={
                     data.diag
-                      ? data.diag.python_version?.split(" ")[0] ?? "reachable"
+                      ? data.diag.python_version?.split(" ")[0] ?? t("reachable", "erreichbar")
                       : data.diagError
-                        ? "unreachable"
-                        : "checking..."
+                        ? t("unreachable", "nicht erreichbar")
+                        : t("checking...", "Prüfe...")
                   }
                 />
                 <StatusRow
@@ -208,16 +214,16 @@ export default function DashboardPage() {
                   ok={data.diag?.settings_file_exists}
                   detail={
                     data.diag?.settings_file_exists
-                      ? "found"
+                      ? t("found", "gefunden")
                       : data.diag
-                        ? "not found"
+                        ? t("not found", "nicht gefunden")
                         : "—"
                   }
                 />
                 <StatusRow
                   label={t("Project root", "Projektstamm")}
                   ok={!!data.diag?.project_root}
-                  detail={data.diag?.project_root ? "resolved" : "—"}
+                  detail={data.diag?.project_root ? t("resolved", "aufgelöst") : "—"}
                 />
 
                 {data.diag && (
@@ -231,6 +237,8 @@ export default function DashboardPage() {
                       </p>
                     )}
                   </div>
+                )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -274,52 +282,54 @@ export default function DashboardPage() {
                         aria-label={`View run ${latestRun.run_id}`}
                         className="w-full rounded-lg border p-3 text-left hover:bg-muted/50 transition-colors"
                       >
-                        <p className="text-xs text-muted-foreground">
-                          {t("Latest run", "Letzter Durchlauf")}
-                        </p>
-                        <p className="truncate font-mono text-sm font-medium">
-                          {latestRun.run_id}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge
-                            variant={
-                              latestRun.mode === "apply"
-                                ? "default"
-                                : "secondary"
-                            }
-                            className="text-xs"
-                          >
-                            {latestRun.mode === "apply"
-                              ? t("Applied", "Angewendet")
-                              : latestRun.mode === "preview"
-                                ? t("Preview", "Vorschau")
-                                : "—"}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {latestRun.command ?? "—"}
-                          </span>
-                          {latestRun.created_at_utc && (
+                        <span aria-hidden="true">
+                          <p className="text-xs text-muted-foreground">
+                            {t("Latest run", "Letzter Durchlauf")}
+                          </p>
+                          <p className="truncate font-mono text-sm font-medium">
+                            {latestRun.run_id}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge
+                              variant={
+                                latestRun.mode === "apply"
+                                  ? "default"
+                                  : "secondary"
+                              }
+                              className="text-xs"
+                            >
+                              {latestRun.mode === "apply"
+                                ? t("Applied", "Angewendet")
+                                : latestRun.mode === "preview"
+                                  ? t("Preview", "Vorschau")
+                                  : "—"}
+                            </Badge>
                             <span className="text-xs text-muted-foreground">
-                              {latestRun.created_at_utc.slice(0, 10)}
+                              {latestRun.command ?? "—"}
                             </span>
-                          )}
-                        </div>
-                        {latestRun && (
-                          <div className="space-y-1 mt-2">
-                            <div className="flex items-center gap-2">
-                              <Badge variant={latestRun.mode === "apply" ? "default" : "secondary"} className="text-xs">
-                                {latestRun.mode}
-                              </Badge>
-                              <Badge variant="outline" className="text-xs">{latestRun.command}</Badge>
-                              <span className="text-xs text-muted-foreground">{latestRun.run_id?.slice(0, 8)}</span>
-                            </div>
-                            {latestRun.review_candidate_count > 0 && (
-                              <p className="text-xs text-yellow-400">
-                                {latestRun.review_candidate_count} {t("items need review", "Elemente benötigen Prüfung")}
-                              </p>
+                            {latestRun.created_at_utc && (
+                              <span className="text-xs text-muted-foreground">
+                                {latestRun.created_at_utc.slice(0, 10)}
+                              </span>
                             )}
                           </div>
-                        )}
+                          {latestRun && (
+                            <div className="space-y-1 mt-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant={latestRun.mode === "apply" ? "default" : "secondary"} className="text-xs">
+                                  {latestRun.mode}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">{latestRun.command}</Badge>
+                                <span className="text-xs text-muted-foreground">{latestRun.run_id?.slice(0, 8)}</span>
+                              </div>
+                              {latestRun.review_candidate_count > 0 && (
+                                <p className="text-xs text-yellow-400">
+                                  {latestRun.review_candidate_count} {t("items need review", "Elemente benötigen Prüfung")}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </span>
                       </button>
                     ) : (
                       <EmptyState
@@ -422,7 +432,10 @@ export default function DashboardPage() {
                 <Card
                   key={wf.id}
                   className="p-4 cursor-pointer hover:border-primary/50 transition-colors"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => navigate(wf.page)}
+                  onKeyDown={(e) => e.key === 'Enter' && navigate(wf.page)}
                 >
                   <div className="flex items-start gap-3">
                     <span className="text-xl">{wf.icon}</span>

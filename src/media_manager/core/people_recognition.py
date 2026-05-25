@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from media_manager.core.path_filters import path_is_included_by_patterns
+from media_manager.core.schema_migration import migrate_catalog
 from media_manager.media_formats import list_supported_similar_image_extensions, normalize_extensions
 from media_manager.sorter import iter_media_files
 
@@ -113,6 +114,11 @@ class PersonRecord:
     embeddings: list[PersonEmbedding] = field(default_factory=list)
     created_at_utc: str | None = None
     updated_at_utc: str | None = None
+    _face_count: int = field(default=0, repr=False)
+
+    @property
+    def face_count(self) -> int:
+        return max(len(self.embeddings), self._face_count)
 
     def display_name(self) -> str | None:
         return self.name or (self.aliases[0] if self.aliases else None)
@@ -123,7 +129,7 @@ class PersonRecord:
             "name": self.name,
             "aliases": list(self.aliases),
             "notes": self.notes,
-            "face_count": len(self.embeddings),
+            "face_count": self.face_count,
             "embeddings": [item.to_dict() for item in self.embeddings],
             "created_at_utc": self.created_at_utc,
             "updated_at_utc": self.updated_at_utc,
@@ -428,7 +434,7 @@ def _load_embedding(value: Mapping[str, object]) -> PersonEmbedding | None:
     return PersonEmbedding(encoding=encoding, source_path=source_path, box=normalized_box, created_at_utc=created_at)
 
 
-def load_people_catalog(path: str | Path | None) -> PeopleCatalog:
+def load_people_catalog(path: str | Path | None, load_embeddings: bool = False) -> PeopleCatalog:
     if path is None:
         return PeopleCatalog(created_at_utc=_now_utc(), updated_at_utc=_now_utc())
     catalog_path = Path(path)
@@ -437,14 +443,24 @@ def load_people_catalog(path: str | Path | None) -> PeopleCatalog:
     payload = json.loads(catalog_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"Expected people catalog JSON object in {catalog_path}")
+    sv = int(payload.get("schema_version", SCHEMA_VERSION))
+    if sv > SCHEMA_VERSION:
+        raise NotImplementedError(f"Catalog schema version {sv} is newer than supported version {SCHEMA_VERSION}")
     catalog = PeopleCatalog(
-        schema_version=int(payload.get("schema_version", SCHEMA_VERSION)),
+        schema_version=sv,
         created_at_utc=payload.get("created_at_utc") if isinstance(payload.get("created_at_utc"), str) else None,
         updated_at_utc=payload.get("updated_at_utc") if isinstance(payload.get("updated_at_utc"), str) else None,
     )
     persons = payload.get("persons", [])
     if not isinstance(persons, list):
         raise ValueError(f"Expected persons list in {catalog_path}")
+    sidecar_embeddings: dict[str, list[dict[str, object]]] = {}
+    if load_embeddings:
+        emb_path = catalog_path.with_suffix(".embeddings.pkl")
+        if emb_path.exists():
+            import pickle
+            with open(emb_path, "rb") as f:
+                sidecar_embeddings = pickle.load(f)
     for raw_person in persons:
         if not isinstance(raw_person, dict):
             continue
@@ -460,14 +476,23 @@ def load_people_catalog(path: str | Path | None) -> PeopleCatalog:
             notes=raw_person.get("notes") if isinstance(raw_person.get("notes"), str) else "",
             created_at_utc=raw_person.get("created_at_utc") if isinstance(raw_person.get("created_at_utc"), str) else None,
             updated_at_utc=raw_person.get("updated_at_utc") if isinstance(raw_person.get("updated_at_utc"), str) else None,
+            _face_count=raw_person.get("face_count") if isinstance(raw_person.get("face_count"), int) else 0,
         )
-        raw_embeddings = raw_person.get("embeddings", [])
-        if isinstance(raw_embeddings, list):
-            for raw_embedding in raw_embeddings:
-                if isinstance(raw_embedding, dict):
-                    embedding = _load_embedding(raw_embedding)
-                    if embedding is not None:
-                        record.embeddings.append(embedding)
+        if load_embeddings:
+            if person_id in sidecar_embeddings:
+                for raw_embedding in sidecar_embeddings[person_id]:
+                    if isinstance(raw_embedding, dict):
+                        embedding = _load_embedding(raw_embedding)
+                        if embedding is not None:
+                            record.embeddings.append(embedding)
+            else:
+                raw_embeddings = raw_person.get("embeddings", [])
+                if isinstance(raw_embeddings, list):
+                    for raw_embedding in raw_embeddings:
+                        if isinstance(raw_embedding, dict):
+                            embedding = _load_embedding(raw_embedding)
+                            if embedding is not None:
+                                record.embeddings.append(embedding)
         catalog.persons[record.person_id] = record
     return catalog
 
@@ -478,7 +503,21 @@ def write_people_catalog(path: str | Path, catalog: PeopleCatalog) -> Path:
     catalog.updated_at_utc = _now_utc()
     if catalog.created_at_utc is None:
         catalog.created_at_utc = catalog.updated_at_utc
-    output_path.write_text(json.dumps(catalog.to_dict(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    data = catalog.to_dict()
+    embeddings_data: dict[str, list[dict[str, object]]] = {}
+    for person in data["persons"]:
+        pid = str(person["person_id"])
+        embeddings_data[pid] = list(person.pop("embeddings", []))  # type: ignore[arg-type]
+        person["_embeddings_ref"] = True
+    tmp = output_path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    tmp.replace(output_path)
+    import pickle
+    emb_path = output_path.with_suffix(".embeddings.pkl")
+    emb_tmp = emb_path.with_suffix(".tmp")
+    with open(emb_tmp, "wb") as f:
+        pickle.dump(embeddings_data, f, protocol=pickle.HIGHEST_PROTOCOL)
+    emb_tmp.replace(emb_path)
     return output_path
 
 
@@ -670,7 +709,7 @@ def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
 
     requested_backend = _validate_backend_name(config.backend)
     result = PeopleScanResult(backend_requested=requested_backend)
-    catalog = load_people_catalog(config.catalog_path)
+    catalog = load_people_catalog(config.catalog_path, load_embeddings=True)
     result.catalog_person_count = len(catalog.persons)
 
     scan_extensions = SUPPORTED_FACE_IMAGE_EXTENSIONS

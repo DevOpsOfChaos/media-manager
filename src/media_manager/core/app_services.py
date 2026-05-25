@@ -80,7 +80,9 @@ def read_json_object(path: str | Path) -> dict[str, Any]:
 def write_json_object(path: str | Path, payload: Mapping[str, Any]) -> Path:
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(dict(payload), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    tmp = output_path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(dict(payload), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    tmp.replace(output_path)
     return output_path
 
 

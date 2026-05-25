@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react"
 import { useT } from "@/lib/i18n"
+import { userFriendlyError } from "@/lib/error-utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -84,7 +85,7 @@ export default function WorkflowRunnerPage() {
         updateStep("organize", { status: "skipped", summary: t("No files to organize", "Keine Dateien zum Organisieren") })
       }
     } catch (e) {
-      updateStep("organize", { status: "error", summary: String(e) })
+      updateStep("organize", { status: "error", summary: userFriendlyError(e) })
       setRunning(false)
       return
     }
@@ -122,7 +123,7 @@ export default function WorkflowRunnerPage() {
         updateStep("duplicates", { status: "skipped", summary: t("No duplicates found", "Keine Duplikate gefunden") })
       }
     } catch (e) {
-      updateStep("duplicates", { status: "error", summary: String(e) })
+      updateStep("duplicates", { status: "error", summary: userFriendlyError(e) })
     }
 
     // Step 4: Leftovers
@@ -152,7 +153,7 @@ export default function WorkflowRunnerPage() {
         await peopleScan({ source_dirs: [targetDir], incremental: false, force_full: true })
         updateStep("people", { status: "done", summary: t("Face scan complete", "Gesichtsscan abgeschlossen") })
       } catch (e) {
-        updateStep("people", { status: "error", summary: String(e) })
+        updateStep("people", { status: "error", summary: userFriendlyError(e) })
       }
     }
 
@@ -170,7 +171,7 @@ export default function WorkflowRunnerPage() {
         })
         updateStep("trip", { status: "done", summary: t("Trip created", "Reise erstellt") })
       } catch (e) {
-        updateStep("trip", { status: "error", summary: String(e) })
+        updateStep("trip", { status: "error", summary: userFriendlyError(e) })
       }
     }
 
@@ -179,12 +180,20 @@ export default function WorkflowRunnerPage() {
 
   const statusIcon = (status: StepStatus) => {
     switch (status) {
-      case "running": return <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
-      case "done": return <CheckCircle2 className="w-4 h-4 text-green-400" />
-      case "error": return <XCircle className="w-4 h-4 text-red-400" />
-      case "skipped": return <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
+      case "running": return <Loader2 className="w-4 h-4 animate-spin text-blue-400" aria-label={status} />
+      case "done": return <CheckCircle2 className="w-4 h-4 text-green-400" aria-label={status} />
+      case "error": return <XCircle className="w-4 h-4 text-red-400" aria-label={status} />
+      case "skipped": return <CheckCircle2 className="w-4 h-4 text-muted-foreground" aria-label={status} />
       default: return <div className="w-4 h-4 rounded-full border-2 border-muted" />
     }
+  }
+
+  const statusLabels: Record<string, [string, string]> = {
+    pending: [t("Pending", "Ausstehend"), t("Pending", "Ausstehend")],
+    running: [t("Running", "Läuft"), t("Running", "Läuft")],
+    done: [t("Done", "Fertig"), t("Done", "Fertig")],
+    error: [t("Error", "Fehler"), t("Error", "Fehler")],
+    skipped: [t("Skipped", "Übersprungen"), t("Skipped", "Übersprungen")],
   }
 
   const allDone = steps.every(s => s.status === "done" || s.status === "skipped")
@@ -225,7 +234,7 @@ export default function WorkflowRunnerPage() {
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={includePeople} onChange={e => setIncludePeople(e.target.checked)} className="w-4 h-4" />
             <span>{t("People Scan", "Personenscan")}</span>
-            <span className="text-xs text-muted-foreground">{t("— Scan for faces after organizing", "— Nach Gesichtern scannen nach dem Organisieren")}</span>
+            <span className="text-xs text-muted-foreground">{t("Scan for faces after organizing", "Nach Gesichtern scannen nach dem Organisieren")}</span>
           </label>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={includeTrip} onChange={e => setIncludeTrip(e.target.checked)} className="w-4 h-4" />
@@ -259,7 +268,7 @@ export default function WorkflowRunnerPage() {
                 {step.summary && <p className="text-xs text-muted-foreground truncate">{step.summary}</p>}
               </div>
               <Badge variant={step.status === "done" ? "default" : step.status === "error" ? "destructive" : "secondary"} className="text-xs">
-                {step.status}
+                {statusLabels[step.status]?.[0] ?? step.status}
               </Badge>
             </div>
           ))}

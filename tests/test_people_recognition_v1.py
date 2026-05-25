@@ -28,7 +28,7 @@ def test_people_catalog_round_trip_and_rename(tmp_path: Path) -> None:
     add_embedding_to_person(catalog, person_id=person.person_id, encoding=[0.1, 0.2, 0.3], source_path="a.jpg")
     write_people_catalog(catalog_path, catalog)
 
-    loaded = load_people_catalog(catalog_path)
+    loaded = load_people_catalog(catalog_path, load_embeddings=True)
     assert list(loaded.persons) == [person.person_id]
     assert loaded.persons[person.person_id].name == "Jane Doe"
     assert loaded.persons[person.person_id].aliases == ["Janie"]

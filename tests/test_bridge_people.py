@@ -5,7 +5,8 @@ from pathlib import Path
 from unittest import mock
 from media_manager.bridge_people import cmd_catalog_list, cmd_person_create, cmd_person_rename, cmd_person_reassign
 
-def test_catalog_list_valid(tmp_path: Path) -> None:
+def test_catalog_list_valid(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("MEDIA_MANAGER_HOME", str(tmp_path))
     catalog = tmp_path / "catalog.json"
     catalog.write_text(json.dumps({"schema_version":1,"persons":[]}))
     payload = {"catalog_path": str(catalog)}
@@ -16,7 +17,8 @@ def test_catalog_list_valid(tmp_path: Path) -> None:
     output = json.loads(fake_stdout.getvalue())
     assert output["person_count"] == 0
 
-def test_person_create(tmp_path: Path) -> None:
+def test_person_create(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("MEDIA_MANAGER_HOME", str(tmp_path))
     catalog = tmp_path / "catalog.json"
     catalog.write_text(json.dumps({"schema_version":1,"persons":[]}))
     payload = {"catalog_path": str(catalog), "name": "Test Person"}
@@ -27,7 +29,8 @@ def test_person_create(tmp_path: Path) -> None:
     output = json.loads(fake_stdout.getvalue())
     assert output["name"] == "Test Person"
 
-def test_person_rename(tmp_path: Path) -> None:
+def test_person_rename(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("MEDIA_MANAGER_HOME", str(tmp_path))
     catalog = tmp_path / "catalog.json"
     catalog.write_text(json.dumps({"schema_version":1,"persons":[{"person_id":"person-test","name":"Old","aliases":[],"notes":"","embeddings":[]}]}))
     payload = {"catalog_path": str(catalog), "person_id": "person-test", "name": "New Name"}
@@ -38,7 +41,8 @@ def test_person_rename(tmp_path: Path) -> None:
     output = json.loads(fake_stdout.getvalue())
     assert output["name"] == "New Name"
 
-def test_person_reassign(tmp_path: Path) -> None:
+def test_person_reassign(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("MEDIA_MANAGER_HOME", str(tmp_path))
     catalog = tmp_path / "catalog.json"
     source = tmp_path / "img.jpg"
     catalog.write_text(json.dumps({"schema_version":1,"persons":[{"person_id":"person-a","name":"A","aliases":[],"notes":"","embeddings":[{"encoding":[0.1,0.2],"source_path":str(source),"box":None,"created_at_utc":None}]},{"person_id":"person-b","name":"B","aliases":[],"notes":"","embeddings":[]}]}))

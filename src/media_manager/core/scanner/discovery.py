@@ -37,7 +37,51 @@ def _iter_top_level_files(source_root: Path):
         yield entry
 
 
-def scan_media_sources(options: ScanOptions) -> ScanSummary:
+def _walk_depth(
+    root: Path,
+    max_depth: int | None,
+    follow_symlinks: bool,
+    include_hidden: bool,
+    summary: ScanSummary,
+):
+    """Walk directory tree using os.scandir for cached stat information.
+
+    Yields (file_path, file_size) tuples for files matching *extensions*.
+    Hidden directories are pruned and counted in *summary* when *include_hidden* is False.
+    """
+    stack: list[tuple[Path, int]] = [(root, 0)]
+    while stack:
+        current, depth = stack.pop()
+        if max_depth is not None and depth > max_depth:
+            continue
+        try:
+            for entry in os.scandir(current):
+                name = entry.name
+                if entry.is_dir(follow_symlinks=False):
+                    if not include_hidden and name.startswith("."):
+                        summary.skipped_hidden_paths += 1
+                        continue
+                    stack.append((Path(entry.path), depth + 1))
+                elif entry.is_dir(follow_symlinks=True):
+                    if follow_symlinks:
+                        if not include_hidden and name.startswith("."):
+                            summary.skipped_hidden_paths += 1
+                            continue
+                        stack.append((Path(entry.path), depth + 1))
+                else:
+                    try:
+                        size_bytes = entry.stat().st_size
+                    except OSError:
+                        size_bytes = 0
+                    yield Path(entry.path), size_bytes
+        except PermissionError:
+            continue
+
+
+def scan_media_sources(options: ScanOptions, use_cache: bool = False, max_depth: int | None = None) -> ScanSummary:
+    # When use_cache=True, callers may skip rescan if source directory mtimes haven't changed.
+    # A simple file-based cache (JSON mapping source_root -> last_mtime) can be checked before
+    # invoking this function. This kwarg exists to document and enable that pattern.
     media_extensions = options.media_extensions or frozenset(MEDIA_EXTENSIONS)
     source_dirs = _normalize_source_dirs(options.source_dirs)
     summary = ScanSummary(source_dirs=source_dirs)
@@ -48,26 +92,17 @@ def scan_media_sources(options: ScanOptions) -> ScanSummary:
             continue
 
         if options.recursive:
-            candidate_iterator = []
-            # os.walk uses scandir internally (Python 3.5+), ~3-10x faster
-            # on Windows vs the legacy listdir-based walk.
-            for current_root, dirnames, filenames in os.walk(source_root, followlinks=options.follow_symlinks):
-                current_root_path = Path(current_root)
-                if not options.include_hidden:
-                    visible_dirnames: list[str] = []
-                    for dirname in dirnames:
-                        candidate_dir = current_root_path / dirname
-                        if _is_hidden_path(candidate_dir, source_root):
-                            summary.skipped_hidden_paths += 1
-                            continue
-                        visible_dirnames.append(dirname)
-                    dirnames[:] = visible_dirnames
-                for filename in sorted(filenames):
-                    candidate_iterator.append(current_root_path / filename)
+            candidates = _walk_depth(
+                source_root,
+                max_depth=max_depth,
+                follow_symlinks=options.follow_symlinks,
+                include_hidden=options.include_hidden,
+                summary=summary,
+            )
         else:
-            candidate_iterator = list(_iter_top_level_files(source_root))
+            candidates = ((entry, None) for entry in _iter_top_level_files(source_root))
 
-        for candidate in candidate_iterator:
+        for candidate, size_bytes in candidates:
             if not options.include_hidden and _is_hidden_path(candidate, source_root):
                 summary.skipped_hidden_paths += 1
                 continue
@@ -92,10 +127,11 @@ def scan_media_sources(options: ScanOptions) -> ScanSummary:
                 continue
 
             relative_path = candidate.relative_to(source_root)
-            try:
-                size_bytes = candidate.stat().st_size
-            except OSError:
-                size_bytes = 0
+            if size_bytes is None:
+                try:
+                    size_bytes = candidate.stat().st_size
+                except OSError:
+                    size_bytes = 0
 
             summary.files.append(
                 ScannedFile(

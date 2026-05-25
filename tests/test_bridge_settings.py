@@ -29,19 +29,22 @@ class TestResolveSettingsPath:
         result = _resolve_settings_path()
         assert result == DEFAULT_SETTINGS_PATH
 
-    def test_cli_arg_has_priority(self):
+    def test_cli_arg_has_priority(self, monkeypatch):
+        monkeypatch.setenv("MEDIA_MANAGER_HOME", "/custom")
         result = _resolve_settings_path(cli_path="/custom/path.json")
-        assert result == Path("/custom/path.json")
+        assert str(result) == str(Path("/custom/path.json").resolve())
 
     def test_env_var_falls_back(self, monkeypatch):
+        monkeypatch.setenv("MEDIA_MANAGER_HOME", "/env")
         monkeypatch.setenv("MEDIA_MANAGER_SETTINGS_PATH", "/env/path.json")
         result = _resolve_settings_path()
-        assert result == Path("/env/path.json")
+        assert str(result) == str(Path("/env/path.json").resolve())
 
     def test_cli_overrides_env(self, monkeypatch):
+        monkeypatch.setenv("MEDIA_MANAGER_HOME", "/cli")
         monkeypatch.setenv("MEDIA_MANAGER_SETTINGS_PATH", "/env/path.json")
         result = _resolve_settings_path(cli_path="/cli/path.json")
-        assert result == Path("/cli/path.json")
+        assert str(result) == str(Path("/cli/path.json").resolve())
 
 
 # ── read ──
@@ -168,14 +171,16 @@ class TestBridgeMain:
             exit_code = main(["read"])
         assert exit_code == 0
 
-    def test_main_read_custom_path(self, tmp_path):
+    def test_main_read_custom_path(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("MEDIA_MANAGER_HOME", str(tmp_path))
         sp = tmp_path / "s.json"
         sp.write_text(json.dumps({"language": "en"}))
         with patch("sys.stdout", new_callable=StringIO):
             exit_code = main(["read", "--settings-path", str(sp)])
         assert exit_code == 0
 
-    def test_main_write(self, tmp_path):
+    def test_main_write(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("MEDIA_MANAGER_HOME", str(tmp_path))
         sp = tmp_path / "s.json"
         input_json = json.dumps({"language": "en"})
         with (
@@ -186,7 +191,8 @@ class TestBridgeMain:
         assert exit_code == 0
         assert sp.exists()
 
-    def test_main_reset(self, tmp_path):
+    def test_main_reset(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("MEDIA_MANAGER_HOME", str(tmp_path))
         sp = tmp_path / "s.json"
         with patch("sys.stdout", new_callable=StringIO):
             exit_code = main(["reset", "--settings-path", str(sp)])
@@ -232,6 +238,7 @@ class TestParser:
 
 class TestMainEnvVarOverride:
     def test_main_respects_settings_path_env(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("MEDIA_MANAGER_HOME", str(tmp_path))
         sp = tmp_path / "env_settings.json"
         sp.write_text(json.dumps({"language": "de"}))
         monkeypatch.setenv("MEDIA_MANAGER_SETTINGS_PATH", str(sp))

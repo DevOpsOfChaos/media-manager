@@ -12,14 +12,14 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff } from "lucide-react"
 
 // ── Thumbnail component ──
-function FaceThumb({ path, size = 96 }: { path: string; size?: number }) {
+function FaceThumb({ path, size = 96, alt }: { path: string; size?: number; alt?: string }) {
   const [loaded, setLoaded] = useState(false)
   const [errored, setErrored] = useState(false)
   if (errored) return <div className="flex items-center justify-center bg-muted rounded" style={{ width: size, height: size }}><ImageOff className="w-6 h-6 text-muted-foreground" /></div>
   return (
     <div className="relative rounded overflow-hidden" style={{ width: size, height: size }}>
       {!loaded && <div className="absolute inset-0 bg-muted animate-pulse" />}
-      <img src={convertFileSrc(path)} alt="" className="w-full h-full object-cover" onLoad={() => setLoaded(true)} onError={() => setErrored(true)} />
+      <img src={convertFileSrc(path)} alt={alt || path.split(/[\\/]/).pop() || "Face"} className="w-full h-full object-cover" onLoad={() => setLoaded(true)} onError={() => setErrored(true)} />
     </div>
   )
 }
@@ -168,11 +168,15 @@ export default function PeoplePage() {
               <Card
                 key={person.person_id}
                 className="cursor-pointer hover:border-primary/50 transition-colors overflow-hidden"
+                role="button"
+                tabIndex={0}
+                aria-label={person.name}
                 onClick={() => setSelectedPerson(person)}
+                onKeyDown={(e) => e.key === 'Enter' && setSelectedPerson(person)}
               >
                 <div className="aspect-square bg-muted">
                   {person.source_paths[0] ? (
-                    <FaceThumb path={person.source_paths[0]} size={200} />
+                    <FaceThumb path={person.source_paths[0]} size={200} alt={person.name} />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center"><Users className="w-10 h-10 text-muted-foreground/40" /></div>
                   )}
@@ -183,7 +187,7 @@ export default function PeoplePage() {
                 </CardContent>
               </Card>
             ))}
-            <Card className="cursor-pointer hover:border-primary/50 border-dashed flex items-center justify-center min-h-[200px]" onClick={() => setShowCreatePerson(true)}>
+            <Card className="cursor-pointer hover:border-primary/50 border-dashed flex items-center justify-center min-h-[200px]" role="button" tabIndex={0} onClick={() => setShowCreatePerson(true)} onKeyDown={(e) => e.key === 'Enter' && setShowCreatePerson(true)}>
               <div className="text-center text-muted-foreground">
                 <UserPlus className="w-8 h-8 mx-auto mb-2" />
                 <p className="text-sm">{t("Add Person", "Person hinzufügen")}</p>
@@ -239,9 +243,12 @@ export default function PeoplePage() {
           <div
             key={i}
             className="cursor-pointer rounded overflow-hidden hover:ring-2 hover:ring-primary transition-all"
+            role="button"
+            tabIndex={0}
             onClick={() => { setModalImage(path); setModalPersonId(selectedPerson.person_id) }}
+            onKeyDown={(e) => e.key === 'Enter' && (setModalImage(path), setModalPersonId(selectedPerson.person_id))}
           >
-            <FaceThumb path={path} size={150} />
+            <FaceThumb path={path} size={150} alt={selectedPerson.name} />
           </div>
         ))}
         {selectedPerson.source_paths.length === 0 && (
@@ -257,7 +264,7 @@ export default function PeoplePage() {
           <DialogHeader><DialogTitle className="text-sm">{modalImage?.split(/[\\/]/).pop()}</DialogTitle></DialogHeader>
           {modalImage && (
             <div className="space-y-4">
-              <img src={convertFileSrc(modalImage)} alt="" className="w-full max-h-[60vh] object-contain rounded" />
+              <img src={convertFileSrc(modalImage)} alt={modalImage?.split(/[\\/]/).pop() || t("Person image", "Personenbild")} className="w-full max-h-[60vh] object-contain rounded" />
               {!showReassign ? (
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">{t("Person:", "Person:")} {selectedPerson?.name}</span>

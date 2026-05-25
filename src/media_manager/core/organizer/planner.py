@@ -55,6 +55,19 @@ def _build_group_target_paths(entry_target_dir: Path, target_root: Path, *, sour
     }
 
 
+def _quick_content_match(src: Path, dst: Path) -> bool | None:
+    try:
+        src_stat = src.stat()
+        dst_stat = dst.stat()
+        if src_stat.st_size != dst_stat.st_size:
+            return False
+        if os.path.samefile(src, dst):
+            return True
+    except OSError:
+        return None
+    return None
+
+
 def _evaluate_group_plan_state(group_target_paths: dict[Path, Path], *, conflict_policy: str = "conflict") -> tuple[str, str]:
     if not group_target_paths:
         return "error", "missing target path"
@@ -76,6 +89,16 @@ def _evaluate_group_plan_state(group_target_paths: dict[Path, Path], *, conflict
         if not target_path.exists():
             continue
         existing_count += 1
+
+        quick = _quick_content_match(source_path, target_path)
+        if quick is True:
+            identical_count += 1
+            continue
+        if quick is False:
+            if conflict_policy == "skip":
+                return "skipped", "target path already exists; skipped by conflict policy"
+            return "conflict", "target path already exists"
+
         if files_have_identical_content(source_path, target_path):
             identical_count += 1
         else:
@@ -101,6 +124,10 @@ def _augment_files_with_associated_sidecars(
     augmented: list[ScannedFile] = list(files)
     seen_paths = {_normalized_path_key(item.path) for item in files}
 
+    scanned_by_path: dict[str, ScannedFile] = {
+        _normalized_path_key(item.path): item for item in files
+    }
+
     for item in files:
         parent = item.path.parent
         stem = item.path.stem
@@ -109,7 +136,22 @@ def _augment_files_with_associated_sidecars(
             candidate_key = _normalized_path_key(candidate)
             if candidate_key in seen_paths:
                 continue
-            if not candidate.exists() or not candidate.is_file():
+
+            if candidate_key in scanned_by_path:
+                existing = scanned_by_path[candidate_key]
+                augmented.append(
+                    ScannedFile(
+                        source_root=item.source_root,
+                        path=candidate,
+                        relative_path=existing.relative_path,
+                        extension=extension,
+                        size_bytes=existing.size_bytes,
+                    )
+                )
+                seen_paths.add(candidate_key)
+                continue
+
+            if not candidate.is_file():
                 continue
             if exclude_patterns and not path_is_included_by_patterns(
                 candidate,

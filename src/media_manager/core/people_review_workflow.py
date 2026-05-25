@@ -315,7 +315,7 @@ def apply_people_review_workflow(
 
     destination = Path(output_catalog_path or catalog_path)
     result = PeopleReviewApplyResult(catalog_path=str(destination), dry_run=dry_run)
-    catalog = load_people_catalog(catalog_path)
+    catalog = load_people_catalog(catalog_path, load_embeddings=True)
     detections_by_id = _detections_by_face_id(report_payload)
 
     groups = workflow_payload.get("groups", [])

@@ -90,7 +90,7 @@ def test_apply_people_review_workflow_creates_person_and_skips_rejected_face(tmp
     assert result.embeddings_added == 1
     assert result.faces_rejected == 1
 
-    catalog = load_people_catalog(catalog_path)
+    catalog = load_people_catalog(catalog_path, load_embeddings=True)
     person = next(iter(catalog.persons.values()))
     assert person.name == "Max Example"
     assert len(person.embeddings) == 1

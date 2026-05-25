@@ -34,6 +34,18 @@ from media_manager.core.people_recognition import (
 CACHE_VERSION = 1
 
 
+def _get_app_dir() -> Path:
+    return Path(os.environ.get("MEDIA_MANAGER_HOME", Path.home() / ".media-manager")).resolve()
+
+
+def _validate_app_path(path: Path) -> Path:
+    app_dir = _get_app_dir()
+    resolved = path.resolve()
+    if not str(resolved).startswith(str(app_dir)):
+        raise ValueError(f"Path {resolved} is outside app directory {app_dir}")
+    return resolved
+
+
 def _emit(payload: dict) -> None:
     print(json.dumps(payload, indent=2, ensure_ascii=False))
 
@@ -45,7 +57,7 @@ def _fail(message: str, exit_code: int = 1) -> int:
 
 def _cache_path(source_dirs: tuple[Path, ...]) -> Path:
     key = hashlib.sha1("|".join(sorted(str(p) for p in source_dirs)).encode()).hexdigest()[:12]
-    return Path(os.environ.get("MEDIA_MANAGER_CACHE_DIR", ".media-manager")) / "people_scan_cache" / f"{key}.json"
+    return _get_app_dir() / "cache" / "people_scan_cache" / f"{key}.json"
 
 
 def _file_fingerprint(file_path: Path) -> str:
@@ -177,9 +189,11 @@ def cmd_scan() -> int:
     # Run the scan
     result = None
     try:
+        catalog_path_raw = payload.get("catalog_path")
+        catalog_path = _validate_app_path(Path(catalog_path_raw)) if catalog_path_raw else None
         options = PeopleScanConfig(
             source_dirs=list(source_dirs),
-            catalog_path=Path(payload["catalog_path"]) if payload.get("catalog_path") else None,
+            catalog_path=catalog_path,
             tolerance=payload.get("tolerance", DEFAULT_TOLERANCE),
             backend=payload.get("backend", DEFAULT_BACKEND),
         )
@@ -248,12 +262,13 @@ def cmd_catalog_info() -> int:
     except json.JSONDecodeError:
         return _fail("Invalid JSON")
 
-    catalog_path = Path(payload.get("catalog_path", ""))
-    if not str(catalog_path):
+    catalog_path_raw = payload.get("catalog_path", "")
+    if not catalog_path_raw:
         return _fail("catalog_path required")
+    catalog_path = _validate_app_path(Path(catalog_path_raw))
 
     try:
-        catalog = load_people_catalog(catalog_path)
+        catalog = load_people_catalog(catalog_path, load_embeddings=False)
     except Exception as exc:
         return _fail(f"Catalog load failed: {exc}")
 
@@ -262,7 +277,7 @@ def cmd_catalog_info() -> int:
         "path": str(catalog_path),
         "person_count": len(catalog.persons),
         "people": [
-            {"person_id": p.person_id, "name": p.name, "face_count": len(p.embeddings)}
+            {"person_id": p.person_id, "name": p.name, "face_count": p.face_count}
             for p in catalog.persons.values()
         ],
     })
@@ -277,12 +292,13 @@ def cmd_catalog_list() -> int:
     except json.JSONDecodeError:
         return _fail("Invalid JSON")
 
-    catalog_path = Path(payload.get("catalog_path", ""))
-    if not str(catalog_path):
+    catalog_path_raw = payload.get("catalog_path", "")
+    if not catalog_path_raw:
         return _fail("catalog_path required")
+    catalog_path = _validate_app_path(Path(catalog_path_raw))
 
     try:
-        catalog = load_people_catalog(catalog_path)
+        catalog = load_people_catalog(catalog_path, load_embeddings=False)
     except Exception as exc:
         return _fail(f"Catalog load failed: {exc}")
 
@@ -290,12 +306,11 @@ def cmd_catalog_list() -> int:
     
     people_list = []
     for person_id, person in catalog.persons.items():
-        paths = list({emb.source_path for emb in person.embeddings if emb.source_path})
         people_list.append({
             "person_id": person_id,
             "name": person.name or person_id,
-            "face_count": len(person.embeddings),
-            "source_paths": paths[:5],
+            "face_count": person.face_count,
+            "source_paths": [],
             "aliases": person.aliases,
         })
 
@@ -316,14 +331,17 @@ def cmd_person_rename() -> int:
     except json.JSONDecodeError:
         return _fail("Invalid JSON")
 
-    catalog_path = Path(payload["catalog_path"])
+    catalog_path_raw = payload.get("catalog_path", "")
+    if not catalog_path_raw:
+        return _fail("catalog_path is required")
+    catalog_path = _validate_app_path(Path(catalog_path_raw))
     person_id = payload.get("person_id", "")
     new_name = payload.get("name", "")
     if not person_id or not new_name:
         return _fail("person_id and name are required")
 
     try:
-        catalog = load_people_catalog(catalog_path)
+        catalog = load_people_catalog(catalog_path, load_embeddings=False)
         rename_person_in_catalog(catalog, person_id=person_id, name=new_name)
         write_people_catalog(catalog_path, catalog)
     except Exception as exc:
@@ -341,13 +359,16 @@ def cmd_person_create() -> int:
     except json.JSONDecodeError:
         return _fail("Invalid JSON")
 
-    catalog_path = Path(payload["catalog_path"])
+    catalog_path_raw = payload.get("catalog_path", "")
+    if not catalog_path_raw:
+        return _fail("catalog_path is required")
+    catalog_path = _validate_app_path(Path(catalog_path_raw))
     name = payload.get("name", "")
     if not name:
         return _fail("name is required")
 
     try:
-        catalog = load_people_catalog(catalog_path)
+        catalog = load_people_catalog(catalog_path, load_embeddings=False)
         person = add_person_to_catalog(catalog, name=name, aliases=payload.get("aliases", []))
         write_people_catalog(catalog_path, catalog)
     except Exception as exc:
@@ -365,7 +386,10 @@ def cmd_person_reassign() -> int:
     except json.JSONDecodeError:
         return _fail("Invalid JSON")
 
-    catalog_path = Path(payload["catalog_path"])
+    catalog_path_raw = payload.get("catalog_path", "")
+    if not catalog_path_raw:
+        return _fail("catalog_path is required")
+    catalog_path = _validate_app_path(Path(catalog_path_raw))
     source_path = payload.get("source_path", "")
     face_index = payload.get("face_index", 0)
     from_person_id = payload.get("from_person_id", "")
@@ -376,7 +400,7 @@ def cmd_person_reassign() -> int:
         return _fail("source_path and from_person_id required")
 
     try:
-        catalog = load_people_catalog(catalog_path)
+        catalog = load_people_catalog(catalog_path, load_embeddings=True)
     except Exception as exc:
         return _fail(f"Catalog load failed: {exc}")
 

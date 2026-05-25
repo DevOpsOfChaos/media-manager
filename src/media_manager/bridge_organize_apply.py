@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 import traceback
 from pathlib import Path
@@ -19,6 +20,8 @@ from pathlib import Path
 from media_manager.core.leftover import remove_empty_directories
 from media_manager.core.organizer import OrganizePlannerOptions, build_organize_dry_run, execute_organize_plan
 from media_manager.core.outcome_report import build_execution_outcome_report
+
+logger = logging.getLogger(__name__)
 
 
 def _emit(payload: dict) -> None:
@@ -93,9 +96,18 @@ def cmd_apply() -> int:
         if not target_root_raw:
             return _fail("target_root is required.")
 
+        source_dirs = []
+        for p in source_dirs_raw:
+            resolved = Path(p).resolve()
+            if resolved.exists():
+                source_dirs.append(resolved)
+        target_root = Path(target_root_raw).resolve()
+
+        logger.info("Starting organize apply: %d source dirs -> %s", len(source_dirs), target_root)
+
         options = OrganizePlannerOptions(
-            source_dirs=tuple(Path(p) for p in source_dirs_raw),
-            target_root=Path(target_root_raw),
+            source_dirs=tuple(source_dirs),
+            target_root=target_root,
             pattern=payload.get("pattern", "{year}/{year_month_day}"),
             recursive=payload.get("recursive", True),
             include_hidden=payload.get("include_hidden", False),
@@ -108,21 +120,24 @@ def cmd_apply() -> int:
             batch_size=payload.get("batch_size", 0),
         )
     except (TypeError, ValueError) as exc:
+        logger.error("Organize apply: invalid options: %s", exc)
         return _fail(f"Invalid options: {exc}\nPayload keys: {list(payload.keys())}\nTraceback:\n{traceback.format_exc()}")
 
     # Build plan
     try:
         plan = build_organize_dry_run(options)
     except Exception as exc:
+        logger.error("Organize apply: plan build failed: %s", exc)
         return _fail(f"Plan build failed: {exc}\nTraceback:\n{traceback.format_exc()}")
 
     if plan.planned_count == 0:
-        return _fail("Nothing to execute — plan has no planned entries.", exit_code=0)
+        return _emit({"planned_count": 0, "message": "Nothing to execute — plan has no planned entries."})
 
     # Execute
     try:
         result = execute_organize_plan(plan)
     except Exception as exc:
+        logger.error("Organize apply: execution failed: %s", exc)
         return _fail(f"Execution failed: {exc}\nTraceback:\n{traceback.format_exc()}")
 
     # Cleanup empty directories if requested

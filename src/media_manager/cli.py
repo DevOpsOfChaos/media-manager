@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
+from pathlib import Path
 
 from . import (
     cli_app,
@@ -17,6 +19,21 @@ from . import (
     cli_undo,
     cli_workflow,
 )
+
+
+def _setup_logging() -> None:
+    log_dir = Path.home() / ".media-manager" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        handlers=[
+            logging.FileHandler(log_dir / "app.log", encoding="utf-8"),
+            logging.StreamHandler(),  # also print to stderr
+        ],
+    )
+    logging.getLogger("PIL").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
 COMMAND_HANDLERS = {
@@ -54,6 +71,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _setup_logging()
     argv = list(sys.argv[1:] if argv is None else argv)
     parser = build_parser()
 

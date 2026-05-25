@@ -4,6 +4,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from media_manager.core.schema_migration import migrate_journal
+
 
 def _build_value_summary(entries: list[dict[str, object]], key: str) -> dict[str, int]:
     summary: dict[str, int] = {}
@@ -68,6 +70,7 @@ def write_execution_journal(
 def load_execution_journal(file_path: str | Path) -> dict[str, object]:
     path = Path(file_path)
     payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = migrate_journal(payload)
     if not isinstance(payload, dict):
         raise ValueError("Execution journal must contain a JSON object.")
     if str(payload.get("journal_type", "")) != "execution_journal":

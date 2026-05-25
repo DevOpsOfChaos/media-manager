@@ -26,19 +26,22 @@ class TestResolveRunsPath:
         assert result == DEFAULT_RUNS_PATH
         assert result.name == "runs"
 
-    def test_cli_arg_has_priority(self):
+    def test_cli_arg_has_priority(self, monkeypatch):
+        monkeypatch.setenv("MEDIA_MANAGER_HOME", "/custom")
         result = _resolve_runs_path(cli_path="/custom/runs")
-        assert result == Path("/custom/runs")
+        assert str(result) == str(Path("/custom/runs").resolve())
 
     def test_env_var_falls_back(self, monkeypatch):
+        monkeypatch.setenv("MEDIA_MANAGER_HOME", "/env")
         monkeypatch.setenv("MEDIA_MANAGER_RUNS_PATH", "/env/runs")
         result = _resolve_runs_path()
-        assert result == Path("/env/runs")
+        assert str(result) == str(Path("/env/runs").resolve())
 
     def test_cli_overrides_env(self, monkeypatch):
+        monkeypatch.setenv("MEDIA_MANAGER_HOME", "/cli")
         monkeypatch.setenv("MEDIA_MANAGER_RUNS_PATH", "/env/runs")
         result = _resolve_runs_path(cli_path="/cli/runs")
-        assert result == Path("/cli/runs")
+        assert str(result) == str(Path("/cli/runs").resolve())
 
 
 # ── list ──
@@ -141,14 +144,15 @@ class TestCmdGet:
 
 
 class TestMain:
-    def test_main_list(self, tmp_path):
+    def test_main_list(self, tmp_path, monkeypatch):
         runs_dir = tmp_path / "runs"
         runs_dir.mkdir()
+        monkeypatch.setenv("MEDIA_MANAGER_HOME", str(tmp_path))
         with patch("sys.stdout", new_callable=StringIO):
             exit_code = main(["list", "--run-dir", str(runs_dir)])
         assert exit_code == 0
 
-    def test_main_get(self, tmp_path):
+    def test_main_get(self, tmp_path, monkeypatch):
         runs_dir = tmp_path / "runs"
         run_dir = runs_dir / "test-run"
         run_dir.mkdir(parents=True)
@@ -156,7 +160,7 @@ class TestMain:
         (run_dir / "report.json").write_text("{}")
         (run_dir / "review.json").write_text("{}")
         (run_dir / "summary.txt").write_text("ok")
-
+        monkeypatch.setenv("MEDIA_MANAGER_HOME", str(tmp_path))
         with patch("sys.stdout", new_callable=StringIO):
             exit_code = main(["get", "test-run", "--run-dir", str(runs_dir)])
         assert exit_code == 0

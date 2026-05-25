@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { organizePreview, organizeApply } from "@/lib/tauri-bridge"
+import { userFriendlyError } from "@/lib/error-utils"
 import { PreflightCheck } from "@/components/shared/PreflightCheck"
 import type { OrganizePreviewResponse, OrganizeExecutionResult } from "@/types"
 import { useOrganizeStore } from "@/stores/organize-store"
@@ -207,7 +208,7 @@ export default function OrganizePage() {
   ) => {
     try {
       const { open } = await import("@tauri-apps/plugin-dialog")
-      const selected = await open({ directory: true, multiple: false, title: target === "source" ? "Select source directory" : "Select target directory" })
+      const selected = await open({ directory: true, multiple: false, title: target === "source" ? t("Select source directory", "Quellverzeichnis auswählen") : t("Select target directory", "Zielverzeichnis auswählen") })
       if (selected && typeof selected === "string") {
         if (target === "source") {
           setOptions({ source_dirs: [selected] })
@@ -239,7 +240,7 @@ export default function OrganizePage() {
       const result = await organizePreview(options)
       setPreview(result)
     } catch (err) {
-      setError(String(err))
+      setError(userFriendlyError(err))
     } finally {
       setLoading(false)
     }
@@ -271,7 +272,7 @@ export default function OrganizePage() {
       setApplyResult(result)
     } catch (e: unknown) {
       clearInterval(interval)
-      setError(String(e))
+      setError(userFriendlyError(e))
     } finally {
       setApplyLoading(false)
       setProgressInterval(null)
@@ -281,7 +282,7 @@ export default function OrganizePage() {
   const handleApply = useCallback(async () => {
     if (!preview?.outcome_report?.safe_to_apply) return
     if (!options.source_dirs.length || !options.target_root) {
-      setError("Source and target directories are required.")
+      setError(t("Source and target directories are required.", "Quell- und Zielverzeichnisse sind erforderlich."))
       return
     }
     if (settings.confirm_before_apply) {
@@ -449,6 +450,8 @@ export default function OrganizePage() {
                   <button
                     key={preset.id}
                     onClick={() => applyPreset(preset.id)}
+                    role="radio"
+                    aria-checked={selectedPreset === preset.id && !showCustomPattern}
                     className={`rounded-lg border p-3 text-left transition-colors ${
                       selectedPreset === preset.id && !showCustomPattern
                         ? "border-primary bg-primary/5 ring-1 ring-primary"
@@ -506,6 +509,8 @@ export default function OrganizePage() {
                               : tok.token
                             setOptions({ pattern: next })
                           }}
+                          role="button"
+                          aria-label={t("Insert token", "Token einfügen")}
                           className={`inline-flex items-center rounded-md border px-2 py-1 text-xs transition-colors ${
                             isActive
                               ? "border-primary bg-primary/10 text-primary"
@@ -591,14 +596,14 @@ export default function OrganizePage() {
                         value=""
                         onChange={(e) => { if (e.target.value) setOptions({ pattern: e.target.value }) }}
                       >
-                        <option value="">Saved patterns...</option>
+                        <option value="">{t("Saved patterns...", "Gespeicherte Muster...")}</option>
                         {savedPatterns.map((p, i) => (
                           <option key={i} value={p}>{p}</option>
                         ))}
                       </select>
                     )}
                     <Button variant="ghost" size="sm" className="text-xs h-6" onClick={handleSavePattern} disabled={savedPatterns.includes(options.pattern)}>
-                      {savedPatterns.includes(options.pattern) ? "Saved" : "Save pattern"}
+                      {savedPatterns.includes(options.pattern) ? t("Saved", "Gespeichert") : t("Save pattern", "Muster speichern")}
                     </Button>
                   </div>
 
@@ -792,7 +797,7 @@ export default function OrganizePage() {
           {loading && (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              <span className="ml-3 text-sm text-muted-foreground">Scanning files...</span>
+              <span className="ml-3 text-sm text-muted-foreground">{t("Scanning files...", "Dateien werden gescannt...")}</span>
             </div>
           )}
 
@@ -965,10 +970,10 @@ export default function OrganizePage() {
                   <CardHeader>
                     <CardTitle className="text-sm flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4 text-yellow-400" />
-                      Conflicts ({preview.conflict_count})
+                      {t(`Conflicts (${preview.conflict_count})`, `Konflikte (${preview.conflict_count})`)}
                     </CardTitle>
                     <CardDescription>
-                      These files have naming conflicts with existing files. Choose an action for each conflict.
+                      {t("These files have naming conflicts with existing files. Choose an action for each conflict.", "Diese Dateien haben Namenskonflikte mit bestehenden Dateien. Wählen Sie eine Aktion für jeden Konflikt.")}
                     </CardDescription>
                     <div className="flex gap-2 mt-2">
                       <Button 
@@ -980,7 +985,7 @@ export default function OrganizePage() {
                           handlePreview()
                         }}
                       >
-                        Ignore all
+                        {t("Ignore all", "Alle ignorieren")}
                       </Button>
                       <Button 
                         variant="outline" 
@@ -991,7 +996,7 @@ export default function OrganizePage() {
                           handlePreview()
                         }}
                       >
-                        Rename duplicates
+                        {t("Rename duplicates", "Duplikate umbenennen")}
                       </Button>
                     </div>
                   </CardHeader>
@@ -1008,7 +1013,7 @@ export default function OrganizePage() {
                         </div>
                       ))}
                     {preview.entries.filter(e => e.status === "conflict" || e.reason?.includes("conflict")).length === 0 && (
-                      <p className="text-xs text-muted-foreground">No individual conflicts to display. Conflicts are shown per file above.</p>
+                      <p className="text-xs text-muted-foreground">{t("No individual conflicts to display. Conflicts are shown per file above.", "Keine einzelnen Konflikte anzuzeigen. Konflikte werden oben pro Datei angezeigt.")}</p>
                     )}
                   </CardContent>
                 </Card>
@@ -1016,20 +1021,20 @@ export default function OrganizePage() {
 
               {!loading && preview && preview.planned_count === 0 && (
                 <EmptyState
-                  title="No files found to organize"
-                  description="No media files were found in the selected source directories. Try a different directory or adjust your include patterns."
+                  title={t("No files found to organize", "Keine Dateien zum Organisieren gefunden")}
+                  description={t("No media files were found in the selected source directories. Try a different directory or adjust your include patterns.", "Keine Mediendateien in den ausgewählten Quellverzeichnissen gefunden. Versuchen Sie ein anderes Verzeichnis oder passen Sie die Include-Muster an.")}
                 />
               )}
               {preview && preview.planned_count > 0 && !applyResult && (
                 <div className="flex items-center gap-2 p-3 rounded bg-primary/5 border border-primary/20">
-                  <p className="text-sm">Preview shows {preview.planned_count} files ready. Click Apply to execute.</p>
+                  <p className="text-sm">{t(`Preview shows ${preview.planned_count} files ready. Click Apply to execute.`, `Vorschau zeigt ${preview.planned_count} Dateien bereit. Klicken Sie Ausführen.`)}</p>
                 </div>
               )}
             </>
           )}
           {applyLoading && (
             <FullPageProgress
-              label={`${options.operation_mode === "move" ? "Moving" : "Copying"} files...`}
+              label={`${options.operation_mode === "move" ? t("Moving", "Verschiebe") : t("Copying", "Kopiere")} ${t("files...", "Dateien...")}`}
               current={applyProgress.current}
               total={applyProgress.total}
               startedAt={applyProgress.startedAt}

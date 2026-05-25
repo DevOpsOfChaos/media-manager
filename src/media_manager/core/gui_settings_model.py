@@ -8,6 +8,7 @@ from .app_services import read_json_object, write_json_object
 from .gui_i18n import DEFAULT_LANGUAGE, normalize_language
 from .gui_layout import DEFAULT_DENSITY, normalize_density
 from .gui_theme import DEFAULT_THEME, normalize_theme
+from .schema_migration import migrate_settings
 
 SETTINGS_SCHEMA_VERSION = "1.1"
 
@@ -65,7 +66,9 @@ def load_gui_settings(path: str | Path | None) -> dict[str, object]:
     resolved = Path(path)
     if not resolved.exists():
         return default_gui_settings()
-    return normalize_gui_settings(read_json_object(resolved))
+    raw = read_json_object(resolved)
+    migrated = migrate_settings(raw)
+    return normalize_gui_settings(migrated)
 
 
 def write_gui_settings(path: str | Path, settings: Mapping[str, Any]) -> Path:

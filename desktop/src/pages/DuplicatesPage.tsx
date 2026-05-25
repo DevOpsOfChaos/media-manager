@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { CheckSquare, Square, Trash2, Info } from "lucide-react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
+import { CheckSquare, Square, Trash2, Info, Loader2 } from "lucide-react"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
+import { userFriendlyError } from "@/lib/error-utils"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -26,11 +27,17 @@ import type {
 
 type Tab = "exact" | "similar"
 
-function FileThumbnail({ path, size = 80 }: { path: string; size?: number }) {
+const srcCache = new Map<string, string>()
+function fileSrc(path: string): string {
+  if (!srcCache.has(path)) srcCache.set(path, convertFileSrc(path))
+  return srcCache.get(path)!
+}
+
+const FileThumbnail = React.memo(function FileThumbnail({ path, size = 80 }: { path: string; size?: number }) {
   const t = useT()
   const [loaded, setLoaded] = useState(false)
   const [errored, setErrored] = useState(false)
-  const src = convertFileSrc(path)
+  const src = fileSrc(path)
 
   if (errored) {
     return (
@@ -52,7 +59,7 @@ function FileThumbnail({ path, size = 80 }: { path: string; size?: number }) {
       )}
       <img
         src={src}
-        alt=""
+        alt={path.split(/[\\/]/).pop() || t("File thumbnail", "Dateivorschaubild")}
         className="rounded object-cover"
         style={{ width: size, height: size, opacity: loaded ? 1 : 0 }}
         onLoad={() => setLoaded(true)}
@@ -61,7 +68,7 @@ function FileThumbnail({ path, size = 80 }: { path: string; size?: number }) {
       />
     </div>
   )
-}
+})
 
 export default function DuplicatesPage() {
   const t = useT()
@@ -100,7 +107,7 @@ export default function DuplicatesPage() {
         setSimilarPreview(await similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages, max_pairs: maxPairs }))
       }
     } catch (err) {
-      setError(String(err))
+      setError(userFriendlyError(err))
     } finally {
       setLoading(false)
     }
@@ -183,7 +190,7 @@ export default function DuplicatesPage() {
       setSelectedGroups(new Set())
       handleScan()
     } catch (e: unknown) {
-      setError(String(e))
+      setError(userFriendlyError(e))
     } finally {
       setDeleteLoading(false)
     }
@@ -227,9 +234,9 @@ export default function DuplicatesPage() {
     )
   }, [similarPreview, filterPath])
 
-  const exactTotalDupFiles = exactPreview?.exact_groups.reduce((s, g) => s + g.files.length, 0) ?? 0
+  const exactTotalDupFiles = useMemo(() => exactPreview?.exact_groups.reduce((s, g) => s + g.files.length, 0) ?? 0, [exactPreview])
   const exactWastedCount = exactPreview?.exact_duplicates ?? 0
-  const exactWastedBytes = exactPreview?.exact_groups.reduce((s, g) => s + g.file_size * (g.files.length - 1), 0) ?? 0
+  const exactWastedBytes = useMemo(() => exactPreview?.exact_groups.reduce((s, g) => s + g.file_size * (g.files.length - 1), 0) ?? 0, [exactPreview])
 
   return (
     <>
@@ -398,7 +405,10 @@ export default function DuplicatesPage() {
           {loading && (
             <Card>
               <CardContent className="py-8">
-                <p className="text-sm text-muted-foreground text-center">{t("Scanning...", "Scanne...")}</p>
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <p className="text-sm text-muted-foreground">{t("Scanning...", "Scanne...")}</p>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -575,6 +585,7 @@ function ExactResults({
                 checked={selectedGroups.has((g as ExactDuplicateGroup).full_digest)}
                 onChange={() => onToggleGroupSelection((g as ExactDuplicateGroup).full_digest)}
                 className="mt-1 w-4 h-4 accent-red-500"
+                aria-label={t("Select group", "Gruppe auswählen")}
               />
               <div className="flex-1">
                 <ExactGroupCard group={g as ExactDuplicateGroup} expanded={expandedGroups.has((g as ExactDuplicateGroup).full_digest)} onToggle={() => onToggleGroup((g as ExactDuplicateGroup).full_digest)} onCopyPath={onCopyPath} />
@@ -618,7 +629,7 @@ function SimilarResults({
     return (
       <div className="rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950 px-4 py-3 text-sm text-yellow-800 dark:text-yellow-200">
         <p className="font-medium">{t("Scan blocked by guardrail", "Scan durch Schutzlimit blockiert")}</p>
-        <p className="text-xs mt-1">{preview.guardrail.reason}</p>
+        <p className="text-xs mt-1">{t(preview.guardrail.reason, preview.guardrail.reason)}</p>
         <p className="text-xs mt-1 text-muted-foreground">
           {preview.guardrail.image_count} {t("images (limit", "Bilder (Limit")} {preview.guardrail.max_images})
           {preview.guardrail.estimated_pairs != null && (

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { doctorCheck, type DoctorReport } from "@/lib/tauri-bridge"
+import { useT } from "@/lib/i18n"
 import { CheckCircle, AlertTriangle, XCircle, Loader2, Stethoscope } from "lucide-react"
 
 interface PreflightCheckProps {
@@ -13,6 +14,7 @@ interface PreflightCheckProps {
 }
 
 export function PreflightCheck({ sourceDirs, targetRoot, command = "organize" }: PreflightCheckProps) {
+  const t = useT()
   const [loading, setLoading] = useState(false)
   const [report, setReport] = useState<DoctorReport | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -57,9 +59,9 @@ export function PreflightCheck({ sourceDirs, targetRoot, command = "organize" }:
         className="w-full"
       >
         {loading ? (
-          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Checking...</>
+          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t("Checking...", "Prüfe...")}</>
         ) : (
-          <><Stethoscope className="w-4 h-4 mr-2" /> Run Preflight Check</>
+          <><Stethoscope className="w-4 h-4 mr-2" /> {t("Run Preflight Check", "Vorabprüfung starten")}</>
         )}
       </Button>
 
@@ -76,18 +78,18 @@ export function PreflightCheck({ sourceDirs, targetRoot, command = "organize" }:
               ) : (
                 <AlertTriangle className="w-4 h-4 text-yellow-400" />
               )}
-              {report.ready ? "Ready" : "Issues found"}
+              {report.ready ? t("Ready", "Bereit") : t("Issues found", "Probleme gefunden")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex gap-2 text-xs">
-              <Badge variant="outline">{report.summary.scanned_file_count} files</Badge>
-              <Badge variant="outline">{report.summary.source_count} sources</Badge>
+              <Badge variant="outline">{report.summary.scanned_file_count} {t("files", "Dateien")}</Badge>
+              <Badge variant="outline">{report.summary.source_count} {t("sources", "Quellen")}</Badge>
               {report.summary.error_count > 0 && (
-                <Badge variant="destructive">{report.summary.error_count} errors</Badge>
+                <Badge variant="destructive">{report.summary.error_count} {t("errors", "Fehler")}</Badge>
               )}
               {report.summary.warning_count > 0 && (
-                <Badge variant="secondary">{report.summary.warning_count} warnings</Badge>
+                <Badge variant="secondary">{report.summary.warning_count} {t("warnings", "Warnungen")}</Badge>
               )}
             </div>
             {report.diagnostics.length > 0 && (
@@ -102,7 +104,7 @@ export function PreflightCheck({ sourceDirs, targetRoot, command = "organize" }:
                   </div>
                 ))}
                 {report.diagnostics.length > 3 && (
-                  <p className="text-xs text-muted-foreground">+{report.diagnostics.length - 3} more</p>
+                  <p className="text-xs text-muted-foreground">{t(`+${report.diagnostics.length - 3} more`, `+${report.diagnostics.length - 3} weitere`)}</p>
                 )}
               </div>
             )}
