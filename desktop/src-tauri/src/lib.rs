@@ -19,6 +19,9 @@ pub fn run() {
             media_commands::duplicates_scan,
             media_commands::similar_images_scan,
             media_commands::duplicates_apply,
+            // Review
+            media_commands::review_save_session,
+            media_commands::review_load_session,
             // People
             media_commands::people_scan,
             // History

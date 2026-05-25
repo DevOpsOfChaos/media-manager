@@ -1,0 +1,96 @@
+"""Review workbench bridge for the Tauri desktop app.
+
+Manages review sessions: load scan data, record decisions, execute cleanup.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+
+def _emit(payload: dict) -> None:
+    print(json.dumps(payload, indent=2, ensure_ascii=False))
+
+
+def _fail(message: str, exit_code: int = 1) -> int:
+    print(json.dumps({"error": message}), file=sys.stderr)
+    return exit_code
+
+
+def cmd_save_session() -> int:
+    """Save review decisions to a session file."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _fail(f"Invalid JSON: {exc}")
+
+    session_path = Path(payload.get("session_path", ""))
+    if not str(session_path):
+        return _fail("session_path is required.")
+
+    decisions = payload.get("decisions", {})
+    source_kind = payload.get("source_kind", "exact")
+
+    session_data = {
+        "schema_version": 1,
+        "source_kind": source_kind,
+        "decisions": decisions,
+        "decision_count": len(decisions),
+    }
+
+    try:
+        session_path.parent.mkdir(parents=True, exist_ok=True)
+        session_path.write_text(json.dumps(session_data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception as exc:
+        return _fail(f"Failed to write session: {exc}")
+
+    _emit({"status": "saved", "path": str(session_path), "decision_count": len(decisions)})
+    return 0
+
+
+def cmd_load_session() -> int:
+    """Load review decisions from a session file."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _fail(f"Invalid JSON: {exc}")
+
+    session_path = Path(payload.get("session_path", ""))
+    if not str(session_path):
+        return _fail("session_path is required.")
+
+    try:
+        session_data = json.loads(session_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return _fail(f"Failed to read session: {exc}")
+
+    _emit(session_data)
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="media_manager.bridge_review",
+        description="Review workbench bridge for Tauri desktop app.",
+    )
+    parser.add_argument("action", choices=["save-session", "load-session"])
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    if argv is None:
+        argv = sys.argv[1:]
+    args = parser.parse_args(argv)
+    if args.action == "save-session":
+        return cmd_save_session()
+    return cmd_load_session()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -84,6 +84,22 @@ pub async fn duplicates_apply(payload: Value) -> Result<Value, String> {
     bridge()?.run_module("bridge_duplicates_apply", "", &[], Some(&json))
 }
 
+// ── Review ──
+
+#[tauri::command]
+pub async fn review_save_session(payload: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&payload)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_review", "save-session", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn review_load_session(payload: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&payload)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_review", "load-session", &[], Some(&json))
+}
+
 // ── People ──
 
 #[tauri::command]
