@@ -30,6 +30,7 @@ The new desktop frontend under `./desktop` (Tauri + React + TypeScript + shadcn/
 - Shared UI components: ErrorBanner, EmptyState, StatusBadge
 - History: search/filter, Refresh
 - Settings: collapsible Runtime Diagnostics with show/hide toggle
+- Media groups core detection: `core/media_groups.py` with grouping logic, sidecar/pair detection, ambiguity handling, warnings, and tests; integrated into organizer/renamer planners and `app_manifest`
 
 **Preview-only guarantees:**
 - All bridges mark results as `kind: "preview"` and return `dry_run: true`
@@ -49,17 +50,15 @@ The new desktop frontend under `./desktop` (Tauri + React + TypeScript + shadcn/
 - Undo preview/apply
 - Progress streaming
 - Thumbnail previews for similar image groups
-- Review Workbench
-- Similar image scanning in desktop UI
 
 ## Product direction for the next phase
 
 We will prioritize the following additions while the new Tauri + React desktop frontend is introduced under `./desktop`:
 
-1. **Associated files / media groups**
-   - Treat a main media file together with known related files as one operational unit.
-   - Examples: XMP sidecars, AAE files, RAW+JPEG pairs, photo+video pairs where the mapping is clear.
-   - This must work in preview, apply, journaling, history, and undo.
+1. **Associated files / media groups (Block 1a: DONE)**
+   - Core detection (`media_groups.py`) is implemented: grouping logic, sidecar/pair detection, ambiguity handling, warnings, and tests.
+   - Integrated into organizer and renamer planners and `app_manifest`.
+   - Next (Block 1b): integrate media groups into organize/rename execution, journaling, undo, and leftover consolidation.
 
 2. **Source leftover consolidation**
    - Optional and disabled by default.
@@ -95,10 +94,9 @@ For the next implementation blocks, we prefer this order:
 
 The immediate next task is to define a V1 for:
 
-- associated files / media groups
-- supported file types and matching rules
-- leftover consolidation behavior
-- required result fields
-- required history / undo behavior
+- leftover consolidation behavior (block 1b)
+- conflict policy as an explicit product feature
+- media group integration into organize/rename execution, journaling, and undo
+- required result fields and history/undo behavior for grouped operations
 
 That definition should stay conservative, Windows-first, and safety-first.
