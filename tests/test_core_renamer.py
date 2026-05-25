@@ -284,3 +284,24 @@ def test_include_associated_files_mixed_group(monkeypatch, tmp_path: Path) -> No
     assert entry.associated_file_count == 2
     assert dry_run.media_group_count == 1
     assert dry_run.associated_file_count == 2
+
+
+def test_execute_rename_group_apply_renames_all_members(monkeypatch, tmp_path: Path) -> None:
+    """When include_associated_files=True and apply=True, all group members are renamed."""
+    source = tmp_path / "source"
+    source.mkdir()
+    jpg = source / "IMG_0001.jpg"
+    xmp = source / "IMG_0001.xmp"
+    jpg.write_bytes(b"jpg"); xmp.write_bytes(b"xmp")
+    monkeypatch.setattr("media_manager.core.renamer.planner.resolve_capture_datetime", lambda path, exiftool_path=None, **kwargs: _resolution(path))
+    dry_run = build_rename_dry_run(RenamePlannerOptions(source_dirs=(source,), template="{date:%Y-%m-%d}_{stem}", include_associated_files=True))
+    execution = execute_rename_dry_run(dry_run, apply=True)
+    assert execution.renamed_count == 1
+    renamed_jpg = source / "2024-08-10_IMG_0001.jpg"
+    renamed_xmp = source / "2024-08-10_IMG_0001.xmp"
+    assert not jpg.exists()
+    assert not xmp.exists()
+    assert renamed_jpg.exists()
+    assert renamed_xmp.exists()
+    assert any(mr.role == "main" for mr in execution.entries[0].member_results)
+    assert any(mr.role == "sidecar_xmp" for mr in execution.entries[0].member_results)

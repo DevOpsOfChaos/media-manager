@@ -224,3 +224,47 @@ def test_organize_dry_run_group_summary_properties(monkeypatch, tmp_path: Path) 
     assert plan.media_group_count >= 1
     assert plan.associated_file_count >= 1
     assert plan.group_kind_summary == {"sidecar": 1}
+
+
+def test_execute_organize_group_copy_moves_all_members(monkeypatch, tmp_path: Path) -> None:
+    """When include_associated_files=True and operation_mode=copy, all group members are copied."""
+    source = tmp_path / "source"; target = tmp_path / "target"
+    source.mkdir(); target.mkdir()
+    jpg = source / "photo.jpg"
+    xmp = source / "photo.xmp"
+    jpg.write_bytes(b"jpg"); xmp.write_bytes(b"xmp")
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN, include_associated_files=True, operation_mode="copy"))
+    result = execute_organize_plan(plan)
+    assert result.executed_count == 1
+    assert result.copied_count == 1
+    for entry in result.entries:
+        assert len(entry.member_results) >= 2
+        outcomes = {mr.outcome for mr in entry.member_results}
+        assert outcomes == {"copied"}
+    assert jpg.exists()
+    assert xmp.exists()
+    assert (target / "2024" / "2024-08-10" / "photo.jpg").exists()
+    assert (target / "2024" / "2024-08-10" / "photo.xmp").exists()
+
+
+def test_execute_organize_group_move_moves_all_members(monkeypatch, tmp_path: Path) -> None:
+    """When include_associated_files=True and operation_mode=move, all group members are moved."""
+    source = tmp_path / "source"; target = tmp_path / "target"
+    source.mkdir(); target.mkdir()
+    jpg = source / "photo.jpg"
+    xmp = source / "photo.xmp"
+    jpg.write_bytes(b"jpg"); xmp.write_bytes(b"xmp")
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN, include_associated_files=True, operation_mode="move"))
+    result = execute_organize_plan(plan)
+    assert result.executed_count == 1
+    assert result.moved_count == 1
+    for entry in result.entries:
+        assert len(entry.member_results) >= 2
+        outcomes = {mr.outcome for mr in entry.member_results}
+        assert outcomes == {"moved"}
+    assert not jpg.exists()
+    assert not xmp.exists()
+    assert (target / "2024" / "2024-08-10" / "photo.jpg").exists()
+    assert (target / "2024" / "2024-08-10" / "photo.xmp").exists()
