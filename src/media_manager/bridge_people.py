@@ -24,6 +24,10 @@ from media_manager.core.people_recognition import (
     PeopleScanResult,
     SUPPORTED_FACE_IMAGE_EXTENSIONS,
     load_people_catalog,
+    write_people_catalog,
+    rename_person_in_catalog,
+    add_person_to_catalog,
+    add_embedding_to_person,
     scan_people,
 )
 
@@ -265,9 +269,166 @@ def cmd_catalog_info() -> int:
     return 0
 
 
+def cmd_catalog_list() -> int:
+    """List all people in the catalog with their face counts."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return _fail("Invalid JSON")
+
+    catalog_path = Path(payload.get("catalog_path", ""))
+    if not str(catalog_path):
+        return _fail("catalog_path required")
+
+    try:
+        catalog = load_people_catalog(catalog_path)
+    except Exception as exc:
+        return _fail(f"Catalog load failed: {exc}")
+
+    from media_manager.core.people_recognition import DetectedFace
+    
+    people_list = []
+    for person_id, person in catalog.persons.items():
+        paths = list({emb.source_path for emb in person.embeddings if emb.source_path})
+        people_list.append({
+            "person_id": person_id,
+            "name": person.name or person_id,
+            "face_count": len(person.embeddings),
+            "source_paths": paths[:5],
+            "aliases": person.aliases,
+        })
+
+    _emit({
+        "kind": "catalog_list",
+        "path": str(catalog_path),
+        "person_count": len(people_list),
+        "people": people_list,
+    })
+    return 0
+
+
+def cmd_person_rename() -> int:
+    """Rename a person in the catalog."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return _fail("Invalid JSON")
+
+    catalog_path = Path(payload["catalog_path"])
+    person_id = payload.get("person_id", "")
+    new_name = payload.get("name", "")
+    if not person_id or not new_name:
+        return _fail("person_id and name are required")
+
+    try:
+        catalog = load_people_catalog(catalog_path)
+        rename_person_in_catalog(catalog, person_id=person_id, name=new_name)
+        write_people_catalog(catalog_path, catalog)
+    except Exception as exc:
+        return _fail(f"Rename failed: {exc}")
+
+    _emit({"kind": "person_renamed", "person_id": person_id, "name": new_name})
+    return 0
+
+
+def cmd_person_create() -> int:
+    """Create a new person in the catalog."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return _fail("Invalid JSON")
+
+    catalog_path = Path(payload["catalog_path"])
+    name = payload.get("name", "")
+    if not name:
+        return _fail("name is required")
+
+    try:
+        catalog = load_people_catalog(catalog_path)
+        person = add_person_to_catalog(catalog, name=name, aliases=payload.get("aliases", []))
+        write_people_catalog(catalog_path, catalog)
+    except Exception as exc:
+        return _fail(f"Create failed: {exc}")
+
+    _emit({"kind": "person_created", "person_id": person.person_id, "name": person.name})
+    return 0
+
+
+def cmd_person_reassign() -> int:
+    """Reassign a specific face (by source_path + face_index) to a different or new person."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return _fail("Invalid JSON")
+
+    catalog_path = Path(payload["catalog_path"])
+    source_path = payload.get("source_path", "")
+    face_index = payload.get("face_index", 0)
+    from_person_id = payload.get("from_person_id", "")
+    to_person_id = payload.get("to_person_id", "")
+    to_person_name = payload.get("to_person_name", "")
+
+    if not source_path or not from_person_id:
+        return _fail("source_path and from_person_id required")
+
+    try:
+        catalog = load_people_catalog(catalog_path)
+    except Exception as exc:
+        return _fail(f"Catalog load failed: {exc}")
+
+    from_person = catalog.persons.get(from_person_id)
+    if not from_person:
+        return _fail(f"Source person '{from_person_id}' not found")
+
+    target_embedding = None
+    new_embeddings = []
+    for emb in from_person.embeddings:
+        if emb.source_path == source_path and len(from_person.embeddings) - len(new_embeddings) == face_index + 1:
+            target_embedding = emb
+        else:
+            new_embeddings.append(emb)
+    
+    if target_embedding is None:
+        return _fail(f"Face not found: {source_path}#{face_index}")
+
+    from_person.embeddings = new_embeddings
+
+    if to_person_id and to_person_id in catalog.persons:
+        target_person = catalog.persons[to_person_id]
+    elif to_person_name:
+        target_person = add_person_to_catalog(catalog, name=to_person_name)
+    else:
+        return _fail("to_person_id or to_person_name required")
+
+    add_embedding_to_person(
+        catalog,
+        person_id=target_person.person_id,
+        encoding=target_embedding.encoding,
+        source_path=target_embedding.source_path,
+        box=target_embedding.box,
+    )
+
+    try:
+        write_people_catalog(catalog_path, catalog)
+    except Exception as exc:
+        return _fail(f"Save failed: {exc}")
+
+    _emit({
+        "kind": "person_reassigned",
+        "from_person_id": from_person_id,
+        "to_person_id": target_person.person_id,
+        "source_path": source_path,
+    })
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="media_manager.bridge_people")
-    parser.add_argument("action", choices=["scan", "status", "reset", "catalog-info"])
+    parser.add_argument("action", choices=["scan", "status", "reset", "catalog-info", "catalog-list", "person-rename", "person-create", "person-reassign"])
     return parser
 
 
@@ -279,6 +440,10 @@ def main(argv: list[str] | None = None) -> int:
         "status": cmd_status,
         "reset": cmd_reset,
         "catalog-info": cmd_catalog_info,
+        "catalog-list": cmd_catalog_list,
+        "person-rename": cmd_person_rename,
+        "person-create": cmd_person_create,
+        "person-reassign": cmd_person_reassign,
     }
     return actions[args.action]()
 

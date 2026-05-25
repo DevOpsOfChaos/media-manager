@@ -26,6 +26,10 @@ pub fn run() {
             media_commands::people_scan,
             media_commands::people_scan_status,
             media_commands::people_scan_reset,
+            media_commands::people_catalog_list,
+            media_commands::people_person_rename,
+            media_commands::people_person_create,
+            media_commands::people_person_reassign,
             media_commands::people_catalog_info,
             // History
             media_commands::history_list,

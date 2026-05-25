@@ -170,6 +170,37 @@ export async function peopleCatalogInfo(options: { catalog_path: string }): Prom
   return invoke("people_catalog_info", { options })
 }
 
+export interface PersonEntry {
+  person_id: string
+  name: string
+  face_count: number
+  source_paths: string[]
+  aliases: string[]
+}
+
+export interface CatalogListResponse {
+  kind: string
+  path: string
+  person_count: number
+  people: PersonEntry[]
+}
+
+export async function peopleCatalogList(options: { catalog_path: string }): Promise<CatalogListResponse> {
+  return invoke("people_catalog_list", { options })
+}
+
+export async function peoplePersonRename(options: { catalog_path: string; person_id: string; name: string }): Promise<{ kind: string }> {
+  return invoke("people_person_rename", { options })
+}
+
+export async function peoplePersonCreate(options: { catalog_path: string; name: string; aliases?: string[] }): Promise<{ kind: string; person_id: string; name: string }> {
+  return invoke("people_person_create", { options })
+}
+
+export async function peoplePersonReassign(options: { catalog_path: string; source_path: string; face_index: number; from_person_id: string; to_person_id?: string; to_person_name?: string }): Promise<{ kind: string }> {
+  return invoke("people_person_reassign", { options })
+}
+
 // ── History ──
 
 export interface HistoryListPayload {

@@ -1,285 +1,271 @@
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
-import { peopleScan, peopleScanStatus, peopleScanReset, peopleCatalogInfo, type PeopleScanResult, type PeopleScanStatus, type CatalogInfo } from "@/lib/tauri-bridge"
+import { peopleCatalogList, peoplePersonRename, peoplePersonCreate, peoplePersonReassign, type PersonEntry, type CatalogListResponse } from "@/lib/tauri-bridge"
+import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
-import { useSettingsStore } from "@/stores/settings-store"
-import { Users, ScanFace, Loader2, CheckCircle2, Clock, Shield, Trash2 } from "lucide-react"
+import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff } from "lucide-react"
 
+// ── Thumbnail component ──
+function FaceThumb({ path, size = 96 }: { path: string; size?: number }) {
+  const [loaded, setLoaded] = useState(false)
+  const [errored, setErrored] = useState(false)
+  if (errored) return <div className="flex items-center justify-center bg-muted rounded" style={{ width: size, height: size }}><ImageOff className="w-6 h-6 text-muted-foreground" /></div>
+  return (
+    <div className="relative rounded overflow-hidden" style={{ width: size, height: size }}>
+      {!loaded && <div className="absolute inset-0 bg-muted animate-pulse" />}
+      <img src={convertFileSrc(path)} alt="" className="w-full h-full object-cover" onLoad={() => setLoaded(true)} onError={() => setErrored(true)} />
+    </div>
+  )
+}
+
+// ── Main component ──
 export default function PeoplePage() {
-  const [sourceDir, setSourceDir] = useState("")
-  const [catalogPath, setCatalogPath] = useState("")
-  const [enabled, setEnabled] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [scanResult, setScanResult] = useState<PeopleScanResult | null>(null)
-  const [scanStatus, setScanStatus] = useState<PeopleScanStatus | null>(null)
-  const [catalogInfo, setCatalogInfo] = useState<CatalogInfo | null>(null)
+  const [catalogPath, setCatalogPath] = useState(() => localStorage.getItem("people_catalog_path") || "")
+  const [enabled, setEnabled] = useState(() => localStorage.getItem("people_scan_enabled") === "true")
+  const [catalog, setCatalog] = useState<CatalogListResponse | null>(null)
+  const [_loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [lastScanTime, setLastScanTime] = useState<string | null>(null)
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  useSettingsStore()
 
-  // Load saved state on mount
-  useEffect(() => {
-    const stored = localStorage.getItem("people_scan_enabled")
-    if (stored === "true") setEnabled(true)
-    const storedSource = localStorage.getItem("people_scan_source")
-    if (storedSource) setSourceDir(storedSource)
-    const storedCatalog = localStorage.getItem("people_scan_catalog")
-    if (storedCatalog) setCatalogPath(storedCatalog)
-  }, [])
+  // Detail view
+  const [selectedPerson, setSelectedPerson] = useState<PersonEntry | null>(null)
+  const [editingName, setEditingName] = useState(false)
+  const [editName, setEditName] = useState("")
 
-  // Check scan status when enabled
-  useEffect(() => {
-    if (!enabled || !sourceDir) return
-    const check = async () => {
-      try {
-        const status = await peopleScanStatus({ source_dirs: [sourceDir] })
-        setScanStatus(status)
-      } catch { /* ignore */ }
-    }
-    check()
-  }, [enabled, sourceDir])
+  // Image modal
+  const [modalImage, setModalImage] = useState<string | null>(null)
+  const [modalPersonId, setModalPersonId] = useState<string | null>(null)
 
-  // Auto-rescan polling
-  useEffect(() => {
-    if (pollingRef.current) clearInterval(pollingRef.current)
-    if (!enabled || !sourceDir) return
+  // Reassign dialog
+  const [showReassign, setShowReassign] = useState(false)
+  const [reassignToId, setReassignToId] = useState("")
+  const [newPersonName, setNewPersonName] = useState("")
 
-    pollingRef.current = setInterval(async () => {
-      try {
-        const result = await peopleScan({
-          source_dirs: [sourceDir],
-          catalog_path: catalogPath || undefined,
-          incremental: true,
-          tolerance: 0.6,
-        })
-        setScanResult(result)
-        setLastScanTime(new Date().toLocaleTimeString())
-        // Update status too
-        const status = await peopleScanStatus({ source_dirs: [sourceDir] })
-        setScanStatus(status)
-      } catch { /* silent poll failure */ }
-    }, 30000) // every 30 seconds
+  // Create person dialog
+  const [showCreatePerson, setShowCreatePerson] = useState(false)
+  const [createName, setCreateName] = useState("")
 
-    return () => { if (pollingRef.current) clearInterval(pollingRef.current) }
-  }, [enabled, sourceDir, catalogPath])
+  const loadCatalog = useCallback(async () => {
+    if (!catalogPath) return
+    void setLoading(true)
+    try {
+      const data = await peopleCatalogList({ catalog_path: catalogPath })
+      setCatalog(data)
+    } catch (e) { setError(String(e)) }
+    finally { void setLoading(false) }
+  }, [catalogPath])
+
+  useEffect(() => { loadCatalog() }, [loadCatalog])
 
   const handleToggle = (checked: boolean) => {
     setEnabled(checked)
     localStorage.setItem("people_scan_enabled", String(checked))
-    if (!checked) {
-      if (pollingRef.current) clearInterval(pollingRef.current)
-      return
-    }
-    // Save state when enabling
-    localStorage.setItem("people_scan_source", sourceDir)
-    localStorage.setItem("people_scan_catalog", catalogPath)
-    // Trigger initial scan
-    handleFullScan()
   }
 
-  const handleFullScan = useCallback(async () => {
-    if (!sourceDir) return
-    setLoading(true); setError(null)
+  const handleRename = async () => {
+    if (!selectedPerson || !editName.trim()) return
     try {
-      localStorage.setItem("people_scan_source", sourceDir)
-      localStorage.setItem("people_scan_catalog", catalogPath)
-      const result = await peopleScan({
-        source_dirs: [sourceDir],
-        catalog_path: catalogPath || undefined,
-        incremental: false,
-        force_full: true,
-        tolerance: 0.6,
+      await peoplePersonRename({ catalog_path: catalogPath, person_id: selectedPerson.person_id, name: editName.trim() })
+      setEditingName(false)
+      loadCatalog()
+    } catch (e) { setError(String(e)) }
+  }
+
+  const handleCreatePerson = async () => {
+    if (!createName.trim()) return
+    try {
+      await peoplePersonCreate({ catalog_path: catalogPath, name: createName.trim() })
+      setShowCreatePerson(false)
+      setCreateName("")
+      loadCatalog()
+    } catch (e) { setError(String(e)) }
+  }
+
+  const handleReassign = async () => {
+    if (!modalImage || !modalPersonId) return
+    try {
+      await peoplePersonReassign({
+        catalog_path: catalogPath,
+        source_path: modalImage,
+        face_index: 0,
+        from_person_id: modalPersonId,
+        to_person_id: reassignToId || undefined,
+        to_person_name: reassignToId ? undefined : newPersonName || undefined,
       })
-      setScanResult(result)
-      setLastScanTime(new Date().toLocaleTimeString())
-      const status = await peopleScanStatus({ source_dirs: [sourceDir] })
-      setScanStatus(status)
+      setShowReassign(false)
+      setModalImage(null)
+      setReassignToId("")
+      setNewPersonName("")
+      loadCatalog()
     } catch (e) { setError(String(e)) }
-    finally { setLoading(false) }
-  }, [sourceDir, catalogPath])
+  }
 
-  const handleReset = useCallback(async () => {
-    if (!sourceDir) return
-    try {
-      await peopleScanReset({ source_dirs: [sourceDir] })
-      setScanResult(null)
-      setScanStatus(null)
-      setLastScanTime(null)
-    } catch (e) { setError(String(e)) }
-  }, [sourceDir])
-
-  const handleCatalogInfo = useCallback(async () => {
-    if (!catalogPath) return
-    try {
-      const info = await peopleCatalogInfo({ catalog_path: catalogPath })
-      setCatalogInfo(info)
-    } catch (e) { setError(String(e)) }
-  }, [catalogPath])
-
-  const scannedPercent = scanResult && scanResult.total_files > 0
-    ? Math.round((scanResult.scanned_files / scanResult.total_files) * 100)
-    : 0
-
-  return (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Users className="w-6 h-6 text-primary" />
-          <div>
-            <h1 className="text-xl font-bold">People & Faces</h1>
-            <p className="text-sm text-muted-foreground">Smart face detection with automatic rescanning.</p>
+  // ── Person Grid View ──
+  if (!selectedPerson) {
+    return (
+      <div className="max-w-4xl mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Users className="w-6 h-6 text-primary" />
+            <div>
+              <h1 className="text-xl font-bold">People</h1>
+              <p className="text-sm text-muted-foreground">Recognized people from your photo library.</p>
+            </div>
           </div>
+          <div className="flex items-center gap-3">
+            <Input value={catalogPath} onChange={e => { setCatalogPath(e.target.value); localStorage.setItem("people_catalog_path", e.target.value) }} placeholder="catalog.json" className="text-xs w-48" />
+            <Button onClick={loadCatalog} size="sm" variant="outline" disabled={!catalogPath}>Refresh</Button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Switch checked={enabled} onCheckedChange={handleToggle} />
+          <span className="text-sm text-muted-foreground">Auto-scan</span>
+          {catalog && <Badge variant="secondary" className="ml-auto">{catalog.person_count} people</Badge>}
+        </div>
+
+        {error && <p className="text-sm text-red-400">{error}</p>}
+
+        {catalog && catalog.people.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {catalog.people.map(person => (
+              <Card
+                key={person.person_id}
+                className="cursor-pointer hover:border-primary/50 transition-colors overflow-hidden"
+                onClick={() => setSelectedPerson(person)}
+              >
+                <div className="aspect-square bg-muted">
+                  {person.source_paths[0] ? (
+                    <FaceThumb path={person.source_paths[0]} size={200} />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center"><Users className="w-10 h-10 text-muted-foreground/40" /></div>
+                  )}
+                </div>
+                <CardContent className="p-3">
+                  <p className="text-sm font-medium truncate">{person.name}</p>
+                  <p className="text-xs text-muted-foreground">{person.face_count} faces</p>
+                </CardContent>
+              </Card>
+            ))}
+            {/* Add Person card */}
+            <Card className="cursor-pointer hover:border-primary/50 border-dashed flex items-center justify-center min-h-[200px]" onClick={() => setShowCreatePerson(true)}>
+              <div className="text-center text-muted-foreground">
+                <UserPlus className="w-8 h-8 mx-auto mb-2" />
+                <p className="text-sm">Add Person</p>
+              </div>
+            </Card>
+          </div>
+        ) : catalog ? (
+          <EmptyState title="No people yet" description="Scan photos with a catalog to recognize people, or add them manually." />
+        ) : (
+          <EmptyState title="No catalog loaded" description="Enter a catalog path above and click Refresh to see recognized people." />
+        )}
+
+        {/* Create Person Dialog */}
+        <Dialog open={showCreatePerson} onOpenChange={setShowCreatePerson}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader><DialogTitle>Add Person</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <Input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Person name" autoFocus onKeyDown={e => e.key === "Enter" && handleCreatePerson()} />
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowCreatePerson(false)}>Cancel</Button>
+                <Button size="sm" onClick={handleCreatePerson} disabled={!createName.trim()}>Create</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    )
+  }
+
+  // ── Person Detail View ──
+  return (
+    <div className="max-w-4xl mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={() => setSelectedPerson(null)}><ArrowLeft className="w-4 h-4 mr-1" /> Back</Button>
+        <div className="flex-1">
+          {editingName ? (
+            <div className="flex items-center gap-2">
+              <Input value={editName} onChange={e => setEditName(e.target.value)} className="text-lg font-bold h-9 w-64" autoFocus onKeyDown={e => { if (e.key === "Enter") handleRename(); if (e.key === "Escape") setEditingName(false) }} />
+              <Button size="sm" variant="ghost" onClick={handleRename}><Check className="w-4 h-4" /></Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}><X className="w-4 h-4" /></Button>
+            </div>
+          ) : (
+            <h1 className="text-xl font-bold flex items-center gap-2">
+              {selectedPerson.name}
+              <Button variant="ghost" size="sm" onClick={() => { setEditName(selectedPerson.name); setEditingName(true) }}><Pencil className="w-3.5 h-3.5" /></Button>
+            </h1>
+          )}
+          <p className="text-sm text-muted-foreground">{selectedPerson.face_count} faces recognized</p>
         </div>
       </div>
 
-      {/* Privacy & Enable Toggle */}
-      <Card className={enabled ? "border-green-500/30" : ""}>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center justify-between">
-            <span className="flex items-center gap-2"><Shield className="w-4 h-4" /> Face Recognition</span>
-            <Switch checked={enabled} onCheckedChange={handleToggle} />
-          </CardTitle>
-        </CardHeader>
-        {enabled && (
-          <CardContent className="space-y-3 pt-0">
-            <p className="text-xs text-muted-foreground">
-              Face recognition is active. Photos are scanned incrementally — only new or changed files are processed.
-              Scans resume automatically every 30 seconds.
-            </p>
-          </CardContent>
-        )}
-        {!enabled && (
-          <CardContent className="pt-0">
-            <p className="text-xs text-muted-foreground">
-              Face recognition is disabled. Enable it to scan photos for faces and match against your people catalog.
-              Your privacy is respected — all data stays on your device.
-            </p>
-          </CardContent>
-        )}
-      </Card>
-
-      {enabled && (
-        <>
-          {/* Configuration */}
-          <Card>
-            <CardHeader><CardTitle className="text-base">Scan Configuration</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium">Source Directory</label>
-                <Input value={sourceDir} onChange={e => setSourceDir(e.target.value)} placeholder="C:\Photos" className="text-xs" disabled={loading} />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium">People Catalog (optional)</label>
-                <div className="flex gap-2">
-                  <Input value={catalogPath} onChange={e => setCatalogPath(e.target.value)} placeholder="catalog.json" className="text-xs flex-1" disabled={loading} />
-                  <Button onClick={handleCatalogInfo} variant="outline" size="sm" disabled={!catalogPath}>Info</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Scan Controls */}
-          <div className="flex gap-2">
-            <Button onClick={handleFullScan} disabled={loading || !sourceDir} size="sm">
-              {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Scanning...</> : <><ScanFace className="w-4 h-4 mr-2" /> Full Scan Now</>}
-            </Button>
-            <Button onClick={handleReset} variant="ghost" size="sm" disabled={loading}>
-              <Trash2 className="w-4 h-4 mr-1" /> Reset Cache
-            </Button>
+      {/* Image Grid */}
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+        {selectedPerson.source_paths.map((path, i) => (
+          <div
+            key={i}
+            className="cursor-pointer rounded overflow-hidden hover:ring-2 hover:ring-primary transition-all"
+            onClick={() => { setModalImage(path); setModalPersonId(selectedPerson.person_id) }}
+          >
+            <FaceThumb path={path} size={150} />
           </div>
+        ))}
+        {selectedPerson.source_paths.length === 0 && (
+          <div className="col-span-full py-12 text-center text-muted-foreground">
+            <ImageOff className="w-10 h-10 mx-auto mb-2" />
+            <p>No images for this person yet. Run a face scan to find matches.</p>
+          </div>
+        )}
+      </div>
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
-
-          {/* Scan Status */}
-          {scanStatus && (
-            <Card className="border-blue-500/20 bg-blue-500/5">
-              <CardContent className="py-3">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-green-400" />
-                    <span>
-                      {scanStatus.has_cache
-                        ? `${scanStatus.cached_files} files cached`
-                        : "No scan cache yet"}
-                    </span>
-                  </div>
-                  {lastScanTime && (
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="w-3 h-3" /> Last scan: {lastScanTime}
-                    </span>
+      {/* Image Modal */}
+      <Dialog open={!!modalImage} onOpenChange={(o: boolean) => { if (!o) { setModalImage(null); setShowReassign(false) } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle className="text-sm">{modalImage?.split(/[\\/]/).pop()}</DialogTitle></DialogHeader>
+          {modalImage && (
+            <div className="space-y-4">
+              <img src={convertFileSrc(modalImage)} alt="" className="w-full max-h-[60vh] object-contain rounded" />
+              {!showReassign ? (
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Person: {selectedPerson?.name}</span>
+                  <Button variant="outline" size="sm" onClick={() => setShowReassign(true)}>
+                    Not this person?
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3 p-3 border rounded border-yellow-500/30 bg-yellow-500/5">
+                  <p className="text-sm font-medium">Reassign this face</p>
+                  <select
+                    value={reassignToId}
+                    onChange={e => setReassignToId(e.target.value)}
+                    className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
+                  >
+                    <option value="">-- Create new person --</option>
+                    {catalog?.people.filter(p => p.person_id !== selectedPerson?.person_id).map(p => (
+                      <option key={p.person_id} value={p.person_id}>{p.name} ({p.face_count} faces)</option>
+                    ))}
+                  </select>
+                  {!reassignToId && (
+                    <Input value={newPersonName} onChange={e => setNewPersonName(e.target.value)} placeholder="New person name" className="text-xs" />
                   )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Scan Results */}
-          {scanResult && (
-            <Card className="border-blue-500/30">
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center justify-between">
-                  <span>Scan Results</span>
-                  <Badge variant="outline" className="text-xs">
-                    {scanResult.incremental ? "Incremental" : "Full"} · {scannedPercent}% scanned
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className="p-3 rounded bg-muted/30">
-                    <p className="text-xl font-bold">{scanResult.total_faces}</p>
-                    <p className="text-[10px] text-muted-foreground">Total Faces</p>
-                  </div>
-                  <div className="p-3 rounded bg-green-500/10">
-                    <p className="text-xl font-bold text-green-400">{scanResult.matched_faces}</p>
-                    <p className="text-[10px] text-muted-foreground">Matched</p>
-                  </div>
-                  <div className="p-3 rounded bg-yellow-500/10">
-                    <p className="text-xl font-bold text-yellow-400">{scanResult.unknown_faces}</p>
-                    <p className="text-[10px] text-muted-foreground">Unknown</p>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setShowReassign(false)}>Cancel</Button>
+                    <Button size="sm" onClick={handleReassign} disabled={!reassignToId && !newPersonName.trim()}>
+                      {reassignToId ? "Reassign" : "Create & Reassign"}
+                    </Button>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 mt-3">
-                  <Badge variant="secondary">{scanResult.people_count} people</Badge>
-                  <Badge variant="secondary">{scanResult.image_count} images</Badge>
-                  <Badge variant="outline">{scanResult.scanned_files} scanned</Badge>
-                  <Badge variant="outline">{scanResult.skipped_files} skipped</Badge>
-                </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
           )}
-
-          {/* Catalog Info */}
-          {catalogInfo && (
-            <Card className="border-green-500/30">
-              <CardHeader><CardTitle className="text-sm">Catalog: {catalogInfo.path.split("/").pop()?.split("\\").pop()}</CardTitle></CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-2">{catalogInfo.person_count} people</p>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {catalogInfo.people.slice(0, 15).map(p => (
-                    <div key={p.person_id} className="flex justify-between text-xs py-1 border-b border-border/30">
-                      <span>{p.name}</span>
-                      <span className="text-muted-foreground">{p.face_count} faces</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </>
-      )}
-
-      {!enabled && (
-        <EmptyState
-          title="Face Recognition is Off"
-          description="Toggle the switch above to enable face detection. Your photos stay on your device — nothing is uploaded or shared."
-        />
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

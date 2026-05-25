@@ -181,6 +181,30 @@ pub async fn people_scan_reset(_app: tauri::AppHandle, options: Value) -> Result
 }
 
 #[tauri::command]
+pub async fn people_catalog_list(_app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options).map_err(|e| format!("{e}"))?;
+    bridge()?.run_module("bridge_people", "catalog-list", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn people_person_rename(_app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options).map_err(|e| format!("{e}"))?;
+    bridge()?.run_module("bridge_people", "person-rename", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn people_person_create(_app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options).map_err(|e| format!("{e}"))?;
+    bridge()?.run_module("bridge_people", "person-create", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn people_person_reassign(_app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options).map_err(|e| format!("{e}"))?;
+    bridge()?.run_module("bridge_people", "person-reassign", &[], Some(&json))
+}
+
+#[tauri::command]
 pub async fn people_catalog_info(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
     emit_progress(&app, "operation:started", "Catalog Info", None);
     let json = serde_json::to_string(&options)
