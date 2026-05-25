@@ -9,14 +9,20 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { EmptyState } from "@/components/shared/EmptyState"
 import { libraryBrowsePaginated, fileOpen, fileReveal, fileDelete, fileRename, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
 import { convertFileSrc } from "@tauri-apps/api/core"
-import { FolderOpen, Film, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, File } from "lucide-react"
+import { FolderOpen, Film, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, File, Tag, Check, Play } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu"
+import { StarRating } from "@/components/shared/StarRating"
+import { Slideshow } from "@/components/shared/Slideshow"
+import { LABEL_COLORS } from "@/components/shared/ColorLabel"
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48, 96]
 
@@ -58,6 +64,19 @@ export default function LibraryPage() {
   const [renameValue, setRenameValue] = useState("")
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const preloadQueue = useRef<Set<number>>(new Set())
+  const [slideshowOpen, setSlideshowOpen] = useState(false)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
+
+  const [ratings, setRatings] = useState<Record<string, number>>(() => {
+    try { return JSON.parse(localStorage.getItem("library_ratings") || "{}") }
+    catch { return {} }
+  })
+
+  const [labels, setLabels] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("library_labels") || "{}") }
+    catch { return {} }
+  })
 
   const loadPageData = useCallback(async (pageNum: number) => {
     if (!rootDir) return
@@ -108,6 +127,10 @@ export default function LibraryPage() {
     }
   }, [page, data?.total_pages, loadPageData, loading, data])
 
+  useEffect(() => {
+    setSelectedPaths(new Set())
+  }, [page])
+
   const handleOpen = async (path: string) => {
     setActionLoading(path)
     try { await fileOpen(path) }
@@ -132,6 +155,14 @@ export default function LibraryPage() {
     } catch (e) { setError(String(e)) }
   }
 
+  const handleSetLabel = (filePath: string, color: string) => {
+    setLabels(prev => {
+      const next = { ...prev, [filePath]: color }
+      localStorage.setItem("library_labels", JSON.stringify(next))
+      return next
+    })
+  }
+
   const handleRenameConfirm = async () => {
     if (!renameDialog || !renameValue.trim()) return
     try {
@@ -142,6 +173,23 @@ export default function LibraryPage() {
       setLoadedPages(next)
       loadPageData(page)
     } catch (e) { setError(String(e)) }
+  }
+
+  const toggleSelect = (path: string) => {
+    setSelectedPaths(prev => {
+      const next = new Set(prev)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
+  }
+
+  const selectAll = () => {
+    if (selectedPaths.size === currentFiles.length) {
+      setSelectedPaths(new Set())
+    } else {
+      setSelectedPaths(new Set(currentFiles.map(f => f.path)))
+    }
   }
 
   const currentFiles = loadedPages.get(page) || []
@@ -181,6 +229,11 @@ export default function LibraryPage() {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <Badge variant="outline">{data.file_count} {t("files", "Dateien")}</Badge>
+            {selectMode && (
+              <Button variant="outline" size="sm" onClick={selectAll}>
+                {selectedPaths.size === currentFiles.length ? t("Deselect all", "Alle abwählen") : t("Select all", "Alle auswählen")}
+              </Button>
+            )}
             <Input
               value={filter}
               onChange={e => { setFilter(e.target.value); setPage(0) }}
@@ -189,6 +242,14 @@ export default function LibraryPage() {
             />
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSlideshowOpen(true)}
+              disabled={currentFiles.length === 0}>
+              <Play className="h-3 w-3 mr-1" /> {t("Slideshow", "Diashow")}
+            </Button>
+            <Button variant={selectMode ? "default" : "outline"} size="sm"
+              onClick={() => { setSelectMode(!selectMode); setSelectedPaths(new Set()) }}>
+              {selectMode ? t("Done", "Fertig") : t("Select", "Auswählen")}
+            </Button>
             <span className="text-xs text-muted-foreground">{t("Per page:", "Pro Seite:")}</span>
             <select
               value={pageSize}
@@ -232,12 +293,29 @@ export default function LibraryPage() {
           ).map((f) => (
             <Card
               key={f.path}
-              className="overflow-hidden hover:border-primary/30 transition-colors group relative"
+              className={`overflow-hidden hover:border-primary/30 transition-colors group relative ${selectedPaths.has(f.path) ? "ring-2 ring-primary" : ""}`}
               role="button"
               tabIndex={0}
               onKeyDown={e => e.key === "Enter" && handleOpen(f.path)}
+              onClick={selectMode ? () => toggleSelect(f.path) : undefined}
               onDoubleClick={() => handleOpen(f.path)}
             >
+              {/* Select checkbox */}
+              {selectMode && (
+                <div
+                  className={`absolute top-1 left-1 z-20 h-5 w-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${
+                    selectedPaths.has(f.path) ? "bg-primary border-primary" : "border-primary/50 bg-background/80"
+                  }`}
+                  onClick={(e) => { e.stopPropagation(); toggleSelect(f.path) }}
+                >
+                  {selectedPaths.has(f.path) && <Check className="h-3 w-3 text-primary-foreground" />}
+                </div>
+              )}
+              {/* Color label dot */}
+              {labels[f.path] && labels[f.path] !== "none" && (
+                <div className={`absolute top-1 right-1 h-2 w-2 rounded-full bg-${labels[f.path]}-500 z-10`} />
+              )}
+
               {/* Thumbnail */}
               <div className="aspect-square bg-muted relative overflow-hidden">
                 {isImageFile(f.suffix) ? (
@@ -296,6 +374,22 @@ export default function LibraryPage() {
                         {t("Show in folder", "Im Ordner zeigen")}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>
+                          <Tag className="h-3.5 w-3.5 mr-2" />
+                          {t("Color label", "Farb-Label")}
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                          {LABEL_COLORS.map(c => (
+                            <DropdownMenuItem key={c.key} onClick={() => handleSetLabel(f.path, c.key)}>
+                              <div className={`h-3 w-3 rounded-full ${c.bg} mr-2`} />
+                              {t(c.label, c.label)}
+                              {labels[f.path] === c.key && <Check className="h-3 w-3 ml-auto" />}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => { setRenameDialog({ path: f.path, name: f.name }); setRenameValue(f.name) }}>
                         <Pencil className="h-3.5 w-3.5 mr-2" />
                         {t("Rename", "Umbenennen")}
@@ -316,9 +410,36 @@ export default function LibraryPage() {
                   </Badge>
                   <span className="text-[10px] text-muted-foreground">{formatSize(f.size)}</span>
                 </div>
+                {/* Star rating */}
+                <div className="mt-0.5">
+                  <StarRating
+                    value={ratings[f.path] || 0}
+                    onChange={(v) => {
+                      setRatings(prev => {
+                        const next = { ...prev, [f.path]: v }
+                        localStorage.setItem("library_ratings", JSON.stringify(next))
+                        return next
+                      })
+                    }}
+                    size="sm"
+                  />
+                </div>
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Batch action bar */}
+      {selectMode && selectedPaths.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-background border shadow-lg rounded-lg px-4 py-2 flex items-center gap-3 z-40">
+          <span className="text-sm font-medium">{selectedPaths.size} {t("selected", "ausgewählt")}</span>
+          <Button size="sm" variant="outline" onClick={() => selectedPaths.forEach(p => handleReveal(p))}>
+            <FolderOpen className="h-3 w-3 mr-1" /> {t("Reveal all", "Alle zeigen")}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setSelectedPaths(new Set())}>
+            {t("Clear", "Löschen")}
+          </Button>
         </div>
       )}
 
@@ -409,6 +530,14 @@ export default function LibraryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Slideshow */}
+      {slideshowOpen && (
+        <Slideshow
+          files={currentFiles.map(f => ({ path: f.path, name: f.name }))}
+          onClose={() => setSlideshowOpen(false)}
+        />
+      )}
     </div>
   )
 }

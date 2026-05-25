@@ -395,11 +395,26 @@ export interface LibraryBrowsePaginatedResult {
   kind: string
   root: string
   file_count: number
+  other_count: number
   page: number
   page_size: number
   total_pages: number
   depth: number
-  files: Array<{ path: string; name: string; relative: string; size: number; suffix: string }>
+  files: Array<{
+    path: string
+    name: string
+    relative: string
+    size: number
+    suffix: string
+    modified: string
+    category: "photo" | "video" | "raw" | "audio"
+    sidecars: Array<{ path: string; name: string; relative: string; suffix: string; size: number }>
+  }>
+  applied_filters: {
+    date_from: string | null
+    date_to: string | null
+    file_types: string[] | null
+  }
 }
 
 export async function libraryBrowsePaginated(options: {
@@ -407,6 +422,9 @@ export async function libraryBrowsePaginated(options: {
   page?: number
   page_size?: number
   max_depth?: number
+  date_from?: string
+  date_to?: string
+  file_types?: string[]
 }): Promise<LibraryBrowsePaginatedResult> {
   return invoke("library_browse", { options })
 }

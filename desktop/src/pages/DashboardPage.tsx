@@ -11,12 +11,15 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { convertFileSrc } from "@tauri-apps/api/core"
 import {
   runtimeDiagnostics,
   settingsRead,
   historyList,
   organizePreview,
   organizeApply,
+  libraryBrowsePaginated,
   type RuntimeDiagnostics,
   type HistoryListPayload,
   type HistoryRunEntry,
@@ -25,7 +28,7 @@ import type { GuiSettings, OrganizePreviewResponse, OperationMode } from "@/type
 import { EmptyState } from "@/components/shared/EmptyState"
 import { cn } from "@/lib/utils"
 import { runPreflight } from "@/lib/preflight-guard"
-import { Zap, Loader2, Copy, MoveRight } from "lucide-react"
+import { Zap, Loader2, Copy, MoveRight, Clock, BarChart3 } from "lucide-react"
 
 const QUICK_WORKFLOWS = [
   { id: "organize-date-library", label: "Organize Library", desc: "Sort photos into year/month/day folders", page: "/organize", icon: "📁" },
@@ -67,6 +70,9 @@ export default function DashboardPage() {
   const [quickMode, setQuickMode] = useState<OperationMode>("copy")
   const [preflight, setPreflight] = useState<{ ok: boolean; issues: string[] } | null>(null)
   const navigate = useNavigate()
+  const [recentFiles, setRecentFiles] = useState<Array<{name: string; path: string; suffix: string; relative: string; modified: string}>>([])
+  const [recentLoading, setRecentLoading] = useState(false)
+  const [libStats, setLibStats] = useState<{total: number; other: number} | null>(null)
 
   const defaultSource = data.settings?.recent_paths?.profile_dir || localStorage.getItem("default_source_dir") || ""
 
@@ -80,6 +86,34 @@ export default function DashboardPage() {
       })
     }
   }, [defaultSource])
+
+  useEffect(() => {
+    const defaultSource = localStorage.getItem("default_source_dir") || localStorage.getItem("library_root")
+    if (!defaultSource) return
+    setRecentLoading(true)
+    libraryBrowsePaginated({ root_dir: defaultSource, page: 0, page_size: 6 })
+      .then(r => {
+        const sorted = [...r.files].sort((a, b) => 
+          new Date(b.modified || 0).getTime() - new Date(a.modified || 0).getTime()
+        )
+        setRecentFiles(sorted.slice(0, 6))
+      })
+      .catch(() => {})
+      .finally(() => setRecentLoading(false))
+  }, [])
+
+  useEffect(() => {
+    const defaultSource = localStorage.getItem("default_source_dir") || localStorage.getItem("library_root")
+    if (!defaultSource) return
+    libraryBrowsePaginated({ root_dir: defaultSource, page: 0, page_size: 1 })
+      .then(r => {
+        setLibStats({
+          total: r.file_count,
+          other: r.other_count || 0
+        })
+      })
+      .catch(() => {})
+  }, [])
 
   const handleQuickOrganize = async () => {
     if (!defaultSource) return
@@ -334,6 +368,72 @@ export default function DashboardPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Recently Added + Library Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  {t("Recently Added", "Kürzlich hinzugefügt")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {recentLoading ? (
+                  <div className="space-y-2">
+                    {[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+                  </div>
+                ) : recentFiles.length > 0 ? (
+                  <div className="space-y-1">
+                    {recentFiles.map((f, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs py-1 hover:bg-muted/50 rounded px-1 cursor-pointer"
+                        role="button" tabIndex={0}>
+                        <img src={convertFileSrc(f.path)} className="h-8 w-8 rounded object-cover bg-muted" alt={f.name} />
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate font-medium">{f.name}</p>
+                          <p className="text-muted-foreground text-[10px]">{f.relative}</p>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground shrink-0">
+                          {new Date(f.modified).toLocaleDateString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    {t("No files found in default directory.", "Keine Dateien im Standardverzeichnis.")}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  {t("Library Stats", "Bibliothek-Statistiken")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {libStats ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="text-center p-2 rounded bg-muted/30">
+                      <p className="text-2xl font-bold">{libStats.total.toLocaleString()}</p>
+                      <p className="text-[10px] text-muted-foreground">{t("Total files", "Dateien gesamt")}</p>
+                    </div>
+                    <div className="text-center p-2 rounded bg-muted/30">
+                      <p className="text-2xl font-bold">{libStats.other.toLocaleString()}</p>
+                      <p className="text-[10px] text-muted-foreground">{t("Other files", "Andere Dateien")}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    {t("Set a default directory to see stats.", "Standardverzeichnis festlegen für Statistiken.")}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
           {stats && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">

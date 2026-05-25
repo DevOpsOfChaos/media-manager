@@ -25,6 +25,9 @@ import {
   Workflow,
   Pencil,
   Info,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { Badge } from "@/components/ui/badge"
@@ -51,6 +54,20 @@ export function AppSidebar() {
   const lastScanStats = useDashboardStore((s) => s.lastScanStats)
   const [historyCount, setHistoryCount] = useState<number | null>(null)
   const [peopleCount, setPeopleCount] = useState<number | null>(null)
+  const [currentTheme, setCurrentTheme] = useState<"light" | "dark" | "system">(() => {
+    return (localStorage.getItem("theme") as "light" | "dark" | "system") || "system"
+  })
+
+  const setTheme = (theme: "light" | "dark" | "system") => {
+    setCurrentTheme(theme)
+    localStorage.setItem("theme", theme)
+    const root = document.documentElement
+    if (theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+      root.classList.add("dark")
+    } else {
+      root.classList.remove("dark")
+    }
+  }
 
   useEffect(() => {
     historyList()
@@ -144,6 +161,27 @@ export function AppSidebar() {
             </div>
           </SidebarMenuItem>
         </SidebarMenu>
+        {/* Theme toggle */}
+        <div className="px-3 py-2">
+          <div className="flex items-center justify-center gap-1 border rounded-lg p-1 bg-muted/30">
+            {(["light", "dark", "system"] as const).map(theme => {
+              const Icon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor
+              const isActive = currentTheme === theme
+              return (
+                <button
+                  key={theme}
+                  onClick={() => setTheme(theme)}
+                  className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-colors ${
+                    isActive ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title={theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System"}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </SidebarFooter>
     </Sidebar>
   )
