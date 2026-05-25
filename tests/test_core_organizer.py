@@ -268,3 +268,56 @@ def test_execute_organize_group_move_moves_all_members(monkeypatch, tmp_path: Pa
     assert not xmp.exists()
     assert (target / "2024" / "2024-08-10" / "photo.jpg").exists()
     assert (target / "2024" / "2024-08-10" / "photo.xmp").exists()
+
+
+def test_organize_group_journal_and_undo_roundtrip(monkeypatch, tmp_path: Path) -> None:
+    """Full pipeline: organize a group (copy), verify journal entries per member, undo restores state."""
+    from media_manager.core.state.execution_journal import load_execution_journal, write_execution_journal
+    from media_manager.core.state.undo import execute_undo_journal
+
+    source = tmp_path / "source"; target = tmp_path / "target"
+    source.mkdir(); target.mkdir()
+    jpg = source / "photo.jpg"
+    xmp = source / "photo.xmp"
+    jpg.write_bytes(b"jpg-content")
+    xmp.write_bytes(b"xmp-content")
+
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+
+    # 1. Plan + execute organize with groups (copy mode)
+    plan = build_organize_dry_run(OrganizePlannerOptions(source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN, include_associated_files=True, operation_mode="copy"))
+    result = execute_organize_plan(plan)
+    assert result.copied_count == 1
+
+    # 2. Build journal entries (simulating what cli_organize does)
+    journal_entries = []
+    for item in result.entries:
+        for member in getattr(item, "member_results", ()):
+            reversible = member.outcome == "copied"
+            undo_action = "delete_target" if reversible else None
+            entry = {
+                "outcome": member.outcome,
+                "reversible": reversible,
+                "undo_action": undo_action,
+                "undo_from_path": str(member.target_path) if reversible and member.target_path is not None else None,
+                "undo_to_path": None,
+            }
+            journal_entries.append(entry)
+
+    assert len(journal_entries) == 2
+    assert all(e["reversible"] for e in journal_entries)
+
+    # 3. Write journal
+    journal_path = tmp_path / "journal.json"
+    write_execution_journal(journal_path, command_name="organize", apply_requested=True, exit_code=0, entries=journal_entries)
+
+    # 4. Undo
+    undo_result = execute_undo_journal(journal_path, apply=True)
+    assert undo_result.undone_count == 2
+    assert undo_result.error_count == 0
+
+    # 5. Verify original files still exist, targets are gone
+    assert jpg.exists()
+    assert xmp.exists()
+    assert not (target / "2024" / "2024-08-10" / "photo.jpg").exists()
+    assert not (target / "2024" / "2024-08-10" / "photo.xmp").exists()
