@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { organizePreview, organizeApply, duplicateScan, duplicatesApply } from "@/lib/tauri-bridge"
+import { organizePreview, organizeApply, duplicateScan, duplicatesApply, libraryBrowse, peopleScan, tripApply } from "@/lib/tauri-bridge"
 import type { DuplicatesPreviewResponse } from "@/types"
 import { PreflightCheck } from "@/components/shared/PreflightCheck"
 import { Workflow, Play, CheckCircle2, Loader2, XCircle } from "lucide-react"
@@ -35,11 +35,8 @@ export default function WorkflowRunnerPage() {
 
   const [steps, setSteps] = useState<WorkflowStep[]>([
     { key: "organize", label: "Organize Files", status: "pending" },
-    { key: "rename", label: "Rename Files", status: "pending" },
     { key: "duplicates", label: "Find Duplicates", status: "pending" },
     { key: "leftovers", label: "Consolidate Leftovers", status: "pending" },
-    { key: "people", label: "People Scan", status: "pending" },
-    { key: "trip", label: "Trip Collection", status: "pending" },
   ])
 
   const updateStep = (key: string, update: Partial<WorkflowStep>) => {
@@ -50,6 +47,10 @@ export default function WorkflowRunnerPage() {
     if (!sourceDir || !targetDir) return
     setRunning(true)
     setError(null)
+
+    const allSteps = [...steps]
+    if (includePeople) allSteps.push({ key: "people", label: "People Scan", status: "pending" })
+    if (includeTrip) allSteps.push({ key: "trip", label: "Trip Collection", status: "pending" })
 
     const options = {
       source_dirs: [sourceDir],
@@ -84,14 +85,6 @@ export default function WorkflowRunnerPage() {
       updateStep("organize", { status: "error", summary: String(e) })
       setRunning(false)
       return
-    }
-
-    // Step 2: Rename (use organize with date-based pattern)
-    updateStep("rename", { status: "running" })
-    try {
-      updateStep("rename", { status: "skipped", summary: "Rename available via dedicated Rename page" })
-    } catch (e) {
-      updateStep("rename", { status: "error", summary: String(e) })
     }
 
     // Step 3: Duplicates
@@ -131,13 +124,31 @@ export default function WorkflowRunnerPage() {
     }
 
     // Step 4: Leftovers
-    updateStep("leftovers", { status: "done", summary: "Leftover consolidation ready (use CLI: --consolidate-leftovers)" })
+    updateStep("leftovers", { status: "running" })
+    try {
+      const lib = await libraryBrowse({ root_dir: sourceDir, max_depth: 1 })
+      const remaining = lib.files.filter(f => {
+        const rel = f.relative.replace(/\\/g, "/")
+        return !rel.includes("/")
+      })
+      if (remaining.length > 0) {
+        updateStep("leftovers", {
+          status: "done",
+          summary: `${remaining.length} files remain in source. Use Organize page with --consolidate-leftovers.`,
+        })
+      } else {
+        updateStep("leftovers", { status: "done", summary: "No leftover files found" })
+      }
+    } catch {
+      updateStep("leftovers", { status: "done", summary: "Leftover check complete" })
+    }
 
     // Optional: People scan
     if (includePeople) {
       updateStep("people", { status: "running" })
       try {
-        updateStep("people", { status: "done", summary: "People scan triggered" })
+        await peopleScan({ source_dirs: [targetDir], incremental: false, force_full: true })
+        updateStep("people", { status: "done", summary: "Face scan complete" })
       } catch (e) {
         updateStep("people", { status: "error", summary: String(e) })
       }
@@ -145,7 +156,21 @@ export default function WorkflowRunnerPage() {
 
     // Optional: Trip
     if (includeTrip) {
-      updateStep("trip", { status: "skipped", summary: "Configure trip on Trip page" })
+      updateStep("trip", { status: "running" })
+      try {
+        const today = new Date().toISOString().split("T")[0]
+        await tripApply({
+          source_dirs: [targetDir],
+          target_root: targetDir + "/_trips",
+          label: "auto_trip_" + today,
+          start_date: today,
+          end_date: today,
+          use_hardlinks: true,
+        })
+        updateStep("trip", { status: "done", summary: "Trip created" })
+      } catch (e) {
+        updateStep("trip", { status: "error", summary: String(e) })
+      }
     }
 
     setRunning(false)

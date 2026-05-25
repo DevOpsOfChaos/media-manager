@@ -1,11 +1,11 @@
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
-import { peopleCatalogList, peoplePersonRename, peoplePersonCreate, peoplePersonReassign, type PersonEntry, type CatalogListResponse } from "@/lib/tauri-bridge"
+import { peopleCatalogList, peoplePersonRename, peoplePersonCreate, peoplePersonReassign, peopleScan, peopleScanStatus, type PersonEntry, type CatalogListResponse } from "@/lib/tauri-bridge"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff } from "lucide-react"
@@ -30,6 +30,11 @@ export default function PeoplePage() {
   const [catalog, setCatalog] = useState<CatalogListResponse | null>(null)
   const [_loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [sourceDir, _setSourceDir] = useState(() => localStorage.getItem("people_scan_source") || "")
+  const [_scanResult, setScanResult] = useState<any>(null)
+  const [_lastScanTime, setLastScanTime] = useState<string | null>(null)
+  const [_scanStatus, setScanStatus] = useState<any>(null)
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Detail view
   const [selectedPerson, setSelectedPerson] = useState<PersonEntry | null>(null)
@@ -61,9 +66,34 @@ export default function PeoplePage() {
 
   useEffect(() => { loadCatalog() }, [loadCatalog])
 
-  const handleToggle = (checked: boolean) => {
+  const handleToggle = async (checked: boolean) => {
     setEnabled(checked)
     localStorage.setItem("people_scan_enabled", String(checked))
+    if (!checked) {
+      if (pollingRef.current) clearInterval(pollingRef.current)
+      return
+    }
+    if (!sourceDir) {
+      setError("Please set a source directory first")
+      return
+    }
+    localStorage.setItem("people_scan_source", sourceDir)
+    localStorage.setItem("people_scan_catalog", catalogPath)
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await peopleScan({
+        source_dirs: [sourceDir],
+        catalog_path: catalogPath || undefined,
+        incremental: true,
+        tolerance: 0.6,
+      })
+      setScanResult(result)
+      setLastScanTime(new Date().toLocaleTimeString())
+      const status = await peopleScanStatus({ source_dirs: [sourceDir] })
+      setScanStatus(status)
+    } catch (e) { setError(String(e)) }
+    finally { setLoading(false) }
   }
 
   const handleRename = async () => {

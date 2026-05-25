@@ -276,10 +276,11 @@ export default function ReviewWorkbenchPage() {
           {/* Unsupported features */}
           <Card>
             <CardHeader>
-              <CardTitle>Review decision persistence coming soon</CardTitle>
+              <CardTitle>Planned features</CardTitle>
               <CardDescription>
                 These features are planned but require additional safety
-                infrastructure before they can be enabled.
+                infrastructure before they can be enabled. Decision drafts
+                are already persisted to disk via the session bridge.
               </CardDescription>
             </CardHeader>
             <CardContent>

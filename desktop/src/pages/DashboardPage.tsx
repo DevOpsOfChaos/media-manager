@@ -396,8 +396,7 @@ export default function DashboardPage() {
             />
             <QuickNavCard
               label="Review"
-              desc="Review candidates and record decisions. (coming soon)"
-              disabled
+              desc="Review candidates and record decisions."
               onClick={() => navigate("/review")}
             />
             <QuickNavCard

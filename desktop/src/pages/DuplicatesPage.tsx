@@ -331,7 +331,7 @@ export default function DuplicatesPage() {
               {tab === "similar" && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
                   <Info className="w-3.5 h-3.5" />
-                  Similar image deletion is not yet available. Use the Exact Duplicates tab to delete byte-identical copies.
+                  Similar image deletion requires perceptual similarity review. Use Exact Duplicates tab for byte-identical copies, or the Review Workbench for similar images.
                 </div>
               )}
 

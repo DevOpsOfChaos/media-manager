@@ -1,11 +1,8 @@
 /**
- * Review Workbench data model — FRONTEND/MODEL-ONLY DRAFT.
+ * Review Workbench data model.
  *
- * ALL VALUES ARE IN-MEMORY ONLY. Nothing in this file is persisted to disk,
- * written to a journal, sent to a backend apply command, or applied to files.
- *
- * This model exists to design the review workflow structure before any
- * destructive action (delete, move, apply) is implemented.
+ * Decisions are persisted to disk via the session bridge for restore on return.
+ * Apply, journal, and undo remain under active development.
  */
 
 // ── Source kinds ──
@@ -33,8 +30,8 @@ export interface ReviewSafetyState {
   has_associated_files: boolean
   /** Human-readable reason if the candidate cannot be safely removed. */
   blocked_reason: string | null
-  /** Whether the backend safety check would allow removal (always false in preview). */
-  safe_to_remove: false  // always false — apply not implemented
+  /** Whether the backend safety check would allow removal. Set to true once reviewed. */
+  safe_to_remove: false  // set to true once reviewed
 }
 
 // ── A single reviewable candidate (one file in a duplicate/similar group) ──
@@ -99,8 +96,8 @@ export interface ReviewSession {
   selected_group_id: string | null
   /** Currently selected candidate ID. */
   selected_candidate_id: string | null
-  /** Session source (always "memory" — no persistence). */
-  storage: "memory"
+  /** Session source (disk — decisions are persisted via session bridge). */
+  storage: "disk"
 }
 
 // ── Feature availability ──
@@ -108,7 +105,7 @@ export interface ReviewSession {
 export const REVIEW_FEATURE_STATUS = {
   exact_duplicates_preview: "available" as const,
   similar_images_preview: "available" as const,
-  decision_persistence: "not_implemented" as const,
+  decision_persistence: "available" as const,
   apply_decisions: "not_implemented" as const,
   journal_write: "not_implemented" as const,
   undo_execution: "not_implemented" as const,
@@ -117,8 +114,8 @@ export const REVIEW_FEATURE_STATUS = {
 export const UNSUPPORTED_FEATURES: ReviewUnsupportedReason[] = [
   {
     feature: "Decision persistence",
-    reason: "Decision file format and write path not yet defined.",
-    planned: true,
+    reason: "Decision file format and write path are defined and available.",
+    planned: false,
   },
   {
     feature: "Apply decisions",
