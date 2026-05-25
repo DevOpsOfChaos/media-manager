@@ -31,10 +31,10 @@ def _normalized_path_key(path: Path) -> str:
     return os.path.normcase(str(path))
 
 
-def _generate_unique_target_path(target_path: Path, source_path: Path) -> Path:
+def _generate_unique_target_path(target_path: Path, source_path: Path, *, preview: bool = False) -> Path:
     if not target_path.exists():
         return target_path
-    if files_have_identical_content(source_path, target_path):
+    if not preview and files_have_identical_content(source_path, target_path):
         return target_path
     pure_stem = target_path.stem
     suffix = target_path.suffix
@@ -235,6 +235,7 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
         )
 
     batch_size = options.batch_size if options.batch_size > 0 else total
+    progress_interval = max(batch_size, 500)
 
     scanned_by_path = {item.path: item for item in scanned_files}
     idx = 0
@@ -257,7 +258,7 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                     new_group: dict[Path, Path] = {}
                     for sp, tp in group_target_paths.items():
                         if tp.exists():
-                            new_group[sp] = _generate_unique_target_path(tp, sp)
+                            new_group[sp] = _generate_unique_target_path(tp, sp, preview=True)
                         else:
                             new_group[sp] = tp
                     group_target_paths = new_group
@@ -280,9 +281,9 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                     )
                 )
                 idx += 1
-                if progress_callback and idx % batch_size == 0:
+                if progress_callback and idx % progress_interval == 0:
                     progress_callback(idx, total)
-                if progress and idx % batch_size == 0:
+                if progress and idx % progress_interval == 0:
                     progress.tick_count(idx, total, f"Resolving dates... {idx:,}/{total:,}")
                 continue
 
@@ -300,9 +301,9 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                 )
             )
             idx += 1
-            if progress_callback and (idx % batch_size == 0 or idx == total):
+            if progress_callback and (idx % progress_interval == 0 or idx == total):
                 progress_callback(idx, total)
-            if progress and (idx % batch_size == 0 or idx == total):
+            if progress and (idx % progress_interval == 0 or idx == total):
                 progress.tick_count(idx, total, f"Resolving dates... {idx:,}/{total:,}")
     else:
         file_list = list(scan_summary.files)
@@ -338,21 +339,43 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                 uncached.append(fp)
 
         if uncached:
-            for batch_start in range(0, len(uncached), batch_size):
-                if cancel_event and cancel_event.is_set():
-                    break
-                batch_paths = uncached[batch_start:batch_start + batch_size]
-                batch_inspections = inspect_media_files_batch(
-                    batch_paths, exiftool_path=options.exiftool_path,
-                )
-                inspections.update(batch_inspections)
-                for fp in batch_paths:
-                    insp = batch_inspections.get(fp)
-                    if insp and insp.selected_value and insp.selected_source:
-                        new_date_entries.append((
-                            str(fp), f"{insp.selected_value}|{insp.selected_source}",
-                            insp.selected_source, None,
-                        ))
+            import concurrent.futures
+
+            parallel_batch_size = max(batch_size, 2000)
+            parallel_batches = []
+            for bs in range(0, len(uncached), parallel_batch_size):
+                parallel_batches.append(uncached[bs:bs + parallel_batch_size])
+
+            max_workers = min(4, len(parallel_batches))
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {}
+                for i, batch_paths in enumerate(parallel_batches):
+                    if cancel_event and cancel_event.is_set():
+                        break
+                    future = executor.submit(
+                        inspect_media_files_batch,
+                        batch_paths,
+                        exiftool_path=options.exiftool_path,
+                    )
+                    futures[future] = batch_paths
+
+                for future in concurrent.futures.as_completed(futures):
+                    if cancel_event and cancel_event.is_set():
+                        break
+                    try:
+                        batch_inspections = future.result()
+                        inspections.update(batch_inspections)
+                        batch_paths = futures[future]
+                        for fp in batch_paths:
+                            insp = batch_inspections.get(fp)
+                            if insp and insp.selected_value and insp.selected_source:
+                                new_date_entries.append((
+                                    str(fp), f"{insp.selected_value}|{insp.selected_source}",
+                                    insp.selected_source, None,
+                                ))
+                    except Exception as exc:
+                        logger.warning("Batch inspection failed: %s", exc)
 
         if new_date_entries:
             try:
@@ -363,6 +386,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
         # ── Phase: building plan ──
         if progress:
             progress.enter_phase("building_plan", f"Building organize plan from {total:,} files...")
+
+        _target_is_empty = not any(options.target_root.iterdir()) if options.target_root.exists() else True
 
         # ── Process all files, single progress pass ──
         for i, scanned_file in enumerate(file_list):
@@ -378,8 +403,10 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                     options.pattern, resolution, source_root=scanned_file.source_root,
                 )
                 original_target_path = options.target_root / target_relative_dir / scanned_file.path.name
-                if options.conflict_policy == "rename":
-                    target_path = _generate_unique_target_path(original_target_path, scanned_file.path)
+                if _target_is_empty:
+                    target_path = original_target_path
+                elif options.conflict_policy == "rename":
+                    target_path = _generate_unique_target_path(original_target_path, scanned_file.path, preview=True)
                 else:
                     target_path = original_target_path
                 group_target_paths = {scanned_file.path: target_path}
@@ -409,9 +436,9 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
             )
             idx += 1
 
-            if progress_callback and idx % batch_size == 0:
+            if progress_callback and idx % progress_interval == 0:
                 progress_callback(idx, total)
-            if progress and idx % 100 == 0:
+            if progress and idx % progress_interval == 0:
                 progress.tick_count(idx, total, f"Building plan... {idx:,}/{total:,}")
 
         if progress_callback:

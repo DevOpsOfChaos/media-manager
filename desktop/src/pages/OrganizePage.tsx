@@ -21,6 +21,7 @@ import { RecentPathsDropdown, addRecentPath } from "@/components/shared/RecentPa
 import { FullPageProgress } from "@/components/shared/FullPageProgress"
 import { useProgress } from "@/lib/progress-context"
 import { AlertTriangle, Zap } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 // ── Pattern presets ──
 
@@ -682,31 +683,40 @@ export default function OrganizePage() {
                 </label>
                 <div className="flex gap-3">
                   {(["copy", "move", "link"] as const).map((mode) => (
-                    <label
-                      key={mode}
-                      className="flex items-center gap-1.5 text-sm"
-                    >
-                      <input
-                        type="radio"
-                        name="operation_mode"
-                        value={mode}
-                        checked={options.operation_mode === mode}
-                        onChange={() =>
-                          setOptions({ operation_mode: mode })
-                        }
-                      />
-                      {mode === "copy"
-                        ? t(
-                            "Copy files (safe preview)",
-                            "Dateien kopieren (sichere Vorschau)",
-                          )
-                        : mode === "link"
-                        ? t("Hardlinks", "Hardlinks")
-                        : t(
-                            "Move files",
-                            "Dateien verschieben",
-                          )}
-                    </label>
+                    <Tooltip key={mode}>
+                      <TooltipTrigger asChild>
+                        <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                          <input
+                            type="radio"
+                            name="operation_mode"
+                            value={mode}
+                            checked={options.operation_mode === mode}
+                            onChange={() => setOptions({ operation_mode: mode })}
+                          />
+                          {mode === "copy"
+                            ? t("Copy", "Kopieren")
+                            : mode === "link"
+                            ? t("Hardlinks", "Hardlinks")
+                            : t("Move", "Verschieben")}
+                        </label>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[280px]">
+                        {mode === "copy"
+                          ? t(
+                              "Copies each file to the organized folder. Original stays untouched. Uses extra disk space. Safest option for a first run.",
+                              "Kopiert jede Datei in den organisierten Ordner. Original bleibt unverändert. Braucht extra Speicherplatz. Sicherste Option für den ersten Durchlauf."
+                            )
+                          : mode === "link"
+                          ? t(
+                              "Creates a hardlink — one file, TWO paths. Both folders see the same file. Instant, zero extra disk space. Delete from either side, the other keeps the file. Best for large libraries.",
+                              "Erstellt einen Hardlink — eine Datei, ZWEI Pfade. Beide Ordner zeigen dieselbe Datei. Sofort, null Extra-Speicher. Löschen auf einer Seite löscht nur den Link. Ideal für große Bibliotheken."
+                            )
+                          : t(
+                              "Moves the file to the organized folder. Original folder becomes empty. One file, ONE path. Use to clean up messy source folders.",
+                              "Verschiebt die Datei in den organisierten Ordner. Originalordner wird geleert. Eine Datei, EIN Pfad. Zum Aufräumen unordentlicher Quellordner."
+                            )}
+                      </TooltipContent>
+                    </Tooltip>
                   ))}
                 </div>
               </div>
