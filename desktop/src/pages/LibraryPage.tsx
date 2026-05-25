@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { EmptyState } from "@/components/shared/EmptyState"
 import { libraryBrowsePaginated, fileOpen, fileReveal, fileDelete, fileRename, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
 import { convertFileSrc } from "@tauri-apps/api/core"
-import { FolderOpen, Film, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, File, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight } from "lucide-react"
+import { FolderOpen, Film, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, File, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +27,7 @@ import { Slideshow } from "@/components/shared/Slideshow"
 import { SplitView } from "@/components/shared/SplitView"
 import { LABEL_COLORS } from "@/components/shared/ColorLabel"
 import { PickRejectBar, type FlagState } from "@/components/shared/PickRejectBar"
+import { trackRecentlyViewed } from "@/components/shared/RecentFiles"
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48, 96]
 
@@ -71,6 +72,9 @@ export default function LibraryPage() {
   const [slideshowOpen, setSlideshowOpen] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
+  const [thumbQuality, setThumbQuality] = useState<"fast" | "quality">(() => {
+    return (localStorage.getItem("thumb_quality") as "fast" | "quality") || "fast"
+  })
 
   const [ratings, setRatings] = useState<Record<string, number>>(() => {
     try { return JSON.parse(localStorage.getItem("library_ratings") || "{}") }
@@ -102,6 +106,16 @@ export default function LibraryPage() {
   const [splitViewOpen, setSplitViewOpen] = useState(false)
 
   const [exifData, setExifData] = useState<Record<string, string | number> | null>(null)
+
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [exifFilters, setExifFilters] = useState<{
+    camera?: string
+    lens?: string
+    isoMin?: number
+    isoMax?: number
+    apertureMin?: string
+  }>({})
+  const [dragOver, setDragOver] = useState(false)
 
   useEffect(() => {
     setExifData(null)
@@ -187,9 +201,12 @@ export default function LibraryPage() {
     return () => window.removeEventListener("keydown", handle)
   }, [selectedFile, setFlag])
 
-  const handleOpen = async (path: string) => {
+  const handleOpen = async (path: string, name: string) => {
     setActionLoading(path)
-    try { await fileOpen(path) }
+    try {
+      await fileOpen(path)
+      trackRecentlyViewed(path, name)
+    }
     catch (e) { setError(String(e)) }
     finally { setActionLoading(null) }
   }
@@ -289,7 +306,22 @@ export default function LibraryPage() {
   }, [currentFiles, filter, tagFilter, fileTags, flagFilter, fileFlags])
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-4"
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault()
+        setDragOver(false)
+        const files = Array.from(e.dataTransfer.files)
+        if (files.length > 0) {
+          const path = (files[0] as any).path
+          if (path) {
+            setRootDir(path)
+            browse()
+          }
+        }
+      }}
+    >
       {/* Header */}
       <div className="flex items-center gap-3">
         <FolderOpen className="w-6 h-6 text-primary" />
@@ -378,6 +410,11 @@ export default function LibraryPage() {
                 <FolderSearch className="h-3 w-3 mr-1" /> {t("Save as Collection", "Als Sammlung speichern")}
               </Button>
             )}
+            <Button variant="ghost" size="sm" onClick={() => setShowAdvancedFilters(f => !f)}
+              className="text-[10px]">
+              <SlidersHorizontal className="h-3 w-3 mr-1" />
+              {showAdvancedFilters ? t("Hide filters", "Filter verbergen") : t("Advanced filters", "Erweiterte Filter")}
+            </Button>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setSlideshowOpen(true)}
@@ -393,6 +430,15 @@ export default function LibraryPage() {
                 <ArrowLeftRight className="h-3 w-3 mr-1" /> {t("Compare", "Vergleichen")}
               </Button>
             )}
+            <span className="text-xs text-muted-foreground">{t("Per page:", "Pro Seite:")}</span>
+            <button onClick={() => {
+              const next = thumbQuality === "fast" ? "quality" : "fast"
+              setThumbQuality(next)
+              localStorage.setItem("thumb_quality", next)
+            }} className="text-[10px] px-1.5 py-0.5 rounded border bg-muted/50"
+              title={t("Toggle thumbnail quality", "Vorschaubild-Qualität umschalten")}>
+              {thumbQuality === "fast" ? "⚡" : "🖼️"}
+            </button>
             <span className="text-xs text-muted-foreground">{t("Per page:", "Pro Seite:")}</span>
             <select
               value={pageSize}
@@ -410,6 +456,31 @@ export default function LibraryPage() {
               ))}
             </select>
           </div>
+        </div>
+      )}
+
+      {showAdvancedFilters && data && (
+        <div className="flex flex-wrap gap-2 p-2 border rounded bg-muted/20">
+          <input placeholder={t("Camera model...", "Kamera-Modell...")}
+            className="text-[10px] border rounded px-2 py-1 w-32 bg-background"
+            value={exifFilters.camera || ""}
+            onChange={e => setExifFilters(prev => ({...prev, camera: e.target.value || undefined}))} />
+          <input placeholder={t("Lens...", "Objektiv...")}
+            className="text-[10px] border rounded px-2 py-1 w-32 bg-background"
+            value={exifFilters.lens || ""}
+            onChange={e => setExifFilters(prev => ({...prev, lens: e.target.value || undefined}))} />
+          <input placeholder={t("ISO min", "ISO min")} type="number"
+            className="text-[10px] border rounded px-2 py-1 w-20 bg-background"
+            onChange={e => setExifFilters(prev => ({...prev, isoMin: e.target.value ? Number(e.target.value) : undefined}))} />
+          <input placeholder={t("ISO max", "ISO max")} type="number"
+            className="text-[10px] border rounded px-2 py-1 w-20 bg-background"
+            onChange={e => setExifFilters(prev => ({...prev, isoMax: e.target.value ? Number(e.target.value) : undefined}))} />
+          {(exifFilters.camera || exifFilters.lens || exifFilters.isoMin || exifFilters.isoMax) && (
+            <Button variant="ghost" size="sm" className="text-[10px]"
+              onClick={() => setExifFilters({})}>
+              {t("Clear", "Löschen")}
+            </Button>
+          )}
         </div>
       )}
 
@@ -437,9 +508,9 @@ export default function LibraryPage() {
               className={`overflow-hidden hover:border-primary/30 transition-colors group relative ${selectedPaths.has(f.path) ? "ring-2 ring-primary" : ""}`}
               role="button"
               tabIndex={0}
-              onKeyDown={e => e.key === "Enter" && handleOpen(f.path)}
+              onKeyDown={e => e.key === "Enter" && handleOpen(f.path, f.name)}
               onClick={selectMode ? () => toggleSelect(f.path) : () => setSelectedFile(f)}
-              onDoubleClick={() => handleOpen(f.path)}
+              onDoubleClick={() => handleOpen(f.path, f.name)}
             >
               {/* Select checkbox */}
               {selectMode && (
@@ -491,7 +562,7 @@ export default function LibraryPage() {
                     size="sm"
                     variant="secondary"
                     className="h-7 text-xs"
-                    onClick={(e) => { e.stopPropagation(); handleOpen(f.path) }}
+                    onClick={(e) => { e.stopPropagation(); handleOpen(f.path, f.name) }}
                   >
                     {t("Open", "Öffnen")}
                   </Button>
@@ -513,7 +584,7 @@ export default function LibraryPage() {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-40">
-                      <DropdownMenuItem onClick={() => handleOpen(f.path)} disabled={actionLoading === f.path}>
+                      <DropdownMenuItem onClick={() => handleOpen(f.path, f.name)} disabled={actionLoading === f.path}>
                         <ExternalLink className="h-3.5 w-3.5 mr-2" />
                         {t("Open", "Öffnen")}
                       </DropdownMenuItem>
@@ -665,9 +736,55 @@ export default function LibraryPage() {
       {selectMode && selectedPaths.size > 0 && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-background border shadow-lg rounded-lg px-4 py-2 flex items-center gap-3 z-40">
           <span className="text-sm font-medium">{selectedPaths.size} {t("selected", "ausgewählt")}</span>
-          <Button size="sm" variant="outline" onClick={() => selectedPaths.forEach(p => handleReveal(p))}>
-            <FolderOpen className="h-3 w-3 mr-1" /> {t("Reveal all", "Alle zeigen")}
+
+          <div className="flex items-center gap-1">
+            <input
+              placeholder={t("Add tag to all...", "Tag für alle...")}
+              className="text-xs border rounded px-2 py-1 w-32 bg-background"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && e.currentTarget.value.trim()) {
+                  const tag = e.currentTarget.value.trim().toLowerCase()
+                  const newFileTags = { ...fileTags }
+                  selectedPaths.forEach(path => {
+                    const existing = newFileTags[path] || []
+                    if (!existing.includes(tag)) {
+                      newFileTags[path] = [...existing, tag]
+                    }
+                  })
+                  setFileTags(newFileTags)
+                  localStorage.setItem("library_file_tags", JSON.stringify(newFileTags))
+                  const tagSet = new Set<string>()
+                  Object.values(newFileTags).forEach(ts => ts.forEach(t => tagSet.add(t)))
+                  setAllTags(Array.from(tagSet).sort())
+                  localStorage.setItem("library_tags", JSON.stringify(Array.from(tagSet).sort()))
+                  e.currentTarget.value = ""
+                }
+              }}
+            />
+          </div>
+
+          <Button size="sm" variant="outline" onClick={() => {
+            const newFlags = { ...fileFlags }
+            selectedPaths.forEach(path => { newFlags[path] = "pick" })
+            setFileFlags(newFlags)
+            localStorage.setItem("library_flags", JSON.stringify(newFlags))
+          }}>
+            <Check className="h-3 w-3 mr-1 text-green-500" /> {t("Pick all", "Alle wählen")}
           </Button>
+
+          <Button size="sm" variant="outline" onClick={() => {
+            const newFlags = { ...fileFlags }
+            selectedPaths.forEach(path => { newFlags[path] = "reject" })
+            setFileFlags(newFlags)
+            localStorage.setItem("library_flags", JSON.stringify(newFlags))
+          }}>
+            <X className="h-3 w-3 mr-1 text-red-500" /> {t("Reject all", "Alle ablehnen")}
+          </Button>
+
+          <Button size="sm" variant="outline" onClick={() => handleReveal(Array.from(selectedPaths)[0])}>
+            <FolderOpen className="h-3 w-3 mr-1" /> {t("Reveal", "Zeigen")}
+          </Button>
+
           <Button size="sm" variant="outline" onClick={() => setSelectedPaths(new Set())}>
             {t("Clear", "Löschen")}
           </Button>
@@ -776,6 +893,17 @@ export default function LibraryPage() {
           files={currentFiles.filter(f => selectedPaths.has(f.path)).map(f => ({ path: f.path, name: f.name }))}
           onClose={() => setSplitViewOpen(false)}
         />
+      )}
+
+      {/* Drag & Drop overlay */}
+      {dragOver && (
+        <div className="fixed inset-0 z-50 bg-primary/10 border-2 border-dashed border-primary flex items-center justify-center pointer-events-none">
+          <div className="bg-background rounded-xl p-6 shadow-lg text-center">
+            <Download className="h-10 w-10 text-primary mx-auto mb-2" />
+            <p className="text-lg font-semibold">{t("Drop folder here", "Ordner hier ablegen")}</p>
+            <p className="text-sm text-muted-foreground">{t("The folder will be set as library root", "Der Ordner wird als Bibliotheks-Stamm festgelegt")}</p>
+          </div>
+        </div>
       )}
     </div>
   )

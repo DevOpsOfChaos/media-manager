@@ -34,6 +34,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { Badge } from "@/components/ui/badge"
 import { useDashboardStore } from "@/stores/dashboard-store"
 import { historyList, peopleCatalogList } from "@/lib/tauri-bridge"
+import { DryRunToggle } from "@/components/shared/DryRunToggle"
 
 const navItems = [
   { icon: FolderOpen, label: "Library", path: "/library", tooltip: "Browse and manage your media library" },
@@ -59,6 +60,7 @@ export function AppSidebar() {
   const [currentTheme, setCurrentTheme] = useState<"light" | "dark" | "system">(() => {
     return (localStorage.getItem("theme") as "light" | "dark" | "system") || "system"
   })
+  const [dryRun, setDryRun] = useState(() => localStorage.getItem("dry_run") === "true")
 
   const setTheme = (theme: "light" | "dark" | "system") => {
     setCurrentTheme(theme)
@@ -183,6 +185,13 @@ export function AppSidebar() {
               )
             })}
           </div>
+        </div>
+        {/* Dry-Run toggle */}
+        <div className="px-3 pb-2">
+          <DryRunToggle enabled={dryRun} onToggle={(v: boolean) => {
+            setDryRun(v)
+            localStorage.setItem("dry_run", String(v))
+          }} />
         </div>
       </SidebarFooter>
     </Sidebar>

@@ -29,6 +29,7 @@ export default function HistoryPage() {
   const navigate = useNavigate()
   const [filterCommand, setFilterCommand] = useState<string>("all")
   const [filterMode, setFilterMode] = useState<string>("all")
+  const [viewMode, setViewMode] = useState<"list" | "timeline">("list")
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -163,6 +164,16 @@ export default function HistoryPage() {
             <option value="apply">{t("Apply", "Anwenden")}</option>
             <option value="preview">{t("Preview", "Vorschau")}</option>
           </select>
+          <div className="flex items-center gap-1 border rounded p-0.5">
+            <button onClick={() => setViewMode("list")}
+              className={`text-[10px] px-1.5 py-0.5 rounded ${viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+              {t("List", "Liste")}
+            </button>
+            <button onClick={() => setViewMode("timeline")}
+              className={`text-[10px] px-1.5 py-0.5 rounded ${viewMode === "timeline" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+              {t("Timeline", "Zeitleiste")}
+            </button>
+          </div>
           <span className="text-xs text-muted-foreground ml-auto">
             {filteredRuns.length} {t("of", "von")} {data?.runs?.length || 0} {t("runs", "Durchläufen")}
           </span>
@@ -173,6 +184,41 @@ export default function HistoryPage() {
                       title={t("No matching runs", "Keine passenden Durchläufe")}
                       description={t("No runs match the current filters. Try a different command or mode.", "Keine Durchläufe entsprechen den aktuellen Filtern. Versuchen Sie einen anderen Befehl oder Modus.")}
                     />
+                  ) : viewMode === "timeline" ? (
+                    <div className="relative pl-8 border-l-2 border-muted space-y-6">
+                      {filteredRuns.map((run) => (
+                        <div key={run.run_id} className="relative">
+                          <div className={`absolute -left-[25px] w-3 h-3 rounded-full border-2 border-background ${
+                            run.valid ? (run.mode === "apply" ? "bg-green-500" : "bg-blue-500") : "bg-red-500"
+                          }`} />
+                          <Card className="cursor-pointer hover:border-primary/30 transition-colors"
+                            onClick={() => navigate(`/history/${run.run_id}`)}
+                            role="button" tabIndex={0}
+                            onKeyDown={e => e.key === "Enter" && navigate(`/history/${run.run_id}`)}>
+                            <CardContent className="p-3">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm font-medium">{run.command || t("Unknown", "Unbekannt")}</p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {run.mode === "apply" ? t("Applied", "Angewendet") : t("Preview", "Vorschau")}
+                                    {run.action_count > 0 && ` · ${run.action_count} ${t("actions", "Aktionen")}`}
+                                    {run.review_candidate_count > 0 && ` · ${run.review_candidate_count} ${t("to review", "zu prüfen")}`}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {run.created_at_utc ? new Date(run.created_at_utc).toLocaleDateString() : "—"}
+                                  </p>
+                                  <Badge className={`text-[9px] ${run.valid ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"}`}>
+                                    {run.valid ? t("Valid", "Gültig") : t("Invalid", "Ungültig")}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <div className="space-y-2">
                       {filteredRuns.map((run) => (

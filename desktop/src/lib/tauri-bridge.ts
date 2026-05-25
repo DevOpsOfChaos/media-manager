@@ -201,6 +201,14 @@ export async function peoplePersonReassign(options: { catalog_path: string; sour
   return invoke("people_person_reassign", { options })
 }
 
+export async function peoplePersonMerge(options: {
+  catalog_path: string
+  from_person_id: string
+  to_person_id: string
+}): Promise<{ kind: string; from_person_id: string; from_name: string; to_person_id: string; to_name: string; merged_embeddings: number; new_face_count: number }> {
+  return invoke("people_person_merge", { options })
+}
+
 // ── History ──
 
 export interface HistoryListPayload {
@@ -468,4 +476,57 @@ export interface IntegrityCheckResult {
 
 export async function fileIntegrity(paths: IntegrityCheckEntry[]): Promise<IntegrityCheckResult> {
   return invoke("file_integrity", { options: { paths } })
+}
+
+export interface BackupResult {
+  status: string
+  path: string
+  size_mb: number
+  timestamp: string
+}
+
+export async function fileBackup(): Promise<BackupResult> {
+  return invoke("file_backup", { options: {} })
+}
+
+// ── Contact Sheet ──
+
+export interface ContactSheetOptions {
+  paths: string[]
+  output: string
+  title?: string
+  cols?: number
+  thumb_size?: number
+}
+
+export interface ContactSheetResult {
+  status: string
+  output: string
+  images: number
+  cols: number
+  rows: number
+}
+
+export async function fileContactSheet(options: ContactSheetOptions): Promise<ContactSheetResult> {
+  return invoke("file_contact_sheet", { options })
+}
+
+// ── Web Gallery ──
+
+export interface WebGalleryOptions {
+  paths: string[]
+  output_dir: string
+  title?: string
+  thumb_size?: number
+}
+
+export interface WebGalleryResult {
+  status: string
+  output_dir: string
+  index: string
+  images: number
+}
+
+export async function fileWebGallery(options: WebGalleryOptions): Promise<WebGalleryResult> {
+  return invoke("file_web_gallery", { options })
 }

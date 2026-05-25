@@ -28,7 +28,8 @@ import type { GuiSettings, OrganizePreviewResponse, OperationMode } from "@/type
 import { EmptyState } from "@/components/shared/EmptyState"
 import { cn } from "@/lib/utils"
 import { runPreflight } from "@/lib/preflight-guard"
-import { Zap, Loader2, Copy, MoveRight, Clock, BarChart3, Check, Shield } from "lucide-react"
+import { Zap, Loader2, Copy, MoveRight, Clock, BarChart3, Check, Shield, Archive } from "lucide-react"
+import { CameraImport } from "@/components/shared/CameraImport"
 
 const QUICK_WORKFLOWS = [
   { id: "organize-date-library", label: "Organize Library", desc: "Sort photos into year/month/day folders", page: "/organize", icon: "📁" },
@@ -314,14 +315,26 @@ export default function DashboardPage() {
                     : t("You haven't backed up yet. Protect your catalog, ratings, and tags.",
                        "Noch kein Backup. Sch\u00fctze Katalog, Bewertungen und Tags.")}
                 </p>
-                <Button size="sm" onClick={() => {
-                  localStorage.setItem("last_backup_date", new Date().toISOString())
-                  setLastBackup(new Date().toISOString())
-                  alert(t("Backup date recorded! Remember to copy your .media-manager folder.",
-                          "Backup-Datum gespeichert! Denk daran, deinen .media-manager-Ordner zu kopieren."))
-                }}>
-                  <Shield className="h-3 w-3 mr-1" /> {t("I've backed up", "Habe gesichert")}
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={async () => {
+                    try {
+                      const { fileBackup } = await import("@/lib/tauri-bridge")
+                      const result = await fileBackup()
+                      alert(t(`Backup created: ${result.path} (${result.size_mb} MB)`,
+                              `Backup erstellt: ${result.path} (${result.size_mb} MB)`))
+                      setLastBackup(new Date().toISOString())
+                      localStorage.setItem("last_backup_date", new Date().toISOString())
+                    } catch (e) { console.error(e) }
+                  }}>
+                    <Archive className="h-3 w-3 mr-1" /> {t("Backup Now", "Jetzt sichern")}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => {
+                    localStorage.setItem("last_backup_date", new Date().toISOString())
+                    setLastBackup(new Date().toISOString())
+                  }}>
+                    {t("Dismiss", "Ausblenden")}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -412,6 +425,8 @@ export default function DashboardPage() {
               )}
             </CardContent>
           </Card>
+
+          <CameraImport />
 
           {/* Recently Added + Library Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

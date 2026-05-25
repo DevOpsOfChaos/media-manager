@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useLocation, Outlet } from "react-router-dom"
 import { useSettingsStore } from "@/stores/settings-store"
+import { useT } from "@/lib/i18n"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppSidebar } from "@/components/layout/AppSidebar"
@@ -15,6 +16,8 @@ function App() {
   const navigate = useNavigate()
   const location = useLocation()
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const t = useT()
+  const [dryRun] = useState(() => localStorage.getItem("dry_run") === "true")
 
   useEffect(() => {
     loadSettings()
@@ -45,6 +48,12 @@ function App() {
         <AppSidebar />
         <SidebarInset>
           <ErrorBoundary>
+            {dryRun && (
+              <div className="bg-amber-100 dark:bg-amber-900/30 border-b border-amber-300 dark:border-amber-700 px-4 py-1.5 text-center text-xs text-amber-800 dark:text-amber-300">
+                {t("\u26A0\uFE0F DRY-RUN MODE ACTIVE \u2014 No files will be modified. Disable in sidebar.",
+                   "\u26A0\uFE0F DRY-RUN-MODUS AKTIV \u2014 Keine Dateien werden ver\u00E4ndert. In der Sidebar deaktivieren.")}
+              </div>
+            )}
             <div key={location.pathname} className="page-enter">
               <Outlet />
             </div>

@@ -189,6 +189,209 @@ def cmd_integrity() -> int:
     })
 
 
+def cmd_contact_sheet() -> int:
+    """Generate a contact sheet PDF from a list of image paths."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _fail(f"Invalid JSON: {exc}")
+
+    image_paths = payload.get("paths", [])
+    output_path = payload.get("output", "")
+    title = payload.get("title", "Contact Sheet")
+    cols = int(payload.get("cols", 4))
+    thumb_size = int(payload.get("thumb_size", 200))
+
+    if not image_paths:
+        return _fail("paths list is required")
+    if not output_path:
+        return _fail("output path is required")
+
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError:
+        return _fail("Pillow (PIL) is required. Install with: pip install Pillow")
+
+    rows = (len(image_paths) + cols - 1) // cols
+    margin = 20
+    spacing = 10
+    label_height = 24
+
+    canvas_w = cols * thumb_size + (cols + 1) * spacing + 2 * margin
+    canvas_h = rows * (thumb_size + label_height) + (rows + 1) * spacing + 2 * margin + 40
+
+    canvas = Image.new("RGB", (canvas_w, canvas_h), "white")
+    draw = ImageDraw.Draw(canvas)
+
+    try:
+        font_title = ImageFont.truetype("arial.ttf", 18)
+    except Exception:
+        font_title = ImageFont.load_default()
+    try:
+        font_label = ImageFont.truetype("arial.ttf", 11)
+    except Exception:
+        font_label = ImageFont.load_default()
+
+    draw.text((margin, margin), title, fill="black", font=font_title)
+
+    for idx, img_path_str in enumerate(image_paths):
+        row = idx // cols
+        col = idx % cols
+
+        x = margin + col * (thumb_size + spacing)
+        y = margin + 40 + row * (thumb_size + label_height + spacing)
+
+        try:
+            img = Image.open(img_path_str)
+            img.thumbnail((thumb_size, thumb_size), Image.LANCZOS)
+            ox = x + (thumb_size - img.width) // 2
+            oy = y + (thumb_size - img.height) // 2
+            canvas.paste(img, (ox, oy))
+        except Exception:
+            draw.rectangle([x, y, x + thumb_size, y + thumb_size], outline="gray")
+            draw.text((x + 5, y + thumb_size // 2 - 10), "Error", fill="red", font=font_label)
+
+        name = Path(img_path_str).name
+        if len(name) > 20:
+            name = name[:17] + "..."
+        draw.text((x, y + thumb_size + 2), name, fill="black", font=font_label)
+
+    canvas.save(output_path, "PDF", resolution=150)
+    return _emit({
+        "status": "created",
+        "output": output_path,
+        "images": len(image_paths),
+        "cols": cols,
+        "rows": rows,
+    })
+
+
+def cmd_web_gallery() -> int:
+    """Generate a simple static HTML photo gallery."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _fail(f"Invalid JSON: {exc}")
+
+    image_paths = payload.get("paths", [])
+    output_dir = payload.get("output_dir", "")
+    title = payload.get("title", "Photo Gallery")
+    thumb_size = int(payload.get("thumb_size", 300))
+
+    if not image_paths:
+        return _fail("paths list is required")
+    if not output_dir:
+        return _fail("output_dir is required")
+
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    thumbs_dir = out / "thumbs"
+    thumbs_dir.mkdir(exist_ok=True)
+
+    try:
+        from PIL import Image
+    except ImportError:
+        return _fail("Pillow required")
+
+    items_html = []
+    for idx, img_path_str in enumerate(image_paths):
+        src = Path(img_path_str)
+        if not src.is_file():
+            continue
+        try:
+            img = Image.open(src)
+            thumb_name = f"thumb_{idx:04d}.jpg"
+            thumb_path = thumbs_dir / thumb_name
+            img.thumbnail((thumb_size, thumb_size), Image.LANCZOS)
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            img.save(thumb_path, "JPEG", quality=80)
+
+            items_html.append(f'''<div class="item">
+  <a href="{src.as_uri()}" target="_blank">
+    <img src="thumbs/{thumb_name}" alt="{src.name}" loading="lazy" />
+  </a>
+  <p>{src.name}</p>
+</div>''')
+        except Exception:
+            continue
+
+    html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{title}</title>
+  <style>
+    body {{ font-family: system-ui, sans-serif; background: #111; color: #eee; margin: 0; padding: 20px; }}
+    h1 {{ text-align: center; margin-bottom: 20px; }}
+    .gallery {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; max-width: 1400px; margin: 0 auto; }}
+    .item {{ background: #1a1a1a; border-radius: 8px; overflow: hidden; transition: transform 0.2s; }}
+    .item:hover {{ transform: scale(1.02); }}
+    .item img {{ width: 100%; height: 200px; object-fit: cover; display: block; }}
+    .item p {{ padding: 8px 12px; font-size: 12px; color: #999; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+  </style>
+</head>
+<body>
+  <h1>{title}</h1>
+  <div class="gallery">
+    {''.join(items_html)}
+  </div>
+  <p style="text-align:center;color:#666;margin-top:30px">Generated by Media Manager · {len(items_html)} photos</p>
+</body>
+</html>'''
+
+    index_path = out / "index.html"
+    index_path.write_text(html, encoding="utf-8")
+
+    return _emit({
+        "status": "created",
+        "output_dir": str(out),
+        "index": str(index_path),
+        "images": len(items_html),
+    })
+
+
+def cmd_backup() -> int:
+    """Create a ZIP backup of the media-manager data directory."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _fail(f"Invalid JSON: {exc}")
+
+    import zipfile
+    import datetime as _dt
+
+    app_dir = Path(os.environ.get("MEDIA_MANAGER_HOME", Path.home() / ".media-manager"))
+    if not app_dir.exists():
+        return _fail(f"App directory not found: {app_dir}")
+
+    timestamp = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = app_dir.parent / f"media-manager-backup-{timestamp}.zip"
+
+    try:
+        with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for file_path in app_dir.rglob("*"):
+                if file_path.is_file():
+                    if "models" in file_path.parts or "__pycache__" in file_path.parts:
+                        continue
+                    arcname = file_path.relative_to(app_dir)
+                    zf.write(file_path, arcname)
+
+        size_mb = round(backup_path.stat().st_size / (1024 * 1024), 1)
+        return _emit({
+            "status": "backed_up",
+            "path": str(backup_path),
+            "size_mb": size_mb,
+            "timestamp": timestamp,
+        })
+    except Exception as exc:
+        return _fail(f"Backup failed: {exc}")
+
+
 def cmd_exif() -> int:
     """Read EXIF metadata for a file using ExifTool."""
     raw = sys.stdin.read()
@@ -244,6 +447,9 @@ _ACTIONS = {
     "exif": cmd_exif,
     "export": cmd_export,
     "integrity": cmd_integrity,
+    "backup": cmd_backup,
+    "contact_sheet": cmd_contact_sheet,
+    "web_gallery": cmd_web_gallery,
 }
 
 

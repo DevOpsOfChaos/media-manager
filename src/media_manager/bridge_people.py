@@ -10,6 +10,7 @@ Supports:
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import json
 import os
@@ -450,9 +451,76 @@ def cmd_person_reassign() -> int:
     return 0
 
 
+def cmd_person_merge() -> int:
+    """Merge one person into another, combining embeddings and aliases."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _fail(f"Invalid JSON: {exc}")
+
+    catalog_path_raw = payload.get("catalog_path", "")
+    if not catalog_path_raw:
+        return _fail("catalog_path is required")
+    catalog_path = _validate_app_path(Path(catalog_path_raw))
+
+    from_id = payload.get("from_person_id", "")
+    to_id = payload.get("to_person_id", "")
+    if not from_id or not to_id:
+        return _fail("from_person_id and to_person_id are required")
+    if from_id == to_id:
+        return _fail("Cannot merge a person into itself")
+
+    try:
+        catalog = load_people_catalog(catalog_path, load_embeddings=True)
+    except Exception as exc:
+        return _fail(f"Failed to load catalog: {exc}")
+
+    from_person = catalog.persons.get(from_id)
+    to_person = catalog.persons.get(to_id)
+
+    if not from_person:
+        return _fail(f"Source person {from_id} not found")
+    if not to_person:
+        return _fail(f"Target person {to_id} not found")
+
+    from_embeddings = from_person.embeddings
+    from_embedding_count = len(from_embeddings)
+    to_person.embeddings = to_person.embeddings + from_embeddings
+
+    from_name = from_person.name or from_person.display_name() or from_id
+    to_aliases = set(to_person.aliases)
+    from_aliases = set(from_person.aliases)
+    to_aliases.add(from_name)
+    to_person.aliases = sorted(to_aliases | from_aliases)
+
+    notes = to_person.notes or ""
+    merge_note = f"Merged '{from_name}' ({from_id}) on {datetime.datetime.now(datetime.timezone.utc).isoformat()}"
+    to_person.notes = f"{notes}\n{merge_note}".strip()
+
+    del catalog.persons[from_id]
+
+    to_person._face_count = len(to_person.embeddings)
+
+    try:
+        write_people_catalog(catalog_path, catalog)
+    except Exception as exc:
+        return _fail(f"Failed to write catalog: {exc}")
+
+    return _emit({
+        "kind": "person_merged",
+        "from_person_id": from_id,
+        "from_name": from_name,
+        "to_person_id": to_id,
+        "to_name": to_person.name or to_person.display_name() or to_id,
+        "merged_embeddings": from_embedding_count,
+        "new_face_count": len(to_person.embeddings),
+    })
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="media_manager.bridge_people")
-    parser.add_argument("action", choices=["scan", "status", "reset", "catalog-info", "catalog-list", "person-rename", "person-create", "person-reassign"])
+    parser.add_argument("action", choices=["scan", "status", "reset", "catalog-info", "catalog-list", "person-rename", "person-create", "person-reassign", "person-merge"])
     return parser
 
 
@@ -468,6 +536,7 @@ def main(argv: list[str] | None = None) -> int:
         "person-rename": cmd_person_rename,
         "person-create": cmd_person_create,
         "person-reassign": cmd_person_reassign,
+        "person-merge": cmd_person_merge,
     }
     return actions[args.action]()
 

@@ -205,6 +205,12 @@ pub async fn people_person_reassign(_app: tauri::AppHandle, options: Value) -> R
 }
 
 #[tauri::command]
+pub async fn people_person_merge(_app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options).map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_people", "person-merge", &[], Some(&json))
+}
+
+#[tauri::command]
 pub async fn people_catalog_info(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
     emit_progress(&app, "operation:started", "Catalog Info", None);
     let json = serde_json::to_string(&options)
@@ -349,4 +355,25 @@ pub async fn file_integrity(options: Value) -> Result<Value, String> {
     let json = serde_json::to_string(&options)
         .map_err(|e| format!("Failed to serialize: {e}"))?;
     bridge()?.run_module("bridge_file_ops", "integrity", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn file_backup(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_file_ops", "backup", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn file_contact_sheet(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_file_ops", "contact_sheet", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn file_web_gallery(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_file_ops", "web_gallery", &[], Some(&json))
 }

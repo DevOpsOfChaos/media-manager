@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
-import { peopleCatalogList, peoplePersonRename, peoplePersonCreate, peoplePersonReassign, peopleScan, peopleScanStatus, type PersonEntry, type CatalogListResponse } from "@/lib/tauri-bridge"
+import { peopleCatalogList, peoplePersonRename, peoplePersonCreate, peoplePersonReassign, peoplePersonMerge, peopleScan, peopleScanStatus, type PersonEntry, type CatalogListResponse } from "@/lib/tauri-bridge"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
-import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff } from "lucide-react"
+import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff, GitMerge, MoreHorizontal } from "lucide-react"
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 
 function friendlyPeopleError(e: unknown, context: "scan" | "load" | "rename" | "create" | "reassign"): string {
   const msg = String(e).toLowerCase()
@@ -89,6 +90,9 @@ export default function PeoplePage() {
   // Create person dialog
   const [showCreatePerson, setShowCreatePerson] = useState(false)
   const [createName, setCreateName] = useState("")
+
+  // Merge dialog
+  const [mergeDialog, setMergeDialog] = useState<{ from: PersonEntry } | null>(null)
 
   const loadCatalog = useCallback(async () => {
     if (!catalogPath) return
@@ -201,7 +205,7 @@ export default function PeoplePage() {
             {catalog.people.map(person => (
               <Card
                 key={person.person_id}
-                className="cursor-pointer hover:border-primary/50 transition-colors overflow-hidden"
+                className="cursor-pointer hover:border-primary/50 transition-colors overflow-hidden relative group"
                 role="button"
                 tabIndex={0}
                 aria-label={person.name}
@@ -219,6 +223,19 @@ export default function PeoplePage() {
                   <p className="text-sm font-medium truncate">{person.name}</p>
                   <p className="text-xs text-muted-foreground">{person.face_count} {t("faces", "Gesichter")}</p>
                 </CardContent>
+                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full"><MoreHorizontal className="h-3.5 w-3.5" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => setMergeDialog({ from: person })}>
+                        <GitMerge className="h-3.5 w-3.5 mr-2" />
+                        {t("Merge into...", "Zusammenführen mit...")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </Card>
             ))}
             <Card className="cursor-pointer hover:border-primary/50 border-dashed flex items-center justify-center min-h-[200px]" role="button" tabIndex={0} onClick={() => setShowCreatePerson(true)} onKeyDown={(e) => e.key === 'Enter' && setShowCreatePerson(true)}>
@@ -246,6 +263,41 @@ export default function PeoplePage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {mergeDialog && (
+          <Dialog open onOpenChange={() => setMergeDialog(null)}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>{t("Merge Person", "Person zusammenführen")}</DialogTitle>
+                <DialogDescription>
+                  {t(`Merge "${mergeDialog.from.name}" into another person. All faces and aliases will be moved.`,
+                     `"${mergeDialog.from.name}" mit einer anderen Person zusammenführen. Alle Gesichter und Aliasse werden übertragen.`)}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-1 max-h-60 overflow-y-auto">
+                {catalog?.people.filter(p => p.person_id !== mergeDialog.from.person_id).map(p => (
+                  <button key={p.person_id}
+                    className="w-full text-left p-2 rounded hover:bg-muted transition-colors flex items-center gap-2"
+                    onClick={async () => {
+                      try {
+                        await peoplePersonMerge({
+                          catalog_path: catalogPath,
+                          from_person_id: mergeDialog.from.person_id,
+                          to_person_id: p.person_id,
+                        })
+                        setMergeDialog(null)
+                        loadCatalog()
+                      } catch (e) { console.error(e) }
+                    }}>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{p.name}</span>
+                    <Badge variant="outline" className="text-[10px] ml-auto">{p.face_count}</Badge>
+                  </button>
+                ))}
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     )
   }
