@@ -92,10 +92,15 @@ def cmd_preview() -> int:
             return _fail("target_root is required.")
 
         source_dirs = []
+        missing_sources = []
         for p in source_dirs_raw:
             resolved = Path(p).resolve()
             if resolved.exists():
                 source_dirs.append(resolved)
+            else:
+                missing_sources.append(str(p))
+        if not source_dirs:
+            return _fail(f"None of the source directories exist: {missing_sources}")
         target_root = Path(target_root_raw).resolve()
 
         logger.info("Starting organize preview: %d source dirs -> %s", len(source_dirs), target_root)

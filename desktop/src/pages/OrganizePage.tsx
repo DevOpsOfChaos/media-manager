@@ -239,16 +239,27 @@ export default function OrganizePage() {
     setLoading(true)
     setError(null)
     setPreview(null)
-    startProgress(t("Organize Preview", "Organisations-Vorschau"), 100)
+
+    startProgress(t("Scanning & building preview...", "Scanne & erstelle Vorschau..."), 100)
+
+    let fakeProgress = 0
+    const progressInterval = setInterval(() => {
+      fakeProgress = Math.min(fakeProgress + 1.5, 89)
+      updateProgress(Math.round(fakeProgress))
+    }, 400)
+
     try {
       const result = await organizePreview(options)
-      updateProgress(50)
+      clearInterval(progressInterval)
+      updateProgress(92)
+      await new Promise(r => setTimeout(r, 100))
       setPreview(result)
       updateProgress(100)
     } catch (err) {
+      clearInterval(progressInterval)
       setError(userFriendlyError(err))
     } finally {
-      setTimeout(() => finishProgress(), 500)
+      setTimeout(() => finishProgress(), 800)
       setLoading(false)
     }
   }
@@ -823,16 +834,27 @@ export default function OrganizePage() {
             )}
           </div>
 
-          {loading && (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              <span className="ml-3 text-sm text-muted-foreground">{t("Scanning files...", "Dateien werden gescannt...")}</span>
-            </div>
-          )}
-
           {/* Results */}
           {preview && (
             <>
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                <div className="text-center p-2 rounded bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+                  <p className="text-lg font-bold text-green-700 dark:text-green-400">{preview.planned_count.toLocaleString()}</p>
+                  <p className="text-[10px] text-green-600 dark:text-green-500">{t("Planned", "Geplant")}</p>
+                </div>
+                <div className="text-center p-2 rounded bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                  <p className="text-lg font-bold text-amber-700 dark:text-amber-400">{preview.skipped_count.toLocaleString()}</p>
+                  <p className="text-[10px] text-amber-600 dark:text-amber-500">{t("Skipped", "Übersprungen")}</p>
+                </div>
+                <div className="text-center p-2 rounded bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
+                  <p className="text-lg font-bold text-red-700 dark:text-red-400">{preview.conflict_count.toLocaleString()}</p>
+                  <p className="text-[10px] text-red-600 dark:text-red-500">{t("Conflicts", "Konflikte")}</p>
+                </div>
+                <div className="text-center p-2 rounded bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                  <p className="text-lg font-bold">{((preview.scan_summary?.total_size_bytes || 0) / (1024*1024*1024)).toFixed(1)}</p>
+                  <p className="text-[10px] text-muted-foreground">GB</p>
+                </div>
+              </div>
               <div className="flex items-center justify-between">
                 <span />
                 <Button variant="ghost" size="sm" className="text-xs" onClick={() => handleExport(preview, `organize-preview-${Date.now()}.json`)}>

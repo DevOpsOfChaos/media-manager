@@ -223,7 +223,7 @@ def test_preview_handles_invalid_json() -> None:
 
 
 def test_preview_handles_nonexistent_source(monkeypatch, tmp_path: Path) -> None:
-    """Preview handles non-existent source gracefully (missing_sources)."""
+    """Preview rejects when all source dirs are nonexistent."""
     source = tmp_path / "does_not_exist"
     target = tmp_path / "target"
     target.mkdir()
@@ -241,11 +241,7 @@ def test_preview_handles_nonexistent_source(monkeypatch, tmp_path: Path) -> None
     sys.stdout = StringIO()
     try:
         exit_code = cmd_preview()
-        assert exit_code == 0
-        output = json.loads(sys.stdout.getvalue())
-        assert output["kind"] == "preview"
-        # Missing sources are reported, not fatal
-        assert "scan_summary" in output
+        assert exit_code == 1, f"Expected error for nonexistent source, got {exit_code}"
     finally:
         sys.stdin = old_stdin
         sys.stdout = old_stdout
