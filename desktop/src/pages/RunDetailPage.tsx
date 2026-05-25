@@ -79,7 +79,7 @@ export default function RunDetailPage() {
         <div className="flex-1 max-w-3xl space-y-4">
           <div className="flex items-center gap-2">
             {detail?.has_journal && (
-              <Button onClick={handleUndoPreview} disabled={undoLoading} variant="outline" size="sm">
+              <Button onClick={handleUndoPreview} disabled={undoLoading} variant="destructive" size="sm" title="Reverse this operation using the execution journal">
                 {undoLoading ? "Loading..." : "Undo"}
               </Button>
             )}

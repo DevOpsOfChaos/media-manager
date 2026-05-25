@@ -146,8 +146,8 @@ export default function DuplicatesPage() {
       <main className="flex flex-1 gap-4 p-4">
         <div className="flex-1 max-w-4xl space-y-4">
           <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-4 py-3 text-sm text-blue-800 dark:text-blue-200">
-            Preview only. No files are deleted or modified. Deletion will be
-            available in a future update after review safeguards are in place.
+            Select groups with checkboxes, then click "Delete N Groups" to
+            permanently remove duplicates. Deletion cannot be undone.
           </div>
 
           <Card>
