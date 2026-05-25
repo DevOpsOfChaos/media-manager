@@ -1,5 +1,6 @@
-import { useCallback } from "react"
+import { useCallback, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { appLocalDataDir, join } from "@tauri-apps/api/path"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -33,7 +34,19 @@ export default function ReviewWorkbenchPage() {
     setDraftDecision,
     markReviewed,
     reset,
+    sessionPath,
+    setSessionPath,
+    persistError,
   } = useReviewStore()
+
+  useEffect(() => {
+    if (groups.length === 0 || !activeSourceKind || sessionPath) return
+    ;(async () => {
+      const dir = await join(await appLocalDataDir(), "review_sessions")
+      const sp = await join(dir, `${activeSourceKind}.json`)
+      setSessionPath(sp)
+    })()
+  }, [activeSourceKind, groups.length])
 
   const handleSourceSelect = (kind: ReviewSourceKind | null) => {
     const next = activeSourceKind === kind ? null : kind
@@ -68,24 +81,29 @@ export default function ReviewWorkbenchPage() {
       <PageHeader title="Review Workbench">
         {groups.length > 0 && (
           <Button variant="outline" size="sm" onClick={reset}>
-            Clear session
+            Reset session
           </Button>
         )}
       </PageHeader>
       <main className="flex flex-1 gap-4 p-4">
         <div className="flex-1 max-w-4xl space-y-4">
           {/* Safety banner */}
-          <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-4 py-3 text-sm text-blue-800 dark:text-blue-200 space-y-1">
-            <p className="font-medium">
-              Read-only workbench. No decisions are saved and no files are
-              modified.
-            </p>
-            <p className="text-xs">
-              Draft decisions exist only in memory and are lost when you leave
-              this page or click &ldquo;Clear session&rdquo;. Apply, journal,
-              and undo are not implemented yet.
-            </p>
-          </div>
+          {persistError ? (
+            <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-800 dark:text-red-200">
+              <p className="font-medium">Save failed</p>
+              <p className="text-xs">{persistError}</p>
+            </div>
+          ) : sessionPath ? (
+            <div className="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 px-4 py-3 text-sm text-green-800 dark:text-green-200">
+              <p className="font-medium">Decisions are persisted to disk.</p>
+              <p className="text-xs">Draft decisions are saved automatically and restored when you return.</p>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-4 py-3 text-sm text-blue-800 dark:text-blue-200">
+              <p className="font-medium">No session active.</p>
+              <p className="text-xs">Run a scan first to load candidates. Decisions will be persisted to disk.</p>
+            </div>
+          )}
 
           {/* Source selection + status */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -131,7 +149,7 @@ export default function ReviewWorkbenchPage() {
                   <Badge variant={reviewedCount > 0 ? "default" : "secondary"}>
                     {reviewedCount} reviewed
                   </Badge>
-                  <Badge variant="secondary">in-memory only</Badge>
+                  <Badge variant={sessionPath ? "default" : "secondary"}>{sessionPath ? "persisted" : "in-memory only"}</Badge>
                 </div>
               </CardContent>
             </Card>
@@ -143,7 +161,7 @@ export default function ReviewWorkbenchPage() {
               <CardHeader>
                 <CardTitle>Candidates ({filteredGroups.length} groups)</CardTitle>
                 <CardDescription>
-                  Draft only — not saved, not applied.
+                  Decisions are saved to disk automatically.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -246,7 +264,7 @@ export default function ReviewWorkbenchPage() {
           ) : (
             <EmptyState
               title="No candidates loaded"
-              description="Run an Exact Duplicates or Similar Images preview scan, then return here. Candidates are loaded in memory only and are lost when you leave this page."
+              description="Run a duplicate scan first, then return here. Decisions are persisted to disk and restored when you come back."
             />
           )}
 

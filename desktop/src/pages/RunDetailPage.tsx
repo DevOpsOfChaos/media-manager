@@ -79,9 +79,12 @@ export default function RunDetailPage() {
         <div className="flex-1 max-w-3xl space-y-4">
           <div className="flex items-center gap-2">
             {detail?.has_journal && (
+              <>
               <Button onClick={handleUndoPreview} disabled={undoLoading} variant="destructive" size="sm" title="Reverse this operation using the execution journal">
                 {undoLoading ? "Loading..." : "Undo"}
               </Button>
+              <span className="text-xs text-muted-foreground hidden sm:inline">→ preview, then confirm</span>
+              </>
             )}
             <Button variant="outline" size="sm" onClick={() => navigate("/history")}>
               Back to history

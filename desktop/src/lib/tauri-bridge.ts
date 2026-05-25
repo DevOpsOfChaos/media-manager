@@ -86,6 +86,27 @@ export async function duplicatesApply(config: {
   return invoke("duplicates_apply", { config })
 }
 
+// ── Review Sessions ──
+
+export async function reviewSaveSession(payload: {
+  session_path: string
+  decisions: Record<string, string>
+  source_kind: string
+}): Promise<{ status: string; path: string; decision_count: number }> {
+  return invoke("review_save_session", { payload })
+}
+
+export async function reviewLoadSession(payload: {
+  session_path: string
+}): Promise<{
+  schema_version: number
+  source_kind: string
+  decisions: Record<string, string>
+  decision_count: number
+}> {
+  return invoke("review_load_session", { payload })
+}
+
 // ── People ──
 
 export async function peopleScan(config: {

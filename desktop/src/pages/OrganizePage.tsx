@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -160,6 +160,7 @@ export default function OrganizePage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedPreset, setSelectedPreset] = useState<string>("year-month")
   const [showCustomPattern, setShowCustomPattern] = useState(false)
+  const [showApplyConfirm, setShowApplyConfirm] = useState(false)
 
   const t = <T extends string>(en: T, de: T): T => (lang === "de" ? de : en)
 
@@ -224,27 +225,28 @@ export default function OrganizePage() {
     }
   }
 
-  const handleApply = async () => {
+  const handleApply = useCallback(async () => {
     if (!preview?.outcome_report?.safe_to_apply) return
     if (!options.source_dirs.length || !options.target_root) {
-      setError(t("Source and target directories are required.", "Quell- und Zielverzeichnis sind erforderlich."))
+      setError("Source and target directories are required.")
       return
     }
-    const confirmed = window.confirm(
-      `This will ${options.operation_mode === "move" ? "MOVE" : "COPY"} ${preview.planned_count} files from source to target. This action can be undone via the journal. Continue?`
-    )
-    if (!confirmed) return
+    setShowApplyConfirm(true)
+  }, [preview, options])
+
+  const confirmApply = useCallback(async () => {
+    setShowApplyConfirm(false)
     setApplyLoading(true)
     setApplyResult(null)
     try {
       const result = await organizeApply(options)
       setApplyResult(result)
-    } catch (e) {
+    } catch (e: unknown) {
       setError(String(e))
     } finally {
       setApplyLoading(false)
     }
-  }
+  }, [options])
 
   const oc = preview?.outcome_report
 
@@ -628,6 +630,32 @@ export default function OrganizePage() {
                       `Ausführen (${options.operation_mode === "move" ? "verschiebe" : "kopiere"} ${preview.planned_count} Dateien)`
                     )}
               </Button>
+            )}
+            {showApplyConfirm && preview && (
+              <Card className="border-yellow-500/50 mt-3 p-3">
+                <p className="text-sm font-medium text-yellow-400 mb-2">
+                  {t("Confirm Apply", "Ausführung bestätigen")}
+                </p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  {options.operation_mode === "move"
+                    ? t(
+                        `This will MOVE ${preview.planned_count} files from source to target. Files will no longer exist at their original location. This action can be undone via the Run History page.`,
+                        `Dies wird ${preview.planned_count} Dateien von der Quelle zum Ziel VERSCHIEBEN. Die Dateien existieren danach nicht mehr am ursprünglichen Ort. Die Aktion kann über die Verlaufsseite rückgängig gemacht werden.`
+                      )
+                    : t(
+                        `This will COPY ${preview.planned_count} files from source to target. Original files are not modified.`,
+                        `Dies wird ${preview.planned_count} Dateien von der Quelle zum Ziel KOPIEREN. Originaldateien werden nicht verändert.`
+                      )}
+                </p>
+                <div className="flex gap-2">
+                  <Button onClick={confirmApply} variant="default" size="sm">
+                    {t("Yes, apply", "Ja, ausführen")}
+                  </Button>
+                  <Button onClick={() => setShowApplyConfirm(false)} variant="ghost" size="sm">
+                    {t("Cancel", "Abbrechen")}
+                  </Button>
+                </div>
+              </Card>
             )}
             {error && (
               <p className="text-sm text-destructive truncate">{error}</p>
