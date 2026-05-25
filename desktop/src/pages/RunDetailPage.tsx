@@ -11,6 +11,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { historyGet, type HistoryDetail } from "@/lib/tauri-bridge"
+import { undoPreview, undoApply } from "@/lib/tauri-bridge"
+import type { UndoExecutionResult } from "@/types"
 
 export default function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>()
@@ -18,6 +20,9 @@ export default function RunDetailPage() {
   const [detail, setDetail] = useState<HistoryDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [undoLoading, setUndoLoading] = useState(false)
+  const [undoPreviewResult, setUndoPreviewResult] = useState<UndoExecutionResult | null>(null)
+  const [undoResult, setUndoResult] = useState<UndoExecutionResult | null>(null)
 
   const load = useCallback(async () => {
     if (!runId) return
@@ -40,12 +45,44 @@ export default function RunDetailPage() {
   const modeLabel =
     detail?.mode === "apply" ? "Applied" : detail?.mode === "preview" ? "Preview" : "—"
 
+  const handleUndoPreview = useCallback(async () => {
+    if (!detail?.has_journal || !runId) return
+    setUndoLoading(true)
+    try {
+      const preview = await undoPreview(runId)
+      setUndoPreviewResult(preview)
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setUndoLoading(false)
+    }
+  }, [runId, detail?.has_journal])
+
+  const handleUndoApply = useCallback(async () => {
+    if (!runId) return
+    setUndoLoading(true)
+    try {
+      const result = await undoApply(runId)
+      setUndoResult(result)
+      setUndoPreviewResult(null)
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setUndoLoading(false)
+    }
+  }, [runId])
+
   return (
     <>
       <PageHeader title={`Run: ${runId ?? "unknown"}`} />
       <main className="flex flex-1 gap-4 p-4">
         <div className="flex-1 max-w-3xl space-y-4">
           <div className="flex items-center gap-2">
+            {detail?.has_journal && (
+              <Button onClick={handleUndoPreview} disabled={undoLoading} variant="outline" size="sm">
+                {undoLoading ? "Loading..." : "Undo"}
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => navigate("/history")}>
               Back to history
             </Button>
@@ -92,7 +129,7 @@ export default function RunDetailPage() {
                     <InfoRow label="Next action" value={detail.next_action} />
                   )}
                   <InfoRow label="Valid" value={detail.valid ? "Yes" : "No"} />
-                  {detail.has_journal && (
+            {detail?.has_journal && (
                     <InfoRow label="Journal" value="Available (undo possible)" />
                   )}
                   {detail.missing_files.length > 0 && (
@@ -151,6 +188,28 @@ export default function RunDetailPage() {
                 </Card>
               )}
             </>
+          )}
+          {undoPreviewResult && !undoResult && (
+            <Card className="border-yellow-500/50 mt-4">
+              <CardHeader><CardTitle className="text-yellow-400">Undo Preview</CardTitle></CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <p>This will reverse {undoPreviewResult.planned_count} actions ({undoPreviewResult.reversible_entry_count} reversible entries).</p>
+                <div className="flex gap-2 mt-2">
+                  <Button onClick={handleUndoApply} variant="default" size="sm">Confirm Undo</Button>
+                  <Button onClick={() => setUndoPreviewResult(null)} variant="ghost" size="sm">Cancel</Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {undoResult && (
+            <Card className={undoResult.error_count === 0 ? "border-green-500/50" : "border-red-500/50 mt-4"}>
+              <CardHeader><CardTitle className={undoResult.error_count === 0 ? "text-green-400" : "text-red-400"}>Undo Result</CardTitle></CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                <p>Undone: {undoResult.undone_count}</p>
+                <p>Skipped: {undoResult.skipped_count}</p>
+                {undoResult.error_count > 0 && <p className="text-red-400">Errors: {undoResult.error_count}</p>}
+              </CardContent>
+            </Card>
           )}
         </div>
       </main>

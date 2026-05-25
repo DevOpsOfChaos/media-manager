@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ErrorBanner } from "@/components/shared/ErrorBanner"
 import { EmptyState } from "@/components/shared/EmptyState"
-import { duplicateScan, similarImagesScan } from "@/lib/tauri-bridge"
+import { duplicateScan, similarImagesScan, duplicatesApply } from "@/lib/tauri-bridge"
 import type {
   DuplicatesPreviewResponse,
   SimilarImagesPreviewResponse,
@@ -34,6 +34,9 @@ export default function DuplicatesPage() {
   const [maxDistance, setMaxDistance] = useState(6)
   const [maxImages, setMaxImages] = useState(500)
   const [maxPairs, setMaxPairs] = useState(150_000)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteResult, setDeleteResult] = useState<{ executed_rows: number; error_rows: number } | null>(null)
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
 
   const handleScan = async () => {
     if (!sourceDir.trim()) {
@@ -80,7 +83,40 @@ export default function DuplicatesPage() {
     })
   }
 
-  // Exact duplicates filtered groups
+  const toggleGroupSelection = useCallback((groupId: string) => {
+    setSelectedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(groupId)) { next.delete(groupId) } else { next.add(groupId) }
+      return next
+    })
+  }, [])
+
+
+  const handleDeleteSelected = useCallback(async () => {
+    const active = tab === "exact" ? exactPreview : null
+    if (!active || !sourceDir || selectedGroups.size === 0) return
+    const confirmed = window.confirm(`Delete ${selectedGroups.size} duplicate groups? This cannot be undone!`)
+    if (!confirmed) return
+    setDeleteLoading(true)
+    setDeleteResult(null)
+    try {
+      const decisions: Record<string, string> = {}
+      for (const g of active.exact_groups || []) {
+        if (selectedGroups.has(g.full_digest) && g.files?.length > 1) {
+          decisions[`${g.file_size * g.files.length}:${g.full_digest}`] = g.files[0]
+        }
+      }
+      const result = await duplicatesApply({ source_dirs: [sourceDir], decisions, mode: "delete" })
+      setDeleteResult(result as { executed_rows: number; error_rows: number })
+      setSelectedGroups(new Set())
+      handleScan() // refresh
+    } catch (e: unknown) {
+      setError(String(e))
+    } finally {
+      setDeleteLoading(false)
+    }
+  }, [tab, exactPreview, sourceDir, selectedGroups, handleScan])
+
   const exactFiltered = useMemo(() => {
     if (!exactPreview) return []
     if (!filterPath.trim()) return exactPreview.exact_groups
@@ -213,7 +249,21 @@ export default function DuplicatesPage() {
                 <Button onClick={handleScan} disabled={loading} size="sm">
                   {loading ? "Scanning..." : tab === "exact" ? "Scan for exact duplicates" : "Scan for similar images"}
                 </Button>
-              </div>
+                {exactPreview && exactPreview.exact_groups.length > 0 && tab === "exact" && (
+                  <Button onClick={handleDeleteSelected} disabled={deleteLoading} variant="destructive" size="sm">
+                    {deleteLoading ? "Deleting..." : `Delete ${selectedGroups.size} Groups`}
+                  </Button>
+                )}
+          {deleteResult && (
+            <Card className={deleteResult.error_rows === 0 ? "border-green-500/50" : "border-red-500/50 mt-4"}>
+              <CardHeader><CardTitle className={deleteResult.error_rows === 0 ? "text-green-400" : "text-red-400"}>Deletion Result</CardTitle></CardHeader>
+              <CardContent className="text-sm">
+                <p>Executed: {deleteResult.executed_rows} groups</p>
+                {deleteResult.error_rows > 0 && <p className="text-red-400">Errors: {deleteResult.error_rows}</p>}
+              </CardContent>
+            </Card>
+          )}
+        </div>
             </CardContent>
           </Card>
 
@@ -240,6 +290,8 @@ export default function DuplicatesPage() {
               expandedGroups={expandedGroups}
               onToggleGroup={toggleGroup}
               onCopyPath={copyPath}
+              selectedGroups={selectedGroups}
+              onToggleGroupSelection={toggleGroupSelection}
             />
           )}
 
@@ -297,6 +349,8 @@ function ExactResults({
   expandedGroups,
   onToggleGroup,
   onCopyPath,
+  selectedGroups,
+  onToggleGroupSelection,
 }: {
   preview: DuplicatesPreviewResponse
   filteredGroups: ExactDuplicateGroup[]
@@ -308,6 +362,8 @@ function ExactResults({
   expandedGroups: Set<string>
   onToggleGroup: (digest: string) => void
   onCopyPath: (path: string) => void
+  selectedGroups: Set<string>
+  onToggleGroupSelection: (groupId: string) => void
 }) {
   return (
     <>
@@ -336,7 +392,19 @@ function ExactResults({
           expandedGroups={expandedGroups}
           onToggleGroup={onToggleGroup}
           onCopyPath={onCopyPath}
-          renderGroup={(g) => <ExactGroupCard group={g as ExactDuplicateGroup} expanded={expandedGroups.has((g as ExactDuplicateGroup).full_digest)} onToggle={() => onToggleGroup((g as ExactDuplicateGroup).full_digest)} onCopyPath={onCopyPath} />}
+          renderGroup={(g) => (
+            <div key={(g as ExactDuplicateGroup).full_digest} className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={selectedGroups.has((g as ExactDuplicateGroup).full_digest)}
+                onChange={() => onToggleGroupSelection((g as ExactDuplicateGroup).full_digest)}
+                className="mt-1 w-4 h-4 accent-red-500"
+              />
+              <div className="flex-1">
+                <ExactGroupCard group={g as ExactDuplicateGroup} expanded={expandedGroups.has((g as ExactDuplicateGroup).full_digest)} onToggle={() => onToggleGroup((g as ExactDuplicateGroup).full_digest)} onCopyPath={onCopyPath} />
+              </div>
+            </div>
+          )}
           groups={filteredGroups}
         />
       )}

@@ -10,8 +10,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { organizePreview } from "@/lib/tauri-bridge"
-import type { OrganizePreviewResponse } from "@/types"
+import { organizePreview, organizeApply } from "@/lib/tauri-bridge"
+import type { OrganizePreviewResponse, OrganizeExecutionResult } from "@/types"
 import { useOrganizeStore } from "@/stores/organize-store"
 import { useSettingsStore } from "@/stores/settings-store"
 
@@ -155,6 +155,8 @@ export default function OrganizePage() {
 
   const [preview, setPreview] = useState<OrganizePreviewResponse | null>(null)
   const [loading, setLoading] = useState(false)
+  const [applyLoading, setApplyLoading] = useState(false)
+  const [applyResult, setApplyResult] = useState<OrganizeExecutionResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedPreset, setSelectedPreset] = useState<string>("year-month")
   const [showCustomPattern, setShowCustomPattern] = useState(false)
@@ -222,6 +224,28 @@ export default function OrganizePage() {
     }
   }
 
+  const handleApply = async () => {
+    if (!preview?.outcome_report?.safe_to_apply) return
+    if (!options.source_dirs.length || !options.target_root) {
+      setError(t("Source and target directories are required.", "Quell- und Zielverzeichnis sind erforderlich."))
+      return
+    }
+    const confirmed = window.confirm(
+      `This will ${options.operation_mode === "move" ? "MOVE" : "COPY"} ${preview.planned_count} files from source to target. This action can be undone via the journal. Continue?`
+    )
+    if (!confirmed) return
+    setApplyLoading(true)
+    setApplyResult(null)
+    try {
+      const result = await organizeApply(options)
+      setApplyResult(result)
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setApplyLoading(false)
+    }
+  }
+
   const oc = preview?.outcome_report
 
   // Build live example from current pattern
@@ -245,8 +269,8 @@ export default function OrganizePage() {
             </p>
             <p className="text-xs mt-0.5">
               {t(
-                "The preview shows what would happen. Apply will be available in a future update after review safeguards are in place.",
-                "Die Vorschau zeigt, was passieren würde. Die Ausführung wird in einem zukünftigen Update verfügbar sein, sobald Prüf- und Sicherheitsmechanismen integriert sind.",
+                "The preview shows what would happen. Apply will be available once preview completes successfully.",
+                "Die Vorschau zeigt, was passieren würde. Die Ausführung ist verfügbar, sobald die Vorschau erfolgreich abgeschlossen ist.",
               )}
             </p>
           </div>
@@ -590,6 +614,21 @@ export default function OrganizePage() {
                   )
                 : t("Preview plan", "Vorschau erstellen")}
             </Button>
+            {preview?.outcome_report?.safe_to_apply && (
+              <Button
+                onClick={handleApply}
+                disabled={applyLoading}
+                variant="default"
+                size="sm"
+              >
+                {applyLoading
+                  ? t("Applying...", "Führe aus...")
+                  : t(
+                      `Apply (${options.operation_mode === "move" ? "move" : "copy"} ${preview.planned_count} files)`,
+                      `Ausführen (${options.operation_mode === "move" ? "verschiebe" : "kopiere"} ${preview.planned_count} Dateien)`
+                    )}
+              </Button>
+            )}
             {error && (
               <p className="text-sm text-destructive truncate">{error}</p>
             )}
@@ -764,6 +803,24 @@ export default function OrganizePage() {
                 </Card>
               )}
             </>
+          )}
+          {applyResult && (
+            <Card className="border-green-500/50 mt-4">
+              <CardHeader>
+                <CardTitle className="text-green-400 text-lg">
+                  {t("Execution Complete", "Ausführung abgeschlossen")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                <p>{t(`Executed: ${applyResult.executed_count}`, `Ausgeführt: ${applyResult.executed_count}`)}</p>
+                <p>{t(`Copied: ${applyResult.copied_count}`, `Kopiert: ${applyResult.copied_count}`)}</p>
+                <p>{t(`Moved: ${applyResult.moved_count}`, `Verschoben: ${applyResult.moved_count}`)}</p>
+                <p>{t(`Skipped: ${applyResult.skipped_count}`, `Übersprungen: ${applyResult.skipped_count}`)}</p>
+                {applyResult.error_count > 0 && (
+                  <p className="text-red-400">{t(`Errors: ${applyResult.error_count}`, `Fehler: ${applyResult.error_count}`)}</p>
+                )}
+              </CardContent>
+            </Card>
           )}
         </div>
       </main>

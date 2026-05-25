@@ -1,7 +1,6 @@
 import { invoke } from "@tauri-apps/api/core"
 import type {
   OrganizePlannerOptions,
-  OrganizeDryRun,
   OrganizePreviewResponse,
   OrganizeExecutionResult,
   DuplicateScanConfig,
@@ -60,9 +59,9 @@ export async function organizePreview(
 }
 
 export async function organizeApply(
-  plan: OrganizeDryRun,
+  options: OrganizePlannerOptions,
 ): Promise<OrganizeExecutionResult> {
-  return invoke("organize_apply", { plan })
+  return invoke("organize_apply", { options })
 }
 
 // ── Duplicates ──
@@ -77,6 +76,14 @@ export async function similarImagesScan(
   config: SimilarImageScanConfig,
 ): Promise<SimilarImagesPreviewResponse> {
   return invoke("similar_images_scan", { config })
+}
+
+export async function duplicatesApply(config: {
+  source_dirs: string[]
+  decisions: Record<string, string>
+  mode: string
+}): Promise<{ executed_rows: number; error_rows: number }> {
+  return invoke("duplicates_apply", { config })
 }
 
 // ── People ──

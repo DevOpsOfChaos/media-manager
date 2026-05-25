@@ -1,3 +1,4 @@
+import { useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
@@ -13,6 +14,7 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import {
   UNSUPPORTED_FEATURES,
   type ReviewSourceKind,
+  type ReviewDecisionDraft,
 } from "@/types"
 import { useReviewStore } from "@/stores/review-store"
 
@@ -28,6 +30,8 @@ export default function ReviewWorkbenchPage() {
     selectGroup,
     selectCandidate,
     filterText,
+    setDraftDecision,
+    markReviewed,
     reset,
   } = useReviewStore()
 
@@ -40,6 +44,11 @@ export default function ReviewWorkbenchPage() {
       setSearchParams({})
     }
   }
+
+  const handleDecision = useCallback((candidateId: string, decision: ReviewDecisionDraft) => {
+    setDraftDecision(candidateId, decision)
+    markReviewed(candidateId)
+  }, [setDraftDecision, markReviewed])
 
   const filteredGroups = groups.filter((g) => {
     if (activeSourceKind && g.source_kind !== activeSourceKind) return false
@@ -200,28 +209,27 @@ export default function ReviewWorkbenchPage() {
                             >
                               {c.role}
                             </Badge>
-                            {/* Draft decision controls — all disabled, not implemented */}
-                            {c.role === "reviewed" && (
-                              <div className="flex gap-1 shrink-0">
-                                {(["keep_reference", "remove_later", "ignore"] as const).map(
-                                  (d) => (
-                                    <Button
-                                      key={d}
-                                      variant="ghost"
-                                      size="sm"
-                                      disabled
-                                      className="h-5 px-1.5 text-[10px] opacity-50"
-                                    >
-                                      {d === "keep_reference"
-                                        ? "keep"
-                                        : d === "remove_later"
-                                          ? "remove"
-                                          : "ignore"}
-                                    </Button>
-                                  ),
-                                )}
-                              </div>
-                            )}
+                            {/* Draft decision controls */}
+                            <div className="flex gap-1 shrink-0">
+                              {(["keep_reference", "remove_later", "ignore"] as const).map(
+                                (d) => (
+                                  <Button
+                                    key={d}
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={c.role === "reviewed"}
+                                    className={`h-5 px-1.5 text-[10px] ${c.role === "reviewed" ? "opacity-50" : ""}`}
+                                    onClick={() => handleDecision(c.id, d)}
+                                  >
+                                    {d === "keep_reference"
+                                      ? "keep"
+                                      : d === "remove_later"
+                                        ? "remove"
+                                        : "ignore"}
+                                  </Button>
+                                ),
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -245,7 +253,7 @@ export default function ReviewWorkbenchPage() {
           {/* Unsupported features */}
           <Card>
             <CardHeader>
-              <CardTitle>Not implemented yet</CardTitle>
+              <CardTitle>Review decision persistence coming soon</CardTitle>
               <CardDescription>
                 These features are planned but require additional safety
                 infrastructure before they can be enabled.
