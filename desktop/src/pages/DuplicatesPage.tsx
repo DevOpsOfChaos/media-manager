@@ -37,6 +37,7 @@ export default function DuplicatesPage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteResult, setDeleteResult] = useState<{ executed_rows: number; error_rows: number } | null>(null)
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const handleScan = async () => {
     if (!sourceDir.trim()) {
@@ -92,11 +93,15 @@ export default function DuplicatesPage() {
   }, [])
 
 
-  const handleDeleteSelected = useCallback(async () => {
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedGroups.size === 0) return
+    setShowDeleteConfirm(true)
+  }, [selectedGroups.size])
+
+  const confirmDelete = useCallback(async () => {
+    setShowDeleteConfirm(false)
     const active = tab === "exact" ? exactPreview : null
-    if (!active || !sourceDir || selectedGroups.size === 0) return
-    const confirmed = window.confirm(`Delete ${selectedGroups.size} duplicate groups? This cannot be undone!`)
-    if (!confirmed) return
+    if (!active || !sourceDir) return
     setDeleteLoading(true)
     setDeleteResult(null)
     try {
@@ -109,7 +114,7 @@ export default function DuplicatesPage() {
       const result = await duplicatesApply({ source_dirs: [sourceDir], decisions, mode: "delete" })
       setDeleteResult(result as { executed_rows: number; error_rows: number })
       setSelectedGroups(new Set())
-      handleScan() // refresh
+      handleScan()
     } catch (e: unknown) {
       setError(String(e))
     } finally {
@@ -253,6 +258,24 @@ export default function DuplicatesPage() {
                   <Button onClick={handleDeleteSelected} disabled={deleteLoading} variant="destructive" size="sm">
                     {deleteLoading ? "Deleting..." : `Delete ${selectedGroups.size} Groups`}
                   </Button>
+                )}
+                {showDeleteConfirm && (
+                  <Card className="border-red-500/50 mt-3 p-3">
+                    <p className="text-sm font-medium text-red-400 mb-2">
+                      Confirm Deletion
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      This will permanently DELETE {selectedGroups.size} duplicate groups. This action CANNOT be undone. Deleted files are gone forever.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button onClick={confirmDelete} variant="destructive" size="sm">
+                        Yes, delete {selectedGroups.size} groups
+                      </Button>
+                      <Button onClick={() => setShowDeleteConfirm(false)} variant="ghost" size="sm">
+                        Cancel
+                      </Button>
+                    </div>
+                  </Card>
                 )}
           {deleteResult && (
             <Card className={deleteResult.error_rows === 0 ? "border-green-500/50" : "border-red-500/50 mt-4"}>
