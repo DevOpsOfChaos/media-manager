@@ -2,10 +2,8 @@
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass, field
-import os
+from dataclasses import dataclass
 from pathlib import Path
-import shutil
 from typing import Literal
 
 from media_manager.core.organizer import (
@@ -24,6 +22,11 @@ from media_manager.core.renamer import (
     execute_rename_dry_run,
 )
 from media_manager.core.scanner import ScanOptions, ScanSummary, scan_media_sources
+from media_manager.core.leftover import (
+    LeftoverConsolidationResult,
+    build_leftover_journal_entries,
+    execute_leftover_consolidation,
+)
 from media_manager.core.state import write_execution_journal
 from media_manager.duplicate_workflow import (
     DuplicateWorkflowBundle,
@@ -56,40 +59,6 @@ class CleanupWorkflowOptions:
     exclude_patterns: tuple[str, ...] = ()
     leftover_mode: CleanupLeftoverMode = "off"
     leftover_dir_name: str = "_remaining_files"
-
-
-@dataclass(slots=True, frozen=True)
-class CleanupLeftoverEntry:
-    source_root: Path
-    source_path: Path
-    target_path: Path
-    conflict_resolved: bool = False
-
-
-@dataclass(slots=True)
-class CleanupLeftoverResult:
-    requested: bool
-    mode: CleanupLeftoverMode
-    directory_name: str
-    entries: list[CleanupLeftoverEntry] = field(default_factory=list)
-    removed_empty_directories: list[Path] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)
-
-    @property
-    def file_count(self) -> int:
-        return len(self.entries)
-
-    @property
-    def removed_empty_directory_count(self) -> int:
-        return len(self.removed_empty_directories)
-
-    @property
-    def conflict_count(self) -> int:
-        return sum(1 for item in self.entries if item.conflict_resolved)
-
-    @property
-    def error_count(self) -> int:
-        return len(self.errors)
 
 
 def _entry_review_reasons(entry) -> tuple[str, ...]:
@@ -202,7 +171,7 @@ class CleanupExecutionReport:
     organize_result: OrganizeExecutionResult | None = None
     rename_result: RenameExecutionResult | None = None
     journal_path: Path | None = None
-    leftover_result: CleanupLeftoverResult | None = None
+    leftover_result: LeftoverConsolidationResult | None = None
 
     @property
     def error_count(self) -> int:
@@ -222,10 +191,6 @@ def _validate_leftover_dir_name(name: str) -> None:
         raise ValueError("Cleanup leftover directory name must not be empty or relative navigation.")
     if "/" in text or "\\" in text:
         raise ValueError("Cleanup leftover directory name must be a single directory segment.")
-
-
-def _normalized_path_key(path: Path) -> str:
-    return os.path.normcase(str(path))
 
 
 def build_cleanup_workflow_report(options: CleanupWorkflowOptions) -> CleanupWorkflowReport:
@@ -323,7 +288,7 @@ def _journal_group_fields(plan_entry) -> dict[str, object]:
 
 def _build_organize_journal_entries(
     result: OrganizeExecutionResult,
-    leftover_result: CleanupLeftoverResult | None = None,
+    leftover_result: LeftoverConsolidationResult | None = None,
 ) -> list[dict[str, object]]:
     entries: list[dict[str, object]] = []
     for item in result.entries:
@@ -382,22 +347,7 @@ def _build_organize_journal_entries(
         entries.append(entry)
 
     if leftover_result is not None:
-        for item in leftover_result.entries:
-            entries.append(
-                {
-                    "source_path": str(item.source_path),
-                    "target_path": str(item.target_path),
-                    "outcome": "leftover-consolidated",
-                    "reason": "moved source leftover into the cleanup leftover directory",
-                    "reversible": True,
-                    "undo_action": "move_back",
-                    "undo_from_path": str(item.target_path),
-                    "undo_to_path": str(item.source_path),
-                    "leftover_consolidation": True,
-                    "source_root": str(item.source_root),
-                    "associated_files": [],
-                }
-            )
+        entries.extend(build_leftover_journal_entries(leftover_result))
     return entries
 
 
@@ -444,99 +394,6 @@ def _build_rename_journal_entries(result: RenameExecutionResult) -> list[dict[st
     return entries
 
 
-def _iter_leftover_files(source_root: Path, leftover_dir: Path) -> list[Path]:
-    files: list[Path] = []
-    if not source_root.exists():
-        return files
-    for current_root, dirnames, filenames in os.walk(source_root, topdown=True):
-        current_root_path = Path(current_root)
-        if current_root_path == leftover_dir:
-            dirnames[:] = []
-            continue
-        visible_dirnames: list[str] = []
-        for dirname in dirnames:
-            candidate_dir = current_root_path / dirname
-            if _normalized_path_key(candidate_dir).startswith(_normalized_path_key(leftover_dir)):
-                continue
-            visible_dirnames.append(dirname)
-        dirnames[:] = visible_dirnames
-        for filename in sorted(filenames):
-            candidate = current_root_path / filename
-            if _normalized_path_key(candidate).startswith(_normalized_path_key(leftover_dir)):
-                continue
-            if candidate.is_file():
-                files.append(candidate)
-    files.sort(key=lambda item: (_normalized_path_key(item.parent), _normalized_path_key(item)))
-    return files
-
-
-def _next_leftover_target(leftover_dir: Path, file_name: str) -> tuple[Path, bool]:
-    candidate = leftover_dir / file_name
-    if not candidate.exists():
-        return candidate, False
-
-    path_obj = Path(file_name)
-    stem = path_obj.stem
-    suffix = path_obj.suffix
-    index = 2
-    while True:
-        candidate = leftover_dir / f"{stem}__{index}{suffix}"
-        if not candidate.exists():
-            return candidate, True
-        index += 1
-
-
-def _remove_empty_directories(source_root: Path, leftover_dir: Path) -> list[Path]:
-    removed: list[Path] = []
-    for current_root, dirnames, filenames in os.walk(source_root, topdown=False):
-        current_root_path = Path(current_root)
-        if current_root_path == source_root:
-            continue
-        if current_root_path == leftover_dir:
-            continue
-        if _normalized_path_key(current_root_path).startswith(_normalized_path_key(leftover_dir)):
-            continue
-        if dirnames or filenames:
-            continue
-        try:
-            current_root_path.rmdir()
-        except OSError:
-            continue
-        removed.append(current_root_path)
-    removed.sort(key=lambda item: _normalized_path_key(item))
-    return removed
-
-
-def _consolidate_leftovers(report: CleanupWorkflowReport) -> CleanupLeftoverResult:
-    result = CleanupLeftoverResult(
-        requested=True,
-        mode=report.options.leftover_mode,
-        directory_name=report.options.leftover_dir_name,
-    )
-    for source_root in report.options.source_dirs:
-        leftover_dir = source_root / report.options.leftover_dir_name
-        candidate_files = _iter_leftover_files(source_root, leftover_dir)
-        if not candidate_files:
-            continue
-        for candidate in candidate_files:
-            try:
-                leftover_dir.mkdir(parents=True, exist_ok=True)
-                target_path, conflict_resolved = _next_leftover_target(leftover_dir, candidate.name)
-                shutil.move(str(candidate), str(target_path))
-                result.entries.append(
-                    CleanupLeftoverEntry(
-                        source_root=source_root,
-                        source_path=candidate,
-                        target_path=target_path,
-                        conflict_resolved=conflict_resolved,
-                    )
-                )
-            except Exception as exc:  # pragma: no cover
-                result.errors.append(str(exc))
-        result.removed_empty_directories.extend(_remove_empty_directories(source_root, leftover_dir))
-    return result
-
-
 def execute_cleanup_workflow(
     report: CleanupWorkflowReport,
     *,
@@ -554,7 +411,10 @@ def execute_cleanup_workflow(
             and organize_result.error_count == 0
             and organize_result.conflict_count == 0
         ):
-            leftover_result = _consolidate_leftovers(report)
+            leftover_result = execute_leftover_consolidation(
+                report.options.source_dirs,
+                leftover_dir_name=report.options.leftover_dir_name,
+            )
         execution_report = CleanupExecutionReport(
             report=report,
             apply_step=apply_step,

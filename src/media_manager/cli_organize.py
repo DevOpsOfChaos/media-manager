@@ -21,6 +21,7 @@ from .core.review_report import build_review_export
 from .core.run_artifacts import write_run_artifacts
 from .core.report_export import build_review_file_payload, write_json_report
 from .core.state import write_command_run_log, write_execution_journal, write_history_artifacts
+from .core.leftover import execute_leftover_consolidation, build_leftover_journal_entries
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -144,6 +145,16 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="Path to a checkpoint file for progress tracking and resume support.",
+    )
+    parser.add_argument(
+        "--consolidate-leftovers",
+        action="store_true",
+        help="After execution, move remaining source files into a leftovers folder and remove empty directories.",
+    )
+    parser.add_argument(
+        "--leftover-dir-name",
+        default="_remaining_files",
+        help="Directory name for leftover consolidation. Default: _remaining_files.",
     )
     return parser
 
@@ -441,8 +452,25 @@ def main(argv: list[str] | None = None) -> int:
             resume=args.resume,
         )
         console_progress_done(f"Executed — {execution_result.executed_count:,} files organized")
+        leftover_result = None
+        if args.consolidate_leftovers:
+            if execution_result.error_count == 0 and execution_result.conflict_count == 0:
+                leftover_result = execute_leftover_consolidation(
+                    source_dirs=tuple(args.sources),
+                    leftover_dir_name=args.leftover_dir_name,
+                )
+                if leftover_result.file_count > 0:
+                    console_progress_done(
+                        f"Leftovers consolidated — {leftover_result.file_count} files moved, "
+                        f"{leftover_result.removed_empty_directory_count} empty dirs removed"
+                    )
+            else:
+                console_progress_done(
+                    "Leftover consolidation skipped — organize had errors or conflicts"
+                )
     else:
         execution_result = None
+        leftover_result = None
 
     payload = _build_payload(plan, execution_result)
     has_errors = plan.error_count > 0 or plan.missing_source_count > 0
@@ -451,6 +479,8 @@ def main(argv: list[str] | None = None) -> int:
     exit_code = 0 if not has_errors else 1
 
     explicit_journal_entries = _build_journal_entries(execution_result) if execution_result is not None else None
+    if leftover_result is not None and explicit_journal_entries is not None:
+        explicit_journal_entries = list(explicit_journal_entries) + build_leftover_journal_entries(leftover_result)
     history_artifacts = None
     run_artifacts = None
     review_payload = build_review_file_payload("organize", payload)
@@ -545,6 +575,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Next action: {execution_outcome['next_action']}")
         _print_summary_block("\nExecution outcomes", execution["outcome_summary"])
         _print_summary_block("\nExecution reasons", execution["reason_summary"])
+        if leftover_result is not None:
+            print("\nLeftover consolidation")
+            print(f"  Files moved: {leftover_result.file_count}")
+            print(f"  Empty directories removed: {leftover_result.removed_empty_directory_count}")
+            print(f"  Conflicts resolved: {leftover_result.conflict_count}")
+            print(f"  Errors: {leftover_result.error_count}")
 
     if plan.scan_summary.missing_sources:
         print("\nMissing sources:")

@@ -248,3 +248,32 @@ def test_cli_organize_history_dir_writes_auto_named_run_log_and_journal(monkeypa
     assert run_log["command_name"] == "organize"
     assert journal["command_name"] == "organize"
     assert run_log["created_at_utc"] == journal["created_at_utc"]
+
+
+def test_cli_organize_consolidate_leftovers_moves_remaining_files(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    target = tmp_path / "target"
+    target.mkdir()
+    jpg = source / "photo.jpg"
+    jpg.write_bytes(b"jpg")
+    leftover_txt = source / "notes.txt"
+    leftover_txt.write_bytes(b"text")
+
+    monkeypatch.setattr(
+        "media_manager.core.organizer.planner.resolve_capture_datetime",
+        lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path),
+    )
+
+    exit_code = main([
+        "--source", str(source),
+        "--target", str(target),
+        "--apply",
+        "--consolidate-leftovers",
+        "--leftover-dir-name", "_rest",
+    ])
+
+    assert exit_code == 0
+    assert not leftover_txt.exists()
+    assert (source / "_rest" / "notes.txt").exists()
+    assert (target / "2024" / "2024-08-10" / "photo.jpg").exists()
