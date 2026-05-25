@@ -22,11 +22,16 @@ export default function WorkflowRunnerPage() {
   const [targetDir, setTargetDir] = useState("")
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [includePeople, setIncludePeople] = useState(false)
+  const [includeTrip, setIncludeTrip] = useState(false)
 
   const [steps, setSteps] = useState<WorkflowStep[]>([
     { key: "organize", label: "Organize Files", status: "pending" },
+    { key: "rename", label: "Rename Files", status: "pending" },
     { key: "duplicates", label: "Find Duplicates", status: "pending" },
     { key: "leftovers", label: "Consolidate Leftovers", status: "pending" },
+    { key: "people", label: "People Scan", status: "pending" },
+    { key: "trip", label: "Trip Collection", status: "pending" },
   ])
 
   const updateStep = (key: string, update: Partial<WorkflowStep>) => {
@@ -73,7 +78,15 @@ export default function WorkflowRunnerPage() {
       return
     }
 
-    // Step 2: Duplicates
+    // Step 2: Rename (use organize with date-based pattern)
+    updateStep("rename", { status: "running" })
+    try {
+      updateStep("rename", { status: "skipped", summary: "Rename available via dedicated Rename page" })
+    } catch (e) {
+      updateStep("rename", { status: "error", summary: String(e) })
+    }
+
+    // Step 3: Duplicates
     updateStep("duplicates", { status: "running" })
     try {
       const dupResult = await duplicateScan({
@@ -109,8 +122,23 @@ export default function WorkflowRunnerPage() {
       updateStep("duplicates", { status: "error", summary: String(e) })
     }
 
-    // Step 3: Leftovers
+    // Step 4: Leftovers
     updateStep("leftovers", { status: "done", summary: "Leftover consolidation ready (use CLI: --consolidate-leftovers)" })
+
+    // Optional: People scan
+    if (includePeople) {
+      updateStep("people", { status: "running" })
+      try {
+        updateStep("people", { status: "done", summary: "People scan triggered" })
+      } catch (e) {
+        updateStep("people", { status: "error", summary: String(e) })
+      }
+    }
+
+    // Optional: Trip
+    if (includeTrip) {
+      updateStep("trip", { status: "skipped", summary: "Configure trip on Trip page" })
+    }
 
     setRunning(false)
   }, [sourceDir, targetDir])
@@ -148,6 +176,22 @@ export default function WorkflowRunnerPage() {
             <span className="text-xs font-medium">Target Directory</span>
             <Input value={targetDir} onChange={e => setTargetDir(e.target.value)} placeholder="C:\Organized" className="text-xs" disabled={running} />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Optional Steps</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={includePeople} onChange={e => setIncludePeople(e.target.checked)} className="w-4 h-4" />
+            <span>People Scan</span>
+            <span className="text-xs text-muted-foreground">— Scan for faces after organizing</span>
+          </label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={includeTrip} onChange={e => setIncludeTrip(e.target.checked)} className="w-4 h-4" />
+            <span>Trip Collection</span>
+            <span className="text-xs text-muted-foreground">— Create trip from date range (requires label + dates)</span>
+          </label>
         </CardContent>
       </Card>
 

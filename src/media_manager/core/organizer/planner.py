@@ -27,6 +27,23 @@ def _normalized_path_key(path: Path) -> str:
     return os.path.normcase(str(path))
 
 
+def _generate_unique_target_path(target_path: Path, source_path: Path) -> Path:
+    if not target_path.exists():
+        return target_path
+    if files_have_identical_content(source_path, target_path):
+        return target_path
+    pure_stem = target_path.stem
+    suffix = target_path.suffix
+    target_dir = target_path.parent
+    idx = 1
+    while True:
+        output_stem = f"{pure_stem}_{idx}"
+        candidate = target_dir / f"{output_stem}{suffix}"
+        if not candidate.exists():
+            return candidate
+        idx += 1
+
+
 def _build_group_target_paths(entry_target_dir: Path, target_root: Path, *, source_paths: list[Path]) -> dict[Path, Path]:
     return {
         source_path: target_root / entry_target_dir / source_path.name
@@ -189,8 +206,19 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                     options.target_root,
                     source_paths=[member.path for member in group.members],
                 )
+                original_target_path = group_target_paths[scanned_file.path]
+                if options.conflict_policy == "rename":
+                    new_group: dict[Path, Path] = {}
+                    for sp, tp in group_target_paths.items():
+                        if tp.exists():
+                            new_group[sp] = _generate_unique_target_path(tp, sp)
+                        else:
+                            new_group[sp] = tp
+                    group_target_paths = new_group
                 target_path = group_target_paths[scanned_file.path]
                 status, reason = _evaluate_group_plan_state(group_target_paths, conflict_policy=options.conflict_policy)
+                if target_path != original_target_path:
+                    reason = "planned (renamed to avoid conflict)"
             except Exception as exc:
                 dry_run.entries.append(
                     OrganizePlanEntry(
@@ -303,11 +331,17 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                 target_relative_dir = render_organize_directory(
                     options.pattern, resolution, source_root=scanned_file.source_root,
                 )
-                target_path = options.target_root / target_relative_dir / scanned_file.path.name
+                original_target_path = options.target_root / target_relative_dir / scanned_file.path.name
+                if options.conflict_policy == "rename":
+                    target_path = _generate_unique_target_path(original_target_path, scanned_file.path)
+                else:
+                    target_path = original_target_path
                 group_target_paths = {scanned_file.path: target_path}
                 status, reason = _evaluate_group_plan_state(
                     group_target_paths, conflict_policy=options.conflict_policy,
                 )
+                if target_path != original_target_path:
+                    reason = "planned (renamed to avoid conflict)"
             except Exception as exc:
                 dry_run.entries.append(
                     OrganizePlanEntry(
@@ -347,25 +381,58 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
     if progress:
         progress.enter_phase("resolving_conflicts", "Checking for path collisions...")
 
-    collisions: dict[str, list[OrganizePlanEntry]] = {}
-    for entry in dry_run.entries:
-        if entry.status != "planned":
-            continue
-        for target_path in entry.group_target_paths.values():
-            collisions.setdefault(_normalized_path_key(target_path), []).append(entry)
-
-    for entries in collisions.values():
-        seen_ids: set[int] = set()
-        unique_count = len({id(item) for item in entries})
-        if unique_count < 2:
-            continue
-        for entry in entries:
-            key = id(entry)
-            if key in seen_ids:
+    if options.conflict_policy == "rename":
+        assigned: set[str] = set()
+        for entry in dry_run.entries:
+            if entry.status != "planned":
                 continue
-            seen_ids.add(key)
-            entry.status = "conflict"
-            entry.reason = "multiple source files would resolve to the same target path"
+            new_group: dict[Path, Path] = {}
+            rename_occurred = False
+            for sp, tp in entry.group_target_paths.items():
+                tp_key = _normalized_path_key(tp)
+                if tp_key in assigned:
+                    pure_stem = tp.stem
+                    suffix = tp.suffix
+                    target_dir = tp.parent
+                    idx = 1
+                    while True:
+                        output_stem = f"{pure_stem}_{idx}"
+                        candidate = target_dir / f"{output_stem}{suffix}"
+                        candidate_key = _normalized_path_key(candidate)
+                        if candidate_key not in assigned and not candidate.exists():
+                            new_group[sp] = candidate
+                            assigned.add(candidate_key)
+                            break
+                        idx += 1
+                    rename_occurred = True
+                    if sp == entry.source_path:
+                        entry.target_path = candidate
+                else:
+                    assigned.add(tp_key)
+                    new_group[sp] = tp
+            if rename_occurred:
+                entry.group_target_paths = new_group
+                entry.reason = "planned (renamed to avoid conflict)"
+    else:
+        collisions: dict[str, list[OrganizePlanEntry]] = {}
+        for entry in dry_run.entries:
+            if entry.status != "planned":
+                continue
+            for target_path in entry.group_target_paths.values():
+                collisions.setdefault(_normalized_path_key(target_path), []).append(entry)
+
+        for entries in collisions.values():
+            seen_ids: set[int] = set()
+            unique_count = len({id(item) for item in entries})
+            if unique_count < 2:
+                continue
+            for entry in entries:
+                key = id(entry)
+                if key in seen_ids:
+                    continue
+                seen_ids.add(key)
+                entry.status = "conflict"
+                entry.reason = "multiple source files would resolve to the same target path"
 
     dry_run.entries.sort(key=lambda item: _normalized_path_key(item.source_path))
 

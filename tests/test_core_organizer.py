@@ -93,6 +93,27 @@ def test_build_organize_dry_run_marks_same_target_path_collisions(monkeypatch, t
     assert {item.reason for item in plan.entries} == {"multiple source files would resolve to the same target path"}
 
 
+def test_rename_conflict_policy_avoids_collision(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "source"; target = tmp_path / "target"
+    source.mkdir(); target.mkdir()
+    jpg1 = source / "photo.jpg"
+    jpg2 = source / "photo2.jpg"
+    jpg1.write_bytes(b"jpg1")
+    jpg2.write_bytes(b"jpg2")
+    collision_target = target / "2024" / "2024-08-10"
+    collision_target.mkdir(parents=True)
+    (collision_target / "photo2.jpg").write_bytes(b"existing")
+    monkeypatch.setattr("media_manager.core.organizer.planner.resolve_capture_datetime", lambda file_path, exiftool_path=None, **kwargs: _resolution(file_path, datetime(2024, 8, 10, 11, 12, 13)))
+    plan = build_organize_dry_run(OrganizePlannerOptions(
+        source_dirs=(source,), target_root=target, pattern=DEFAULT_ORGANIZE_PATTERN,
+        conflict_policy="rename", operation_mode="copy"
+    ))
+    assert plan.conflict_count == 0
+    assert plan.planned_count == 2
+    paths = [str(e.target_path) for e in plan.entries]
+    assert any("_1" in p for p in paths)
+
+
 def test_build_organize_dry_run_skips_source_already_in_target_location(monkeypatch, tmp_path: Path) -> None:
     target = tmp_path / "target"
     planned_dir = target / "2024" / "2024-08-10"
