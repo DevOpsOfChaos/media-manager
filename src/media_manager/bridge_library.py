@@ -60,16 +60,28 @@ def cmd_browse() -> int:
                     "suffix": fp.suffix.lower(),
                 })
 
-    truncated = len(files) > 5000
-    output_files = files[:5000]
+    page = payload.get("page", 0)
+    page_size = payload.get("page_size", 0)
+    total_count = len(files)
+
+    if page_size > 0:
+        start = page * page_size
+        end = start + page_size
+        paged_files = files[start:end]
+    else:
+        paged_files = files
+
     _emit({
         "kind": "browse",
         "root": str(root),
-        "file_count": len(files),
+        "file_count": total_count,
+        "page": page,
+        "page_size": page_size if page_size > 0 else total_count,
+        "total_pages": (total_count + page_size - 1) // page_size if page_size > 0 else 1,
         "depth": max_depth,
-        "files": output_files,
-        "truncated": truncated,
-        "truncated_message": f"Showing 5000 of {len(files)} files. Narrow your filter." if truncated else None,
+        "files": paged_files,
+        "truncated": total_count > 5000,
+        "truncated_message": f"Showing {len(paged_files)} of {total_count} files." if total_count > 5000 else None,
     })
     return 0
 

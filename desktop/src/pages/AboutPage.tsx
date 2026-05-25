@@ -67,13 +67,13 @@ export default function AboutPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3">
-            <a href="https://paypal.me/mries" target="_blank" rel="noopener noreferrer">
+            <a href="https://www.paypal.com/" target="_blank" rel="noopener noreferrer">
               <Button variant="default" size="lg" className="gap-2">
                 <Coffee className="h-4 w-4" />
-                {t("Buy me a Coffee", "Kaffee spendieren")}
+                {t("Support via PayPal", "Via PayPal unterstützen")}
               </Button>
             </a>
-            <a href="https://patreon.com/manu" target="_blank" rel="noopener noreferrer">
+            <a href="https://www.patreon.com/" target="_blank" rel="noopener noreferrer">
               <Button variant="outline" size="lg" className="gap-2">
                 <Heart className="h-4 w-4" />
                 {t("Support on Patreon", "Auf Patreon unterstützen")}
@@ -81,8 +81,8 @@ export default function AboutPage() {
             </a>
           </div>
           <p className="text-xs text-muted-foreground">
-            {t("Donations help cover API costs, hardware for testing, and the endless supply of coffee needed for late-night coding sessions.",
-               "Spenden helfen bei API-Kosten, Hardware für Tests und dem endlosen Kaffee-Nachschub für nächtliche Coding-Sessions.")}
+            {t("Specific donation links coming soon. For now, these go to the platform homepages.",
+               "Spezifische Spenden-Links folgen demnächst. Aktuell führen diese zu den Plattform-Startseiten.")}
           </p>
         </CardContent>
       </Card>

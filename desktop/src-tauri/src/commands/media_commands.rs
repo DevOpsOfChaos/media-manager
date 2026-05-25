@@ -306,3 +306,33 @@ pub async fn library_browse(_app: tauri::AppHandle, options: Value) -> Result<Va
     let json = serde_json::to_string(&options).map_err(|e| format!("{e}"))?;
     bridge()?.run_module("bridge_library", "browse", &[], Some(&json))
 }
+
+// ── File Operations ──
+
+#[tauri::command]
+pub async fn file_open(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_file_ops", "open", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn file_reveal(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_file_ops", "reveal", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn file_delete(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_file_ops", "delete", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn file_rename(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_file_ops", "rename", &[], Some(&json))
+}

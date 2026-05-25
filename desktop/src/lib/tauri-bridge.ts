@@ -388,3 +388,43 @@ export async function doctorCheck(options: {
 }): Promise<DoctorReport> {
   return invoke("doctor_check", { options })
 }
+
+// ── Library Browse (paginated) ──
+
+export interface LibraryBrowsePaginatedResult {
+  kind: string
+  root: string
+  file_count: number
+  page: number
+  page_size: number
+  total_pages: number
+  depth: number
+  files: Array<{ path: string; name: string; relative: string; size: number; suffix: string }>
+}
+
+export async function libraryBrowsePaginated(options: {
+  root_dir: string
+  page?: number
+  page_size?: number
+  max_depth?: number
+}): Promise<LibraryBrowsePaginatedResult> {
+  return invoke("library_browse", { options })
+}
+
+// ── File Operations ──
+
+export async function fileOpen(path: string): Promise<{ status: string; path: string }> {
+  return invoke("file_open", { options: { path } })
+}
+
+export async function fileReveal(path: string): Promise<{ status: string; path: string }> {
+  return invoke("file_reveal", { options: { path } })
+}
+
+export async function fileDelete(path: string): Promise<{ status: string; path: string }> {
+  return invoke("file_delete", { options: { path } })
+}
+
+export async function fileRename(path: string, newName: string): Promise<{ status: string; old_path: string; new_path: string; new_name: string }> {
+  return invoke("file_rename", { options: { path, new_name: newName } })
+}
