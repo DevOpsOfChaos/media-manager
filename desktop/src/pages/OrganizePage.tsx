@@ -20,7 +20,7 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { RecentPathsDropdown, addRecentPath } from "@/components/shared/RecentPaths"
 import { FullPageProgress } from "@/components/shared/FullPageProgress"
 import { useProgress } from "@/lib/progress-context"
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle, Zap } from "lucide-react"
 
 // ── Pattern presets ──
 
@@ -748,6 +748,20 @@ export default function OrganizePage() {
                 />
                 <span>{t("Remove empty directories after moving", "Leere Ordner nach dem Verschieben löschen")}</span>
               </label>
+
+              {/* Hard link performance tip */}
+              <div className="flex items-start gap-2 p-2 rounded bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-xs mt-3">
+                <Zap className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-blue-800 dark:text-blue-300">
+                    {t("Performance Tip", "Performance-Tipp")}
+                  </p>
+                  <p className="text-blue-700 dark:text-blue-400">
+                    {t("Enable hard links for instant organization (no copying). 160,000 files with hard links: ~10 minutes. With copying: 4-16 hours depending on drive speed and file sizes. Hard links don't use extra disk space.",
+                       "Aktiviere Hardlinks für sofortige Organisation (kein Kopieren). 160.000 Dateien mit Hardlinks: ~10 Minuten. Mit Kopieren: 4-16 Stunden je nach Laufwerk und Dateigröße. Hardlinks verbrauchen keinen zusätzlichen Speicher.")}
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
