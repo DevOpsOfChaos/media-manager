@@ -58,7 +58,8 @@ We will prioritize the following additions while the new Tauri + React desktop f
 1. **Associated files / media groups (Block 1a: DONE)**
    - Core detection (`media_groups.py`) is implemented: grouping logic, sidecar/pair detection, ambiguity handling, warnings, and tests.
    - Integrated into organizer and renamer planners and `app_manifest`.
-   - Next (Block 1b): integrate media groups into organize/rename execution, journaling, undo, and leftover consolidation.
+   - Execution, journaling, and undo are group-capable: group operations break into per-member journal entries; roundtrip undo/redo preserves group membership via journal snapshots. Verified with dedicated test coverage.
+   - Next real gap: leftover consolidation (standalone feature, not group-specific) and conflict policy as an explicit product feature.
 
 2. **Source leftover consolidation**
    - Optional and disabled by default.
@@ -94,9 +95,9 @@ For the next implementation blocks, we prefer this order:
 
 The immediate next task is to define a V1 for:
 
-- leftover consolidation behavior (block 1b)
+- leftover consolidation behavior (now the next implementation gap after group journal/undo)
 - conflict policy as an explicit product feature
-- media group integration into organize/rename execution, journaling, and undo
-- required result fields and history/undo behavior for grouped operations
+- media group integration into organize/rename execution, journaling, and undo (DONE — per-member journal entries; undo roundtrip tested)
+- history/undo behavior for grouped operations (verified — journal snapshots preserve group membership)
 
 That definition should stay conservative, Windows-first, and safety-first.
