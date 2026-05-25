@@ -77,6 +77,13 @@ pub async fn similar_images_scan(config: Value) -> Result<Value, String> {
     )
 }
 
+#[tauri::command]
+pub async fn duplicates_apply(payload: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&payload)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_duplicates_apply", "", &[], Some(&json))
+}
+
 // ── People ──
 
 #[tauri::command]
