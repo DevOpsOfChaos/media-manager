@@ -56,7 +56,7 @@ function TripDetailView({ trip, onBack }: { trip: TripEntry; onBack: () => void 
 }
 
 export default function TripPage() {
-  const [tripsRoot, setTripsRoot] = useState(() => localStorage.getItem("trips_root") || "")
+  const [tripsRoot, setTripsRoot] = useState(() => localStorage.getItem("trips_root") || localStorage.getItem("default_source_dir") || "")
   const [trips, setTrips] = useState<TripEntry[]>([])
   const [loadingTrips, setLoadingTrips] = useState(false)
 

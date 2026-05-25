@@ -7,6 +7,7 @@ import { organizePreview, organizeApply, duplicateScan, duplicatesApply } from "
 import type { DuplicatesPreviewResponse } from "@/types"
 import { PreflightCheck } from "@/components/shared/PreflightCheck"
 import { Workflow, Play, CheckCircle2, Loader2, XCircle } from "lucide-react"
+import { open } from "@tauri-apps/plugin-dialog"
 
 type StepStatus = "pending" | "running" | "done" | "error" | "skipped"
 
@@ -18,12 +19,19 @@ interface WorkflowStep {
 }
 
 export default function WorkflowRunnerPage() {
-  const [sourceDir, setSourceDir] = useState("")
+  const [sourceDir, setSourceDir] = useState(() => localStorage.getItem("default_source_dir") || "")
   const [targetDir, setTargetDir] = useState("")
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [includePeople, setIncludePeople] = useState(false)
   const [includeTrip, setIncludeTrip] = useState(false)
+
+  const browseDir = useCallback(async (setter: (v: string) => void) => {
+    try {
+      const selected = await open({ directory: true, multiple: false, title: "Select directory" })
+      if (selected && typeof selected === "string") setter(selected)
+    } catch { /* dialog may not be available */ }
+  }, [])
 
   const [steps, setSteps] = useState<WorkflowStep[]>([
     { key: "organize", label: "Organize Files", status: "pending" },
@@ -170,11 +178,17 @@ export default function WorkflowRunnerPage() {
         <CardContent className="space-y-3">
           <div className="space-y-1">
             <span className="text-xs font-medium">Source Directory</span>
-            <Input value={sourceDir} onChange={e => setSourceDir(e.target.value)} placeholder="C:\Photos" className="text-xs" disabled={running} />
+            <div className="flex gap-1">
+              <Input value={sourceDir} onChange={e => setSourceDir(e.target.value)} placeholder="C:\Photos" className="text-xs flex-1" disabled={running} />
+              <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => browseDir(setSourceDir)} disabled={running}>Browse</Button>
+            </div>
           </div>
           <div className="space-y-1">
             <span className="text-xs font-medium">Target Directory</span>
-            <Input value={targetDir} onChange={e => setTargetDir(e.target.value)} placeholder="C:\Organized" className="text-xs" disabled={running} />
+            <div className="flex gap-1">
+              <Input value={targetDir} onChange={e => setTargetDir(e.target.value)} placeholder="C:\Organized" className="text-xs flex-1" disabled={running} />
+              <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => browseDir(setTargetDir)} disabled={running}>Browse</Button>
+            </div>
           </div>
         </CardContent>
       </Card>

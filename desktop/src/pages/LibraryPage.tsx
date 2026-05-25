@@ -24,7 +24,7 @@ function formatSize(bytes: number): string {
 }
 
 export default function LibraryPage() {
-  const [rootDir, setRootDir] = useState(() => localStorage.getItem("library_root") || "")
+  const [rootDir, setRootDir] = useState(() => localStorage.getItem("library_root") || localStorage.getItem("default_source_dir") || "")
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<LibraryBrowseResult | null>(null)
   const [error, setError] = useState<string | null>(null)

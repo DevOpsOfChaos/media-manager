@@ -41,6 +41,7 @@ interface OrganizeActions {
 const KEY = "organize_state"
 
 const saved = typeof localStorage !== "undefined" ? localStorage.getItem(KEY) : null
+const defaultSource = typeof localStorage !== "undefined" ? localStorage.getItem("default_source_dir") : null
 const parsed = saved ? (() => { try { return JSON.parse(saved) } catch { return null } })() : null
 const restored = parsed
   ? {
@@ -49,6 +50,9 @@ const restored = parsed
       result: parsed.result || null,
     }
   : { options: { ...defaultOrganizeOptions }, dryRun: null, result: null }
+if (defaultSource && (!restored.options.source_dirs || restored.options.source_dirs.length === 0 || restored.options.source_dirs[0] === "")) {
+  restored.options.source_dirs = [defaultSource]
+}
 
 export const useOrganizeStore = create<OrganizeState & OrganizeActions>((set) => ({
   step: "sources",

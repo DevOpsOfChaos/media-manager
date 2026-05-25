@@ -62,7 +62,7 @@ function FileThumbnail({ path, size = 80 }: { path: string; size?: number }) {
 }
 
 export default function DuplicatesPage() {
-  const [sourceDir, setSourceDir] = useState("")
+  const [sourceDir, setSourceDir] = useState(() => localStorage.getItem("default_source_dir") || "")
   const [tab, setTab] = useState<Tab>("exact")
   const [exactPreview, setExactPreview] = useState<DuplicatesPreviewResponse | null>(null)
   const [similarPreview, setSimilarPreview] = useState<SimilarImagesPreviewResponse | null>(null)

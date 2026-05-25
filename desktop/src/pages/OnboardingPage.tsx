@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useSettingsStore } from "@/stores/settings-store"
 import { FolderOpen, Image, Check, ArrowRight, ChevronRight, ChevronLeft } from "lucide-react"
+import { open } from "@tauri-apps/plugin-dialog"
 
 const STEPS = [
   {
@@ -24,7 +25,7 @@ const STEPS = [
     details: [
       "You can scan multiple folders at once",
       "Subfolders are included automatically",
-      "Start with one folder — you can always add more",
+      "Your photos folder will be remembered as the default source",
     ],
   },
   {
@@ -44,6 +45,19 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0)
   const navigate = useNavigate()
   const { updateSettings, save } = useSettingsStore()
+  const [selectedFolder, setSelectedFolder] = useState<string>(
+    () => localStorage.getItem("default_source_dir") || ""
+  )
+
+  const browseFolder = async () => {
+    try {
+      const dir = await open({ directory: true, multiple: false, title: "Select your photos folder" })
+      if (dir && typeof dir === "string") {
+        setSelectedFolder(dir)
+        localStorage.setItem("default_source_dir", dir)
+      }
+    } catch { /* dialog may not be available */ }
+  }
 
   const currentStep = STEPS[step]
   const isLast = step === STEPS.length - 1
@@ -85,6 +99,28 @@ export default function OnboardingPage() {
               />
             ))}
           </div>
+
+          {step === 1 && (
+            <div className="my-4 p-4 rounded-lg bg-primary/5 border border-primary/10">
+              <p className="text-sm font-medium mb-2">Select your photos folder</p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={browseFolder}
+                  className="flex-1"
+                >
+                  <FolderOpen className="w-4 h-4 mr-2" />
+                  {selectedFolder 
+                    ? selectedFolder.split(/[\\/]/).pop() || selectedFolder
+                    : "Choose folder..."}
+                </Button>
+              </div>
+              {selectedFolder && (
+                <p className="text-xs text-muted-foreground mt-2 truncate">{selectedFolder}</p>
+              )}
+            </div>
+          )}
 
           {/* Step details */}
           <ul className="space-y-2">
