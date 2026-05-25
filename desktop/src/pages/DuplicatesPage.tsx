@@ -115,6 +115,14 @@ export default function DuplicatesPage() {
     navigator.clipboard.writeText(path).catch(() => {})
   }
 
+  const handleExport = (data: unknown, filename: string) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url; a.download = filename; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const toggleGroup = (digest: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev)
@@ -409,6 +417,7 @@ export default function DuplicatesPage() {
               selectAllGroups={selectAllGroups}
               deselectAllGroups={deselectAllGroups}
               totalWastedBytes={totalWastedBytes}
+              onExport={handleExport}
             />
           )}
 
@@ -422,6 +431,7 @@ export default function DuplicatesPage() {
               expandedGroups={expandedGroups}
               onToggleGroup={toggleGroup}
               onCopyPath={copyPath}
+              onExport={handleExport}
             />
           )}
 
@@ -471,6 +481,7 @@ function ExactResults({
   selectAllGroups,
   deselectAllGroups,
   totalWastedBytes,
+  onExport,
 }: {
   preview: DuplicatesPreviewResponse
   filteredGroups: ExactDuplicateGroup[]
@@ -487,9 +498,16 @@ function ExactResults({
   selectAllGroups: () => void
   deselectAllGroups: () => void
   totalWastedBytes: number
+  onExport: (data: unknown, filename: string) => void
 }) {
   return (
     <>
+      <div className="flex items-center justify-between">
+        <span />
+        <Button variant="ghost" size="sm" className="text-xs" onClick={() => onExport(preview, `duplicates-exact-${Date.now()}.json`)}>
+          Export JSON
+        </Button>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <SummaryCard label="Scanned" value={preview.scanned_files} />
         <SummaryCard label="Groups" value={preview.exact_groups.length} variant={preview.exact_groups.length > 0 ? "default" : "secondary"} />
@@ -578,6 +596,7 @@ function SimilarResults({
   expandedGroups,
   onToggleGroup,
   onCopyPath,
+  onExport,
 }: {
   preview: SimilarImagesPreviewResponse
   filteredGroups: SimilarImageGroup[]
@@ -586,6 +605,7 @@ function SimilarResults({
   expandedGroups: Set<string>
   onToggleGroup: (digest: string) => void
   onCopyPath: (path: string) => void
+  onExport: (data: unknown, filename: string) => void
 }) {
   const totalMembers = preview.similar_groups.reduce((s, g) => s + g.members.length, 0)
 
@@ -608,6 +628,12 @@ function SimilarResults({
 
   return (
     <>
+      <div className="flex items-center justify-between">
+        <span />
+        <Button variant="ghost" size="sm" className="text-xs" onClick={() => onExport(preview, `duplicates-similar-${Date.now()}.json`)}>
+          Export JSON
+        </Button>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <SummaryCard label="Scanned" value={preview.scanned_files} />
         <SummaryCard label="Images" value={preview.image_files} variant="secondary" />

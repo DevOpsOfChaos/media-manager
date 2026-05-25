@@ -23,12 +23,14 @@ import {
   Library,
   Plane,
   Workflow,
+  Pencil,
 } from "lucide-react"
 
 const navItems = [
   { icon: FolderOpen, label: "Library", path: "/library" },
   { icon: FolderSync, label: "Organize", path: "/organize" },
   { icon: CopyX, label: "Duplicates", path: "/duplicates" },
+  { icon: Pencil, label: "Rename", path: "/rename" },
   { icon: Plane, label: "Trip", path: "/trip" },
   { icon: Workflow, label: "Workflow", path: "/workflow" },
   { icon: Eye, label: "Review", path: "/review" },

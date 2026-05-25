@@ -6,9 +6,11 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
 import { ProgressOverlay } from "@/components/shared/ProgressOverlay"
+import { CommandPalette } from "@/components/shared/CommandPalette"
+import { NotificationSystem } from "@/components/shared/NotificationSystem"
 
 function App() {
-  const { settings, load: loadSettings } = useSettingsStore()
+  const { settings, loaded: settingsLoaded, load: loadSettings } = useSettingsStore()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -17,10 +19,11 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (settings && settings.show_onboarding && location.pathname !== "/onboarding") {
+    if (!settingsLoaded) return
+    if (settings.show_onboarding && location.pathname !== "/onboarding") {
       navigate("/onboarding", { replace: true })
     }
-  }, [settings, location.pathname])
+  }, [settingsLoaded, settings?.show_onboarding, location.pathname])
 
   return (
     <TooltipProvider>
@@ -31,6 +34,8 @@ function App() {
         </SidebarInset>
       </SidebarProvider>
       <ProgressOverlay />
+      <CommandPalette />
+      <NotificationSystem />
     </TooltipProvider>
   )
 }

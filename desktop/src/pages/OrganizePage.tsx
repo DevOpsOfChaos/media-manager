@@ -16,6 +16,7 @@ import type { OrganizePreviewResponse, OrganizeExecutionResult } from "@/types"
 import { useOrganizeStore } from "@/stores/organize-store"
 import { useSettingsStore } from "@/stores/settings-store"
 import { EmptyState } from "@/components/shared/EmptyState"
+import { RecentPathsDropdown, addRecentPath } from "@/components/shared/RecentPaths"
 import { FullPageProgress } from "@/components/shared/FullPageProgress"
 import { AlertTriangle } from "lucide-react"
 
@@ -210,6 +211,7 @@ export default function OrganizePage() {
       if (selected && typeof selected === "string") {
         if (target === "source") {
           setOptions({ source_dirs: [selected] })
+          addRecentPath(selected)
         } else {
           setOptions({ target_root: selected })
         }
@@ -289,6 +291,14 @@ export default function OrganizePage() {
     }
   }, [preview, options, settings.confirm_before_apply, confirmApply])
 
+  const handleExport = (data: unknown, filename: string) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url; a.download = filename; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   useEffect(() => {
     if (!showApplyConfirm) return
     const handler = (e: KeyboardEvent) => {
@@ -355,11 +365,13 @@ export default function OrganizePage() {
                             : "e.g. C:\\Photos\\import"
                         }
                         value={sourceDir}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const val = e.target.value
                           setOptions({
-                            source_dirs: e.target.value ? [e.target.value] : [],
+                            source_dirs: val ? [val] : [],
                           })
-                        }
+                          if (val) addRecentPath(val)
+                        }}
                         className="flex-1"
                       />
                       <Button
@@ -370,6 +382,10 @@ export default function OrganizePage() {
                         {t("Browse...", "Durchsuchen...")}
                       </Button>
                     </div>
+                    <RecentPathsDropdown
+                      onSelect={(p) => { setOptions({ source_dirs: [p] }); addRecentPath(p) }}
+                      currentValue={sourceDir}
+                    />
                     <p className="text-[10px] text-muted-foreground mt-1">
                       {t("Drop a folder here or click Browse", "Ordner hier ablegen oder auf Durchsuchen klicken")}
                     </p>
@@ -773,6 +789,12 @@ export default function OrganizePage() {
           {/* Results */}
           {preview && (
             <>
+              <div className="flex items-center justify-between">
+                <span />
+                <Button variant="ghost" size="sm" className="text-xs" onClick={() => handleExport(preview, `organize-preview-${Date.now()}.json`)}>
+                  {t("Export JSON", "JSON exportieren")}
+                </Button>
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <SummaryCard
                   label={t("Scanned", "Gefunden")}

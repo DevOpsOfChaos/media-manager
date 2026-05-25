@@ -16,6 +16,7 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"))
 const OnboardingPage = lazy(() => import("./pages/OnboardingPage"))
 const TripPage = lazy(() => import("./pages/TripPage"))
 const WorkflowRunnerPage = lazy(() => import("./pages/WorkflowRunnerPage"))
+const RenamePage = lazy(() => import("./pages/RenamePage"))
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
@@ -115,6 +116,14 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
             element={
               <Suspense fallback={<PageFallback />}>
                 <WorkflowRunnerPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="rename"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <RenamePage />
               </Suspense>
             }
           />
