@@ -28,6 +28,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  User,
 } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { Badge } from "@/components/ui/badge"
@@ -43,6 +44,7 @@ const navItems = [
   { icon: Workflow, label: "Workflow", path: "/workflow", tooltip: "Create and run processing workflows" },
   { icon: Eye, label: "Review", path: "/review", tooltip: "Review flagged items before applying changes" },
   { icon: Users, label: "People", path: "/people", tooltip: "Manage detected faces and people" },
+  { icon: User, label: "Face Timeline", path: "/face-timeline", tooltip: "Browse all photos of a person chronologically" },
   { icon: Clock, label: "History", path: "/history", tooltip: "View recent activity and undo actions" },
   { icon: Info, label: "About", path: "/about", tooltip: "About Media Manager" },
   { icon: Settings, label: "Settings", path: "/settings", tooltip: "Configure app preferences" },

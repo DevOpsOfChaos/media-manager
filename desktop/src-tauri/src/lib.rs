@@ -73,6 +73,8 @@ pub fn run() {
             media_commands::file_reveal,
             media_commands::file_delete,
             media_commands::file_rename,
+            media_commands::file_export,
+            media_commands::file_integrity,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

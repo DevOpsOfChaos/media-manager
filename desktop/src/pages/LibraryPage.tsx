@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { EmptyState } from "@/components/shared/EmptyState"
 import { libraryBrowsePaginated, fileOpen, fileReveal, fileDelete, fileRename, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
 import { convertFileSrc } from "@tauri-apps/api/core"
-import { FolderOpen, Film, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, File, Tag, Check, Play } from "lucide-react"
+import { FolderOpen, Film, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, File, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,8 +21,12 @@ import {
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu"
 import { StarRating } from "@/components/shared/StarRating"
+import { TagInput } from "@/components/shared/TagInput"
+import { TagCloud } from "@/components/shared/TagCloud"
 import { Slideshow } from "@/components/shared/Slideshow"
+import { SplitView } from "@/components/shared/SplitView"
 import { LABEL_COLORS } from "@/components/shared/ColorLabel"
+import { PickRejectBar, type FlagState } from "@/components/shared/PickRejectBar"
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48, 96]
 
@@ -78,6 +82,44 @@ export default function LibraryPage() {
     catch { return {} }
   })
 
+  const [selectedFile, setSelectedFile] = useState<LibraryBrowsePaginatedResult["files"][0] | null>(null)
+
+  const [allTags, setAllTags] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("library_tags") || "[]") }
+    catch { return [] }
+  })
+  const [fileTags, setFileTags] = useState<Record<string, string[]>>(() => {
+    try { return JSON.parse(localStorage.getItem("library_file_tags") || "{}") }
+    catch { return {} }
+  })
+  const [tagFilter, setTagFilter] = useState<string[]>([])
+
+  const [fileFlags, setFileFlags] = useState<Record<string, "pick" | "reject">>(() => {
+    try { return JSON.parse(localStorage.getItem("library_flags") || "{}") }
+    catch { return {} }
+  })
+  const [flagFilter, setFlagFilter] = useState<"all" | "pick" | "reject" | "unflagged">("all")
+  const [splitViewOpen, setSplitViewOpen] = useState(false)
+
+  const [exifData, setExifData] = useState<Record<string, string | number> | null>(null)
+
+  useEffect(() => {
+    setExifData(null)
+  }, [selectedFile])
+
+  const setFlag = useCallback((path: string, state: FlagState) => {
+    setFileFlags(prev => {
+      const next = { ...prev }
+      if (state === "none") {
+        delete next[path]
+      } else {
+        next[path] = state
+      }
+      localStorage.setItem("library_flags", JSON.stringify(next))
+      return next
+    })
+  }, [])
+
   const loadPageData = useCallback(async (pageNum: number) => {
     if (!rootDir) return
     if (preloadQueue.current.has(pageNum)) return
@@ -131,6 +173,20 @@ export default function LibraryPage() {
     setSelectedPaths(new Set())
   }, [page])
 
+  useEffect(() => {
+    const handle = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (!selectedFile) return
+      switch (e.key) {
+        case "p": setFlag(selectedFile.path, "pick"); break
+        case "x": setFlag(selectedFile.path, "reject"); break
+        case "u": setFlag(selectedFile.path, "none"); break
+      }
+    }
+    window.addEventListener("keydown", handle)
+    return () => window.removeEventListener("keydown", handle)
+  }, [selectedFile, setFlag])
+
   const handleOpen = async (path: string) => {
     setActionLoading(path)
     try { await fileOpen(path) }
@@ -163,6 +219,21 @@ export default function LibraryPage() {
     })
   }
 
+  const updateFileTags = (path: string, tags: string[]) => {
+    setFileTags(prev => {
+      const next = { ...prev, [path]: tags }
+      localStorage.setItem("library_file_tags", JSON.stringify(next))
+      return next
+    })
+    setAllTags(() => {
+      const tagSet = new Set<string>()
+      Object.values({ ...fileTags, [path]: tags }).forEach(ts => ts.forEach(t => tagSet.add(t)))
+      const newAll = Array.from(tagSet).sort()
+      localStorage.setItem("library_tags", JSON.stringify(newAll))
+      return newAll
+    })
+  }
+
   const handleRenameConfirm = async () => {
     if (!renameDialog || !renameValue.trim()) return
     try {
@@ -185,15 +256,37 @@ export default function LibraryPage() {
   }
 
   const selectAll = () => {
-    if (selectedPaths.size === currentFiles.length) {
+    if (selectedPaths.size === sortedFiles.length) {
       setSelectedPaths(new Set())
     } else {
-      setSelectedPaths(new Set(currentFiles.map(f => f.path)))
+      setSelectedPaths(new Set(sortedFiles.map(f => f.path)))
     }
   }
 
   const currentFiles = loadedPages.get(page) || []
   const totalPages = data?.total_pages || 1
+
+  const sortedFiles = useMemo(() => {
+    let files = currentFiles.filter(f =>
+      !filter || f.name.toLowerCase().includes(filter.toLowerCase()) || f.relative.toLowerCase().includes(filter.toLowerCase())
+    )
+    if (tagFilter.length > 0) {
+      files = files.filter(f => {
+        const tags = fileTags[f.path] || []
+        return tagFilter.some(t => tags.includes(t))
+      })
+    }
+    if (flagFilter !== "all") {
+      files = files.filter(f => {
+        const flag = fileFlags[f.path]
+        if (flagFilter === "pick") return flag === "pick"
+        if (flagFilter === "reject") return flag === "reject"
+        if (flagFilter === "unflagged") return !flag
+        return true
+      })
+    }
+    return files
+  }, [currentFiles, filter, tagFilter, fileTags, flagFilter, fileFlags])
 
   return (
     <div className="p-6 space-y-4">
@@ -231,7 +324,7 @@ export default function LibraryPage() {
             <Badge variant="outline">{data.file_count} {t("files", "Dateien")}</Badge>
             {selectMode && (
               <Button variant="outline" size="sm" onClick={selectAll}>
-                {selectedPaths.size === currentFiles.length ? t("Deselect all", "Alle abwählen") : t("Select all", "Alle auswählen")}
+                {selectedPaths.size === sortedFiles.length ? t("Deselect all", "Alle abwählen") : t("Select all", "Alle auswählen")}
               </Button>
             )}
             <Input
@@ -240,6 +333,51 @@ export default function LibraryPage() {
               placeholder={t("Filter by name...", "Nach Name filtern...")}
               className="text-xs w-48"
             />
+            {allTags.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground">{t("Filter by tag:", "Nach Tag filtern:")}</span>
+                <TagCloud
+                  tags={allTags}
+                  selectedTags={tagFilter}
+                  onToggle={(tag) => {
+                    setTagFilter(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])
+                    setPage(0)
+                  }}
+                />
+              </div>
+            )}
+            <div className="flex items-center gap-1 border rounded p-0.5">
+              {(["all", "pick", "reject", "unflagged"] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => { setFlagFilter(f); setPage(0) }}
+                  className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                    flagFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {f === "all" ? t("All", "Alle") :
+                   f === "pick" ? t("Picks", "Auswahl") :
+                   f === "reject" ? t("Rejects", "Abgelehnt") :
+                   t("Unflagged", "Unmarkiert")}
+                </button>
+              ))}
+            </div>
+            {(tagFilter.length > 0 || flagFilter !== "all") && (
+              <Button variant="outline" size="sm" onClick={() => {
+                const name = prompt(t("Collection name:", "Sammlungsname:"))
+                if (!name) return
+                const collections = JSON.parse(localStorage.getItem("smart_collections") || "[]")
+                collections.push({
+                  id: Date.now().toString(),
+                  name,
+                  rules: { tags: tagFilter.length > 0 ? tagFilter : undefined, flagState: flagFilter !== "all" ? (flagFilter === "pick" ? "pick" : flagFilter === "reject" ? "reject" : undefined) : undefined, dateFrom: data?.applied_filters?.date_from || undefined, dateTo: data?.applied_filters?.date_to || undefined },
+                  createdAt: new Date().toISOString()
+                })
+                localStorage.setItem("smart_collections", JSON.stringify(collections))
+              }}>
+                <FolderSearch className="h-3 w-3 mr-1" /> {t("Save as Collection", "Als Sammlung speichern")}
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setSlideshowOpen(true)}
@@ -250,6 +388,11 @@ export default function LibraryPage() {
               onClick={() => { setSelectMode(!selectMode); setSelectedPaths(new Set()) }}>
               {selectMode ? t("Done", "Fertig") : t("Select", "Auswählen")}
             </Button>
+            {selectMode && selectedPaths.size >= 2 && (
+              <Button variant="outline" size="sm" onClick={() => setSplitViewOpen(true)}>
+                <ArrowLeftRight className="h-3 w-3 mr-1" /> {t("Compare", "Vergleichen")}
+              </Button>
+            )}
             <span className="text-xs text-muted-foreground">{t("Per page:", "Pro Seite:")}</span>
             <select
               value={pageSize}
@@ -288,16 +431,14 @@ export default function LibraryPage() {
       {/* File grid */}
       {!loading && data && currentFiles.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
-          {currentFiles.filter(f =>
-            !filter || f.name.toLowerCase().includes(filter.toLowerCase()) || f.relative.toLowerCase().includes(filter.toLowerCase())
-          ).map((f) => (
+          {sortedFiles.map((f) => (
             <Card
               key={f.path}
               className={`overflow-hidden hover:border-primary/30 transition-colors group relative ${selectedPaths.has(f.path) ? "ring-2 ring-primary" : ""}`}
               role="button"
               tabIndex={0}
               onKeyDown={e => e.key === "Enter" && handleOpen(f.path)}
-              onClick={selectMode ? () => toggleSelect(f.path) : undefined}
+              onClick={selectMode ? () => toggleSelect(f.path) : () => setSelectedFile(f)}
               onDoubleClick={() => handleOpen(f.path)}
             >
               {/* Select checkbox */}
@@ -318,6 +459,13 @@ export default function LibraryPage() {
 
               {/* Thumbnail */}
               <div className="aspect-square bg-muted relative overflow-hidden">
+                {!selectMode && fileFlags[f.path] && (
+                  <div className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] z-20 ${
+                    fileFlags[f.path] === "pick" ? "bg-green-500 text-white" : "bg-red-500 text-white"
+                  }`}>
+                    {fileFlags[f.path] === "pick" ? "✓" : "✕"}
+                  </div>
+                )}
                 {isImageFile(f.suffix) ? (
                   <img
                     src={convertFileSrc(f.path)}
@@ -401,6 +549,14 @@ export default function LibraryPage() {
                         <Trash2 className="h-3.5 w-3.5 mr-2" />
                         {t("Delete", "Löschen")}
                       </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <div className="px-2 py-1">
+                        <PickRejectBar
+                          flagState={fileFlags[f.path] || "none"}
+                          onFlag={(state) => setFlag(f.path, state)}
+                          compact
+                        />
+                      </div>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -424,9 +580,84 @@ export default function LibraryPage() {
                     size="sm"
                   />
                 </div>
+                {/* Tags */}
+                <div className="mt-1">
+                  <TagInput
+                    tags={fileTags[f.path] || []}
+                    onChange={(tags) => updateFileTags(f.path, tags)}
+                  />
+                </div>
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Detail panel */}
+      {selectedFile && (
+        <div className="fixed inset-y-0 right-0 w-80 bg-background border-l shadow-lg z-50 overflow-y-auto p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-sm">{t("File details", "Datei-Details")}</h3>
+            <button
+              onClick={() => setSelectedFile(null)}
+              className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted"
+              aria-label={t("Close", "Schließen")}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            <span className="text-muted-foreground">{t("Name", "Name")}</span>
+            <span className="truncate">{selectedFile.name}</span>
+            <span className="text-muted-foreground">{t("Type", "Typ")}</span>
+            <span className="truncate">{selectedFile.category || selectedFile.suffix}</span>
+            <span className="text-muted-foreground">{t("Size", "Größe")}</span>
+            <span>{formatSize(selectedFile.size)}</span>
+            <span className="text-muted-foreground">{t("Path", "Pfad")}</span>
+            <span className="truncate text-[10px]" title={selectedFile.path}>{selectedFile.relative}</span>
+          </div>
+          <div className="flex items-center justify-between mt-3 pt-3 border-t">
+            <span className="text-[10px] text-muted-foreground">{t("Flag", "Markierung")}</span>
+            <PickRejectBar
+              flagState={fileFlags[selectedFile.path] || "none"}
+              onFlag={(state) => setFlag(selectedFile.path, state)}
+              compact
+            />
+          </div>
+          <div className="mt-3 pt-3 border-t">
+            <span className="text-[10px] text-muted-foreground">{t("Tags", "Tags")}</span>
+            <div className="mt-1">
+              <TagInput
+                tags={fileTags[selectedFile.path] || []}
+                onChange={(tags) => updateFileTags(selectedFile.path, tags)}
+              />
+            </div>
+          </div>
+          {exifData?.gps_latitude != null && exifData.gps_longitude != null && (
+            <div className="mt-3 pt-3 border-t">
+              <span className="text-[10px] text-muted-foreground">{t("GPS", "GPS")}</span>
+              <div className="mt-1 text-[10px] text-muted-foreground">
+                {String(exifData.gps_latitude)}, {String(exifData.gps_longitude)}
+              </div>
+              <div className="mt-2 rounded overflow-hidden border">
+                <img
+                  src={`https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(String(exifData.gps_latitude))},${encodeURIComponent(String(exifData.gps_longitude))}&zoom=12&size=400x200&markers=${encodeURIComponent(String(exifData.gps_latitude))},${encodeURIComponent(String(exifData.gps_longitude))},red-pushpin`}
+                  alt={t("Map location", "Kartenposition")}
+                  className="w-full h-32 object-cover"
+                />
+              </div>
+              <div className="mt-2">
+                <Button variant="outline" size="sm" onClick={() => {
+                  const lat = String(exifData.gps_latitude).replace(/deg|'|"/g, "").trim()
+                  const lon = String(exifData.gps_longitude).replace(/deg|'|"/g, "").trim()
+                  window.open(`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=15`, "_blank")
+                }}>
+                  <MapPin className="h-3 w-3 mr-1" />
+                  {t("View on map", "Auf Karte zeigen")}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -444,7 +675,7 @@ export default function LibraryPage() {
       )}
 
       {/* Empty states */}
-      {!loading && data && currentFiles.length === 0 && (
+      {!loading && data && sortedFiles.length === 0 && (
         <EmptyState
           title={filter ? t("No matches", "Keine Treffer") : t("No files found", "Keine Dateien gefunden")}
           description={filter ? t("Try a different filter.", "Anderen Filter versuchen.") : t("The directory is empty.", "Das Verzeichnis ist leer.")}
@@ -536,6 +767,14 @@ export default function LibraryPage() {
         <Slideshow
           files={currentFiles.map(f => ({ path: f.path, name: f.name }))}
           onClose={() => setSlideshowOpen(false)}
+        />
+      )}
+
+      {/* Split View */}
+      {splitViewOpen && (
+        <SplitView
+          files={currentFiles.filter(f => selectedPaths.has(f.path)).map(f => ({ path: f.path, name: f.name }))}
+          onClose={() => setSplitViewOpen(false)}
         />
       )}
     </div>

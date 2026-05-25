@@ -121,11 +121,129 @@ def cmd_rename() -> int:
         return _fail(f"Could not rename file: {exc}")
 
 
+def cmd_export() -> int:
+    """Resize and export an image."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _fail(f"Invalid JSON: {exc}")
+
+    source = Path(payload.get("source", ""))
+    target = Path(payload.get("target", ""))
+    width = int(payload.get("width", 2048))
+    quality = int(payload.get("quality", 85))
+
+    if not source.is_file():
+        return _fail(f"Source not found: {source}")
+
+    try:
+        from PIL import Image
+        img = Image.open(source)
+        ratio = width / img.width
+        new_height = int(img.height * ratio)
+        img = img.resize((width, new_height), Image.LANCZOS)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        img.save(target, "JPEG", quality=quality)
+        return _emit({"status": "exported", "source": str(source), "target": str(target), "width": width, "height": new_height})
+    except ImportError:
+        return _fail("Pillow (PIL) is required for image export. Install with: pip install Pillow")
+    except Exception as exc:
+        return _fail(f"Export failed: {exc}")
+
+
+def cmd_integrity() -> int:
+    """Check if files from a previously saved file list still exist."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _fail(f"Invalid JSON: {exc}")
+
+    file_paths = payload.get("paths", [])
+    if not file_paths:
+        return _fail("paths list is required")
+
+    missing = []
+    size_changed = []
+    for entry in file_paths:
+        p = Path(entry.get("path", ""))
+        if not p.exists():
+            missing.append({"path": str(p), "expected_size": entry.get("size")})
+        elif entry.get("size") is not None:
+            try:
+                if p.stat().st_size != entry["size"]:
+                    size_changed.append({"path": str(p), "expected_size": entry["size"], "actual_size": p.stat().st_size})
+            except OSError:
+                missing.append({"path": str(p), "expected_size": entry.get("size")})
+
+    return _emit({
+        "status": "ok",
+        "total_checked": len(file_paths),
+        "missing_count": len(missing),
+        "size_changed_count": len(size_changed),
+        "missing": missing,
+        "size_changed": size_changed,
+        "healthy": len(missing) == 0 and len(size_changed) == 0,
+    })
+
+
+def cmd_exif() -> int:
+    """Read EXIF metadata for a file using ExifTool."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _fail(f"Invalid JSON: {exc}")
+
+    path = Path(payload.get("path", ""))
+    if not path.is_file():
+        return _fail(f"File not found: {path}")
+
+    try:
+        from media_manager.exiftool import read_exiftool_metadata
+        meta, success, error_type, error_msg = read_exiftool_metadata(path)
+        if not success or meta is None:
+            return _fail(f"Could not read EXIF: {error_msg or error_type or 'unknown error'}")
+
+        return _emit({
+            "status": "ok",
+            "path": str(path),
+            "metadata": {
+                "camera": str(meta.get("Model", "")) or str(meta.get("CameraModelName", "")) or None,
+                "lens": str(meta.get("LensModel", "")) or str(meta.get("LensID", "")) or None,
+                "iso": meta.get("ISO"),
+                "aperture": str(meta.get("FNumber", "")) or str(meta.get("Aperture", "")) or None,
+                "shutter_speed": str(meta.get("ShutterSpeed", "")) or str(meta.get("ExposureTime", "")) or None,
+                "focal_length": str(meta.get("FocalLength", "")) or str(meta.get("FocalLength35efl", "")) or None,
+                "date_taken": str(meta.get("DateTimeOriginal", "")) or str(meta.get("CreateDate", "")) or None,
+                "gps_latitude": str(meta.get("GPSLatitude", "")) or None,
+                "gps_longitude": str(meta.get("GPSLongitude", "")) or None,
+                "gps_altitude": str(meta.get("GPSAltitude", "")) or None,
+                "image_width": meta.get("ImageWidth"),
+                "image_height": meta.get("ImageHeight"),
+                "megapixels": round(float(str(meta.get("ImageWidth", 0))) * float(str(meta.get("ImageHeight", 0))) / 1_000_000, 1) if meta.get("ImageWidth") and meta.get("ImageHeight") else None,
+                "flash": str(meta.get("Flash", "")) or None,
+                "orientation": str(meta.get("Orientation", "")) or None,
+                "software": str(meta.get("Software", "")) or None,
+                "artist": str(meta.get("Artist", "")) or str(meta.get("Creator", "")) or None,
+                "copyright": str(meta.get("Copyright", "")) or None,
+                "duration": meta.get("Duration"),
+            },
+        })
+    except Exception as exc:
+        return _fail(f"Could not read EXIF: {exc}")
+
+
 _ACTIONS = {
     "open": cmd_open,
     "reveal": cmd_reveal,
     "delete": cmd_delete,
     "rename": cmd_rename,
+    "exif": cmd_exif,
+    "export": cmd_export,
+    "integrity": cmd_integrity,
 }
 
 

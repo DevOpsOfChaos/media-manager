@@ -28,7 +28,7 @@ import type { GuiSettings, OrganizePreviewResponse, OperationMode } from "@/type
 import { EmptyState } from "@/components/shared/EmptyState"
 import { cn } from "@/lib/utils"
 import { runPreflight } from "@/lib/preflight-guard"
-import { Zap, Loader2, Copy, MoveRight, Clock, BarChart3 } from "lucide-react"
+import { Zap, Loader2, Copy, MoveRight, Clock, BarChart3, Check, Shield } from "lucide-react"
 
 const QUICK_WORKFLOWS = [
   { id: "organize-date-library", label: "Organize Library", desc: "Sort photos into year/month/day folders", page: "/organize", icon: "📁" },
@@ -73,6 +73,9 @@ export default function DashboardPage() {
   const [recentFiles, setRecentFiles] = useState<Array<{name: string; path: string; suffix: string; relative: string; modified: string}>>([])
   const [recentLoading, setRecentLoading] = useState(false)
   const [libStats, setLibStats] = useState<{total: number; other: number} | null>(null)
+  const [cullStats, setCullStats] = useState<{picks: number; rejects: number; unflagged: number; total: number} | null>(null)
+  const [lastBackup, setLastBackup] = useState<string | null>(() => localStorage.getItem("last_backup_date"))
+  const needsBackup = !lastBackup || (Date.now() - new Date(lastBackup).getTime()) > 7 * 24 * 60 * 60 * 1000
 
   const defaultSource = data.settings?.recent_paths?.profile_dir || localStorage.getItem("default_source_dir") || ""
 
@@ -113,6 +116,18 @@ export default function DashboardPage() {
         })
       })
       .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    try {
+      const flags = JSON.parse(localStorage.getItem("library_flags") || "{}")
+      const picks = Object.values(flags).filter((f: any) => f === "pick").length
+      const rejects = Object.values(flags).filter((f: any) => f === "reject").length
+      const total = Object.keys(flags).length
+      setCullStats({ picks, rejects, unflagged: total - picks - rejects, total })
+    } catch {
+      setCullStats(null)
+    }
   }, [])
 
   const handleQuickOrganize = async () => {
@@ -280,6 +295,35 @@ export default function DashboardPage() {
                 <p key={i}>⚠ {issue}</p>
               ))}
             </div>
+          )}
+
+          {/* Backup Reminder */}
+          {needsBackup && (
+            <Card className="border-yellow-500/30 bg-yellow-50/50 dark:bg-yellow-950/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-yellow-500" />
+                  {t("Backup Reminder", "Backup-Erinnerung")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {lastBackup
+                    ? t(`Last backup: ${new Date(lastBackup).toLocaleDateString()}. Consider backing up your catalog and settings.`,
+                       `Letztes Backup: ${new Date(lastBackup).toLocaleDateString()}. Sichere Katalog und Einstellungen.`)
+                    : t("You haven't backed up yet. Protect your catalog, ratings, and tags.",
+                       "Noch kein Backup. Sch\u00fctze Katalog, Bewertungen und Tags.")}
+                </p>
+                <Button size="sm" onClick={() => {
+                  localStorage.setItem("last_backup_date", new Date().toISOString())
+                  setLastBackup(new Date().toISOString())
+                  alert(t("Backup date recorded! Remember to copy your .media-manager folder.",
+                          "Backup-Datum gespeichert! Denk daran, deinen .media-manager-Ordner zu kopieren."))
+                }}>
+                  <Shield className="h-3 w-3 mr-1" /> {t("I've backed up", "Habe gesichert")}
+                </Button>
+              </CardContent>
+            </Card>
           )}
 
           {/* Quick Organize Card */}
@@ -452,8 +496,39 @@ export default function DashboardPage() {
               <Card className="p-4">
                 <p className="text-2xl font-bold">{stats.totalActions}</p>
                 <p className="text-xs text-muted-foreground">{t("Total actions", "Aktionen gesamt")}</p>
-              </Card>
-            </div>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Check className="h-4 w-4" />
+                  {t("Culling Progress", "Aussortier-Fortschritt")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {cullStats ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-center p-2 rounded bg-green-500/10">
+                      <p className="text-xl font-bold text-green-500">{cullStats.picks}</p>
+                      <p className="text-[10px] text-muted-foreground">{t("Picks", "Auswahl")}</p>
+                    </div>
+                    <div className="text-center p-2 rounded bg-red-500/10">
+                      <p className="text-xl font-bold text-red-500">{cullStats.rejects}</p>
+                      <p className="text-[10px] text-muted-foreground">{t("Rejects", "Abgelehnt")}</p>
+                    </div>
+                    <div className="text-center p-2 rounded bg-muted/30">
+                      <p className="text-xl font-bold">{cullStats.unflagged}</p>
+                      <p className="text-[10px] text-muted-foreground">{t("Remaining", "Verbleibend")}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    {t("Use P/X keys in Library to cull.", "Nutze P/X-Tasten in der Bibliothek zum Aussortieren.")}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
           )}
 
           {stats && Object.keys(stats.byCommand).length > 1 && (

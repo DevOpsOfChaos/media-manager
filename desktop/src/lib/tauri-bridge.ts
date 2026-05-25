@@ -446,3 +446,26 @@ export async function fileDelete(path: string): Promise<{ status: string; path: 
 export async function fileRename(path: string, newName: string): Promise<{ status: string; old_path: string; new_path: string; new_name: string }> {
   return invoke("file_rename", { options: { path, new_name: newName } })
 }
+
+export async function fileExport(source: string, target: string, width: number, quality: number): Promise<{ status: string; source: string; target: string; width: number; height: number }> {
+  return invoke("file_export", { options: { source, target, width, quality } })
+}
+
+export interface IntegrityCheckEntry {
+  path: string
+  size?: number
+}
+
+export interface IntegrityCheckResult {
+  status: string
+  total_checked: number
+  missing_count: number
+  size_changed_count: number
+  missing: Array<{ path: string; expected_size?: number }>
+  size_changed: Array<{ path: string; expected_size?: number; actual_size?: number }>
+  healthy: boolean
+}
+
+export async function fileIntegrity(paths: IntegrityCheckEntry[]): Promise<IntegrityCheckResult> {
+  return invoke("file_integrity", { options: { paths } })
+}

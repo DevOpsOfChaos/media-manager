@@ -17,6 +17,7 @@ const OnboardingPage = lazy(() => import("./pages/OnboardingPage"))
 const TripPage = lazy(() => import("./pages/TripPage"))
 const WorkflowRunnerPage = lazy(() => import("./pages/WorkflowRunnerPage"))
 const RenamePage = lazy(() => import("./pages/RenamePage"))
+const FaceTimelinePage = lazy(() => import("./pages/FaceTimelinePage"))
 const AboutPage = lazy(() => import("./pages/AboutPage"))
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
@@ -133,6 +134,14 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
             element={
               <Suspense fallback={<PageFallback />}>
                 <AboutPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="face-timeline"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <FaceTimelinePage />
               </Suspense>
             }
           />

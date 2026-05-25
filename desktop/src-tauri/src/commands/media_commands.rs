@@ -336,3 +336,17 @@ pub async fn file_rename(options: Value) -> Result<Value, String> {
         .map_err(|e| format!("Failed to serialize: {e}"))?;
     bridge()?.run_module("bridge_file_ops", "rename", &[], Some(&json))
 }
+
+#[tauri::command]
+pub async fn file_export(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_file_ops", "export", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn file_integrity(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_file_ops", "integrity", &[], Some(&json))
+}
