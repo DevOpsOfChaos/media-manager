@@ -37,6 +37,14 @@ function App() {
         e.preventDefault()
         setShortcutsOpen(true)
       }
+      if (e.key === "F11") {
+        e.preventDefault()
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen()
+        } else {
+          document.exitFullscreen()
+        }
+      }
     }
     window.addEventListener("keydown", handle)
     return () => window.removeEventListener("keydown", handle)

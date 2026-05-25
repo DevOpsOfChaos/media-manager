@@ -120,6 +120,20 @@ export default function LibraryPage() {
     apertureMin?: string
   }>({})
   const [dragOver, setDragOver] = useState(false)
+  const [compareDir, setCompareDir] = useState("")
+  const [compareData, setCompareData] = useState<LibraryBrowsePaginatedResult | null>(null)
+  const [comparing, setComparing] = useState(false)
+
+  const runCompare = async () => {
+    if (!compareDir) return
+    setComparing(true)
+    try {
+      const { libraryBrowsePaginated } = await import("@/lib/tauri-bridge")
+      const result = await libraryBrowsePaginated({ root_dir: compareDir, page: 0, page_size: 0 })
+      setCompareData(result)
+    } catch (e) { console.error(e) }
+    finally { setComparing(false) }
+  }
 
   useEffect(() => {
     setExifData(null)
@@ -287,6 +301,17 @@ export default function LibraryPage() {
   const currentFiles = loadedPages.get(page) || []
   const totalPages = data?.total_pages || 1
 
+  const crossDupes = useMemo(() => {
+    if (!compareData || !data) return new Set<string>()
+    const compareNames = new Set(compareData.files.map((f: any) => f.name))
+    const compareSizes = new Map(compareData.files.map((f: any) => [f.name, f.size]))
+    return new Set(
+      currentFiles
+        .filter((f: any) => compareNames.has(f.name) && compareSizes.get(f.name) === f.size)
+        .map((f: any) => f.path)
+    )
+  }, [compareData, data, currentFiles])
+
   const sortedFiles = useMemo(() => {
     let files = currentFiles.filter(f =>
       !filter || f.name.toLowerCase().includes(filter.toLowerCase()) || f.relative.toLowerCase().includes(filter.toLowerCase())
@@ -447,6 +472,21 @@ export default function LibraryPage() {
             </Button>
           </div>
           <div className="flex items-center gap-2">
+            <Input value={compareDir} onChange={e => setCompareDir(e.target.value)}
+              placeholder={t("Compare with directory...", "Mit Verzeichnis vergleichen...")}
+              className="text-[10px] h-7 w-40" />
+            <Button size="sm" variant="outline" onClick={runCompare} disabled={comparing || !compareDir}
+              className="h-7 text-[10px]">
+              <ArrowLeftRight className="h-3 w-3 mr-1" />
+              {comparing ? <Loader2 className="h-3 w-3 animate-spin" /> : t("Compare", "Vergleichen")}
+            </Button>
+            {compareData && (
+              <Badge className="text-[9px]">
+                {crossDupes.size} {t("matches", "Treffer")}
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setSlideshowOpen(true)}
               disabled={currentFiles.length === 0}>
               <Play className="h-3 w-3 mr-1" /> {t("Slideshow", "Diashow")}
@@ -535,7 +575,7 @@ export default function LibraryPage() {
           {sortedFiles.map((f) => (
             <Card
               key={f.path}
-              className={`overflow-hidden hover:border-primary/30 transition-colors group relative ${selectedPaths.has(f.path) ? "ring-2 ring-primary" : ""}`}
+              className={`overflow-hidden hover:border-primary/30 transition-colors group relative ${selectedPaths.has(f.path) ? "ring-2 ring-primary" : ""} ${crossDupes.has(f.path) ? "ring-2 ring-yellow-500/50" : ""}`}
               role="button"
               tabIndex={0}
               onKeyDown={e => e.key === "Enter" && handleOpen(f.path, f.name)}
@@ -568,15 +608,22 @@ export default function LibraryPage() {
                   </div>
                 )}
                 {isImageFile(f.suffix) ? (
-                  <img
-                    src={convertFileSrc(f.path)}
-                    alt={f.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none"
-                    }}
-                  />
+                  <>
+                    <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50 animate-pulse" />
+                    <img
+                      src={convertFileSrc(f.path)}
+                      alt={f.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      style={{ opacity: 0, transition: "opacity 0.3s ease-in-out" }}
+                      onLoad={(e) => {
+                        (e.target as HTMLImageElement).style.opacity = "1"
+                      }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none"
+                      }}
+                    />
+                  </>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     {isVideoFile(f.suffix) ? (

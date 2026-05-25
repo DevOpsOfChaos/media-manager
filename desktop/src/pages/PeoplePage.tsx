@@ -11,6 +11,8 @@ import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
  import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff, GitMerge, MoreHorizontal, EyeOff } from "lucide-react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
+import { FaceReviewSwiper } from "@/components/shared/FaceReviewSwiper"
+import { Zap } from "lucide-react"
 
 function friendlyPeopleError(e: unknown, context: "scan" | "load" | "rename" | "create" | "reassign"): string {
   const msg = String(e).toLowerCase()
@@ -93,6 +95,16 @@ export default function PeoplePage() {
 
   // Merge dialog
   const [mergeDialog, setMergeDialog] = useState<{ from: PersonEntry } | null>(null)
+
+  // Face swipe review
+  const [showFaceSwiper, setShowFaceSwiper] = useState(false)
+
+  const unknownFaces = (() => {
+    if (!catalog) return []
+    const unknown = catalog.people.find(p => p.person_id === "unknown" || p.person_id.startsWith("unknown"))
+    if (!unknown) return []
+    return unknown.source_paths.map(imagePath => ({ imagePath, personId: unknown.person_id }))
+  })()
 
   // Age estimation cache
   const [ageCache, setAgeCache] = useState<Record<string, { bracket: string; confidence: number }>>({})
@@ -229,6 +241,11 @@ export default function PeoplePage() {
           <div className="flex items-center gap-3">
             <Input value={catalogPath} onChange={e => { setCatalogPath(e.target.value); localStorage.setItem("people_catalog_path", e.target.value) }} placeholder="catalog.json" className="text-xs w-48" />
             <Button onClick={loadCatalog} size="sm" variant="outline" disabled={!catalogPath}>{t("Refresh", "Aktualisieren")}</Button>
+            {unknownFaces.length > 0 && (
+              <Button size="sm" variant="secondary" onClick={() => setShowFaceSwiper(true)}>
+                <Zap className="w-3.5 h-3.5 mr-1" /> {t("Quick Review", "Schnellprüfung")}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -303,6 +320,14 @@ export default function PeoplePage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {showFaceSwiper && (
+          <FaceReviewSwiper
+            faces={unknownFaces}
+            catalogPath={catalogPath}
+            onClose={() => { setShowFaceSwiper(false); loadCatalog() }}
+          />
+        )}
 
         {mergeDialog && (
           <Dialog open onOpenChange={() => setMergeDialog(null)}>

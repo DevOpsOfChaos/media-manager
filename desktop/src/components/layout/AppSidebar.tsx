@@ -29,14 +29,27 @@ import {
   Moon,
   Monitor,
   User,
+  LayoutDashboard,
+  Maximize2,
+  Minimize2,
 } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { useDashboardStore } from "@/stores/dashboard-store"
 import { historyList, peopleCatalogList } from "@/lib/tauri-bridge"
 import { DryRunToggle } from "@/components/shared/DryRunToggle"
 
-const navItems = [
+interface SidebarItem {
+  icon: React.ComponentType<any>
+  label: string
+  path: string
+  tooltip: string
+  visible: boolean
+}
+
+const defaultSidebarItems: Omit<SidebarItem, "visible">[] = [
+  { icon: LayoutDashboard, label: "Dashboard", path: "/", tooltip: "Overview and quick actions" },
   { icon: FolderOpen, label: "Library", path: "/library", tooltip: "Browse and manage your media library" },
   { icon: FolderSync, label: "Organize", path: "/organize", tooltip: "Auto-organize files into folders" },
   { icon: CopyX, label: "Duplicates", path: "/duplicates", tooltip: "Find and remove duplicate files" },
@@ -51,6 +64,8 @@ const navItems = [
   { icon: Settings, label: "Settings", path: "/settings", tooltip: "Configure app preferences" },
 ]
 
+const savedConfigKey = "sidebar_config"
+
 export function AppSidebar() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -61,6 +76,36 @@ export function AppSidebar() {
     return (localStorage.getItem("theme") as "light" | "dark" | "system") || "system"
   })
   const [dryRun, setDryRun] = useState(() => localStorage.getItem("dry_run") === "true")
+
+  const [sidebarItems, setSidebarItems] = useState<SidebarItem[]>(() => {
+    const saved = localStorage.getItem(savedConfigKey)
+    if (saved) {
+      try {
+        const config: Array<{ label: string; path: string; visible: boolean }> = JSON.parse(saved)
+        return defaultSidebarItems.map(item => {
+          const cfg = config.find((c) => c.path === item.path)
+          return cfg ? { ...item, visible: cfg.visible ?? true } : { ...item, visible: true }
+        })
+      } catch { /* ignore corrupted config */ }
+    }
+    return defaultSidebarItems.map(item => ({ ...item, visible: true }))
+  })
+
+  const [showCustomize, setShowCustomize] = useState(false)
+
+  const visibleItems = sidebarItems.filter(item => item.visible)
+
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen()
+      setIsFullscreen(true)
+    } else {
+      document.exitFullscreen()
+      setIsFullscreen(false)
+    }
+  }
 
   const setTheme = (theme: "light" | "dark" | "system") => {
     setCurrentTheme(theme)
@@ -116,7 +161,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => {
+              {visibleItems.map((item) => {
                 const isActive =
                   item.path === "/"
                     ? location.pathname === "/"
@@ -193,6 +238,47 @@ export function AppSidebar() {
             localStorage.setItem("dry_run", String(v))
           }} />
         </div>
+
+        {/* Fullscreen toggle */}
+        <div className="px-3 pb-1">
+          <button onClick={toggleFullscreen}
+            className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground px-1 py-1 w-full">
+            {isFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+            {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+          </button>
+        </div>
+
+        {/* Customize sidebar */}
+        <div className="px-3 pb-2">
+          <button onClick={() => setShowCustomize(true)}
+            className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground px-1 py-1 w-full">
+            <Settings className="h-3 w-3" /> Customize sidebar
+          </button>
+        </div>
+
+        {/* Customize dialog */}
+        {showCustomize && (
+          <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center" onClick={() => setShowCustomize(false)}>
+            <div className="bg-background rounded-lg shadow-xl p-4 w-80 max-h-96 overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <h3 className="text-sm font-semibold mb-3">Customize Sidebar</h3>
+              <p className="text-[10px] text-muted-foreground mb-3">Toggle visibility of sidebar items.</p>
+              {sidebarItems.map((item, i) => (
+                <label key={item.path} className="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-muted/50 rounded px-1">
+                  <input type="checkbox" checked={item.visible} onChange={() => {
+                    const next = sidebarItems.map((s, j) => j === i ? {...s, visible: !s.visible} : s)
+                    setSidebarItems(next)
+                    localStorage.setItem(savedConfigKey, JSON.stringify(next.map(({label, path, visible}) => ({label, path, visible}))))
+                  }} className="rounded" />
+                  <item.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs">{item.label}</span>
+                </label>
+              ))}
+              <Button size="sm" className="mt-2 w-full" onClick={() => setShowCustomize(false)}>
+                Done
+              </Button>
+            </div>
+          </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   )

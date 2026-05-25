@@ -33,6 +33,7 @@ import { CameraImport } from "@/components/shared/CameraImport"
 import { CloudWatchFolders } from "@/components/shared/CloudWatchFolders"
 import { ExifToolPanel } from "@/components/shared/ExifToolPanel"
 import { ScriptHooks } from "@/components/shared/ScriptHooks"
+import { BountyBoard } from "@/components/shared/BountyBoard"
 
 const QUICK_WORKFLOWS = [
   { id: "organize-date-library", label: "Organize Library", desc: "Sort photos into year/month/day folders", page: "/organize", icon: "📁" },
@@ -832,6 +833,11 @@ export default function DashboardPage() {
                 </Card>
               ))}
             </div>
+          </div>
+
+          {/* Bounty Board */}
+          <div className="mt-6">
+            <BountyBoard />
           </div>
         </div>
       </main>
