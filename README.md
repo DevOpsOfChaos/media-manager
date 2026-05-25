@@ -8,7 +8,7 @@ Open-source media organization tool with CLI and a Tauri + React + TypeScript de
 
 ```powershell
 # Install
-git clone https://github.com/YOUR_REPO/media-manager.git
+git clone https://github.com/DevOpsOfChaos/media-manager.git
 cd media-manager
 python -m pip install -e .
 
@@ -32,10 +32,23 @@ media-manager organize --source C:\Inbox --target D:\Library --pattern "yyyy\\yy
 | Similar images | `--similar-images` |
 | Face recognition | `people scan` |
 | Trip collections | `trip` |
-| Safe preview | `--json` |
+| Safe preview | default (add `--apply` to execute) |
 | Undo | `undo --apply` |
 | Media type filter | `--media-kind` |
 | German / English | `--language` |
+
+## Quick Start
+
+```powershell
+# Install in development mode
+pip install -e .
+
+# Verify everything works
+media-manager doctor --help
+
+# Preview an organize run (no files changed)
+media-manager organize --source /path/to/photos --target /path/to/output
+```
 
 ## Desktop UI
 

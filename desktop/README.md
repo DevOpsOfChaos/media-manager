@@ -1,7 +1,14 @@
-# Tauri + React + Typescript
+# Media Manager Desktop (Tauri + React + TypeScript)
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+Desktop frontend for Media Manager — a Tauri v2 app with React, TypeScript, and Vite.
 
-## Recommended IDE Setup
+## Running the Desktop App
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+Prerequisites: Node.js 20+, Rust (for Tauri)
+
+```powershell
+npm install
+npm run tauri dev
+```
+
+The desktop app surfaces the Dashboard, Organize Preview, Duplicate Review, People Review, and Workflow composer from `../NEXT_STEPS.md`.
