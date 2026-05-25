@@ -56,6 +56,10 @@ def _build_journal_entries(execution_result) -> list[dict]:
                 reversible = True
                 undo_action = "delete_target"
                 undo_from = str(member.target_path) if member.target_path else None
+            elif member.outcome == "linked":
+                reversible = True
+                undo_action = "delete_target"
+                undo_from = str(member.target_path) if member.target_path else None
             elif member.outcome == "moved":
                 reversible = True
                 undo_action = "move_back"
@@ -179,6 +183,7 @@ def cmd_apply() -> int:
         "executed_count": result.executed_count,
         "copied_count": result.copied_count,
         "moved_count": result.moved_count,
+        "linked_count": result.linked_count,
         "skipped_count": result.skipped_count,
         "conflict_count": result.conflict_count,
         "error_count": result.error_count,

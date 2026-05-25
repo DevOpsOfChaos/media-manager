@@ -1,7 +1,7 @@
-export type OperationMode = "copy" | "move"
+export type OperationMode = "copy" | "move" | "link"
 export type ConflictPolicy = "conflict" | "skip" | "rename"
 export type EntryStatus = "planned" | "skipped" | "conflict" | "error"
-export type EntryOutcome = "copied" | "moved" | "skipped" | "conflict" | "error"
+export type EntryOutcome = "copied" | "moved" | "linked" | "skipped" | "conflict" | "error"
 
 export interface OrganizePlannerOptions {
   source_dirs: string[]
@@ -96,6 +96,7 @@ export interface OrganizeExecutionResult {
   processed_count: number
   copied_count: number
   moved_count: number
+  linked_count: number
   executed_count: number
   skipped_count: number
   conflict_count: number

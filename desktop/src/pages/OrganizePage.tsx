@@ -260,7 +260,9 @@ export default function OrganizePage() {
     const start = Date.now()
     setApplyProgress({ current: 0, total, startedAt: start })
     startProgress(
-      options.operation_mode === "move" ? t("Moving files...", "Verschiebe Dateien...") : t("Copying files...", "Kopiere Dateien..."),
+      options.operation_mode === "move" ? t("Moving files...", "Verschiebe Dateien...") 
+        : options.operation_mode === "link" ? t("Linking files...", "Verknüpfe Dateien...")
+        : t("Copying files...", "Kopiere Dateien..."),
       total,
     )
 
@@ -679,7 +681,7 @@ export default function OrganizePage() {
                   {t("What should happen?", "Was soll passieren?")}
                 </label>
                 <div className="flex gap-3">
-                  {(["copy", "move"] as const).map((mode) => (
+                  {(["copy", "move", "link"] as const).map((mode) => (
                     <label
                       key={mode}
                       className="flex items-center gap-1.5 text-sm"
@@ -698,6 +700,8 @@ export default function OrganizePage() {
                             "Copy files (safe preview)",
                             "Dateien kopieren (sichere Vorschau)",
                           )
+                        : mode === "link"
+                        ? t("Hardlinks", "Hardlinks")
                         : t(
                             "Move files",
                             "Dateien verschieben",
@@ -749,19 +753,7 @@ export default function OrganizePage() {
                 <span>{t("Remove empty directories after moving", "Leere Ordner nach dem Verschieben löschen")}</span>
               </label>
 
-              {/* Hard link performance tip */}
-              <div className="flex items-start gap-2 p-2 rounded bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-xs mt-3">
-                <Zap className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
-                <div>
-                  <p className="font-medium text-blue-800 dark:text-blue-300">
-                    {t("Performance Tip", "Performance-Tipp")}
-                  </p>
-                  <p className="text-blue-700 dark:text-blue-400">
-                    {t("Enable hard links for instant organization (no copying). 160,000 files with hard links: ~10 minutes. With copying: 4-16 hours depending on drive speed and file sizes. Hard links don't use extra disk space.",
-                       "Aktiviere Hardlinks für sofortige Organisation (kein Kopieren). 160.000 Dateien mit Hardlinks: ~10 Minuten. Mit Kopieren: 4-16 Stunden je nach Laufwerk und Dateigröße. Hardlinks verbrauchen keinen zusätzlichen Speicher.")}
-                  </p>
-                </div>
-              </div>
+
             </CardContent>
           </Card>
 
@@ -785,8 +777,8 @@ export default function OrganizePage() {
                 {applyLoading
                   ? t("Applying...", "Führe aus...")
                   : t(
-                      `Apply (${options.operation_mode === "move" ? "move" : "copy"} ${preview.planned_count} files)`,
-                      `Ausführen (${options.operation_mode === "move" ? "verschiebe" : "kopiere"} ${preview.planned_count} Dateien)`
+                      `Apply (${options.operation_mode === "move" ? "move" : options.operation_mode === "link" ? "link" : "copy"} ${preview.planned_count} files)`,
+                      `Ausführen (${options.operation_mode === "move" ? "verschiebe" : options.operation_mode === "link" ? "verknüpfe" : "kopiere"} ${preview.planned_count} Dateien)`
                     )}
               </Button>
             )}
@@ -837,6 +829,45 @@ export default function OrganizePage() {
                   {t("Export JSON", "JSON exportieren")}
                 </Button>
               </div>
+
+              {preview.planned_count > 0 && (
+                <div className="flex items-start gap-2 p-2 rounded bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-xs">
+                  {preview.planned_count > 10000 ? (
+                    <Zap className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+                  ) : preview.planned_count > 1000 ? (
+                    <Zap className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
+                  ) : (
+                    <Zap className="h-3.5 w-3.5 text-green-500 mt-0.5 shrink-0" />
+                  )}
+                  <div>
+                    <p className="font-medium text-blue-800 dark:text-blue-300">
+                      {t("Performance Tip", "Performance-Tipp")}
+                    </p>
+                    {preview.planned_count > 50000 ? (
+                      <p className="text-blue-700 dark:text-blue-400">
+                        {t(`⚠️ ${preview.planned_count.toLocaleString()} files! Hardlinks are STRONGLY recommended (instant, no extra space). Copying may take 8-16+ hours.`,
+                           `⚠️ ${preview.planned_count.toLocaleString()} Dateien! Hardlinks werden DRINGEND empfohlen (sofort, kein Extra-Speicher). Kopieren kann 8-16+ Stunden dauern.`)}
+                      </p>
+                    ) : preview.planned_count > 10000 ? (
+                      <p className="text-blue-700 dark:text-blue-400">
+                        {t(`${preview.planned_count.toLocaleString()} files. Hardlinks recommended for instant results. Copying may take 1-4 hours.`,
+                           `${preview.planned_count.toLocaleString()} Dateien. Hardlinks empfohlen für sofortige Ergebnisse. Kopieren kann 1-4 Stunden dauern.`)}
+                      </p>
+                    ) : preview.planned_count > 1000 ? (
+                      <p className="text-blue-700 dark:text-blue-400">
+                        {t(`${preview.planned_count.toLocaleString()} files. Copying should complete in a few minutes.`,
+                           `${preview.planned_count.toLocaleString()} Dateien. Kopieren sollte in wenigen Minuten fertig sein.`)}
+                      </p>
+                    ) : (
+                      <p className="text-blue-700 dark:text-blue-400">
+                        {t(`${preview.planned_count.toLocaleString()} files. Should be quick regardless of mode.`,
+                           `${preview.planned_count.toLocaleString()} Dateien. Sollte unabhängig vom Modus schnell sein.`)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <SummaryCard
                   label={t("Scanned", "Gefunden")}
@@ -1061,7 +1092,7 @@ export default function OrganizePage() {
           )}
           {applyLoading && (
             <FullPageProgress
-              label={`${options.operation_mode === "move" ? t("Moving", "Verschiebe") : t("Copying", "Kopiere")} ${t("files...", "Dateien...")}`}
+              label={`${options.operation_mode === "move" ? t("Moving", "Verschiebe") : options.operation_mode === "link" ? t("Linking", "Verknüpfe") : t("Copying", "Kopiere")} ${t("files...", "Dateien...")}`}
               current={applyProgress.current}
               total={applyProgress.total}
               startedAt={applyProgress.startedAt}
@@ -1078,6 +1109,7 @@ export default function OrganizePage() {
                 <p>{t(`Executed: ${applyResult.executed_count}`, `Ausgeführt: ${applyResult.executed_count}`)}</p>
                 <p>{t(`Copied: ${applyResult.copied_count}`, `Kopiert: ${applyResult.copied_count}`)}</p>
                 <p>{t(`Moved: ${applyResult.moved_count}`, `Verschoben: ${applyResult.moved_count}`)}</p>
+                <p>{t(`Linked: ${applyResult.linked_count}`, `Verknüpft: ${applyResult.linked_count}`)}</p>
                 <p>{t(`Skipped: ${applyResult.skipped_count}`, `Übersprungen: ${applyResult.skipped_count}`)}</p>
                 {applyResult.error_count > 0 && (
                   <p className="text-red-400">{t(`Errors: ${applyResult.error_count}`, `Fehler: ${applyResult.error_count}`)}</p>

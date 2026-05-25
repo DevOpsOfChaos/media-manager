@@ -97,6 +97,9 @@ def _rollback_group(performed: list[tuple[str, Path, Path]]) -> str | None:
                 if target_path.exists() and not source_path.exists():
                     source_path.parent.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(target_path), str(source_path))
+            elif action == "linked":
+                if target_path.exists():
+                    target_path.unlink()
             elif action == "copied":
                 if target_path.exists():
                     target_path.unlink()
@@ -174,7 +177,12 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None,
                 )
             else:
                 # Already-processed entries: assume they were executed successfully
-                outcome = "moved" if entry.operation_mode == "move" else "copied"
+                if entry.operation_mode == "move":
+                    outcome = "moved"
+                elif entry.operation_mode == "link":
+                    outcome = "linked"
+                else:
+                    outcome = "copied"
                 result.entries.append(
                     OrganizeExecutionEntry(
                         plan_entry=entry, outcome=outcome, reason="resumed from checkpoint",
@@ -239,6 +247,9 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None,
                 if entry.operation_mode == "move":
                     shutil.move(str(source_path), str(target_path))
                     outcome = "moved"
+                elif entry.operation_mode == "link":
+                    os.link(str(source_path), str(target_path))
+                    outcome = "linked"
                 else:
                     shutil.copy2(str(source_path), str(target_path))
                     outcome = "copied"
@@ -263,7 +274,12 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None,
             )
             continue
 
-        group_outcome = "moved" if entry.operation_mode == "move" else "copied"
+        if entry.operation_mode == "move":
+            group_outcome = "moved"
+        elif entry.operation_mode == "link":
+            group_outcome = "linked"
+        else:
+            group_outcome = "copied"
         result.entries.append(
             OrganizeExecutionEntry(
                 plan_entry=entry, outcome=group_outcome,

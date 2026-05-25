@@ -20,7 +20,7 @@ class OrganizePlannerOptions:
     recursive: bool = True
     include_hidden: bool = False
     follow_symlinks: bool = False
-    operation_mode: str = "copy"
+    operation_mode: str = "copy"  # "copy", "move", or "link"
     exiftool_path: Path | None = None
     include_associated_files: bool = False
     conflict_policy: OrganizeConflictPolicy = "conflict"
@@ -185,8 +185,12 @@ class OrganizeExecutionResult:
         return sum(1 for item in self.entries if item.outcome == "moved")
 
     @property
+    def linked_count(self) -> int:
+        return sum(1 for item in self.entries if item.outcome == "linked")
+
+    @property
     def executed_count(self) -> int:
-        return self.copied_count + self.moved_count
+        return self.copied_count + self.moved_count + self.linked_count
 
     @property
     def skipped_count(self) -> int:
