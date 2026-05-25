@@ -226,15 +226,6 @@ export default function OrganizePage() {
     }
   }
 
-  const handleApply = useCallback(async () => {
-    if (!preview?.outcome_report?.safe_to_apply) return
-    if (!options.source_dirs.length || !options.target_root) {
-      setError("Source and target directories are required.")
-      return
-    }
-    setShowApplyConfirm(true)
-  }, [preview, options])
-
   const confirmApply = useCallback(async () => {
     setShowApplyConfirm(false)
     setApplyLoading(true)
@@ -248,6 +239,19 @@ export default function OrganizePage() {
       setApplyLoading(false)
     }
   }, [options])
+
+  const handleApply = useCallback(async () => {
+    if (!preview?.outcome_report?.safe_to_apply) return
+    if (!options.source_dirs.length || !options.target_root) {
+      setError("Source and target directories are required.")
+      return
+    }
+    if (settings.confirm_before_apply) {
+      setShowApplyConfirm(true)
+    } else {
+      confirmApply()
+    }
+  }, [preview, options, settings.confirm_before_apply, confirmApply])
 
   useEffect(() => {
     if (!showApplyConfirm) return

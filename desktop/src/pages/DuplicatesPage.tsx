@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { CheckSquare, Square, Trash2, Info } from "lucide-react"
+import { convertFileSrc } from "@tauri-apps/api/core"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -14,6 +15,7 @@ import { Input } from "@/components/ui/input"
 import { ErrorBanner } from "@/components/shared/ErrorBanner"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { duplicateScan, similarImagesScan, duplicatesApply } from "@/lib/tauri-bridge"
+import { useSettingsStore } from "@/stores/settings-store"
 import type {
   DuplicatesPreviewResponse,
   SimilarImagesPreviewResponse,
@@ -22,6 +24,42 @@ import type {
 } from "@/types"
 
 type Tab = "exact" | "similar"
+
+function FileThumbnail({ path, size = 80 }: { path: string; size?: number }) {
+  const [loaded, setLoaded] = useState(false)
+  const [errored, setErrored] = useState(false)
+  const src = convertFileSrc(path)
+
+  if (errored) {
+    return (
+      <div
+        className="flex items-center justify-center bg-muted rounded text-muted-foreground text-[10px]"
+        style={{ width: size, height: size, minWidth: size }}
+      >
+        no preview
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative" style={{ width: size, height: size, minWidth: size }}>
+      {!loaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted rounded">
+          <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+      <img
+        src={src}
+        alt=""
+        className="rounded object-cover"
+        style={{ width: size, height: size, opacity: loaded ? 1 : 0 }}
+        onLoad={() => setLoaded(true)}
+        onError={() => setErrored(true)}
+        loading="lazy"
+      />
+    </div>
+  )
+}
 
 export default function DuplicatesPage() {
   const [sourceDir, setSourceDir] = useState("")
@@ -35,6 +73,7 @@ export default function DuplicatesPage() {
   const [maxDistance, setMaxDistance] = useState(6)
   const [maxImages, setMaxImages] = useState(500)
   const [maxPairs, setMaxPairs] = useState(150_000)
+  const { settings } = useSettingsStore()
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteResult, setDeleteResult] = useState<{ executed_rows: number; error_rows: number } | null>(null)
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
@@ -115,11 +154,6 @@ export default function DuplicatesPage() {
     return bytes
   }, [tab, exactPreview, selectedGroups])
 
-  const handleDeleteSelected = useCallback(() => {
-    if (selectedGroups.size === 0) return
-    setShowDeleteConfirm(true)
-  }, [selectedGroups.size])
-
   const confirmDelete = useCallback(async () => {
     setShowDeleteConfirm(false)
     const active = tab === "exact" ? exactPreview : null
@@ -143,6 +177,15 @@ export default function DuplicatesPage() {
       setDeleteLoading(false)
     }
   }, [tab, exactPreview, sourceDir, selectedGroups, handleScan])
+
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedGroups.size === 0) return
+    if (settings.confirm_before_apply) {
+      setShowDeleteConfirm(true)
+    } else {
+      confirmDelete()
+    }
+  }, [selectedGroups.size, settings.confirm_before_apply, confirmDelete])
 
   useEffect(() => {
     if (!showDeleteConfirm) return
@@ -689,6 +732,7 @@ function ExactGroupCard({
         <div className="border-t px-3 py-2 space-y-1 bg-muted/20">
           {group.files.map((file) => (
             <div key={file} className="flex items-center gap-2">
+              <FileThumbnail path={file} size={64} />
               <span className="truncate font-mono text-xs flex-1">{file}</span>
               <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={(e) => { e.stopPropagation(); onCopyPath(file) }}>Copy</Button>
             </div>
@@ -735,6 +779,7 @@ function SimilarGroupCard({
         <div className="border-t px-3 py-2 space-y-1.5 bg-muted/20">
           {group.members.map((m) => (
             <div key={m.path} className="flex items-center gap-2">
+              <FileThumbnail path={m.path} size={64} />
               <Badge variant={m.distance === 0 ? "default" : "secondary"} className="text-xs shrink-0">d={m.distance}</Badge>
               <span className="truncate font-mono text-xs flex-1">{m.path}</span>
               {m.width && m.height && <span className="text-xs text-muted-foreground shrink-0">{m.width}x{m.height}</span>}
