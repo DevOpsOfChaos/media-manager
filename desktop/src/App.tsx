@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppSidebar } from "@/components/layout/AppSidebar"
+import { ProgressOverlay } from "@/components/shared/ProgressOverlay"
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
           <Outlet />
         </SidebarInset>
       </SidebarProvider>
+      <ProgressOverlay />
     </TooltipProvider>
   )
 }

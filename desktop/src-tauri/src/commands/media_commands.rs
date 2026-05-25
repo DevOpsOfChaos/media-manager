@@ -1,9 +1,18 @@
 use serde_json::Value;
+use tauri::Emitter;
 
 use super::python_bridge::PythonBridge;
 
 fn bridge() -> Result<&'static PythonBridge, String> {
     PythonBridge::get().as_ref().map_err(|e| e.clone())
+}
+
+fn emit_progress(app: &tauri::AppHandle, event: &str, label: &str, detail: Option<&str>) {
+    let payload = serde_json::json!({
+        "label": label,
+        "detail": detail,
+    });
+    let _ = app.emit(event, payload);
 }
 
 // ── Settings ──
@@ -28,60 +37,80 @@ pub async fn settings_reset() -> Result<Value, String> {
 // ── Organize ──
 
 #[tauri::command]
-pub async fn organize_preview(options: Value) -> Result<Value, String> {
+pub async fn organize_preview(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Organize Preview", None);
     let json = serde_json::to_string(&options)
         .map_err(|e| format!("Failed to serialize organize options: {e}"))?;
-    bridge()?.run_module(
+    let result = bridge()?.run_module(
         "bridge_organize_preview",
         "",
         &[],
         Some(&json),
-    )
+    );
+    emit_progress(&app, "operation:completed", "Organize Preview",
+        Some(if result.is_ok() { "success" } else { "failed" }));
+    result
 }
 
 #[tauri::command]
-pub async fn organize_apply(options: Value) -> Result<Value, String> {
+pub async fn organize_apply(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Organize Apply", None);
     let json = serde_json::to_string(&options)
         .map_err(|e| format!("Failed to serialize organize options: {e}"))?;
-    bridge()?.run_module(
+    let result = bridge()?.run_module(
         "bridge_organize_apply",
         "",
         &[],
         Some(&json),
-    )
+    );
+    emit_progress(&app, "operation:completed", "Organize Apply",
+        Some(if result.is_ok() { "success" } else { "failed" }));
+    result
 }
 
 // ── Duplicates ──
 
 #[tauri::command]
-pub async fn duplicates_scan(config: Value) -> Result<Value, String> {
+pub async fn duplicates_scan(app: tauri::AppHandle, config: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Duplicate Scan", None);
     let json = serde_json::to_string(&config)
         .map_err(|e| format!("Failed to serialize duplicates config: {e}"))?;
-    bridge()?.run_module(
+    let result = bridge()?.run_module(
         "bridge_duplicates_preview",
         "",
         &[],
         Some(&json),
-    )
+    );
+    emit_progress(&app, "operation:completed", "Duplicate Scan",
+        Some(if result.is_ok() { "success" } else { "failed" }));
+    result
 }
 
 #[tauri::command]
-pub async fn similar_images_scan(config: Value) -> Result<Value, String> {
+pub async fn similar_images_scan(app: tauri::AppHandle, config: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Similar Images Scan", None);
     let json = serde_json::to_string(&config)
         .map_err(|e| format!("Failed to serialize similar images config: {e}"))?;
-    bridge()?.run_module(
+    let result = bridge()?.run_module(
         "bridge_similar_preview",
         "",
         &[],
         Some(&json),
-    )
+    );
+    emit_progress(&app, "operation:completed", "Similar Images Scan",
+        Some(if result.is_ok() { "success" } else { "failed" }));
+    result
 }
 
 #[tauri::command]
-pub async fn duplicates_apply(payload: Value) -> Result<Value, String> {
+pub async fn duplicates_apply(app: tauri::AppHandle, payload: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Duplicate Deletion", None);
     let json = serde_json::to_string(&payload)
         .map_err(|e| format!("Failed to serialize: {e}"))?;
-    bridge()?.run_module("bridge_duplicates_apply", "", &[], Some(&json))
+    let result = bridge()?.run_module("bridge_duplicates_apply", "", &[], Some(&json));
+    emit_progress(&app, "operation:completed", "Duplicate Deletion",
+        Some(if result.is_ok() { "success" } else { "failed" }));
+    result
 }
 
 // ── Review ──
