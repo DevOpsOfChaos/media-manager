@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { organizePreview, organizeApply } from "@/lib/tauri-bridge"
+import { PreflightCheck } from "@/components/shared/PreflightCheck"
 import type { OrganizePreviewResponse, OrganizeExecutionResult } from "@/types"
 import { useOrganizeStore } from "@/stores/organize-store"
 import { useSettingsStore } from "@/stores/settings-store"
@@ -369,6 +370,11 @@ export default function OrganizePage() {
                       {t("Drop a folder here or click Browse", "Ordner hier ablegen oder auf Durchsuchen klicken")}
                     </p>
                   </div>
+
+              <PreflightCheck
+                sourceDirs={options.source_dirs.filter(Boolean) as string[]}
+                targetRoot={options.target_root || undefined}
+              />
             </CardContent>
           </Card>
 

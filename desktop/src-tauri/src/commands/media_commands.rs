@@ -211,6 +211,12 @@ pub async fn runtime_diagnostics() -> Result<Value, String> {
 // ── Doctor ──
 
 #[tauri::command]
-pub async fn doctor_check() -> Result<Value, String> {
-    Err("media_commands: doctor_check not yet implemented".into())
+pub async fn doctor_check(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Preflight Check", None);
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    let result = bridge()?.run_module("bridge_doctor", "", &[], Some(&json));
+    emit_progress(&app, "operation:completed", "Preflight Check",
+        Some(if result.is_ok() { "success" } else { "failed" }));
+    result
 }

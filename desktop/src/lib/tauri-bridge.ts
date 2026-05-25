@@ -215,6 +215,40 @@ export async function runtimeDiagnostics(): Promise<RuntimeDiagnostics> {
 
 // ── Doctor ──
 
-export async function doctorCheck(): Promise<unknown> {
-  return invoke("doctor_check")
+export interface DoctorReport {
+  command: string
+  status: string
+  ready: boolean
+  next_action: string
+  summary: {
+    error_count: number
+    warning_count: number
+    info_count: number
+    source_count: number
+    included_file_count: number
+    scanned_file_count: number
+  }
+  diagnostics: Array<{
+    code: string
+    severity: "info" | "warning" | "error"
+    message: string
+    path: string | null
+    hint: string | null
+  }>
+  source_previews: Array<{
+    source_root: string
+    exists: boolean
+    is_dir: boolean
+    scanned_file_count: number
+    included_file_count: number
+  }>
+}
+
+export async function doctorCheck(options: {
+  command?: string
+  source_dirs: string[]
+  target_root?: string
+  recursive?: boolean
+}): Promise<DoctorReport> {
+  return invoke("doctor_check", { options })
 }
