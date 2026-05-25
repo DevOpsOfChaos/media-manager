@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import traceback
 from pathlib import Path
 
 from media_manager.core.organizer import OrganizePlannerOptions, build_organize_dry_run, execute_organize_plan
@@ -81,7 +82,7 @@ def cmd_apply() -> int:
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
-        return _fail(f"Invalid JSON input: {exc}")
+        return _fail(f"Invalid JSON input: {exc}\nRaw input (first 500 chars): {raw[:500]}")
 
     try:
         source_dirs_raw = payload.get("source_dirs", [])
@@ -106,13 +107,13 @@ def cmd_apply() -> int:
             batch_size=payload.get("batch_size", 0),
         )
     except (TypeError, ValueError) as exc:
-        return _fail(f"Invalid options: {exc}")
+        return _fail(f"Invalid options: {exc}\nPayload keys: {list(payload.keys())}\nTraceback:\n{traceback.format_exc()}")
 
     # Build plan
     try:
         plan = build_organize_dry_run(options)
     except Exception as exc:
-        return _fail(f"Plan build failed: {exc}")
+        return _fail(f"Plan build failed: {exc}\nTraceback:\n{traceback.format_exc()}")
 
     if plan.planned_count == 0:
         return _fail("Nothing to execute — plan has no planned entries.", exit_code=0)
@@ -121,7 +122,7 @@ def cmd_apply() -> int:
     try:
         result = execute_organize_plan(plan)
     except Exception as exc:
-        return _fail(f"Execution failed: {exc}")
+        return _fail(f"Execution failed: {exc}\nTraceback:\n{traceback.format_exc()}")
 
     # Build journal entries
     journal_entries = _build_journal_entries(result)

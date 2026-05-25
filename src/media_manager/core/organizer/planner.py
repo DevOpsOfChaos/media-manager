@@ -154,8 +154,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                 exclude_patterns=options.exclude_patterns,
             )
         )
-    if options.conflict_policy not in {"conflict", "skip"}:
-        raise ValueError("Organize conflict policy must be one of: conflict, skip.")
+    if options.conflict_policy not in {"conflict", "skip", "rename"}:
+        raise ValueError("Organize conflict policy must be one of: conflict, skip, rename.")
 
     dry_run = OrganizeDryRun(options=options, scan_summary=scan_summary)
 

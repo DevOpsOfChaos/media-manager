@@ -1,5 +1,5 @@
 export type OperationMode = "copy" | "move"
-export type ConflictPolicy = "conflict" | "skip"
+export type ConflictPolicy = "conflict" | "skip" | "rename"
 export type EntryStatus = "planned" | "skipped" | "conflict" | "error"
 export type EntryOutcome = "copied" | "moved" | "skipped" | "conflict" | "error"
 

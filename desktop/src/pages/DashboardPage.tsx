@@ -326,7 +326,7 @@ export default function DashboardPage() {
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
+                  <div className="text-sm text-muted-foreground">
                     {data.historyError
                       ? "Could not load history."
                       : (
@@ -335,7 +335,7 @@ export default function DashboardPage() {
                           Loading...
                         </span>
                       )}
-                  </p>
+                  </div>
                 )}
               </CardContent>
             </Card>

@@ -681,7 +681,7 @@ export default function OrganizePage() {
                   )}
                 </label>
                 <div className="flex gap-3">
-                  {(["conflict", "skip"] as const).map((policy) => (
+                  {(["conflict", "skip", "rename"] as const).map((policy) => (
                     <label
                       key={policy}
                       className="flex items-center gap-1.5 text-sm"
@@ -697,7 +697,9 @@ export default function OrganizePage() {
                       />
                       {policy === "conflict"
                         ? t("Flag as conflict", "Als Konflikt markieren")
-                        : t("Skip existing", "Vorhandene überspringen")}
+                        : policy === "skip"
+                        ? t("Skip existing", "Vorhandene überspringen")
+                        : t("Rename duplicates", "Duplikate umbenennen")}
                     </label>
                   ))}
                 </div>
@@ -936,6 +938,30 @@ export default function OrganizePage() {
                     <CardDescription>
                       These files have naming conflicts with existing files. Choose an action for each conflict.
                     </CardDescription>
+                    <div className="flex gap-2 mt-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-xs"
+                        onClick={() => {
+                          setOptions({ conflict_policy: "skip" })
+                          handlePreview()
+                        }}
+                      >
+                        Ignore all
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-xs"
+                        onClick={() => {
+                          setOptions({ conflict_policy: "rename" })
+                          handlePreview()
+                        }}
+                      >
+                        Rename duplicates
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-2 max-h-60 overflow-y-auto">
                     {preview.entries
