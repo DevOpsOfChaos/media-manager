@@ -21,6 +21,14 @@ import {
 import type { GuiSettings } from "@/types"
 import { EmptyState } from "@/components/shared/EmptyState"
 
+const QUICK_WORKFLOWS = [
+  { id: "organize-date-library", label: "Organize Library", desc: "Sort photos into year/month/day folders", page: "/organize", icon: "📁" },
+  { id: "duplicate-review-safe", label: "Find Duplicates", desc: "Scan for exact duplicate files", page: "/duplicates", icon: "🔍" },
+  { id: "rename-capture-standard", label: "Standardize Names", desc: "Rename to date_stem format", page: "/organize", icon: "✏️" },
+  { id: "trip-hardlink-collection", label: "Trip Collection", desc: "Build trip from date range", page: "/organize", icon: "✈️" },
+  { id: "cleanup-family-library", label: "Cleanup Workflow", desc: "Full scan → organize → cleanup", page: "/organize", icon: "🧹" },
+] as const
+
 interface DashboardData {
   diag: RuntimeDiagnostics | null
   diagError: string | null
@@ -402,6 +410,28 @@ export default function DashboardPage() {
               desc="Language, theme, diagnostics."
               onClick={() => navigate("/settings")}
             />
+          </div>
+
+          {/* Quick Workflows */}
+          <div className="mt-6">
+            <h3 className="text-sm font-medium mb-3">Quick Workflows</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {QUICK_WORKFLOWS.map((wf) => (
+                <Card
+                  key={wf.id}
+                  className="p-4 cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => navigate(wf.page)}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl">{wf.icon}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{wf.label}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{wf.desc}</p>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
       </main>
