@@ -54,6 +54,9 @@ pub fn run() {
             media_commands::people_person_reassign,
             media_commands::people_person_merge,
             media_commands::people_catalog_info,
+            media_commands::people_face_ignore,
+            media_commands::people_face_age,
+            media_commands::people_face_feedback,
             // History
             media_commands::history_list,
             media_commands::history_get,
@@ -79,6 +82,7 @@ pub fn run() {
             media_commands::file_backup,
             media_commands::file_contact_sheet,
             media_commands::file_web_gallery,
+            media_commands::file_watermark,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

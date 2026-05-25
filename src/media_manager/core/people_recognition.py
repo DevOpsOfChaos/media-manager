@@ -1002,6 +1002,44 @@ def build_people_review_payload(scan_payload: Mapping[str, object]) -> dict[str,
     }
 
 
+def load_ignore_list(catalog_dir: Path) -> set[str]:
+    """Load the set of ignored face identifiers."""
+    ignore_path = catalog_dir / ".face_ignore.json"
+    if ignore_path.exists():
+        try:
+            data = json.loads(ignore_path.read_text())
+            return set(data.get("ignored_faces", []))
+        except Exception:
+            pass
+    return set()
+
+
+def save_ignore_list(catalog_dir: Path, ignored: set[str]) -> None:
+    """Save the set of ignored face identifiers."""
+    ignore_path = catalog_dir / ".face_ignore.json"
+    ignore_path.write_text(json.dumps({"ignored_faces": sorted(ignored)}, indent=2))
+
+
+def add_to_ignore_list(catalog_dir: Path, face_id: str) -> bool:
+    """Add a face to the ignore list. Face ID format: 'path/to/file::face_index'"""
+    ignored = load_ignore_list(catalog_dir)
+    if face_id in ignored:
+        return False
+    ignored.add(face_id)
+    save_ignore_list(catalog_dir, ignored)
+    return True
+
+
+def remove_from_ignore_list(catalog_dir: Path, face_id: str) -> bool:
+    """Remove a face from the ignore list."""
+    ignored = load_ignore_list(catalog_dir)
+    if face_id not in ignored:
+        return False
+    ignored.discard(face_id)
+    save_ignore_list(catalog_dir, ignored)
+    return True
+
+
 __all__ = [
     "BACKEND_CHOICES",
     "DEFAULT_BACKEND",
@@ -1013,11 +1051,15 @@ __all__ = [
     "STRONG_BACKEND",
     "add_embedding_to_person",
     "add_person_to_catalog",
+    "add_to_ignore_list",
     "backend_available",
     "build_people_review_payload",
     "inspect_people_backend",
+    "load_ignore_list",
     "load_people_catalog",
+    "remove_from_ignore_list",
     "rename_person_in_catalog",
+    "save_ignore_list",
     "scan_people",
     "scan_people_two_stage",
     "write_people_catalog",

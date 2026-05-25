@@ -518,9 +518,114 @@ def cmd_person_merge() -> int:
     })
 
 
+def cmd_face_ignore() -> int:
+    """Add or remove a face from the ignore list."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _fail(f"Invalid JSON: {exc}")
+
+    action = payload.get("action", "add")
+    face_id = payload.get("face_id", "")
+    catalog_dir = Path(payload.get("catalog_dir", ""))
+
+    if not face_id:
+        return _fail("face_id is required")
+    if not catalog_dir.exists():
+        return _fail(f"Catalog directory not found: {catalog_dir}")
+
+    from media_manager.core.people_recognition import add_to_ignore_list, remove_from_ignore_list, load_ignore_list
+
+    if action == "add":
+        ok = add_to_ignore_list(catalog_dir, face_id)
+        return _emit({"kind": "face_ignore", "action": "add", "face_id": face_id, "added": ok})
+    elif action == "remove":
+        ok = remove_from_ignore_list(catalog_dir, face_id)
+        return _emit({"kind": "face_ignore", "action": "remove", "face_id": face_id, "removed": ok})
+    elif action == "list":
+        ignored = load_ignore_list(catalog_dir)
+        return _emit({"kind": "face_ignore_list", "ignored_faces": sorted(ignored), "count": len(ignored)})
+    else:
+        return _fail(f"Unknown action: {action}")
+
+
+def cmd_face_age() -> int:
+    """Estimate age bracket for a face."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _fail(f"Invalid JSON: {exc}")
+
+    image_path = Path(payload.get("image_path", ""))
+    face_box = payload.get("face_box")
+    if not image_path.exists():
+        return _fail(f"Image not found: {image_path}")
+    if not face_box or not isinstance(face_box, (list, tuple)) or len(face_box) != 4:
+        return _fail("face_box must be a list of [x, y, w, h]")
+
+    from media_manager.core.people_fast_detector import estimate_age_range
+
+    result = estimate_age_range(image_path, tuple(int(v) for v in face_box))
+    result["kind"] = "face_age"
+    result["image_path"] = str(image_path)
+    return _emit(result)
+
+
+def cmd_face_feedback() -> int:
+    """Record user feedback on face matches to improve future matching."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _fail(f"Invalid JSON: {exc}")
+
+    feedback_type = payload.get("type", "")
+    person_id = payload.get("person_id", "")
+    face_id = payload.get("face_id", "")
+    catalog_dir = Path(payload.get("catalog_dir", ""))
+
+    if not feedback_type or not face_id:
+        return _fail("type and face_id are required")
+
+    feedback_path = catalog_dir / ".face_feedback.jsonl"
+
+    entry = {
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "type": feedback_type,
+        "person_id": person_id,
+        "face_id": face_id,
+    }
+
+    try:
+        with open(feedback_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except OSError as exc:
+        return _fail(f"Could not write feedback: {exc}")
+
+    try:
+        lines = feedback_path.read_text().splitlines()
+        total = len([l for l in lines if l.strip()])
+        confirms = len([l for l in lines if '"confirm_match"' in l])
+        rejects = len([l for l in lines if '"reject_match"' in l])
+    except Exception:
+        total = confirms = rejects = 0
+
+    return _emit({
+        "kind": "face_feedback",
+        "status": "recorded",
+        "stats": {
+            "total_feedback": total,
+            "confirmations": confirms,
+            "rejections": rejects,
+        }
+    })
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="media_manager.bridge_people")
-    parser.add_argument("action", choices=["scan", "status", "reset", "catalog-info", "catalog-list", "person-rename", "person-create", "person-reassign", "person-merge"])
+    parser.add_argument("action", choices=["scan", "status", "reset", "catalog-info", "catalog-list", "person-rename", "person-create", "person-reassign", "person-merge", "face-ignore", "face-age", "face-feedback"])
     return parser
 
 
@@ -537,6 +642,9 @@ def main(argv: list[str] | None = None) -> int:
         "person-create": cmd_person_create,
         "person-reassign": cmd_person_reassign,
         "person-merge": cmd_person_merge,
+        "face-ignore": cmd_face_ignore,
+        "face-age": cmd_face_age,
+        "face-feedback": cmd_face_feedback,
     }
     return actions[args.action]()
 

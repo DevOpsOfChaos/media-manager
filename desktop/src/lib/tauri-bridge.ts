@@ -209,6 +209,48 @@ export async function peoplePersonMerge(options: {
   return invoke("people_person_merge", { options })
 }
 
+export async function peopleFaceIgnore(options: {
+  action: "add" | "remove" | "list"
+  face_id: string
+  catalog_dir: string
+}): Promise<{
+  kind: string
+  action?: string
+  face_id?: string
+  added?: boolean
+  removed?: boolean
+  ignored_faces?: string[]
+  count?: number
+}> {
+  return invoke("people_face_ignore", { options })
+}
+
+export async function peopleFaceAge(options: {
+  image_path: string
+  face_box: [number, number, number, number]
+}): Promise<{
+  kind: string
+  age_bracket: string
+  confidence: number
+  note?: string
+  image_path: string
+}> {
+  return invoke("people_face_age", { options })
+}
+
+export async function peopleFaceFeedback(options: {
+  type: "confirm_match" | "reject_match" | "confirm_new_person"
+  person_id: string
+  face_id: string
+  catalog_dir: string
+}): Promise<{
+  kind: string
+  status: string
+  stats: { total_feedback: number; confirmations: number; rejections: number }
+}> {
+  return invoke("people_face_feedback", { options })
+}
+
 // ── History ──
 
 export interface HistoryListPayload {
@@ -529,4 +571,25 @@ export interface WebGalleryResult {
 
 export async function fileWebGallery(options: WebGalleryOptions): Promise<WebGalleryResult> {
   return invoke("file_web_gallery", { options })
+}
+
+// ── Watermark ──
+
+export interface WatermarkOptions {
+  source: string
+  target: string
+  text?: string
+  position?: string
+  opacity?: number
+  font_size?: number
+}
+
+export interface WatermarkResult {
+  status: string
+  source: string
+  target: string
+}
+
+export async function fileWatermark(options: WatermarkOptions): Promise<WatermarkResult> {
+  return invoke("file_watermark", { options })
 }

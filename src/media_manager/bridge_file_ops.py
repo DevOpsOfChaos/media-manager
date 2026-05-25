@@ -439,6 +439,68 @@ def cmd_exif() -> int:
         return _fail(f"Could not read EXIF: {exc}")
 
 
+def cmd_watermark() -> int:
+    """Add a text watermark to an image."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _fail(f"Invalid JSON: {exc}")
+
+    source = Path(payload.get("source", ""))
+    target = Path(payload.get("target", ""))
+    text = payload.get("text", "© Media Manager")
+    position = payload.get("position", "bottom-right")
+    opacity = int(payload.get("opacity", 50))
+    font_size = int(payload.get("font_size", 36))
+
+    if not source.is_file():
+        return _fail(f"Source not found: {source}")
+    if not target.parent.exists():
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        img = Image.open(source).convert("RGBA")
+
+        watermark = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(watermark)
+
+        try:
+            font = ImageFont.truetype("arial.ttf", font_size)
+        except Exception:
+            font = ImageFont.load_default()
+
+        bbox = draw.textbbox((0, 0), text, font=font)
+        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        margin = 20
+
+        pos_map = {
+            "top-left": (margin, margin),
+            "top-right": (img.width - tw - margin, margin),
+            "bottom-left": (margin, img.height - th - margin),
+            "bottom-right": (img.width - tw - margin, img.height - th - margin),
+            "center": ((img.width - tw) // 2, (img.height - th) // 2),
+        }
+        x, y = pos_map.get(position, (margin, img.height - th - margin))
+
+        fill = (255, 255, 255, int(255 * opacity / 100))
+        draw.text((x, y), text, font=font, fill=fill)
+
+        result = Image.alpha_composite(img, watermark)
+        if target.suffix.lower() == ".png":
+            result.save(target, "PNG")
+        else:
+            result = result.convert("RGB")
+            result.save(target, "JPEG", quality=90)
+
+        return _emit({"status": "watermarked", "source": str(source), "target": str(target)})
+    except ImportError:
+        return _fail("Pillow required")
+    except Exception as exc:
+        return _fail(f"Watermark failed: {exc}")
+
+
 _ACTIONS = {
     "open": cmd_open,
     "reveal": cmd_reveal,
@@ -450,6 +512,7 @@ _ACTIONS = {
     "backup": cmd_backup,
     "contact_sheet": cmd_contact_sheet,
     "web_gallery": cmd_web_gallery,
+    "watermark": cmd_watermark,
 }
 
 

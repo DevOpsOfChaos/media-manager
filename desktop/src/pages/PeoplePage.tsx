@@ -6,10 +6,10 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
-import { peopleCatalogList, peoplePersonRename, peoplePersonCreate, peoplePersonReassign, peoplePersonMerge, peopleScan, peopleScanStatus, type PersonEntry, type CatalogListResponse } from "@/lib/tauri-bridge"
+import { peopleCatalogList, peoplePersonRename, peoplePersonCreate, peoplePersonReassign, peoplePersonMerge, peopleScan, peopleScanStatus, peopleFaceIgnore, peopleFaceAge, type PersonEntry, type CatalogListResponse } from "@/lib/tauri-bridge"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
-import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff, GitMerge, MoreHorizontal } from "lucide-react"
+ import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff, GitMerge, MoreHorizontal, EyeOff } from "lucide-react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 
 function friendlyPeopleError(e: unknown, context: "scan" | "load" | "rename" | "create" | "reassign"): string {
@@ -94,6 +94,29 @@ export default function PeoplePage() {
   // Merge dialog
   const [mergeDialog, setMergeDialog] = useState<{ from: PersonEntry } | null>(null)
 
+  // Age estimation cache
+  const [ageCache, setAgeCache] = useState<Record<string, { bracket: string; confidence: number }>>({})
+  const fetchAge = useCallback(async (facePath: string) => {
+    if (ageCache[facePath]) return
+    try {
+      const result = await peopleFaceAge({ image_path: facePath, face_box: [0, 0, 100, 100] })
+      setAgeCache(prev => ({ ...prev, [facePath]: { bracket: result.age_bracket, confidence: result.confidence } }))
+    } catch { /* ignore */ }
+  }, [ageCache])
+
+  // Ignored faces
+  const [ignoredFaces, setIgnoredFaces] = useState<Set<string>>(new Set())
+  const loadIgnoredFaces = useCallback(async () => {
+    if (!catalogPath) return
+    try {
+      const catalogDir = catalogPath.substring(0, catalogPath.lastIndexOf("/") !== -1 ? catalogPath.lastIndexOf("/") : catalogPath.lastIndexOf("\\"))
+      if (!catalogDir) return
+      const result = await peopleFaceIgnore({ action: "list", face_id: "", catalog_dir: catalogDir })
+      if (result.ignored_faces) setIgnoredFaces(new Set(result.ignored_faces))
+    } catch { /* ignore */ }
+  }, [catalogPath])
+  useEffect(() => { loadIgnoredFaces() }, [loadIgnoredFaces])
+
   const loadCatalog = useCallback(async () => {
     if (!catalogPath) return
     void setLoading(true)
@@ -105,6 +128,12 @@ export default function PeoplePage() {
   }, [catalogPath])
 
   useEffect(() => { loadCatalog() }, [loadCatalog])
+
+  useEffect(() => {
+    if (selectedPerson?.source_paths[0]) {
+      fetchAge(selectedPerson.source_paths[0])
+    }
+  }, [selectedPerson, fetchAge])
 
   const handleToggle = async (checked: boolean) => {
     setEnabled(checked)
@@ -172,6 +201,17 @@ export default function PeoplePage() {
       setNewPersonName("")
       loadCatalog()
     } catch (e) { setError(friendlyPeopleError(e, "reassign")) }
+  }
+
+  const handleIgnoreFace = async (facePath: string) => {
+    if (!catalogPath) return
+    const catalogDir = catalogPath.substring(0, Math.max(catalogPath.lastIndexOf("/"), catalogPath.lastIndexOf("\\")))
+    if (!catalogDir) return
+    const faceId = `${facePath}::0`
+    try {
+      await peopleFaceIgnore({ action: "add", face_id: faceId, catalog_dir: catalogDir })
+      setIgnoredFaces(prev => { const next = new Set(prev); next.add(faceId); return next })
+    } catch (e) { console.error(e) }
   }
 
   // ── Person Grid View ──
@@ -320,23 +360,30 @@ export default function PeoplePage() {
               <Button variant="ghost" size="sm" onClick={() => { setEditName(selectedPerson.name); setEditingName(true) }}><Pencil className="w-3.5 h-3.5" /></Button>
             </h1>
           )}
-          <p className="text-sm text-muted-foreground">{selectedPerson.face_count} {t("faces recognized", "Gesichter erkannt")}</p>
+          <p className="text-sm text-muted-foreground">{selectedPerson.face_count} {t("faces recognized", "Gesichter erkannt")}
+            {selectedPerson.source_paths.length > 0 && ageCache[selectedPerson.source_paths[0]]?.bracket && ageCache[selectedPerson.source_paths[0]]?.bracket !== "unknown" && (
+              <> &middot; <Badge variant="outline" className="text-[10px] align-middle">{t("Est. age:", "Geschätztes Alter:")} {ageCache[selectedPerson.source_paths[0]].bracket}</Badge></>
+            )}
+          </p>
         </div>
       </div>
 
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-        {selectedPerson.source_paths.map((path, i) => (
+        {selectedPerson.source_paths.filter(path => !ignoredFaces.has(`${path}::0`)).map((path, i) => (
           <div
             key={i}
             className="cursor-pointer rounded overflow-hidden hover:ring-2 hover:ring-primary transition-all"
             role="button"
             tabIndex={0}
-            onClick={() => { setModalImage(path); setModalPersonId(selectedPerson.person_id) }}
-            onKeyDown={(e) => e.key === 'Enter' && (setModalImage(path), setModalPersonId(selectedPerson.person_id))}
+            onClick={() => { setModalImage(path); setModalPersonId(selectedPerson.person_id); fetchAge(path) }}
+            onKeyDown={(e) => e.key === 'Enter' && (setModalImage(path), setModalPersonId(selectedPerson.person_id), fetchAge(path))}
           >
             <FaceThumb path={path} size={150} alt={selectedPerson.name} />
           </div>
         ))}
+        {selectedPerson.source_paths.filter(path => ignoredFaces.has(`${path}::0`)).length > 0 && (
+          <p className="col-span-full text-xs text-muted-foreground">{t("Hidden:", "Ausgeblendet:")} {selectedPerson.source_paths.filter(path => ignoredFaces.has(`${path}::0`)).length} {t("ignored faces", "ignorierte Gesichter")}</p>
+        )}
         {selectedPerson.source_paths.length === 0 && (
           <div className="col-span-full py-12 text-center text-muted-foreground">
             <ImageOff className="w-10 h-10 mx-auto mb-2" />
@@ -352,11 +399,22 @@ export default function PeoplePage() {
             <div className="space-y-4">
               <img src={convertFileSrc(modalImage)} alt={modalImage?.split(/[\\/]/).pop() || t("Person image", "Personenbild")} className="w-full max-h-[60vh] object-contain rounded" />
               {!showReassign ? (
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">{t("Person:", "Person:")} {selectedPerson?.name}</span>
-                  <Button variant="outline" size="sm" onClick={() => setShowReassign(true)}>
-                    {t("Not this person?", "Nicht diese Person?")}
-                  </Button>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">{t("Person:", "Person:")} {selectedPerson?.name}</span>
+                    {modalImage && ageCache[modalImage]?.bracket && ageCache[modalImage]?.bracket !== "unknown" && (
+                      <Badge variant="outline" className="text-[10px]">{ageCache[modalImage].bracket}</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => modalImage && handleIgnoreFace(modalImage)} title={t("Ignore this face", "Dieses Gesicht ignorieren")}>
+                      <EyeOff className="w-3.5 h-3.5 mr-1" />
+                      {t("Ignore", "Ignorieren")}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setShowReassign(true)}>
+                      {t("Not this person?", "Nicht diese Person?")}
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3 p-3 border rounded border-yellow-500/30 bg-yellow-500/5">

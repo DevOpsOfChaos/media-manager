@@ -30,6 +30,9 @@ import { cn } from "@/lib/utils"
 import { runPreflight } from "@/lib/preflight-guard"
 import { Zap, Loader2, Copy, MoveRight, Clock, BarChart3, Check, Shield, Archive } from "lucide-react"
 import { CameraImport } from "@/components/shared/CameraImport"
+import { CloudWatchFolders } from "@/components/shared/CloudWatchFolders"
+import { ExifToolPanel } from "@/components/shared/ExifToolPanel"
+import { ScriptHooks } from "@/components/shared/ScriptHooks"
 
 const QUICK_WORKFLOWS = [
   { id: "organize-date-library", label: "Organize Library", desc: "Sort photos into year/month/day folders", page: "/organize", icon: "📁" },
@@ -428,6 +431,8 @@ export default function DashboardPage() {
 
           <CameraImport />
 
+          <CloudWatchFolders />
+
           {/* Recently Added + Library Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
@@ -763,6 +768,12 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Power tools */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ExifToolPanel />
+            <ScriptHooks />
+          </div>
 
           {/* Quick navigation */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">

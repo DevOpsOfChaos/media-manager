@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { EmptyState } from "@/components/shared/EmptyState"
 import { libraryBrowsePaginated, fileOpen, fileReveal, fileDelete, fileRename, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
 import { convertFileSrc } from "@tauri-apps/api/core"
-import { FolderOpen, Film, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, File, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download } from "lucide-react"
+import { FolderOpen, Film, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, File, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,7 +27,9 @@ import { Slideshow } from "@/components/shared/Slideshow"
 import { SplitView } from "@/components/shared/SplitView"
 import { LABEL_COLORS } from "@/components/shared/ColorLabel"
 import { PickRejectBar, type FlagState } from "@/components/shared/PickRejectBar"
+import { EmailShare } from "@/components/shared/EmailShare"
 import { trackRecentlyViewed } from "@/components/shared/RecentFiles"
+import { WatchdogIndicator } from "@/components/shared/WatchdogIndicator"
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48, 96]
 
@@ -104,6 +106,8 @@ export default function LibraryPage() {
   })
   const [flagFilter, setFlagFilter] = useState<"all" | "pick" | "reject" | "unflagged">("all")
   const [splitViewOpen, setSplitViewOpen] = useState(false)
+  const [showEmailShare, setShowEmailShare] = useState(false)
+  const [showNetworkHint, setShowNetworkHint] = useState(false)
 
   const [exifData, setExifData] = useState<Record<string, string | number> | null>(null)
 
@@ -334,7 +338,7 @@ export default function LibraryPage() {
       </div>
 
       {/* Search bar */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 relative">
         <Input
           value={rootDir}
           onChange={e => setRootDir(e.target.value)}
@@ -342,12 +346,38 @@ export default function LibraryPage() {
           className="text-xs flex-1"
           onKeyDown={e => e.key === "Enter" && browse()}
         />
+        <Button variant="ghost" size="sm" className="text-[10px] h-6" onClick={() => setShowNetworkHint(p => !p)}>
+          <HardDrive className="h-3 w-3 mr-1" />
+          {t("Network", "Netzwerk")}
+        </Button>
+        {showNetworkHint && (
+          <div className="absolute top-full left-0 mt-1 bg-background border rounded p-2 shadow-lg z-10 w-64">
+            <p className="text-[10px] font-medium mb-1">{t("Common network paths:", "Häufige Netzwerkpfade:")}</p>
+            {[
+              "\\\\NAS\\Photos",
+              "\\\\SERVER\\Media",
+              "Z:\\Photos",
+              "/mnt/nas/photos",
+              "/Volumes/Media",
+            ].map(p => (
+              <button key={p} className="block text-[10px] text-left py-0.5 hover:bg-muted rounded px-1 w-full"
+                onClick={() => { setRootDir(p); setShowNetworkHint(false) }}>
+                <HardDrive className="h-2.5 w-2.5 mr-1 inline text-muted-foreground" />
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
         <Button onClick={browse} disabled={loading || !rootDir} size="sm">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : t("Browse", "Durchsuchen")}
         </Button>
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
+
+      {data && (
+        <WatchdogIndicator rootDir={rootDir} onRescan={browse} />
+      )}
 
       {/* Toolbar */}
       {data && (
@@ -785,6 +815,10 @@ export default function LibraryPage() {
             <FolderOpen className="h-3 w-3 mr-1" /> {t("Reveal", "Zeigen")}
           </Button>
 
+          <Button size="sm" variant="outline" onClick={() => setShowEmailShare(true)}>
+            <Mail className="h-3 w-3 mr-1" /> {t("Share", "Teilen")}
+          </Button>
+
           <Button size="sm" variant="outline" onClick={() => setSelectedPaths(new Set())}>
             {t("Clear", "Löschen")}
           </Button>
@@ -893,6 +927,15 @@ export default function LibraryPage() {
           files={currentFiles.filter(f => selectedPaths.has(f.path)).map(f => ({ path: f.path, name: f.name }))}
           onClose={() => setSplitViewOpen(false)}
         />
+      )}
+
+      {/* Email Share modal */}
+      {showEmailShare && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowEmailShare(false)}>
+          <div onClick={e => e.stopPropagation()}>
+            <EmailShare selectedPaths={Array.from(selectedPaths)} onClose={() => setShowEmailShare(false)} />
+          </div>
+        </div>
       )}
 
       {/* Drag & Drop overlay */}

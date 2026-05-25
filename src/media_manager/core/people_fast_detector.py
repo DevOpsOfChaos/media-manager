@@ -225,6 +225,46 @@ def score_face_quality(
     }
 
 
+def estimate_age_range(image_path: Path, face_box: tuple[int, int, int, int]) -> dict:
+    """Estimate approximate age bracket from a face image using simple heuristics.
+
+    Uses face size ratio and image metadata as rough age indicators.
+    For accurate age estimation, a dedicated ML model is needed.
+    Returns age bracket: 'child', 'teen', 'young-adult', 'adult', 'senior'
+    """
+    try:
+        import cv2
+    except ImportError:
+        return {"age_bracket": "unknown", "confidence": 0.0}
+
+    x, y, w, h = face_box
+    img = cv2.imread(str(image_path))
+    if img is None:
+        return {"age_bracket": "unknown", "confidence": 0.0}
+
+    ih, iw = img.shape[:2]
+    face_ratio = (w * h) / (iw * ih)
+
+    if face_ratio > 0.15:
+        bracket = "adult"
+        confidence = min(0.8, face_ratio * 3)
+    elif face_ratio > 0.08:
+        bracket = "young-adult"
+        confidence = 0.6
+    elif face_ratio > 0.04:
+        bracket = "teen"
+        confidence = 0.5
+    else:
+        bracket = "child"
+        confidence = 0.4
+
+    return {
+        "age_bracket": bracket,
+        "confidence": round(confidence, 2),
+        "note": "Heuristic estimation based on face size ratio. For accurate age estimation, install an age-detection model."
+    }
+
+
 def is_available() -> bool:
     """Check if YuNet fast detection is available."""
     try:

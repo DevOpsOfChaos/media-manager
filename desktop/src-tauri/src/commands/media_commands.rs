@@ -221,6 +221,24 @@ pub async fn people_catalog_info(app: tauri::AppHandle, options: Value) -> Resul
     result
 }
 
+#[tauri::command]
+pub async fn people_face_ignore(_app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options).map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_people", "face-ignore", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn people_face_age(_app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options).map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_people", "face-age", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn people_face_feedback(_app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options).map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_people", "face-feedback", &[], Some(&json))
+}
+
 // ── History / Runs ──
 
 #[tauri::command]
@@ -376,4 +394,11 @@ pub async fn file_web_gallery(options: Value) -> Result<Value, String> {
     let json = serde_json::to_string(&options)
         .map_err(|e| format!("Failed to serialize: {e}"))?;
     bridge()?.run_module("bridge_file_ops", "web_gallery", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn file_watermark(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_file_ops", "watermark", &[], Some(&json))
 }
