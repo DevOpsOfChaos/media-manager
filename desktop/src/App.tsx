@@ -4,6 +4,7 @@ import { useSettingsStore } from "@/stores/settings-store"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppSidebar } from "@/components/layout/AppSidebar"
+import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
 import { ProgressOverlay } from "@/components/shared/ProgressOverlay"
 
 function App() {
@@ -26,7 +27,7 @@ function App() {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <Outlet />
+          <ErrorBoundary><Outlet /></ErrorBoundary>
         </SidebarInset>
       </SidebarProvider>
       <ProgressOverlay />
