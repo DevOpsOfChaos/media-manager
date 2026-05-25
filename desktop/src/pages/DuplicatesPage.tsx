@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
+import { CheckSquare, Square, Trash2, Info } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -92,6 +93,27 @@ export default function DuplicatesPage() {
     })
   }, [])
 
+  const selectAllGroups = useCallback(() => {
+    const active = tab === "exact" ? exactPreview : null
+    if (!active?.exact_groups) return
+    setSelectedGroups(new Set(active.exact_groups.map(g => g.full_digest)))
+  }, [tab, exactPreview])
+
+  const deselectAllGroups = useCallback(() => {
+    setSelectedGroups(new Set())
+  }, [])
+
+  const totalWastedBytes = useMemo(() => {
+    const active = tab === "exact" ? exactPreview : null
+    if (!active?.exact_groups) return 0
+    let bytes = 0
+    for (const g of active.exact_groups) {
+      if (selectedGroups.has(g.full_digest) && g.file_size && g.files?.length > 1) {
+        bytes += g.file_size * (g.files.length - 1)
+      }
+    }
+    return bytes
+  }, [tab, exactPreview, selectedGroups])
 
   const handleDeleteSelected = useCallback(() => {
     if (selectedGroups.size === 0) return
@@ -250,6 +272,13 @@ export default function DuplicatesPage() {
                 </div>
               )}
 
+              {tab === "similar" && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+                  <Info className="w-3.5 h-3.5" />
+                  Similar image deletion is not yet available. Use the Exact Duplicates tab to delete byte-identical copies.
+                </div>
+              )}
+
               <div className="flex items-center gap-3">
                 <Button onClick={handleScan} disabled={loading} size="sm">
                   {loading ? "Scanning..." : tab === "exact" ? "Scan for exact duplicates" : "Scan for similar images"}
@@ -264,9 +293,15 @@ export default function DuplicatesPage() {
                     <p className="text-sm font-medium text-red-400 mb-2">
                       Confirm Deletion
                     </p>
-                    <p className="text-xs text-muted-foreground mb-3">
+                    <p className="text-xs text-muted-foreground mb-1">
                       This will permanently DELETE {selectedGroups.size} duplicate groups. This action CANNOT be undone. Deleted files are gone forever.
                     </p>
+                    {totalWastedBytes > 0 && (
+                      <p className="text-xs text-green-400 mb-3">
+                        <Trash2 className="w-3 h-3 inline mr-1" />
+                        {(totalWastedBytes / 1024 / 1024).toFixed(1)} MB will be freed
+                      </p>
+                    )}
                     <div className="flex gap-2">
                       <Button onClick={confirmDelete} variant="destructive" size="sm">
                         Yes, delete {selectedGroups.size} groups
@@ -315,6 +350,9 @@ export default function DuplicatesPage() {
               onCopyPath={copyPath}
               selectedGroups={selectedGroups}
               onToggleGroupSelection={toggleGroupSelection}
+              selectAllGroups={selectAllGroups}
+              deselectAllGroups={deselectAllGroups}
+              totalWastedBytes={totalWastedBytes}
             />
           )}
 
@@ -374,6 +412,9 @@ function ExactResults({
   onCopyPath,
   selectedGroups,
   onToggleGroupSelection,
+  selectAllGroups,
+  deselectAllGroups,
+  totalWastedBytes,
 }: {
   preview: DuplicatesPreviewResponse
   filteredGroups: ExactDuplicateGroup[]
@@ -387,6 +428,9 @@ function ExactResults({
   onCopyPath: (path: string) => void
   selectedGroups: Set<string>
   onToggleGroupSelection: (groupId: string) => void
+  selectAllGroups: () => void
+  deselectAllGroups: () => void
+  totalWastedBytes: number
 }) {
   return (
     <>
@@ -407,7 +451,39 @@ function ExactResults({
       {preview.exact_groups.length === 0 ? (
         <EmptyState title="No exact duplicates found" description="All scanned files have unique content." />
       ) : (
-        <GroupsCard
+        <>
+          {preview.exact_groups && preview.exact_groups.length > 0 && (
+            <div className="flex items-center justify-between mb-2 px-1">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={selectAllGroups}
+                  className="text-xs h-7"
+                >
+                  <CheckSquare className="w-3.5 h-3.5 mr-1" />
+                  Select all ({preview.exact_groups.length})
+                </Button>
+                {selectedGroups.size > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={deselectAllGroups}
+                    className="text-xs h-7"
+                  >
+                    <Square className="w-3.5 h-3.5 mr-1" />
+                    Deselect all
+                  </Button>
+                )}
+              </div>
+              {selectedGroups.size > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {selectedGroups.size} selected · {(totalWastedBytes / 1024 / 1024).toFixed(1)} MB wasted
+                </span>
+              )}
+            </div>
+          )}
+          <GroupsCard
           title={`Duplicate groups (${filteredGroups.length}${filteredGroups.length !== preview.exact_groups.length ? ` of ${preview.exact_groups.length}` : ""})`}
           filterPath={filterPath}
           onFilterChange={onFilterChange}
@@ -416,7 +492,7 @@ function ExactResults({
           onToggleGroup={onToggleGroup}
           onCopyPath={onCopyPath}
           renderGroup={(g) => (
-            <div key={(g as ExactDuplicateGroup).full_digest} className="flex items-start gap-2">
+            <div key={(g as ExactDuplicateGroup).full_digest} className={`flex items-start gap-2 ${selectedGroups.has((g as ExactDuplicateGroup).full_digest) ? "ring-1 ring-red-500/30" : ""}`}>
               <input
                 type="checkbox"
                 checked={selectedGroups.has((g as ExactDuplicateGroup).full_digest)}
@@ -430,6 +506,7 @@ function ExactResults({
           )}
           groups={filteredGroups}
         />
+        </>
       )}
     </>
   )

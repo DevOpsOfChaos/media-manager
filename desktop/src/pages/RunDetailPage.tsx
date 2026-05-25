@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
+import { RotateCcw } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -80,10 +81,12 @@ export default function RunDetailPage() {
           <div className="flex items-center gap-2">
             {detail?.has_journal && (
               <>
-              <Button onClick={handleUndoPreview} disabled={undoLoading} variant="destructive" size="sm" title="Reverse this operation using the execution journal">
-                {undoLoading ? "Loading..." : "Undo"}
+              <Button onClick={handleUndoPreview} disabled={undoLoading} variant="destructive" size="sm">
+                <RotateCcw className="w-4 h-4 mr-1" />
+                Undo
               </Button>
               <span className="text-xs text-muted-foreground hidden sm:inline">→ preview, then confirm</span>
+              <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[10px] rounded border border-border ml-2 text-muted-foreground">Ctrl+Z</kbd>
               </>
             )}
             <Button variant="outline" size="sm" onClick={() => navigate("/history")}>
@@ -132,9 +135,21 @@ export default function RunDetailPage() {
                     <InfoRow label="Next action" value={detail.next_action} />
                   )}
                   <InfoRow label="Valid" value={detail.valid ? "Yes" : "No"} />
-            {detail?.has_journal && (
-                    <InfoRow label="Journal" value="Available (undo possible)" />
-                  )}
+                {detail.has_journal && (
+                  <>
+                    <InfoRow label="Journal">
+                      <span className="text-sm text-green-400">Available</span>
+                    </InfoRow>
+                    <div className="mt-2 pt-2 border-t border-border/50">
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        An execution journal records every file operation from the apply run —
+                        source paths, target paths, and how to reverse each action.
+                        Click <span className="font-medium text-foreground">Undo</span> to preview
+                        and reverse these operations.
+                      </p>
+                    </div>
+                  </>
+                )}
                   {detail.missing_files.length > 0 && (
                     <InfoRow
                       label="Missing files"
@@ -196,7 +211,13 @@ export default function RunDetailPage() {
             <Card className="border-yellow-500/50 mt-4">
               <CardHeader><CardTitle className="text-yellow-400">Undo Preview</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <p>This will reverse {undoPreviewResult.planned_count} actions ({undoPreviewResult.reversible_entry_count} reversible entries).</p>
+                <p>This will reverse {undoPreviewResult.planned_count} file operations.</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {undoPreviewResult.reversible_entry_count} of {undoPreviewResult.planned_count} operations can be safely reversed.
+                  {undoPreviewResult.planned_count - undoPreviewResult.reversible_entry_count > 0
+                    ? `${undoPreviewResult.planned_count - undoPreviewResult.reversible_entry_count} operations cannot be undone (files may no longer exist at their original location).`
+                    : "All operations can be fully reversed."}
+                </p>
                 <div className="flex gap-2 mt-2">
                   <Button onClick={handleUndoApply} variant="default" size="sm">Confirm Undo</Button>
                   <Button onClick={() => setUndoPreviewResult(null)} variant="ghost" size="sm">Cancel</Button>
