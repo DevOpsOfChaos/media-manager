@@ -335,6 +335,20 @@ export async function tripApply(options: TripOptions): Promise<TripApplyResponse
   return invoke("trip_apply", { options })
 }
 
+// ── Library ──
+
+export interface LibraryBrowseResult {
+  kind: string
+  root: string
+  file_count: number
+  depth: number
+  files: Array<{ path: string; name: string; relative: string; size: number; suffix: string }>
+}
+
+export async function libraryBrowse(options: { root_dir: string; max_depth?: number }): Promise<LibraryBrowseResult> {
+  return invoke("library_browse", { options })
+}
+
 // ── Doctor ──
 
 export interface DoctorReport {

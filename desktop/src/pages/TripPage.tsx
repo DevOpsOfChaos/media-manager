@@ -1,148 +1,224 @@
 import { useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { tripPreview, tripApply, type TripPreviewResponse, type TripApplyResponse } from "@/lib/tauri-bridge"
-import { PreflightCheck } from "@/components/shared/PreflightCheck"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { tripPreview, tripApply, type TripOptions, type TripApplyResponse } from "@/lib/tauri-bridge"
+import { libraryBrowse } from "@/lib/tauri-bridge"
+import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
-import { Plane, Link, Copy, Loader2 } from "lucide-react"
+import { Plane, Plus, FolderOpen, Loader2, ImageOff, ChevronRight } from "lucide-react"
+
+interface TripEntry {
+  name: string
+  path: string
+  fileCount: number
+  thumbnail: string | null
+}
 
 export default function TripPage() {
+  const [tripsRoot, setTripsRoot] = useState(() => localStorage.getItem("trips_root") || "")
+  const [trips, setTrips] = useState<TripEntry[]>([])
+  const [loadingTrips, setLoadingTrips] = useState(false)
+
+  // Create trip dialog
+  const [showCreate, setShowCreate] = useState(false)
   const [sourceDir, setSourceDir] = useState("")
-  const [targetDir, setTargetDir] = useState("")
   const [label, setLabel] = useState("")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
   const [useHardlinks, setUseHardlinks] = useState(true)
-  const [loading, setLoading] = useState(false)
-  const [preview, setPreview] = useState<TripPreviewResponse | null>(null)
-  const [result, setResult] = useState<TripApplyResponse | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [createResult, setCreateResult] = useState<TripApplyResponse | null>(null)
+  const [createError, setCreateError] = useState<string | null>(null)
 
-  const options = {
-    source_dirs: sourceDir ? [sourceDir] : [],
-    target_root: targetDir,
-    label: label || "trip",
-    start_date: startDate,
-    end_date: endDate,
-    use_hardlinks: useHardlinks,
+  // Trip detail view
+  const [selectedTrip, setSelectedTrip] = useState<TripEntry | null>(null)
+
+  const loadTrips = useCallback(async () => {
+    if (!tripsRoot) return
+    setLoadingTrips(true)
+    try {
+      const result = await libraryBrowse({ root_dir: tripsRoot, max_depth: 1 })
+      // Group by top-level directories = trips
+      const tripMap = new Map<string, { files: number; thumb: string | null }>()
+      for (const f of result.files || []) {
+        const parts = f.relative.replace(/\\/g, "/").split("/")
+        const tripName = parts[0] || "unknown"
+        if (!tripMap.has(tripName)) tripMap.set(tripName, { files: 0, thumb: null })
+        const t = tripMap.get(tripName)!
+        t.files++
+        if (!t.thumb && [".jpg", ".jpeg", ".png"].includes(f.suffix)) t.thumb = f.path
+      }
+      const entries: TripEntry[] = []
+      for (const [name, info] of tripMap) {
+        entries.push({ name, path: `${tripsRoot}/${name}`, fileCount: info.files, thumbnail: info.thumb })
+      }
+      entries.sort((a, b) => b.name.localeCompare(a.name))
+      setTrips(entries)
+    } catch { /* ignore */ }
+    finally { setLoadingTrips(false) }
+  }, [tripsRoot])
+
+  // Load trips on mount if root is set
+  useState(() => { if (tripsRoot) loadTrips() })
+
+  const handleCreate = async () => {
+    if (!sourceDir || !label || !startDate || !endDate) return
+    setCreating(true); setCreateError(null); setCreateResult(null)
+    try {
+      const options: TripOptions = {
+        source_dirs: [sourceDir],
+        target_root: tripsRoot,
+        label,
+        start_date: startDate,
+        end_date: endDate,
+        use_hardlinks: useHardlinks,
+      }
+      const preview = await tripPreview(options)
+      if (preview.planned_count > 0) {
+        const result = await tripApply(options)
+        setCreateResult(result)
+        loadTrips()
+      }
+    } catch (e) { setCreateError(String(e)) }
+    finally { setCreating(false) }
   }
 
-  const handlePreview = useCallback(async () => {
-    if (!sourceDir || !targetDir || !startDate || !endDate) return
-    setLoading(true); setError(null); setPreview(null); setResult(null)
-    try {
-      const p = await tripPreview(options)
-      setPreview(p)
-    } catch (e) { setError(String(e)) }
-    finally { setLoading(false) }
-  }, [sourceDir, targetDir, label, startDate, endDate, useHardlinks])
-
-  const handleApply = useCallback(async () => {
-    setLoading(true); setError(null); setResult(null)
-    try {
-      const r = await tripApply(options)
-      setResult(r)
-    } catch (e) { setError(String(e)) }
-    finally { setLoading(false) }
-  }, [sourceDir, targetDir, label, startDate, endDate, useHardlinks])
-
-  return (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <Plane className="w-6 h-6 text-primary" />
-        <div>
-          <h1 className="text-xl font-bold">Trip Collection</h1>
-          <p className="text-sm text-muted-foreground">Build a collection from a date range using hardlinks or copies.</p>
+  // ── Trip Detail View ──
+  if (selectedTrip) {
+    const TripDetailView = () => {
+      const [files, setFiles] = useState<Array<{path:string;name:string;suffix:string;size:number}>>([])
+      const [loadingFiles, setLoadingFiles] = useState(false)
+      useState(() => {
+        setLoadingFiles(true)
+        libraryBrowse({ root_dir: selectedTrip.path }).then(r => { setFiles(r.files); setLoadingFiles(false) }).catch(() => setLoadingFiles(false))
+      })
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setSelectedTrip(null)}>← Back</Button>
+            <h1 className="text-xl font-bold">{selectedTrip.name}</h1>
+            <Badge variant="secondary">{selectedTrip.fileCount} files</Badge>
+          </div>
+          {selectedTrip.thumbnail && (
+            <img src={convertFileSrc(selectedTrip.thumbnail)} alt="" className="w-full max-h-48 object-cover rounded-lg" />
+          )}
+          {loadingFiles ? (
+            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+              {files.slice(0, 200).map((f, i) => (
+                <div key={i} className="aspect-square bg-muted rounded overflow-hidden">
+                  {[".jpg",".jpeg",".png"].includes(f.suffix) ? (
+                    <img src={convertFileSrc(f.path)} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><FolderOpen className="w-8 h-8" /></div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+      )
+    }
+    return <div className="max-w-6xl mx-auto p-6"><TripDetailView /></div>
+  }
+
+  // ── Main Dashboard ──
+  return (
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Plane className="w-6 h-6 text-primary" />
+          <div>
+            <h1 className="text-xl font-bold">Trips</h1>
+            <p className="text-sm text-muted-foreground">Your trip collections.</p>
+          </div>
+        </div>
+        <Button onClick={() => setShowCreate(true)} size="sm">
+          <Plus className="w-4 h-4 mr-1" /> New Trip
+        </Button>
       </div>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Trip Settings</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+      <div className="flex items-center gap-2">
+        <Input value={tripsRoot} onChange={e => { setTripsRoot(e.target.value); localStorage.setItem("trips_root", e.target.value) }} placeholder="Trips root directory (e.g. C:\Trips)" className="text-xs w-64" />
+        <Button onClick={loadTrips} variant="outline" size="sm" disabled={!tripsRoot || loadingTrips}>
+          {loadingTrips ? <Loader2 className="w-4 h-4 animate-spin" /> : "Refresh"}
+        </Button>
+        {trips.length > 0 && <Badge variant="secondary" className="ml-auto">{trips.length} trips</Badge>}
+      </div>
+
+      {trips.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {trips.map(trip => (
+            <Card key={trip.name} className="overflow-hidden cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setSelectedTrip(trip)}>
+              <div className="aspect-video bg-muted relative overflow-hidden">
+                {trip.thumbnail ? (
+                  <img src={convertFileSrc(trip.thumbnail)} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center"><ImageOff className="w-10 h-10 text-muted-foreground/30" /></div>
+                )}
+              </div>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{trip.name}</p>
+                    <p className="text-xs text-muted-foreground">{trip.fileCount} files</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : !loadingTrips ? (
+        <EmptyState title="No trips yet" description={tripsRoot ? "Click 'New Trip' to create your first trip collection." : "Set your trips root directory above, then click Refresh."} />
+      ) : null}
+
+      {/* Create Trip Dialog */}
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>New Trip</DialogTitle></DialogHeader>
+          <div className="space-y-3">
             <div className="space-y-1">
-              <span className="text-xs font-medium">Source Directory</span>
+              <label className="text-xs font-medium">Source Directory</label>
               <Input value={sourceDir} onChange={e => setSourceDir(e.target.value)} placeholder="C:\Photos" className="text-xs" />
             </div>
             <div className="space-y-1">
-              <span className="text-xs font-medium">Target Directory</span>
-              <Input value={targetDir} onChange={e => setTargetDir(e.target.value)} placeholder="C:\Trips" className="text-xs" />
+              <label className="text-xs font-medium">Trip Label</label>
+              <Input value={label} onChange={e => setLabel(e.target.value)} placeholder="Italy_2025" className="text-xs" />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Start (YYYY-MM-DD)</label>
+                <Input value={startDate} onChange={e => setStartDate(e.target.value)} placeholder="2025-06-01" className="text-xs" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">End (YYYY-MM-DD)</label>
+                <Input value={endDate} onChange={e => setEndDate(e.target.value)} placeholder="2025-06-15" className="text-xs" />
+              </div>
+            </div>
+            <div className="flex items-center gap-4 text-xs">
+              <label className="flex items-center gap-1"><input type="radio" checked={useHardlinks} onChange={() => setUseHardlinks(true)} /> Hardlinks</label>
+              <label className="flex items-center gap-1"><input type="radio" checked={!useHardlinks} onChange={() => setUseHardlinks(false)} /> Copy</label>
+            </div>
+            {createError && <p className="text-xs text-red-400">{createError}</p>}
+            {createResult && (
+              <Card className="border-green-500/30"><CardContent className="py-2 text-xs">
+                <p className="text-green-400">Trip created! {createResult.linked_count} linked, {createResult.copied_count} copied</p>
+              </CardContent></Card>
+            )}
           </div>
-          <div className="space-y-1">
-            <span className="text-xs font-medium">Trip Label</span>
-            <Input value={label} onChange={e => setLabel(e.target.value)} placeholder="Italy_2025" className="text-xs" />
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="ghost" size="sm" onClick={() => setShowCreate(false)}>Cancel</Button>
+            <Button size="sm" onClick={handleCreate} disabled={creating || !sourceDir || !label || !startDate || !endDate}>
+              {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Trip"}
+            </Button>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <span className="text-xs font-medium">Start Date (YYYY-MM-DD)</span>
-              <Input value={startDate} onChange={e => setStartDate(e.target.value)} placeholder="2025-06-01" className="text-xs" />
-            </div>
-            <div className="space-y-1">
-              <span className="text-xs font-medium">End Date (YYYY-MM-DD)</span>
-              <Input value={endDate} onChange={e => setEndDate(e.target.value)} placeholder="2025-06-15" className="text-xs" />
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <label className="text-xs flex items-center gap-2 cursor-pointer">
-              <input type="radio" checked={useHardlinks} onChange={() => setUseHardlinks(true)} />
-              <Link className="w-3.5 h-3.5" /> Hardlinks (no extra space)
-            </label>
-            <label className="text-xs flex items-center gap-2 cursor-pointer">
-              <input type="radio" checked={!useHardlinks} onChange={() => setUseHardlinks(false)} />
-              <Copy className="w-3.5 h-3.5" /> Copy files
-            </label>
-          </div>
-        </CardContent>
-      </Card>
-
-      <PreflightCheck sourceDirs={sourceDir ? [sourceDir] : []} targetRoot={targetDir} command="trip" />
-
-      <div className="flex gap-2">
-        <Button onClick={handlePreview} disabled={loading || !sourceDir || !targetDir || !startDate || !endDate} size="sm">
-          {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Scanning...</> : "Preview"}
-        </Button>
-        {preview && preview.planned_count > 0 && (
-          <Button onClick={handleApply} disabled={loading} variant="default" size="sm">
-            Apply ({preview.planned_count} files)
-          </Button>
-        )}
-      </div>
-
-      {error && <p className="text-sm text-red-400">{error}</p>}
-
-      {preview && (
-        <Card className="border-blue-500/30">
-          <CardHeader><CardTitle className="text-sm">Trip Preview</CardTitle></CardHeader>
-          <CardContent>
-            <div className="flex gap-3 text-sm">
-              <Badge variant="outline">{preview.matched_count} matched</Badge>
-              <Badge variant="outline">{preview.planned_count} planned</Badge>
-              <Badge variant="secondary">{preview.skipped_count} skipped</Badge>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {result && (
-        <Card className="border-green-500/30">
-          <CardHeader><CardTitle className="text-sm text-green-400">Trip Created</CardTitle></CardHeader>
-          <CardContent>
-            <div className="flex gap-3 text-sm">
-              <Badge>{result.linked_count} linked</Badge>
-              <Badge>{result.copied_count} copied</Badge>
-              <Badge variant="secondary">{result.skipped_count} skipped</Badge>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {!preview && !result && !loading && (
-        <EmptyState title="No trip configured" description="Set your source, target, date range and label above, then click Preview." />
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

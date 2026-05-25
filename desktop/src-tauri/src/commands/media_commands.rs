@@ -298,3 +298,11 @@ pub async fn doctor_check(app: tauri::AppHandle, options: Value) -> Result<Value
         Some(if result.is_ok() { "success" } else { "failed" }));
     result
 }
+
+// ── Library ──
+
+#[tauri::command]
+pub async fn library_browse(_app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options).map_err(|e| format!("{e}"))?;
+    bridge()?.run_module("bridge_library", "browse", &[], Some(&json))
+}

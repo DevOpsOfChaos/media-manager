@@ -44,6 +44,8 @@ pub fn run() {
             media_commands::trip_apply,
             // Doctor
             media_commands::doctor_check,
+            // Library
+            media_commands::library_browse,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

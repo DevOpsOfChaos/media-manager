@@ -44,7 +44,7 @@ def cmd_check() -> int:
             follow_symlinks=payload.get("follow_symlinks", False),
             include_patterns=tuple(payload.get("include_patterns", ())),
             exclude_patterns=tuple(payload.get("exclude_patterns", ())),
-            max_scan_files=payload.get("max_scan_files", 5000),
+            max_scan_files=payload.get("max_scan_files", 0),
             exiftool_path=Path(payload["exiftool_path"]) if payload.get("exiftool_path") else None,
         )
     except (TypeError, ValueError) as exc:

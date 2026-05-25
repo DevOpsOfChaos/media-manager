@@ -52,8 +52,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-scan-files",
         type=int,
-        default=5000,
-        help="Maximum number of filesystem entries to inspect per diagnostic run. Default: 5000.",
+        default=0,
+        help="Maximum number of filesystem entries to inspect per diagnostic run. 0 = unlimited.",
     )
     parser.add_argument("--fail-on-warnings", action="store_true", help="Return exit code 1 when warnings are found.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON output.")

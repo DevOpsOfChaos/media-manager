@@ -27,7 +27,7 @@ class DoctorOptions:
     recursive: bool = True
     include_hidden: bool = False
     follow_symlinks: bool = False
-    max_scan_files: int = 5000
+    max_scan_files: int = 0
 
 
 @dataclass(slots=True, frozen=True)
@@ -176,7 +176,7 @@ def _check_sources(report: DoctorReport) -> None:
 
         scanned = 0
         for candidate in _iter_candidate_files(source_root, recursive=options.recursive, follow_symlinks=options.follow_symlinks):
-            if scanned >= max(0, options.max_scan_files):
+            if options.max_scan_files > 0 and scanned >= options.max_scan_files:
                 preview.scan_limited = True
                 break
             scanned += 1
@@ -211,10 +211,10 @@ def _check_sources(report: DoctorReport) -> None:
             _diagnostic(
                 report,
                 "source.scan_limited",
-                "info",
-                "Source preview stopped at the configured scan limit.",
+                "warning",
+                "Large directory detected — scan preview was capped.",
                 path=source_root,
-                hint="Increase --max-scan-files for a fuller diagnostic preview.",
+                hint="Scan proceeds without limit during actual operations. Set --max-scan-files higher to expand this preview.",
             )
         if (options.include_patterns or options.exclude_patterns) and preview.scanned_file_count > 0 and preview.included_file_count == 0:
             _diagnostic(
