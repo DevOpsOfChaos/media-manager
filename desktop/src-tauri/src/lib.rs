@@ -83,6 +83,7 @@ pub fn run() {
             media_commands::file_contact_sheet,
             media_commands::file_web_gallery,
             media_commands::file_watermark,
+            media_commands::read_thumbnails_batch,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

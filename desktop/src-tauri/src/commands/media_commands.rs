@@ -402,3 +402,36 @@ pub async fn file_watermark(options: Value) -> Result<Value, String> {
         .map_err(|e| format!("Failed to serialize: {e}"))?;
     bridge()?.run_module("bridge_file_ops", "watermark", &[], Some(&json))
 }
+
+#[tauri::command]
+pub async fn read_thumbnails_batch(paths: Vec<String>) -> Result<Vec<String>, String> {
+    use std::fs;
+    use std::io::Read;
+
+    let mut results = Vec::with_capacity(paths.len());
+
+    for path in &paths {
+        let mime = if path.to_lowercase().ends_with(".png") { "image/png" }
+        else if path.to_lowercase().ends_with(".gif") { "image/gif" }
+        else if path.to_lowercase().ends_with(".webp") { "image/webp" }
+        else { "image/jpeg" };
+
+        match fs::File::open(path) {
+            Ok(file) => {
+                let mut buf = Vec::new();
+                if file.take(64 * 1024).read_to_end(&mut buf).is_ok() && !buf.is_empty() {
+                    use base64::Engine;
+                    let b64 = base64::engine::general_purpose::STANDARD.encode(&buf);
+                    results.push(format!("data:{};base64,{}", mime, b64));
+                } else {
+                    results.push(String::new());
+                }
+            }
+            Err(_) => {
+                results.push(String::new());
+            }
+        }
+    }
+
+    Ok(results)
+}

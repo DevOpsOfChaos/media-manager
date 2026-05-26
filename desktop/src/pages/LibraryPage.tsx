@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
+import { invoke } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
@@ -9,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { EmptyState } from "@/components/shared/EmptyState"
 import { fileOpen, fileReveal, fileDelete, fileRename, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
 
-import { FolderOpen, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive } from "lucide-react"
+import { FolderOpen, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive, Film } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +26,6 @@ import { TagInput } from "@/components/shared/TagInput"
 import { TagCloud } from "@/components/shared/TagCloud"
 import { Slideshow } from "@/components/shared/Slideshow"
 import { SplitView } from "@/components/shared/SplitView"
-import { LazyImage } from "@/components/shared/LazyImage"
 import { LABEL_COLORS } from "@/components/shared/ColorLabel"
 import { PickRejectBar, type FlagState } from "@/components/shared/PickRejectBar"
 import { EmailShare } from "@/components/shared/EmailShare"
@@ -52,6 +52,10 @@ function formatSize(bytes: number): string {
 
 function isVideoFile(suffix: string): boolean {
   return [".mp4", ".mov", ".avi", ".mkv", ".webm"].includes(suffix)
+}
+
+function isImageFile(suffix: string): boolean {
+  return !isVideoFile(suffix)
 }
 
 export default function LibraryPage() {
@@ -119,6 +123,14 @@ export default function LibraryPage() {
     isoMax?: number
     apertureMin?: string
   }>({})
+  const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string>>({})
+  const [fileTypes, setFileTypes] = useState<string[]>([])
+  const [dateFrom, setDateFrom] = useState("")
+  const [dateTo, setDateTo] = useState("")
+  const [sizeMin, setSizeMin] = useState("")
+  const [sizeMax, setSizeMax] = useState("")
+  const [sortBy, setSortBy] = useState<"name" | "date" | "size" | "">("")
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
   const [dragOver, setDragOver] = useState(false)
   const [compareDir, setCompareDir] = useState("")
   const [compareData, setCompareData] = useState<LibraryBrowsePaginatedResult | null>(null)
@@ -302,6 +314,41 @@ export default function LibraryPage() {
   const currentFiles = loadedPages.get(page) || []
   const totalPages = data?.total_pages || 1
 
+  // Batch-load thumbnails for current page
+  useEffect(() => {
+    if (currentFiles.length === 0) return
+
+    const paths = currentFiles
+      .filter(f => isImageFile(f.suffix))
+      .map(f => f.path)
+
+    if (paths.length === 0) return
+
+    const chunkSize = 12
+    const loadChunk = async (startIdx: number) => {
+      const chunk = paths.slice(startIdx, startIdx + chunkSize)
+      if (chunk.length === 0) return
+
+      try {
+        const urls = await invoke<string[]>("read_thumbnails_batch", { paths: chunk })
+        setThumbnailUrls(prev => {
+          const next = { ...prev }
+          chunk.forEach((path, i) => {
+            if (urls[i]) next[path] = urls[i]
+          })
+          return next
+        })
+      } catch (e) { console.error("Batch thumbnail failed:", e) }
+
+      if (startIdx + chunkSize < paths.length) {
+        setTimeout(() => loadChunk(startIdx + chunkSize), 100)
+      }
+    }
+
+    setThumbnailUrls({})
+    loadChunk(0)
+  }, [currentFiles])
+
   const crossDupes = useMemo(() => {
     if (!compareData || !data) return new Set<string>()
     const compareNames = new Set(compareData.files.map((f: any) => f.name))
@@ -332,8 +379,34 @@ export default function LibraryPage() {
         return true
       })
     }
+    if (fileTypes.length > 0) {
+      files = files.filter(f => fileTypes.includes(f.category))
+    }
+    if (dateFrom) {
+      files = files.filter(f => f.modified >= dateFrom)
+    }
+    if (dateTo) {
+      files = files.filter(f => f.modified <= dateTo + "T23:59:59")
+    }
+    if (sizeMin) {
+      const min = Number(sizeMin) * 1024
+      files = files.filter(f => f.size >= min)
+    }
+    if (sizeMax) {
+      const max = Number(sizeMax) * 1024
+      files = files.filter(f => f.size <= max)
+    }
+    if (sortBy) {
+      files = [...files].sort((a, b) => {
+        let cmp = 0
+        if (sortBy === "name") cmp = a.name.localeCompare(b.name)
+        else if (sortBy === "date") cmp = a.modified.localeCompare(b.modified)
+        else if (sortBy === "size") cmp = a.size - b.size
+        return sortDir === "desc" ? -cmp : cmp
+      })
+    }
     return files
-  }, [currentFiles, filter, tagFilter, fileTags, flagFilter, fileFlags])
+  }, [currentFiles, filter, tagFilter, fileTags, flagFilter, fileFlags, fileTypes, dateFrom, dateTo, sizeMin, sizeMax, sortBy, sortDir])
 
   return (
     <>
@@ -433,21 +506,86 @@ export default function LibraryPage() {
                 />
               </div>
             )}
-            <div className="flex items-center gap-1 border rounded p-0.5">
-              {(["all", "pick", "reject", "unflagged"] as const).map(f => (
-                <button
-                  key={f}
-                  onClick={() => { setFlagFilter(f); setPage(0) }}
-                  className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
-                    flagFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {f === "all" ? t("All", "Alle") :
-                   f === "pick" ? t("Picks", "Auswahl") :
-                   f === "reject" ? t("Rejects", "Abgelehnt") :
-                   t("Unflagged", "Unmarkiert")}
-                </button>
-              ))}
+            <div className="flex items-center gap-1 flex-wrap">
+              <button onClick={() => {
+                  setFileTypes([]); setDateFrom(""); setDateTo(""); setFlagFilter("all")
+                  setSizeMin(""); setSizeMax(""); setSortBy(""); setPage(0)
+                }}
+                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                  (!fileTypes.length && !dateFrom && !dateTo && flagFilter === "all" && !sortBy)
+                    ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                {t("All", "Alle")}
+              </button>
+              <button onClick={() => { setFileTypes(["photo"]); setPage(0) }}
+                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                  fileTypes.length === 1 && fileTypes[0] === "photo" ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                🖼️ {t("Photos", "Fotos")}
+              </button>
+              <button onClick={() => { setFileTypes(["video"]); setPage(0) }}
+                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                  fileTypes.length === 1 && fileTypes[0] === "video" ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                🎬 {t("Videos", "Videos")}
+              </button>
+              <button onClick={() => { setFileTypes(["raw"]); setPage(0) }}
+                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                  fileTypes.length === 1 && fileTypes[0] === "raw" ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                📷 RAW
+              </button>
+              <button onClick={() => {
+                  const today = new Date().toISOString().slice(0, 10)
+                  setDateFrom(today); setDateTo(today); setPage(0)
+                }}
+                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                  dateFrom && dateFrom === dateTo ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                📅 {t("Today", "Heute")}
+              </button>
+              <button onClick={() => {
+                  const now = new Date()
+                  const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10)
+                  setDateFrom(weekAgo); setDateTo(now.toISOString().slice(0, 10)); setPage(0)
+                }}
+                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                  dateFrom && dateTo && !(dateFrom === dateTo) ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                📅 {t("Week", "Woche")}
+              </button>
+              <button onClick={() => {
+                  const now = new Date()
+                  const monthAgo = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10)
+                  setDateFrom(monthAgo); setDateTo(now.toISOString().slice(0, 10)); setPage(0)
+                }}
+                className="text-[10px] px-2 py-0.5 rounded-full border text-muted-foreground hover:text-foreground transition-colors">
+                📅 {t("Month", "Monat")}
+              </button>
+              <button onClick={() => { setFlagFilter(flagFilter === "pick" ? "all" : "pick"); setPage(0) }}
+                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                  flagFilter === "pick" ? "bg-green-500 text-white border-green-500" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                ✅ {t("Picks", "Picks")}
+              </button>
+              <button onClick={() => { setFlagFilter(flagFilter === "reject" ? "all" : "reject"); setPage(0) }}
+                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                  flagFilter === "reject" ? "bg-red-500 text-white border-red-500" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                ❌ {t("Rejects", "Rejects")}
+              </button>
+              <button onClick={() => { setSortBy("date"); setSortDir(sortBy === "date" && sortDir === "desc" ? "asc" : "desc"); setPage(0) }}
+                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                  sortBy === "date" ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                🆕 {sortBy === "date" && sortDir === "desc" ? t("Newest", "Neueste") : sortBy === "date" ? t("Oldest", "Älteste") : t("By date", "Nach Datum")}
+              </button>
+              <button onClick={() => { setSortBy("size"); setSortDir(sortBy === "size" && sortDir === "desc" ? "asc" : "desc"); setPage(0) }}
+                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                  sortBy === "size" ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                📦 {sortBy === "size" && sortDir === "desc" ? t("Largest", "Größte") : sortBy === "size" ? t("Smallest", "Kleinste") : t("By size", "Nach Größe")}
+              </button>
             </div>
             {(tagFilter.length > 0 || flagFilter !== "all") && (
               <Button variant="outline" size="sm" onClick={() => {
@@ -544,6 +682,14 @@ export default function LibraryPage() {
           <input placeholder={t("ISO max", "ISO max")} type="number"
             className="text-[10px] border rounded px-2 py-1 w-20 bg-background"
             onChange={e => setExifFilters(prev => ({...prev, isoMax: e.target.value ? Number(e.target.value) : undefined}))} />
+          <input placeholder={t("Size min (KB)", "Größe min (KB)")} type="number"
+            className="text-[10px] border rounded px-2 py-1 w-24 bg-background"
+            value={sizeMin}
+            onChange={e => setSizeMin(e.target.value)} />
+          <input placeholder={t("Size max (KB)", "Größe max (KB)")} type="number"
+            className="text-[10px] border rounded px-2 py-1 w-24 bg-background"
+            value={sizeMax}
+            onChange={e => setSizeMax(e.target.value)} />
           {(exifFilters.camera || exifFilters.lens || exifFilters.isoMin || exifFilters.isoMax) && (
             <Button variant="ghost" size="sm" className="text-[10px]"
               onClick={() => setExifFilters({})}>
@@ -623,12 +769,20 @@ export default function LibraryPage() {
                     {fileFlags[f.path] === "pick" ? "✓" : "✕"}
                   </div>
                 )}
-                <LazyImage
-                  path={f.path}
-                  name={f.name}
-                  isVideo={isVideoFile(f.suffix)}
-                  className="w-full h-full"
-                />
+                <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50" />
+                {isImageFile(f.suffix) && thumbnailUrls[f.path] && (
+                  <img
+                    src={thumbnailUrls[f.path]}
+                    alt={f.name}
+                    className="w-full h-full object-cover absolute inset-0"
+                    loading="lazy"
+                  />
+                )}
+                {isVideoFile(f.suffix) && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Film className="w-8 h-8 text-muted-foreground/40" />
+                  </div>
+                )}
                 {/* Action overlay on hover */}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                   <Button

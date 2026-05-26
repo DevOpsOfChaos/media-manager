@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useT } from "@/lib/i18n"
-import { Loader2, Minimize2, Maximize2, Check, Expand, Zap } from "lucide-react"
+import { Loader2, Minimize2, Maximize2, Check, Expand } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useProgress } from "@/lib/progress-context"
 
@@ -193,13 +193,6 @@ export function MiniProgressOverlay() {
             </Button>
           </div>
 
-          {/* Performance note for long operations */}
-          {remaining > 3600 && (
-            <div className="flex items-start gap-1.5 p-1.5 rounded bg-amber-50 dark:bg-amber-950/20 text-[10px] text-amber-800 dark:text-amber-300">
-              <Zap className="h-3 w-3 mt-0.5 shrink-0" />
-              <span>{t("Long operation — use hard links for speed.", "Lange Operation — Hardlinks für Tempo nutzen.")}</span>
-            </div>
-          )}
         </div>
       </div>
     )
@@ -261,12 +254,6 @@ export function MiniProgressOverlay() {
              "Verkleinert das Fenster automatisch für andere Programme.")}
         </p>
 
-        {remaining > 3600 && (
-          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-50 dark:bg-amber-950/20 text-[10px] text-amber-800 dark:text-amber-300">
-            <Zap className="h-3 w-3 mt-0.5 shrink-0" />
-            <span>{t("Long operation — use hard links for speed.", "Lange Operation — Hardlinks für Tempo nutzen.")}</span>
-          </div>
-        )}
       </div>
     </div>
   )

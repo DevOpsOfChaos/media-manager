@@ -21,7 +21,7 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { RecentPathsDropdown, addRecentPath } from "@/components/shared/RecentPaths"
 import { FullPageProgress } from "@/components/shared/FullPageProgress"
 import { useProgress } from "@/lib/progress-context"
-import { AlertTriangle, Pause, Play, Zap, Star } from "lucide-react"
+import { AlertTriangle, Pause, Play, Star } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 import { loadFavorite, saveFavorite, hasFavorite } from "@/lib/favorites-store"
@@ -436,16 +436,6 @@ export default function OrganizePage() {
               </CardContent>
             </Card>
           )}
-
-          {/* Safety banner */}
-          <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-4 py-3 text-sm text-blue-800 dark:text-blue-200">
-            <p className="font-medium">
-              {t(
-                "Preview shows planned changes. Click Apply to execute.",
-                "Vorschau zeigt geplante Änderungen. Klicken Sie auf Ausführen.",
-              )}
-            </p>
-          </div>
 
           {/* Step 1: Directories */}
           <Card>
@@ -984,44 +974,6 @@ export default function OrganizePage() {
                   {t("Export JSON", "JSON exportieren")}
                 </Button>
               </div>
-
-              {preview.planned_count > 0 && (
-                <div className="flex items-start gap-2 p-2 rounded bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-xs">
-                  {preview.planned_count > 10000 ? (
-                    <Zap className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
-                  ) : preview.planned_count > 1000 ? (
-                    <Zap className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
-                  ) : (
-                    <Zap className="h-3.5 w-3.5 text-green-500 mt-0.5 shrink-0" />
-                  )}
-                  <div>
-                    <p className="font-medium text-blue-800 dark:text-blue-300">
-                      {t("Performance Tip", "Performance-Tipp")}
-                    </p>
-                    {preview.planned_count > 50000 ? (
-                      <p className="text-blue-700 dark:text-blue-400">
-                        {t(`⚠️ ${preview.planned_count.toLocaleString()} files! Hardlinks are STRONGLY recommended (instant, no extra space). Copying may take 8-16+ hours.`,
-                           `⚠️ ${preview.planned_count.toLocaleString()} Dateien! Hardlinks werden DRINGEND empfohlen (sofort, kein Extra-Speicher). Kopieren kann 8-16+ Stunden dauern.`)}
-                      </p>
-                    ) : preview.planned_count > 10000 ? (
-                      <p className="text-blue-700 dark:text-blue-400">
-                        {t(`${preview.planned_count.toLocaleString()} files. Hardlinks recommended for instant results. Copying may take 1-4 hours.`,
-                           `${preview.planned_count.toLocaleString()} Dateien. Hardlinks empfohlen für sofortige Ergebnisse. Kopieren kann 1-4 Stunden dauern.`)}
-                      </p>
-                    ) : preview.planned_count > 1000 ? (
-                      <p className="text-blue-700 dark:text-blue-400">
-                        {t(`${preview.planned_count.toLocaleString()} files. Copying should complete in a few minutes.`,
-                           `${preview.planned_count.toLocaleString()} Dateien. Kopieren sollte in wenigen Minuten fertig sein.`)}
-                      </p>
-                    ) : (
-                      <p className="text-blue-700 dark:text-blue-400">
-                        {t(`${preview.planned_count.toLocaleString()} files. Should be quick regardless of mode.`,
-                           `${preview.planned_count.toLocaleString()} Dateien. Sollte unabhängig vom Modus schnell sein.`)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
 
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <SummaryCard
