@@ -22,6 +22,18 @@ media-manager organize --source C:\Inbox --target D:\Library --pattern "yyyy\\yy
 - **ExifTool** — download from https://exiftool.org (needed for organize/rename/trips)
 - **dlib** (optional) — `pip install -e .[people]` (needed for face recognition)
 
+## What's New
+
+- **Hardlink support** for organize (`--operation-mode hardlink`)
+- **Pause/Resume** for long-running operations via job queue
+- **Date source control** (`--date-source` to pick EXIF/fs/name)
+- **Face recognition**: ignore list, person merge, training feedback mode
+- **Custom tags** + **color labels** + **star ratings** (sidecar/catalog)
+- **Smart collections**: auto-updating rule-based collections
+- **Mini-mode / window shrink** for compact library browsing
+- **Job queue system** with status tracking and history
+- **CLI expansions**: `watch`, `stats`, `config`, `jobs` commands
+
 ## Features
 
 | Feature | CLI |
@@ -36,6 +48,10 @@ media-manager organize --source C:\Inbox --target D:\Library --pattern "yyyy\\yy
 | Undo | `undo --apply` |
 | Media type filter | `--media-kind` |
 | German / English | `--language` |
+| Hardlink organize | `organize --operation-mode hardlink` |
+| Watch mode | `watch` |
+| Job queue | `jobs` |
+| Stats dashboard | `stats` |
 
 ## Quick Start
 

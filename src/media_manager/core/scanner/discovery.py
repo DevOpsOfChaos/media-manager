@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Generator
 
 from media_manager.constants import MEDIA_EXTENSIONS
 from media_manager.core.path_filters import path_is_included_by_patterns
@@ -145,3 +146,65 @@ def scan_media_sources(options: ScanOptions, use_cache: bool = False, max_depth:
 
     summary.files.sort(key=lambda item: (str(item.source_root).lower(), str(item.relative_path).lower()))
     return summary
+
+
+def scan_media_sources_streaming(
+    source_dirs: tuple[Path, ...],
+    extensions: frozenset[str] | None = None,
+    *,
+    max_depth: int = 3,
+    max_files: int = 0,
+) -> Generator[ScannedFile, None, None]:
+    """Generator version of scan_media_sources — yields files one at a time.
+
+    Uses less memory for very large libraries (160k+ files).
+    No ScanSummary is built; callers get individual ScannedFile objects.
+
+    Args:
+        source_dirs: Directories to scan.
+        extensions: File extensions to include (default: MEDIA_EXTENSIONS).
+        max_depth: Maximum directory depth (0 = files in root only).
+        max_files: Stop after this many files (0 = no limit).
+
+    Yields:
+        ScannedFile objects one at a time.
+    """
+    if extensions is None:
+        extensions = MEDIA_EXTENSIONS
+
+    count = 0
+    normed = _normalize_source_dirs(source_dirs)
+
+    for source_root in normed:
+        stack: list[tuple[Path, int]] = [(source_root, 0)]
+        while stack:
+            current, depth = stack.pop()
+            if depth > max_depth:
+                continue
+
+            try:
+                with os.scandir(current) as entries:
+                    for entry in entries:
+                        if entry.is_dir(follow_symlinks=False):
+                            if not entry.name.startswith("."):
+                                stack.append((Path(entry.path), depth + 1))
+                        elif entry.is_file(follow_symlinks=False):
+                            ext = Path(entry.name).suffix.lower()
+                            if ext in extensions:
+                                try:
+                                    st = entry.stat()
+                                    relative = Path(entry.path).relative_to(source_root)
+                                    yield ScannedFile(
+                                        source_root=source_root,
+                                        path=Path(entry.path),
+                                        relative_path=relative,
+                                        extension=ext,
+                                        size_bytes=st.st_size,
+                                    )
+                                    count += 1
+                                    if max_files and count >= max_files:
+                                        return
+                                except OSError:
+                                    continue
+            except PermissionError:
+                continue

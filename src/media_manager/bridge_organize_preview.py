@@ -24,16 +24,9 @@ from media_manager.core.organizer import OrganizePlannerOptions, build_organize_
 from media_manager.core.outcome_report import build_plan_outcome_report
 from media_manager.core.review_report import build_review_export
 
+from media_manager.bridge_base import emit as _emit, fail as _fail
+
 logger = logging.getLogger(__name__)
-
-
-def _emit(payload: dict) -> None:
-    print(json.dumps(payload, indent=2, ensure_ascii=False))
-
-
-def _fail(message: str, exit_code: int = 1) -> int:
-    print(json.dumps({"error": message}), file=sys.stderr)
-    return exit_code
 
 
 def _serialize_entry(entry) -> dict:

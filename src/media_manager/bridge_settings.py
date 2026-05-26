@@ -29,21 +29,9 @@ from media_manager.core.gui_settings_model import (
     write_gui_settings,
 )
 
+from media_manager.bridge_base import emit as _emit, fail as _fail, get_app_dir as _get_app_dir, validate_app_path as _validate_app_path
+
 DEFAULT_SETTINGS_PATH = Path.home() / ".media-manager" / "gui-settings.json"
-
-
-def _get_app_dir() -> Path:
-    return Path(os.environ.get("MEDIA_MANAGER_HOME", Path.home() / ".media-manager")).resolve()
-
-
-def _validate_app_path(path: Path) -> Path:
-    app_dir = _get_app_dir()
-    resolved = path.resolve()
-    try:
-        resolved.relative_to(app_dir)
-    except ValueError:
-        raise ValueError(f"Path {resolved} is outside app directory {app_dir}")
-    return resolved
 
 
 def _resolve_settings_path(cli_path: str | None = None) -> Path:
@@ -57,15 +45,6 @@ def _resolve_settings_path(cli_path: str | None = None) -> Path:
     if env_path:
         return _validate_app_path(Path(env_path))
     return DEFAULT_SETTINGS_PATH
-
-
-def _emit(payload: dict) -> None:
-    print(json.dumps(payload, indent=2, ensure_ascii=False))
-
-
-def _fail(message: str, exit_code: int = 1) -> int:
-    print(json.dumps({"error": message}), file=sys.stderr)
-    return exit_code
 
 
 def cmd_read(settings_path: Path) -> int:

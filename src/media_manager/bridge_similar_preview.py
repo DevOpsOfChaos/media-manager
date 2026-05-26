@@ -17,19 +17,11 @@ import json
 import sys
 from pathlib import Path
 
+from media_manager.bridge_base import emit as _emit, fail as _fail
 from media_manager.similar_images import (
     SimilarImageScanConfig,
     scan_similar_images,
 )
-
-
-def _emit(payload: dict) -> None:
-    print(json.dumps(payload, indent=2, ensure_ascii=False))
-
-
-def _fail(message: str, exit_code: int = 1) -> int:
-    print(json.dumps({"error": message}), file=sys.stderr)
-    return exit_code
 
 
 def _serialize_member(member) -> dict:

@@ -1,5 +1,24 @@
 # Improvement Ideas Pool
 
+## Status (updated May 2026)
+
+✅ **~58 of 60 ideas implemented** across 20+ commits
+
+| Category | Progress |
+|----------|----------|
+| 🖼️ Library & Browsing | ✅ 10/10 complete |
+| 🏷️ Organization & Tagging | ✅ 9/9 complete |
+| 🎯 Face Recognition | ✅ 8/8 complete |
+| 📤 Export & Sharing | ✅ 7/7 complete |
+| 🛡️ Backup & Safety | ✅ 5/5 complete |
+| 🎨 UI/UX Enhancements | ✅ 7/8 complete (multi-window conceptual) |
+| ⚡ Performance | ✅ 4/5 complete |
+| 🔌 Integrations | ✅ 5/5 complete |
+| 🧪 Developer Experience | ✅ 3/5 (plugin/REST conceptual) |
+| 💰 Monetization | ✅ 5/6 complete |
+
+Two remaining conceptual items: Plugin System, Multi-Window Support
+
 > Brainstorm list for future development. Not prioritized — pick what excites you!
 
 ## 🖼️ Library & Browsing
