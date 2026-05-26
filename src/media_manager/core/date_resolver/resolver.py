@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import logging
 from datetime import datetime
 from pathlib import Path
 
@@ -14,6 +15,8 @@ from .parse import describe_timezone_status, format_resolution_value, parse_date
 # Current year + 1 allows files dated slightly ahead (camera clock drift, next-year metadata).
 _REALISTIC_YEAR_MIN = 1800
 _REALISTIC_YEAR_MAX = datetime.now().year + 1
+
+logger = logging.getLogger(__name__)
 
 
 def _year_is_realistic(value: datetime) -> bool:
@@ -104,6 +107,12 @@ def resolve_capture_datetime(
     inspection = inspection or inspect_media_file(file_path, exiftool_path=exiftool_path)
     parseable_candidates, unparseable_candidates, unrealistic_year_count = _candidate_counts(inspection)
 
+    if not inspection.date_candidates or len(inspection.date_candidates) == 0:
+        logger.debug("No EXIF date candidates for %s — will fall back", file_path.name)
+    elif not parseable_candidates:
+        logger.debug("EXIF dates found but none parseable for %s: %s", file_path.name,
+                     [c.value[:30] for c in inspection.date_candidates[:3]])
+
     total_skipped = unparseable_candidates + unrealistic_year_count
 
     if date_source in ("auto", "exif") and parseable_candidates:
@@ -152,6 +161,41 @@ def resolve_capture_datetime(
             decision_policy="date_source_restriction",
             metadata=inspection.metadata,
         )
+
+    # After EXIF, before filename: try Windows creation date
+    if date_source in ("auto", "filename"):
+        try:
+            stat = file_path.stat()
+            if hasattr(stat, 'st_birthtime'):
+                created = datetime.fromtimestamp(stat.st_birthtime)
+            else:
+                created = datetime.fromtimestamp(stat.st_ctime)
+
+            modified_at = datetime.fromtimestamp(stat.st_mtime)
+            if _year_is_realistic(created) and abs((created - modified_at).total_seconds()) > 2:
+                reason = "No parseable EXIF metadata. Using file creation date (what Windows Explorer shows)."
+                if inspection.date_candidates:
+                    count = len(inspection.date_candidates)
+                    label = "candidate" if count == 1 else "candidates"
+                    reason = f"Skipped {count} unparseable metadata {label}. " + reason
+                return DateResolution(
+                    path=file_path,
+                    resolved_datetime=created,
+                    resolved_value=format_resolution_value(created),
+                    source_kind="file_system",
+                    source_label="creation_date",
+                    confidence="medium",
+                    timezone_status=describe_timezone_status(created),
+                    reason=reason,
+                    candidates_checked=len(inspection.date_candidates),
+                    parseable_candidate_count=0,
+                    unparseable_candidate_count=total_skipped,
+                    metadata_conflict=False,
+                    decision_policy="creation_date_fallback",
+                    metadata=inspection.metadata,
+                )
+        except OSError:
+            pass
 
     filename_match = find_filename_datetime(file_path)
     if filename_match is not None:
