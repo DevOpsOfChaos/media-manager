@@ -118,6 +118,7 @@ def cmd_preview() -> int:
             include_patterns=tuple(payload.get("include_patterns", ())),
             exclude_patterns=tuple(payload.get("exclude_patterns", ())),
             batch_size=payload.get("batch_size", 0),
+            date_source=payload.get("date_source", "auto"),
         )
     except (TypeError, ValueError) as exc:
         logger.error("Organize preview: invalid options: %s", exc)
@@ -168,6 +169,7 @@ def cmd_preview() -> int:
             "include_patterns": list(options.include_patterns),
             "exclude_patterns": list(options.exclude_patterns),
             "batch_size": options.batch_size,
+            "date_source": options.date_source,
         },
         "scan_summary": {
             "source_dirs": [str(p) for p in dry_run.scan_summary.source_dirs],

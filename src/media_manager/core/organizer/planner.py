@@ -246,7 +246,7 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                 break
             scanned_file = scanned_by_path[group.main_path]
             try:
-                resolution = resolve_capture_datetime(scanned_file.path, exiftool_path=options.exiftool_path)
+                resolution = resolve_capture_datetime(scanned_file.path, exiftool_path=options.exiftool_path, date_source=options.date_source)
                 target_relative_dir = render_organize_directory(options.pattern, resolution, source_root=scanned_file.source_root)
                 group_target_paths = _build_group_target_paths(
                     target_relative_dir,
@@ -398,6 +398,7 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                 resolution = resolve_capture_datetime(
                     scanned_file.path, inspection=inspection,
                     exiftool_path=options.exiftool_path,
+                    date_source=options.date_source,
                 )
                 target_relative_dir = render_organize_directory(
                     options.pattern, resolution, source_root=scanned_file.source_root,

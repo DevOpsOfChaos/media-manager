@@ -3,6 +3,8 @@ export type ConflictPolicy = "conflict" | "skip" | "rename"
 export type EntryStatus = "planned" | "skipped" | "conflict" | "error"
 export type EntryOutcome = "copied" | "moved" | "linked" | "skipped" | "conflict" | "error"
 
+export type DateSource = "auto" | "exif" | "filename" | "mtime"
+
 export interface OrganizePlannerOptions {
   source_dirs: string[]
   target_root: string
@@ -18,6 +20,9 @@ export interface OrganizePlannerOptions {
   include_patterns: string[]
   exclude_patterns: string[]
   batch_size: number
+  date_source?: DateSource
+  resume?: boolean
+  resume_checkpoint?: string
 }
 
 export interface OrganizePlanEntry {
@@ -105,6 +110,7 @@ export interface OrganizeExecutionResult {
   reason_summary: Record<string, number>
   removed_empty_dirs?: string[]
   removed_empty_dir_count?: number
+  checkpoint_path?: string
 }
 
 // ── Bridge preview response (from bridge_organize_preview.py) ──

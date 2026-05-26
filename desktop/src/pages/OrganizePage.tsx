@@ -20,7 +20,7 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { RecentPathsDropdown, addRecentPath } from "@/components/shared/RecentPaths"
 import { FullPageProgress } from "@/components/shared/FullPageProgress"
 import { useProgress } from "@/lib/progress-context"
-import { AlertTriangle, Zap } from "lucide-react"
+import { AlertTriangle, Pause, Play, Zap } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 // ── Pattern presets ──
@@ -177,6 +177,12 @@ export default function OrganizePage() {
     try { return JSON.parse(localStorage.getItem("organize_patterns") || "[]") }
     catch { return [] }
   })
+  const [savedState, setSavedState] = useState<{options: typeof options; checkpointPath: string} | null>(() => {
+    try {
+      const saved = localStorage.getItem("paused_organize")
+      return saved ? JSON.parse(saved) : null
+    } catch { return null }
+  })
   const t = <T extends string>(en: T, de: T): T => (lang === "de" ? de : en)
 
   // Keep source_dirs as a single string in the store but display as text input
@@ -278,6 +284,12 @@ export default function OrganizePage() {
       total,
     )
 
+    // Save initial checkpoint state
+    localStorage.setItem("paused_organize", JSON.stringify({
+      options,
+      checkpointPath: "",
+    }))
+
     // Simulated progress updates while waiting for the subprocess
     const interval = setInterval(() => {
       setApplyProgress(prev => {
@@ -291,10 +303,20 @@ export default function OrganizePage() {
     setProgressInterval(interval)
 
     try {
-      const result = await organizeApply(options)
+      const result = await organizeApply(options) as OrganizeExecutionResult & { checkpoint_path?: string }
       clearInterval(interval)
       updateProgress(total)
       setApplyProgress(prev => ({ ...prev, current: prev.total }))
+      if (result.checkpoint_path) {
+        localStorage.setItem("paused_organize", JSON.stringify({
+          options,
+          checkpointPath: result.checkpoint_path,
+        }))
+      }
+      // Clear if fully complete (all planned files were executed)
+      if (result.executed_count >= total) {
+        localStorage.removeItem("paused_organize")
+      }
       setApplyResult(result)
     } catch (e: unknown) {
       clearInterval(interval)
@@ -305,6 +327,29 @@ export default function OrganizePage() {
       setProgressInterval(null)
     }
   }, [options, preview])
+
+  // ── Resume paused organize session ──
+  const handleResume = async () => {
+    if (!savedState) return
+    setOptions(savedState.options)
+    setApplyLoading(true)
+    startProgress(t("Resuming organize...", "Organisiere weiter..."), savedState.options.batch_size || 100)
+    try {
+      const result = await organizeApply({
+        ...savedState.options,
+        resume: true,
+        resume_checkpoint: savedState.checkpointPath,
+      }) as OrganizeExecutionResult & { checkpoint_path?: string }
+      setApplyResult(result)
+      localStorage.removeItem("paused_organize")
+      setSavedState(null)
+    } catch (e) {
+      setError(userFriendlyError(e))
+    } finally {
+      finishProgress()
+      setApplyLoading(false)
+    }
+  }
 
   const handleApply = useCallback(async () => {
     if (!preview?.outcome_report?.safe_to_apply) return
@@ -356,6 +401,33 @@ export default function OrganizePage() {
       <PageHeader title={t("Organize", "Organisieren")} />
       <main className="flex flex-1 gap-4 p-4">
         <div className="flex-1 max-w-4xl space-y-4">
+          {/* Resume banner */}
+          {savedState && (
+            <Card className="border-amber-500/30 bg-amber-50 dark:bg-amber-950/10">
+              <CardContent className="p-3 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                    {t("Paused organize session found", "Pausierte Organize-Sitzung gefunden")}
+                  </p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    {t("Resume where you left off or discard.", "Fortsetzen wo aufgehört oder verwerfen.")}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleResume}>
+                    <Play className="h-3 w-3 mr-1" /> {t("Resume", "Fortsetzen")}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => {
+                    localStorage.removeItem("paused_organize")
+                    setSavedState(null)
+                  }}>
+                    {t("Discard", "Verwerfen")}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Safety banner */}
           <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-4 py-3 text-sm text-blue-800 dark:text-blue-200">
             <p className="font-medium">
@@ -774,6 +846,19 @@ export default function OrganizePage() {
                 <span>{t("Remove empty directories after moving", "Leere Ordner nach dem Verschieben löschen")}</span>
               </label>
 
+              <div className="space-y-1 mt-3">
+                <label className="text-xs font-medium">{t("Date source", "Datumsquelle")}</label>
+                <select
+                  value={options.date_source || "auto"}
+                  onChange={e => setOptions({ date_source: e.target.value as any })}
+                  className="text-xs border rounded px-2 py-1 bg-background w-full"
+                >
+                  <option value="auto">{t("Auto (smart detection)", "Auto (intelligente Erkennung)")}</option>
+                  <option value="exif">{t("EXIF metadata only", "Nur EXIF-Metadaten")}</option>
+                  <option value="filename">{t("Filename only", "Nur Dateiname")}</option>
+                  <option value="mtime">{t("File modification date", "Dateiänderungsdatum")}</option>
+                </select>
+              </div>
 
             </CardContent>
           </Card>
@@ -1123,12 +1208,24 @@ export default function OrganizePage() {
             </>
           )}
           {applyLoading && (
-            <FullPageProgress
-              label={`${options.operation_mode === "move" ? t("Moving", "Verschiebe") : options.operation_mode === "link" ? t("Linking", "Verknüpfe") : t("Copying", "Kopiere")} ${t("files...", "Dateien...")}`}
-              current={applyProgress.current}
-              total={applyProgress.total}
-              startedAt={applyProgress.startedAt}
-            />
+            <>
+              <FullPageProgress
+                label={`${options.operation_mode === "move" ? t("Moving", "Verschiebe") : options.operation_mode === "link" ? t("Linking", "Verknüpfe") : t("Copying", "Kopiere")} ${t("files...", "Dateien...")}`}
+                current={applyProgress.current}
+                total={applyProgress.total}
+                startedAt={applyProgress.startedAt}
+              />
+              <div className="flex justify-center mt-2">
+                <Button variant="outline" size="sm" onClick={() => {
+                  alert(t(
+                    "You can safely close the app. Progress is saved and will resume on next start.",
+                    "Du kannst die App sicher schließen. Der Fortschritt ist gespeichert und wird beim nächsten Start fortgesetzt."
+                  ))
+                }}>
+                  <Pause className="h-3 w-3 mr-1" /> {t("Pause & save", "Pausieren & speichern")}
+                </Button>
+              </div>
+            </>
           )}
           {applyResult && (
             <Card className="border-green-500/50 mt-4">

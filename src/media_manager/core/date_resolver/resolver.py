@@ -100,13 +100,14 @@ def resolve_capture_datetime(
     *,
     inspection: FileInspection | None = None,
     exiftool_path: Path | None = None,
+    date_source: str = "auto",
 ) -> DateResolution:
     inspection = inspection or inspect_media_file(file_path, exiftool_path=exiftool_path)
     parseable_candidates, unparseable_candidates, unrealistic_year_count = _candidate_counts(inspection)
 
     total_skipped = unparseable_candidates + unrealistic_year_count
 
-    if parseable_candidates:
+    if date_source in ("auto", "exif") and parseable_candidates:
         selected_candidate, parsed = parseable_candidates[0]
         reason, metadata_conflict = _build_metadata_reason(selected_candidate.source_tag, parseable_candidates)
         if unrealistic_year_count:
@@ -126,6 +127,29 @@ def resolve_capture_datetime(
             unparseable_candidate_count=total_skipped,
             metadata_conflict=metadata_conflict,
             decision_policy="highest_priority_parseable_metadata",
+        )
+
+    if date_source not in ("auto", "filename"):
+        modified_at = datetime.fromtimestamp(file_path.stat().st_mtime)
+        reason = f"Date source set to '{date_source}' — falling back to file modification time."
+        if inspection.date_candidates:
+            count = len(inspection.date_candidates)
+            label = "candidate" if count == 1 else "candidates"
+            reason += f" Skipping {count} metadata {label}."
+        return DateResolution(
+            path=file_path,
+            resolved_datetime=modified_at,
+            resolved_value=format_resolution_value(modified_at),
+            source_kind="file_system",
+            source_label="mtime",
+            confidence="low",
+            timezone_status=describe_timezone_status(modified_at),
+            reason=reason,
+            candidates_checked=len(inspection.date_candidates),
+            parseable_candidate_count=0,
+            unparseable_candidate_count=total_skipped,
+            metadata_conflict=False,
+            decision_policy="date_source_restriction",
         )
 
     filename_match = find_filename_datetime(file_path)

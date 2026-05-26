@@ -13,7 +13,9 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
+import time
 import traceback
 from pathlib import Path
 
@@ -122,10 +124,22 @@ def cmd_apply() -> int:
             include_patterns=tuple(payload.get("include_patterns", ())),
             exclude_patterns=tuple(payload.get("exclude_patterns", ())),
             batch_size=payload.get("batch_size", 0),
+            date_source=payload.get("date_source", "auto"),
         )
     except (TypeError, ValueError) as exc:
         logger.error("Organize apply: invalid options: %s", exc)
         return _fail(f"Invalid options: {exc}\nPayload keys: {list(payload.keys())}\nTraceback:\n{traceback.format_exc()}")
+
+    # ── Checkpoint setup ──
+    checkpoint_dir = Path(os.environ.get("MEDIA_MANAGER_HOME", Path.home() / ".media-manager")) / "checkpoints"
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_path = checkpoint_dir / f"organize_apply_{int(time.time())}.json"
+
+    resume = payload.get("resume", False)
+    resume_checkpoint = payload.get("resume_checkpoint")
+
+    if resume and resume_checkpoint:
+        checkpoint_path = Path(resume_checkpoint)
 
     # Build plan
     try:
@@ -135,11 +149,11 @@ def cmd_apply() -> int:
         return _fail(f"Plan build failed: {exc}\nTraceback:\n{traceback.format_exc()}")
 
     if plan.planned_count == 0:
-        return _emit({"planned_count": 0, "message": "Nothing to execute — plan has no planned entries."})
+        return _emit({"planned_count": 0, "message": "Nothing to execute — plan has no planned entries.", "checkpoint_path": str(checkpoint_path)})
 
     # Execute
     try:
-        result = execute_organize_plan(plan)
+        result = execute_organize_plan(plan, checkpoint_path=checkpoint_path, resume=resume)
     except Exception as exc:
         logger.error("Organize apply: execution failed: %s", exc)
         return _fail(f"Execution failed: {exc}\nTraceback:\n{traceback.format_exc()}")
@@ -173,6 +187,7 @@ def cmd_apply() -> int:
     output: dict = {
         "kind": "apply",
         "dry_run": False,
+        "checkpoint_path": str(checkpoint_path),
         "options": {
             "source_dirs": [str(p) for p in options.source_dirs],
             "target_root": str(options.target_root),
