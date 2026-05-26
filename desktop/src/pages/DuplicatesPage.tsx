@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { CheckSquare, Square, Trash2, Info, Loader2, ScanText, Wand2, Star } from "lucide-react"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeConvertFileSrc } from "@/lib/safe-asset"
 import { useT } from "@/lib/i18n"
 import { userFriendlyError } from "@/lib/error-utils"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -31,16 +31,18 @@ import type {
 type Tab = "exact" | "similar" | "all"
 
 const srcCache = new Map<string, string>()
-function fileSrc(path: string): string {
-  if (!srcCache.has(path)) srcCache.set(path, convertFileSrc(path))
-  return srcCache.get(path)!
+function getSrc(path: string): string {
+  if (!srcCache.has(path)) {
+    srcCache.set(path, safeConvertFileSrc(path) || "")
+  }
+  return srcCache.get(path) || ""
 }
 
 const FileThumbnail = React.memo(function FileThumbnail({ path, size = 80 }: { path: string; size?: number }) {
   const t = useT()
   const [loaded, setLoaded] = useState(false)
   const [errored, setErrored] = useState(false)
-  const src = fileSrc(path)
+  const src = getSrc(path)
 
   if (errored) {
     return (

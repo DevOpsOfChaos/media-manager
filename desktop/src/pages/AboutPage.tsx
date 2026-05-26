@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Code2, Coffee, Heart, Star, ExternalLink } from "lucide-react"
-import { BountyBoard } from "@/components/shared/BountyBoard"
+
 
 const GithubIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -110,8 +110,6 @@ export default function AboutPage() {
         </CardContent>
       </Card>
 
-      {/* Bounty Board */}
-      <BountyBoard />
 
       {/* Tech stack */}
       <Card>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useT } from "@/lib/i18n"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeConvertFileSrc } from "@/lib/safe-asset"
 import { Clock } from "lucide-react"
 
 export function RecentFiles() {
@@ -29,9 +29,9 @@ export function RecentFiles() {
         <div className="flex gap-2 overflow-x-auto pb-1">
           {recent.map((f, i) => (
             <div key={i} className="shrink-0 w-16 text-center cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => window.open(convertFileSrc(f.path), "_blank")}>
+              onClick={() => window.open(safeConvertFileSrc(f.path) || "", "_blank")}>
               <div className="w-16 h-16 rounded bg-muted overflow-hidden mb-1">
-                <img src={convertFileSrc(f.path)} className="w-full h-full object-cover" alt={f.name} loading="lazy" />
+                <img src={safeConvertFileSrc(f.path) || ""} className="w-full h-full object-cover" alt={f.name} loading="lazy" />
               </div>
               <p className="text-[9px] truncate">{f.name}</p>
             </div>

@@ -16,6 +16,42 @@ from pathlib import Path
 from media_manager.bridge_base import emit as _emit, fail as _fail
 
 
+def get_gpu_diagnostics() -> dict:
+    """Report GPU availability for face recognition."""
+    info = {
+        "cuda": False,
+        "openvino": False,
+        "opencv_dnn": False,
+        "recommendation": "CPU-only mode",
+    }
+
+    try:
+        import cv2
+        info["opencv_dnn"] = True
+
+        try:
+            net = cv2.dnn.readNetFromONNX("dummy")
+            net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+            net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
+            info["cuda"] = True
+            info["recommendation"] = "CUDA GPU available"
+        except Exception:
+            pass
+
+        try:
+            net = cv2.dnn.readNetFromONNX("dummy")
+            net.setPreferableBackend(cv2.dnn.DNN_BACKEND_INFERENCE_ENGINE)
+            info["openvino"] = True
+            if not info["cuda"]:
+                info["recommendation"] = "OpenVINO available"
+        except Exception:
+            pass
+    except ImportError:
+        info["recommendation"] = "OpenCV not installed"
+
+    return info
+
+
 def _check_import(module_name: str) -> dict:
     try:
         __import__(module_name)
@@ -40,6 +76,7 @@ def cmd_diagnostics() -> int:
         "bridge_settings_import": bs_import,
         "settings_path": str(settings_path),
         "settings_file_exists": settings_path.is_file(),
+        "gpu": get_gpu_diagnostics(),
     }
     _emit(result)
     return 0

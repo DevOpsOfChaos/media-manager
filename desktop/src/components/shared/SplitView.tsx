@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useT } from "@/lib/i18n"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeConvertFileSrc } from "@/lib/safe-asset"
 import { X, ArrowLeftRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -46,12 +46,12 @@ export function SplitView({ files, onClose }: SplitViewProps) {
 
       <div className="flex-1 flex">
         <div className="flex-1 flex items-center justify-center bg-black/40 p-4">
-          <img src={convertFileSrc(safeFiles[leftIndex]?.path)} alt={safeFiles[leftIndex]?.name}
+          <img src={safeConvertFileSrc(safeFiles[leftIndex]?.path) || ""} alt={safeFiles[leftIndex]?.name}
             className="max-w-full max-h-full object-contain" />
         </div>
         <div className="w-px bg-white/20" />
         <div className="flex-1 flex items-center justify-center bg-black/40 p-4">
-          <img src={convertFileSrc(safeFiles[rightIndex]?.path)} alt={safeFiles[rightIndex]?.name}
+          <img src={safeConvertFileSrc(safeFiles[rightIndex]?.path) || ""} alt={safeFiles[rightIndex]?.name}
             className="max-w-full max-h-full object-contain" />
         </div>
       </div>

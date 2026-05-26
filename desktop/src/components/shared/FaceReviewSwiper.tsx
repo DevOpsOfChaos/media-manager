@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeConvertFileSrc } from "@/lib/safe-asset"
 import { Check, X, SkipForward, User } from "lucide-react"
 
 interface FaceReviewSwiperProps {
@@ -114,7 +114,7 @@ export function FaceReviewSwiper({ faces, catalogPath, onClose }: FaceReviewSwip
 
       <div className="flex-1 flex items-center justify-center p-8">
         <img
-          src={convertFileSrc(currentFace.imagePath)}
+          src={safeConvertFileSrc(currentFace.imagePath) || ""}
           className="max-w-lg max-h-[70vh] object-contain rounded-lg shadow-2xl"
           alt={t("Face to review", "Zu prüfendes Gesicht")}
         />

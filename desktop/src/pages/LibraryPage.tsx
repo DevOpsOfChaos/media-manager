@@ -195,14 +195,12 @@ export default function LibraryPage() {
     if (!data || loading) return
     loadPageData(page)
     if (page + 1 < (data.total_pages || 1)) {
-      const t1 = setTimeout(() => loadPageData(page + 1), 200)
-      return () => clearTimeout(t1)
+      setTimeout(() => loadPageData(page + 1), 200)
     }
     if (page - 1 >= 0) {
-      const t2 = setTimeout(() => loadPageData(page - 1), 400)
-      return () => clearTimeout(t2)
+      setTimeout(() => loadPageData(page - 1), 400)
     }
-  }, [page, data?.total_pages, loadPageData, loading, data])
+  }, [page])
 
   useEffect(() => {
     setSelectedPaths(new Set())

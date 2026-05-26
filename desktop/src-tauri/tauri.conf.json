@@ -22,8 +22,21 @@
       "assetProtocol": {
         "enable": true,
         "scope": {
-          "allow": ["**"],
-          "deny": []
+          "allow": [
+            "C:\\Users\\**",
+            "D:\\**",
+            "E:\\**",
+            "F:\\**",
+            "/home/**",
+            "/Users/**",
+            "/Volumes/**"
+          ],
+          "deny": [
+            "**\\System32\\**",
+            "**\\Windows\\**",
+            "/etc/**",
+            "/sys/**"
+          ]
         }
       }
     }

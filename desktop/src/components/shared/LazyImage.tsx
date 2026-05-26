@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeConvertFileSrc } from "@/lib/safe-asset"
 import { Image, Film } from "lucide-react"
 
 interface LazyImageProps {
@@ -35,9 +35,10 @@ export function LazyImage({ path, name, isVideo, className }: LazyImageProps) {
 
   useEffect(() => {
     if (inView && !src && !isVideo) {
-      try {
-        setSrc(convertFileSrc(path))
-      } catch {
+      const url = safeConvertFileSrc(path)
+      if (url) {
+        setSrc(url)
+      } else {
         setErrored(true)
       }
     }

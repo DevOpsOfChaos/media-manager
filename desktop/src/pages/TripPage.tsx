@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { tripPreview, tripApply, type TripOptions, type TripApplyResponse } from "@/lib/tauri-bridge"
 import { useProgress } from "@/lib/progress-context"
 import { libraryBrowse } from "@/lib/tauri-bridge"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeConvertFileSrc } from "@/lib/safe-asset"
 import { EmptyState } from "@/components/shared/EmptyState"
 
 import { loadFavorite, saveFavorite, hasFavorite } from "@/lib/favorites-store"
@@ -39,7 +39,7 @@ function TripDetailView({ trip, onBack }: { trip: TripEntry; onBack: () => void 
         <Badge variant="secondary">{trip.fileCount} {t("files", "Dateien")}</Badge>
       </div>
       {trip.thumbnail && (
-        <img src={convertFileSrc(trip.thumbnail)} alt={trip.name} className="w-full max-h-48 object-cover rounded-lg" />
+        <img src={safeConvertFileSrc(trip.thumbnail) || ""} alt={trip.name} className="w-full max-h-48 object-cover rounded-lg" />
       )}
       {loadingFiles ? (
         <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
@@ -48,7 +48,7 @@ function TripDetailView({ trip, onBack }: { trip: TripEntry; onBack: () => void 
           {files.slice(0, 200).map((f, i) => (
             <div key={i} className="aspect-square bg-muted rounded overflow-hidden">
               {[".jpg",".jpeg",".png"].includes(f.suffix) ? (
-                <img src={convertFileSrc(f.path)} alt={f.name} className="w-full h-full object-cover" loading="lazy" />
+                <img src={safeConvertFileSrc(f.path) || ""} alt={f.name} className="w-full h-full object-cover" loading="lazy" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><FolderOpen className="w-8 h-8" /></div>
               )}
@@ -191,7 +191,7 @@ export default function TripPage() {
             <Card key={trip.name} className="overflow-hidden cursor-pointer hover:border-primary/50 transition-colors" role="button" tabIndex={0} onClick={() => setSelectedTrip(trip)} onKeyDown={(e) => e.key === 'Enter' && setSelectedTrip(trip)}>
               <div className="aspect-video bg-muted relative overflow-hidden">
                 {trip.thumbnail ? (
-                  <img src={convertFileSrc(trip.thumbnail)} alt={trip.name} className="w-full h-full object-cover" />
+                  <img src={safeConvertFileSrc(trip.thumbnail) || ""} alt={trip.name} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center"><ImageOff className="w-10 h-10 text-muted-foreground/30" /></div>
                 )}

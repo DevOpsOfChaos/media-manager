@@ -167,6 +167,7 @@ class PeopleScanConfig:
     require_backend: bool = False
     use_fast_detector: bool = False
     deep_verify: bool = False
+    use_gpu: bool = True
 
 
 @dataclass(slots=True)
@@ -880,7 +881,13 @@ def scan_people_two_stage(config: PeopleScanConfig) -> PeopleScanResult:
     import logging
     _log = logging.getLogger(__name__)
 
-    from .people_fast_detector import is_available as yunet_available
+    from .people_fast_detector import _get_preferred_backend, is_available as yunet_available
+
+    if config.use_gpu:
+        gpu_backend = _get_preferred_backend()
+        _log.info("Face detection using backend: %s", gpu_backend)
+    else:
+        _log.info("GPU acceleration disabled, using CPU-only mode")
 
     if not yunet_available():
         _log.info("YuNet not available, falling back to single-stage dlib scan")

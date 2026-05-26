@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { safeConvertFileSrc } from "@/lib/safe-asset"
 import {
   runtimeDiagnostics,
   settingsRead,
@@ -29,7 +29,7 @@ import { CameraImport } from "@/components/shared/CameraImport"
 import { CloudWatchFolders } from "@/components/shared/CloudWatchFolders"
 import { ExifToolPanel } from "@/components/shared/ExifToolPanel"
 import { ScriptHooks } from "@/components/shared/ScriptHooks"
-import { BountyBoard } from "@/components/shared/BountyBoard"
+
 
 const QUICK_WORKFLOWS = [
   { id: "organize-date-library", label: "Organize Library", desc: "Sort photos into year/month/day folders", page: "/organize", icon: "📁" },
@@ -280,7 +280,7 @@ export default function DashboardPage() {
                     {recentFiles.map((f, i) => (
                       <div key={i} className="flex items-center gap-2 text-xs py-1 hover:bg-muted/50 rounded px-1 cursor-pointer"
                         role="button" tabIndex={0}>
-                        <img src={convertFileSrc(f.path)} className="h-8 w-8 rounded object-cover bg-muted" alt={f.name} />
+                        {(() => { const s = safeConvertFileSrc(f.path); return s ? <img src={s} className="h-8 w-8 rounded object-cover bg-muted" alt={f.name} /> : <div className="h-8 w-8 rounded bg-muted" /> })()}
                         <div className="flex-1 min-w-0">
                           <p className="truncate font-medium">{f.name}</p>
                           <p className="text-muted-foreground text-[10px]">{f.relative}</p>
@@ -662,10 +662,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Bounty Board */}
-          <div className="mt-6">
-            <BountyBoard />
-          </div>
+
         </div>
       </main>
     </>

@@ -58,6 +58,8 @@ def build_parser() -> argparse.ArgumentParser:
     scan_parser.add_argument("--require-backend", action="store_true", help="Return exit code 1 when the requested people backend is unavailable.")
     scan_parser.add_argument("--fast", action="store_true", help="Use fast YuNet ONNX detector instead of dlib HOG for face detection. 10-50x faster on CPU.")
     scan_parser.add_argument("--deep-verify", action="store_true", help="Two-stage pipeline: fast YuNet scan + deep dlib verification of ambiguous matches.")
+    scan_parser.add_argument("--gpu", action="store_true", default=True, help="Use GPU acceleration if available.")
+    scan_parser.add_argument("--no-gpu", action="store_false", dest="gpu", help="Force CPU only.")
 
     backend_parser = subparsers.add_parser("backend", help="Check local people backend availability and capabilities.")
     backend_parser.add_argument("--backend", choices=BACKEND_CHOICES, default=DEFAULT_BACKEND, help="Backend to inspect. Default: auto.")
@@ -295,6 +297,7 @@ def main(argv: list[str] | None = None) -> int:
             require_backend=args.require_backend,
             use_fast_detector=getattr(args, "fast", False),
             deep_verify=getattr(args, "deep_verify", False),
+            use_gpu=getattr(args, "gpu", True),
         )
         try:
             if args.deep_verify:
