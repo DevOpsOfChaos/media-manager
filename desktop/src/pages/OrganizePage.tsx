@@ -549,43 +549,45 @@ export default function OrganizePage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Presets */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {PRESETS.map((preset) => (
                   <button
                     key={preset.id}
                     onClick={() => applyPreset(preset.id)}
                     role="radio"
                     aria-checked={selectedPreset === preset.id && !showCustomPattern}
-                    className={`rounded-lg border p-3 text-left transition-colors ${
+                    className={`text-left p-3 rounded-lg border-2 transition-all hover:border-primary/50 ${
                       selectedPreset === preset.id && !showCustomPattern
-                        ? "border-primary bg-primary/5 ring-1 ring-primary"
-                        : "hover:bg-muted/50"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                        : "border-border"
                     }`}
                   >
                     <p className="text-sm font-medium">
                       {lang === "de" ? preset.labelDe : preset.label}
                     </p>
-                    <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {lang === "de" ? (preset.descriptionDe || preset.description) : (preset.description || "")}
+                    </p>
+                    <p className="text-[10px] font-mono text-primary/70 mt-1.5 bg-muted/50 rounded px-1.5 py-0.5 inline-block">
                       {lang === "de" && preset.exampleDe ? preset.exampleDe() : preset.example()}
                     </p>
-                    <p className="text-[10px] text-muted-foreground/70 mt-1">
-                      {lang === "de" ? (preset.descriptionDe || preset.description) : preset.description}
-                    </p>
                   </button>
-                ))
-              }
+                ))}
                 <button
                   onClick={() => applyPreset("custom")}
-                  className={`rounded-lg border p-3 text-left transition-colors ${
+                  className={`text-left p-3 rounded-lg border-2 transition-all hover:border-primary/50 ${
                     showCustomPattern
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
-                      : "hover:bg-muted/50"
+                      ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                      : "border-border"
                   }`}
                 >
                   <p className="text-sm font-medium">
                     {t("Custom pattern", "Eigenes Muster")}
                   </p>
-                  <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {t("Build your own folder structure using tokens below.", "Erstelle deine eigene Ordnerstruktur mit Tokens.")}
+                  </p>
+                  <p className="text-[10px] font-mono text-primary/70 mt-1.5 bg-muted/50 rounded px-1.5 py-0.5 inline-block">
                     {liveExample}
                   </p>
                 </button>
@@ -602,37 +604,40 @@ export default function OrganizePage() {
                   </p>
 
                   {/* Tokens */}
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    <span className="text-[10px] text-muted-foreground mr-1 self-center">{t("Insert:", "Einfügen:")}</span>
                     {TOKENS.map((tok) => {
                       const isActive = options.pattern?.includes(tok.token)
                       return (
-                        <button
-                          key={tok.token}
-                          onClick={() => {
-                            const current = options.pattern || ""
-                            const next = current
-                              ? (current.endsWith("/") || current.endsWith(" ") || current.endsWith("_") || current.endsWith("-")
-                                  ? `${current}${tok.token}`
-                                  : `${current}/${tok.token}`)
-                              : tok.token
-                            setOptions({ pattern: next })
-                          }}
-                          role="button"
-                          aria-label={t("Insert token", "Token einfügen")}
-                          className={`inline-flex items-center rounded-md border px-2 py-1 text-xs transition-colors ${
-                            isActive
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "hover:bg-muted"
-                          }`}
-                        >
-                          {lang === "de" ? tok.labelDe : tok.label}
-                        </button>
+                        <Tooltip key={tok.token}>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => {
+                                const current = options.pattern || ""
+                                const next = current
+                                  ? (current.endsWith("/") || current.endsWith(" ") || current.endsWith("_") || current.endsWith("-")
+                                      ? `${current}${tok.token}`
+                                      : `${current}/${tok.token}`)
+                                  : tok.token
+                                setOptions({ pattern: next })
+                              }}
+                              className={`text-[10px] px-1.5 py-0.5 rounded bg-muted hover:bg-primary/10 border font-mono transition-colors ${
+                                isActive ? "border-primary bg-primary/10 text-primary" : ""
+                              }`}
+                            >
+                              {tok.token}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p className="text-xs">{lang === "de" ? tok.labelDe : tok.label}</p>
+                          </TooltipContent>
+                        </Tooltip>
                       )
                     })}
                   </div>
 
                   {/* Separators */}
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 mt-3">
                     <span className="text-xs text-muted-foreground">
                       {t("Separator:", "Trennzeichen:")}
                     </span>

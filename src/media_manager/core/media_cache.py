@@ -14,7 +14,7 @@ CACHE_DIR = Path.home() / ".media-manager"
 CACHE_DB = CACHE_DIR / "media-cache.db"
 
 IMG_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".tif",
-            ".heic", ".raw", ".cr2", ".nef", ".arw", ".dng"}
+            ".heic", ".raw", ".cr2", ".cr3", ".nef", ".arw", ".dng"}
 VID_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".wmv", ".webm", ".mts", ".m2ts"}
 MUS_EXTS = {".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a"}
 ALL_EXTS = IMG_EXTS | VID_EXTS | MUS_EXTS

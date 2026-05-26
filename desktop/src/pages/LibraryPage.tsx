@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EmptyState } from "@/components/shared/EmptyState"
+import { Skeleton } from "@/components/ui/skeleton"
 import { fileOpen, fileReveal, fileDelete, fileRename, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
 
 import { FolderOpen, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive, Film } from "lucide-react"
@@ -69,6 +70,7 @@ export default function LibraryPage() {
   const [pageSize, setPageSize] = useState(48)
   const [loadedPages, setLoadedPages] = useState<Map<number, LibraryBrowsePaginatedResult["files"]>>(new Map())
   const loadedPagesRef = useRef<Map<number, LibraryBrowsePaginatedResult["files"]>>(new Map())
+  const [loadingPages, setLoadingPages] = useState<Set<number>>(new Set())
   const [deleteDialog, setDeleteDialog] = useState<{ path: string; name: string } | null>(null)
   const [renameDialog, setRenameDialog] = useState<{ path: string; name: string } | null>(null)
   const [renameValue, setRenameValue] = useState("")
@@ -132,6 +134,8 @@ export default function LibraryPage() {
   const [sizeMax, setSizeMax] = useState("")
   const [sortBy, setSortBy] = useState<"name" | "date" | "size" | "">("")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false)
+  const [isNarrow, setIsNarrow] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [compareDir, setCompareDir] = useState("")
   const [compareData, setCompareData] = useState<LibraryBrowsePaginatedResult | null>(null)
@@ -169,6 +173,7 @@ export default function LibraryPage() {
     if (!rootDir) return
     if (loadedPagesRef.current.has(pageNum)) return
 
+    setLoadingPages(prev => new Set(prev).add(pageNum))
     try {
       const { libraryBrowsePaginated } = await import("@/lib/tauri-bridge")
       const r = await libraryBrowsePaginated({
@@ -191,6 +196,12 @@ export default function LibraryPage() {
       }
     } catch (e) {
       console.error(`Failed to load page ${pageNum}:`, e)
+    } finally {
+      setLoadingPages(prev => {
+        const next = new Set(prev)
+        next.delete(pageNum)
+        return next
+      })
     }
   }, [rootDir, pageSize])
 
@@ -224,6 +235,13 @@ export default function LibraryPage() {
   useEffect(() => {
     setSelectedPaths(new Set())
   }, [page])
+
+  useEffect(() => {
+    const check = () => setIsNarrow(window.innerWidth < 768)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
@@ -371,6 +389,30 @@ export default function LibraryPage() {
     return () => { currentAbort.current = true }
   }, [currentFiles, page])
 
+  useEffect(() => {
+    if (!data || currentFiles.length === 0) return
+
+    const missing = currentFiles
+      .filter(f => isImageFile(f.suffix) && !thumbnailUrls[f.path])
+      .map(f => f.path)
+      .slice(0, 3)
+
+    if (missing.length === 0) return
+
+    const timer = setTimeout(async () => {
+      try {
+        const urls = await invoke<string[]>("read_thumbnails_batch", { paths: missing })
+        setThumbnailUrls(prev => {
+          const next = { ...prev }
+          missing.forEach((p, i) => { if (urls[i]) next[p] = urls[i] })
+          return next
+        })
+      } catch {}
+    }, 2000)
+
+    return () => clearTimeout(timer)
+  }, [currentFiles, thumbnailUrls])
+
   const crossDupes = useMemo(() => {
     if (!compareData || !data) return new Set<string>()
     const compareNames = new Set(compareData.files.map((f: any) => f.name))
@@ -429,6 +471,8 @@ export default function LibraryPage() {
     }
     return files
   }, [currentFiles, filter, tagFilter, fileTags, flagFilter, fileFlags, fileTypes, dateFrom, dateTo, sizeMin, sizeMax, sortBy, sortDir])
+
+  const activeFilterCount = [fileTypes.length > 0, !!dateFrom, !!dateTo, flagFilter !== "all", tagFilter.length > 0].filter(Boolean).length
 
   return (
     <>
@@ -529,6 +573,50 @@ export default function LibraryPage() {
               </div>
             )}
             <div className="flex items-center gap-1 flex-wrap">
+              {isNarrow ? (
+                <DropdownMenu open={filterDropdownOpen} onOpenChange={setFilterDropdownOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="text-[10px] h-7 gap-1">
+                      <SlidersHorizontal className="h-3 w-3" />
+                      {t("Quick filters", "Schnellfilter")}
+                      {activeFilterCount > 0 && <Badge className="ml-1 h-4 px-1 text-[9px]">{activeFilterCount}</Badge>}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-48">
+                    <DropdownMenuItem onClick={() => {
+                      setFileTypes([]); setDateFrom(""); setDateTo(""); setFlagFilter("all")
+                      setSizeMin(""); setSizeMax(""); setSortBy(""); setPage(0)
+                    }}>
+                      {t("All", "Alle")}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { setFileTypes(["photo"]); setPage(0) }}>
+                      {t("Photos", "Fotos")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setFileTypes(["video"]); setPage(0) }}>
+                      {t("Videos", "Videos")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setFileTypes(["raw"]); setPage(0) }}>
+                      {t("RAW", "RAW")}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { setFlagFilter(flagFilter === "pick" ? "all" : "pick"); setPage(0) }}>
+                      {t("Picks", "Auswahl")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setFlagFilter(flagFilter === "reject" ? "all" : "reject"); setPage(0) }}>
+                      {t("Rejects", "Abgelehnt")}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { setSortBy("date"); setSortDir("desc"); setPage(0) }}>
+                      {t("Newest first", "Neueste zuerst")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setSortBy("size"); setSortDir("desc"); setPage(0) }}>
+                      {t("Largest first", "Größte zuerst")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <>
               <button onClick={() => {
                   setFileTypes([]); setDateFrom(""); setDateTo(""); setFlagFilter("all")
                   setSizeMin(""); setSizeMax(""); setSortBy(""); setPage(0)
@@ -608,6 +696,8 @@ export default function LibraryPage() {
                 }`}>
                 📦 {sortBy === "size" && sortDir === "desc" ? t("Largest", "Größte") : sortBy === "size" ? t("Smallest", "Kleinste") : t("By size", "Nach Größe")}
               </button>
+                </>
+              )}
             </div>
             {(tagFilter.length > 0 || flagFilter !== "all") && (
               <Button variant="outline" size="sm" onClick={() => {
@@ -751,6 +841,18 @@ export default function LibraryPage() {
               {t("This may take a moment for large libraries.", "Bei großen Bibliotheken kann dies einen Moment dauern.")}
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Loading page skeleton */}
+      {!loading && data && loadingPages.has(page) && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+          {Array.from({ length: Math.min(pageSize, 12) }).map((_, i) => (
+            <Card key={i} className="overflow-hidden">
+              <Skeleton className="aspect-square w-full" />
+              <CardContent className="p-2"><Skeleton className="h-3 w-3/4" /></CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
@@ -1051,7 +1153,7 @@ export default function LibraryPage() {
       )}
 
       {/* Empty states */}
-      {!loading && data && sortedFiles.length === 0 && (
+      {!loading && data && !loadingPages.has(page) && sortedFiles.length === 0 && (
         <EmptyState
           title={filter ? t("No matches", "Keine Treffer") : t("No files found", "Keine Dateien gefunden")}
           description={filter ? t("Try a different filter.", "Anderen Filter versuchen.") : t("The directory is empty.", "Das Verzeichnis ist leer.")}
