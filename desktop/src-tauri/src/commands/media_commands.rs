@@ -113,6 +113,30 @@ pub async fn duplicates_apply(app: tauri::AppHandle, payload: Value) -> Result<V
     result
 }
 
+// ── Rename ──
+
+#[tauri::command]
+pub async fn rename_preview(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Rename Preview", None);
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize rename options: {e}"))?;
+    let result = bridge()?.run_module("bridge_rename", "preview", &[], Some(&json));
+    emit_progress(&app, "operation:completed", "Rename Preview",
+        Some(if result.is_ok() { "success" } else { "failed" }));
+    result
+}
+
+#[tauri::command]
+pub async fn rename_apply(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Rename Apply", None);
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize rename options: {e}"))?;
+    let result = bridge()?.run_module("bridge_rename", "apply", &[], Some(&json));
+    emit_progress(&app, "operation:completed", "Rename Apply",
+        Some(if result.is_ok() { "success" } else { "failed" }));
+    result
+}
+
 // ── Trip ──
 
 #[tauri::command]

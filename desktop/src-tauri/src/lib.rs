@@ -67,6 +67,9 @@ pub fn run() {
             // Undo
             media_commands::undo_preview,
             media_commands::undo_apply,
+            // Rename
+            media_commands::rename_preview,
+            media_commands::rename_apply,
             // Diagnostics
             media_commands::runtime_diagnostics,
             // Trip

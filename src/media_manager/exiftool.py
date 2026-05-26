@@ -149,8 +149,6 @@ def read_exiftool_metadata(
     command = [str(resolved_exiftool), "-json"]
     if include_time_tags:
         command.append("-time:all")
-    if group_names:
-        command.extend(["-G0:1", "-s"])
     command.append("--")
     command.append(str(file_path))
 
@@ -205,8 +203,6 @@ def read_exiftool_metadata_batch(
     command = [str(resolved_exiftool), "-json"]
     if include_time_tags:
         command.append("-time:all")
-    if group_names:
-        command.extend(["-G0:1", "-s"])
     command.append("--")
     for fp in file_paths:
         command.append(str(fp))

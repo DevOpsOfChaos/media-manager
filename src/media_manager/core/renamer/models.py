@@ -21,6 +21,7 @@ class RenamePlannerOptions:
     exiftool_path: Path | None = None
     include_associated_files: bool = False
     conflict_policy: RenameConflictPolicy = "conflict"
+    date_source: str = "auto"  # "auto", "exif", "filename", "mtime"
     include_patterns: tuple[str, ...] = ()
     exclude_patterns: tuple[str, ...] = ()
     batch_size: int = 0

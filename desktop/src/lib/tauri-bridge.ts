@@ -349,6 +349,47 @@ export async function runtimeDiagnostics(): Promise<RuntimeDiagnostics> {
   return invoke("runtime_diagnostics")
 }
 
+// ── Rename ──
+
+export interface RenamePreviewResponse {
+  kind: string
+  planned_count: number
+  skipped_count: number
+  conflict_count: number
+  error_count: number
+  entries: Array<{ source_path: string; target_path: string | null; status: string }>
+}
+
+export interface RenameApplyResponse {
+  kind: string
+  planned_count: number
+  renamed_count: number
+  skipped_count: number
+  error_count: number
+  conflict_count: number
+}
+
+export async function renamePreview(options: {
+  source_dir: string
+  pattern?: string
+  recursive?: boolean
+  include_hidden?: boolean
+  follow_symlinks?: boolean
+  include_patterns?: string[]
+  exclude_patterns?: string[]
+  date_source?: string
+}): Promise<RenamePreviewResponse> {
+  return invoke("rename_preview", { options })
+}
+
+export async function renameApply(options: {
+  source_dir: string
+  pattern?: string
+  recursive?: boolean
+}): Promise<RenameApplyResponse> {
+  return invoke("rename_apply", { options })
+}
+
 // ── Trip ──
 
 export interface TripOptions {

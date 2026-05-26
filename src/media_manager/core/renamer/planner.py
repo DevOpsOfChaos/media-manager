@@ -66,7 +66,12 @@ def _augment_with_sidecar_siblings(
 
 def _single_plan_entry(options: RenamePlannerOptions, scanned_file: ScannedFile, index: int, *, inspection: FileInspection | None = None) -> RenamePlanEntry:
     try:
-        resolution = resolve_capture_datetime(scanned_file.path, inspection=inspection, exiftool_path=options.exiftool_path)
+        resolution = resolve_capture_datetime(
+            scanned_file.path,
+            inspection=inspection,
+            exiftool_path=options.exiftool_path,
+            date_source=getattr(options, 'date_source', 'auto'),
+        )
         rendered_name = render_rename_filename(
             scanned_file.path,
             resolution,
@@ -120,7 +125,11 @@ def _single_plan_entry(options: RenamePlannerOptions, scanned_file: ScannedFile,
 def _group_plan_entry(options: RenamePlannerOptions, group, scanned_index: dict[str, ScannedFile], index: int) -> RenamePlanEntry:
     main_scanned = scanned_index[_normalized_path_key(group.main_path)]
     try:
-        resolution = resolve_capture_datetime(group.main_path, exiftool_path=options.exiftool_path)
+        resolution = resolve_capture_datetime(
+            group.main_path,
+            exiftool_path=options.exiftool_path,
+            date_source=getattr(options, 'date_source', 'auto'),
+        )
         rendered_name = render_rename_filename(
             group.main_path,
             resolution,
