@@ -4,6 +4,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::OnceLock;
+use std::time::Duration;
 
 /// Hardened Python discovery, env setup, and subprocess execution for
 /// calling `python -m media_manager.<module>` from Tauri commands.
@@ -155,9 +156,25 @@ impl PythonBridge {
             }
         }
 
-        let output = child
-            .wait_with_output()
-            .map_err(|e| format!("Python process error: {e}"))?;
+        let timeout = Duration::from_secs(300);
+        let start = std::time::Instant::now();
+        let output = loop {
+            match child.try_wait() {
+                Ok(Some(_status)) => {
+                    break child
+                        .wait_with_output()
+                        .map_err(|e| format!("Python process error: {e}"))?;
+                }
+                Ok(None) => {
+                    if start.elapsed() > timeout {
+                        let _ = child.kill();
+                        return Err("Python subprocess timed out after 300s".to_string());
+                    }
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+                Err(e) => return Err(format!("Process error: {e}")),
+            }
+        };
 
         let stderr_text = String::from_utf8_lossy(&output.stderr)
             .trim()

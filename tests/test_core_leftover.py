@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from media_manager.core.leftover import (
-    LeftoverConsolidationResult,
     discover_leftover_files,
     execute_leftover_consolidation,
     remove_empty_directories,

@@ -4,7 +4,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 import json
 
 VIEW_STATE_SCHEMA_VERSION = "1.0"

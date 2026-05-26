@@ -293,7 +293,7 @@ def test_execute_organize_group_move_moves_all_members(monkeypatch, tmp_path: Pa
 
 def test_organize_group_journal_and_undo_roundtrip(monkeypatch, tmp_path: Path) -> None:
     """Full pipeline: organize a group (copy), verify journal entries per member, undo restores state."""
-    from media_manager.core.state.execution_journal import load_execution_journal, write_execution_journal
+    from media_manager.core.state.execution_journal import write_execution_journal
     from media_manager.core.state.undo import execute_undo_journal
 
     source = tmp_path / "source"; target = tmp_path / "target"

@@ -26,6 +26,9 @@ fn setup_crash_log() {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     setup_crash_log();
+    if let Err(e) = commands::python_bridge::PythonBridge::get() {
+        eprintln!("FATAL: Python bridge unavailable: {e}");
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -44,6 +47,7 @@ pub fn run() {
             // Review
             media_commands::review_save_session,
             media_commands::review_load_session,
+            media_commands::review_apply_decisions,
             // People
             media_commands::people_scan,
             media_commands::people_scan_status,

@@ -162,7 +162,7 @@ def cmd_scan() -> int:
             "skipped_files": total_files,
             "total_files": total_files,
             "cached": True,
-            **_cache["scan_summary"],
+            **cache["scan_summary"],
             "cache_path": str(cp),
             "entries": [],
         })
@@ -284,7 +284,6 @@ def cmd_catalog_list() -> int:
     except Exception as exc:
         return _fail(f"Catalog load failed: {exc}")
 
-    from media_manager.core.people_recognition import DetectedFace
     
     people_list = []
     for person_id, person in catalog.persons.items():

@@ -1,13 +1,10 @@
 """Tests for the Tauri desktop settings bridge module."""
 
 import json
-import os
-import tempfile
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 from media_manager.bridge_settings import (
     DEFAULT_SETTINGS_PATH,

@@ -1,24 +1,18 @@
-import { useCallback, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useT } from "@/lib/i18n"
+import { invoke } from "@tauri-apps/api/core"
 import { appLocalDataDir, join } from "@tauri-apps/api/path"
 import { PageHeader } from "@/components/layout/PageHeader"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/shared/EmptyState"
-
-import {
-  UNSUPPORTED_FEATURES,
-  type ReviewSourceKind,
-  type ReviewDecisionDraft,
-} from "@/types"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Check, EyeOff, Trash2, Image, Loader2 } from "lucide-react"
+import type { ReviewSourceKind } from "@/types"
 import { useReviewStore } from "@/stores/review-store"
 
 export default function ReviewWorkbenchPage() {
@@ -26,22 +20,48 @@ export default function ReviewWorkbenchPage() {
   const navigate = useNavigate()
   const [, setSearchParams] = useSearchParams()
   const {
-    groups,
-    activeSourceKind,
-    setActiveSourceKind,
-    selectedGroupId,
-    selectedCandidateId,
-    selectGroup,
-    selectCandidate,
-    filterText,
-    setDraftDecision,
-    markReviewed,
-    reset,
-    sessionPath,
-    setSessionPath,
-    persistError,
+    groups, activeSourceKind, setActiveSourceKind,
+    selectedGroupId, selectGroup,
+    filterText, setFilterText, setDraftDecision, markReviewed,
+    reset, sessionPath, setSessionPath,
   } = useReviewStore()
 
+  const [thumbnails, setThumbnails] = useState<Record<string, string>>({})
+  const [applyDialogOpen, setApplyDialogOpen] = useState(false)
+  const [applying, setApplying] = useState(false)
+
+  // Load thumbnails for visible candidates
+  useEffect(() => {
+    const allPaths: string[] = []
+    for (const g of groups.slice(0, 50)) {
+      for (const c of g.candidates) {
+        if (c.path && !thumbnails[c.path]) {
+          allPaths.push(c.path)
+        }
+      }
+    }
+    if (allPaths.length === 0) return
+
+    const chunks = []
+    for (let i = 0; i < allPaths.length; i += 12) {
+      chunks.push(allPaths.slice(i, i + 12))
+    }
+
+    chunks.forEach((chunk, idx) => {
+      setTimeout(async () => {
+        try {
+          const urls = await invoke<string[]>("read_thumbnails_batch", { paths: chunk })
+          setThumbnails(prev => {
+            const next = { ...prev }
+            chunk.forEach((p, i) => { if (urls[i]) next[p] = urls[i] })
+            return next
+          })
+        } catch {}
+      }, idx * 100)
+    })
+  }, [groups])
+
+  // Initialize session
   useEffect(() => {
     if (groups.length === 0 || !activeSourceKind || sessionPath) return
     ;(async () => {
@@ -54,254 +74,181 @@ export default function ReviewWorkbenchPage() {
   const handleSourceSelect = (kind: ReviewSourceKind | null) => {
     const next = activeSourceKind === kind ? null : kind
     setActiveSourceKind(next)
-    if (next) {
-      setSearchParams({ source: next })
-    } else {
-      setSearchParams({})
-    }
+    if (next) setSearchParams({ source: next })
+    else setSearchParams({})
   }
 
-  const handleDecision = useCallback((candidateId: string, decision: ReviewDecisionDraft) => {
-    setDraftDecision(candidateId, decision)
-    markReviewed(candidateId)
-  }, [setDraftDecision, markReviewed])
+  // Count decisions
+  const stats = groups.reduce((acc, g) => {
+    g.candidates.forEach(c => {
+      if (c.draft_decision === "keep_reference") acc.keep++
+      else if (c.draft_decision === "remove_later") acc.remove++
+      else if (c.draft_decision === "ignore") acc.ignore++
+      if (c.role === "reviewed") acc.reviewed++
+    })
+    return acc
+  }, { keep: 0, remove: 0, ignore: 0, reviewed: 0, total: groups.reduce((s, g) => s + g.candidates.length, 0) })
 
-  const filteredGroups = groups.filter((g) => {
-    if (activeSourceKind && g.source_kind !== activeSourceKind) return false
-    if (!filterText.trim()) return true
-    const q = filterText.toLowerCase()
-    return g.candidates.some((c) => c.path.toLowerCase().includes(q))
-  })
-
-  const totalCandidates = groups.reduce((s, g) => s + g.candidates.length, 0)
-  const reviewedCount = groups.reduce(
-    (s, g) => s + g.candidates.filter((c) => c.role === "reviewed").length,
-    0,
-  )
+  // Apply decisions
+  const handleApply = async () => {
+    setApplying(true)
+    const toRemove = groups.flatMap(g => 
+      g.candidates.filter(c => c.draft_decision === "remove_later").map(c => c.path)
+    )
+    try {
+      await invoke("review_apply_decisions", { 
+        sessionPath, 
+        toKeep: groups.flatMap(g => g.candidates.filter(c => c.draft_decision === "keep_reference" || c.draft_decision === "ignore").map(c => ({ path: c.path, decision: c.draft_decision }))),
+        toRemove 
+      })
+    } catch (e) {
+      console.error("apply failed", e)
+    }
+    setApplying(false)
+    setApplyDialogOpen(false)
+  }
 
   return (
     <>
       <PageHeader title={t("Review Workbench", "Prüf-Workbench")}>
         {groups.length > 0 && (
-          <Button variant="outline" size="sm" onClick={reset}>
-            {t("Reset session", "Sitzung zurücksetzen")}
-          </Button>
+          <div className="flex gap-2">
+            <Badge variant="outline">{stats.total} {t("total", "gesamt")}</Badge>
+            <Badge className="bg-green-100 text-green-800">{stats.keep} {t("keep", "behalten")}</Badge>
+            <Badge className="bg-red-100 text-red-800">{stats.remove} {t("remove", "entfernen")}</Badge>
+            <Badge variant="outline">{stats.reviewed} {t("reviewed", "geprüft")}</Badge>
+            {stats.remove > 0 && (
+              <Button size="sm" variant="destructive" onClick={() => setApplyDialogOpen(true)}>
+                <Trash2 className="h-3 w-3 mr-1" />{t("Apply", "Anwenden")} ({stats.remove})
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={reset}>{t("Reset", "Zurücksetzen")}</Button>
+          </div>
         )}
       </PageHeader>
+
       <main className="flex flex-1 gap-4 p-4">
-        <div className="flex-1 max-w-4xl space-y-4">
-
-          {persistError && (
-            <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-800 dark:text-red-200">
-              <p className="font-medium">{t("Save failed", "Speichern fehlgeschlagen")}</p>
-              <p className="text-xs">{persistError}</p>
-            </div>
-          )}
-          {sessionPath && (
-            <div className="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 px-4 py-3 text-sm text-green-800 dark:text-green-200">
-              <p className="font-medium">{t("Decisions are persisted to disk.", "Entscheidungen werden auf Datenträger gespeichert.")}</p>
-              <p className="text-xs">{t("Draft decisions are saved automatically and restored when you return.", "Entscheidungsentwürfe werden automatisch gespeichert und beim Zurückkehren wiederhergestellt.")}</p>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">{t("Source", "Quelle")}</CardTitle>
-                <CardDescription className="text-xs">
-                  {t("Select which preview results to review.", "Wählen Sie, welche Vorschau-Ergebnisse geprüft werden sollen.")}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2">
-                  <Button
-                    variant={activeSourceKind === "exact_duplicates" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleSourceSelect("exact_duplicates")}
-                  >
-                    {t("Exact duplicates", "Exakte Duplikate")}
-                  </Button>
-                  <Button
-                    variant={activeSourceKind === "similar_images" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleSourceSelect("similar_images")}
-                  >
-                    {t("Similar images", "Ähnliche Bilder")}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">{t("Status", "Status")}</CardTitle>
-                <CardDescription className="text-xs">
-                  {t("Current session overview.", "Übersicht der aktuellen Sitzung.")}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <Badge variant="secondary">
-                    {totalCandidates} {t("candidates", "Kandidaten")}
-                  </Badge>
-                  <Badge variant={reviewedCount > 0 ? "default" : "secondary"}>
-                    {reviewedCount} {t("reviewed", "geprüft")}
-                  </Badge>
-                  <Badge variant={sessionPath ? "default" : "secondary"}>{sessionPath ? t("persisted", "gespeichert") : t("in-memory only", "nur im Speicher")}</Badge>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {groups.length === 0 && !sessionPath ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              <span className="ml-3 text-sm text-muted-foreground">{t("Waiting for scan data...", "Warte auf Scandaten...")}</span>
-            </div>
-          ) : groups.length === 0 ? (
-            <EmptyState
-              title={t("No candidates loaded", "Keine Kandidaten geladen")}
-              description={t("Run a duplicate scan first, then return here. Decisions are persisted to disk and restored when you come back.", "Führen Sie zuerst einen Duplikatscan durch und kehren Sie dann hierher zurück. Entscheidungen werden gespeichert und beim Zurückkehren wiederhergestellt.")}
-            />
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>{t(`Candidates (${filteredGroups.length} groups)`, `Kandidaten (${filteredGroups.length} Gruppen)`)}</CardTitle>
-                <CardDescription>
-                  {t("Decisions are saved to disk automatically.", "Entscheidungen werden automatisch auf Datenträger gespeichert.")}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {filteredGroups.slice(0, 50).map((group) => (
-                  <div key={group.id} className="rounded-lg border">
-                    <button
-                      onClick={() =>
-                        selectGroup(
-                          selectedGroupId === group.id ? null : group.id,
-                        )
-                      }
-                      className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/50 transition-colors"
-                    >
-                      <span className="text-xs text-muted-foreground">
-                        {selectedGroupId === group.id ? "▾" : "▸"}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-medium truncate">
-                            {group.label}
-                          </span>
-                          <Badge variant="secondary" className="text-xs">
-                            {group.candidates.length} {t("candidates", "Kandidaten")}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            {group.source_kind === "exact_duplicates" ? t("exact", "exakt") : t("similar", "ähnlich")}
-                          </Badge>
-                        </div>
-                      </div>
-                    </button>
-                    {selectedGroupId === group.id && (
-                      <div className="border-t px-3 py-2 space-y-1 bg-muted/20">
-                        {group.candidates.map((c) => (
-                          <div
-                            key={c.id}
-                            className={`flex items-center gap-2 py-1 rounded px-2 ${
-                              selectedCandidateId === c.id ? "bg-muted" : ""
-                            }`}
-                          >
-                            <button
-                              className="flex-1 text-left truncate font-mono text-xs"
-                              onClick={() => selectCandidate(c.id)}
-                            >
-                              {c.path.split(/[\\/]/).pop() ?? c.path}
-                            </button>
-                            {c.distance != null && (
-                              <Badge
-                                variant={
-                                  c.distance === 0 ? "default" : "secondary"
-                                }
-                                className="text-xs shrink-0"
-                              >
-                                d={c.distance}
-                              </Badge>
-                            )}
-                            <Badge
-                              variant={
-                                c.role === "reviewed"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                              className="text-xs shrink-0"
-                            >
-                              {c.role}
-                            </Badge>
-                            {/* Draft decision controls */}
-                            <div className="flex gap-1 shrink-0">
-                              {(["keep_reference", "remove_later", "ignore"] as const).map(
-                                (d) => (
-                                  <Button
-                                    key={d}
-                                    variant="ghost"
-                                    size="sm"
-                                    disabled={c.role === "reviewed"}
-                                    className={`h-5 px-1.5 text-[10px] ${c.role === "reviewed" ? "opacity-50" : ""}`}
-                                    onClick={() => handleDecision(c.id, d)}
-                                  >
-                                    {d === "keep_reference"
-                                      ? t("keep", "behalten")
-                                      : d === "remove_later"
-                                        ? t("remove", "entfernen")
-                                        : t("ignore", "ignorieren")}
-                                  </Button>
-                                ),
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {filteredGroups.length > 50 && (
-                  <p className="text-xs text-muted-foreground">
-                    {t(`Showing first 50 of ${filteredGroups.length} groups.`, `Zeige erste 50 von ${filteredGroups.length} Gruppen.`)}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("Planned features", "Geplante Funktionen")}</CardTitle>
-              <CardDescription>
-                {t("These features are planned but require additional safety infrastructure before they can be enabled. Decision drafts are already persisted to disk via the session bridge.", "Diese Funktionen sind geplant, benötigen aber zusätzliche Sicherheitsinfrastruktur. Entscheidungsentwürfe werden bereits über die Sitzungsbrücke gespeichert.")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {UNSUPPORTED_FEATURES.map((f) => (
-                  <div key={f.feature} className="flex items-start gap-3 rounded-lg border p-3 opacity-60">
-                    <Badge variant="secondary" className="text-xs shrink-0 mt-0.5">
-                      {t("planned", "geplant")}
-                    </Badge>
-                    <div>
-                      <p className="text-sm font-medium">{f.feature}</p>
-                      <p className="text-xs text-muted-foreground">{f.reason}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="flex gap-2">
+        <div className="flex-1 max-w-5xl space-y-4">
+          {/* Source selector */}
+          <div className="flex gap-2 flex-wrap">
+            <Button variant={activeSourceKind === "exact_duplicates" ? "default" : "outline"} size="sm" onClick={() => handleSourceSelect("exact_duplicates")}>
+              {t("Exact duplicates", "Exakte Duplikate")}
+            </Button>
+            <Button variant={activeSourceKind === "similar_images" ? "default" : "outline"} size="sm" onClick={() => handleSourceSelect("similar_images")}>
+              {t("Similar images", "Ähnliche Bilder")}
+            </Button>
             <Button variant="outline" size="sm" onClick={() => navigate("/duplicates")}>
-              {t("Go to Duplicates Preview", "Zur Duplikatvorschau")}
+              {t("Run new scan", "Neuer Scan")}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate("/history")}>
-              {t("Go to History", "Zum Verlauf")}
-            </Button>
+            <Input value={filterText} onChange={e => setFilterText(e.target.value)}
+              placeholder={t("Filter by path...", "Nach Pfad filtern...")}
+              className="text-xs h-8 w-48 ml-auto" />
           </div>
+
+          {/* No data */}
+          {groups.length === 0 && (
+            <EmptyState
+              title={t("No review data", "Keine Prüfdaten")}
+              description={t("Run a duplicate scan first. Results appear here for review.", "Führe erst einen Duplikatscan durch. Ergebnisse erscheinen hier zur Prüfung.")}
+              action={<Button onClick={() => navigate("/duplicates")}>{t("Go to Duplicates", "Zu Duplikaten")}</Button>}
+            />
+          )}
+
+          {/* Candidate list */}
+          {groups.filter(g => {
+            if (activeSourceKind && g.source_kind !== activeSourceKind) return false
+            if (!filterText.trim()) return true
+            return g.candidates.some(c => c.path.toLowerCase().includes(filterText.toLowerCase()))
+          }).slice(0, 100).map(group => (
+            <Card key={group.id} className="overflow-hidden">
+              <button onClick={() => selectGroup(selectedGroupId === group.id ? null : group.id)}
+                className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/30">
+                <span>{selectedGroupId === group.id ? "▾" : "▸"}</span>
+                <span className="font-mono text-xs truncate flex-1">{group.label}</span>
+                <Badge variant="secondary" className="text-[10px]">{group.candidates.length}</Badge>
+              </button>
+              {selectedGroupId === group.id && (
+                <div className="border-t p-2 space-y-1 bg-muted/10">
+                  {group.candidates.map(c => (
+                    <div key={c.id} className={`flex items-center gap-2 p-1.5 rounded ${c.role === "reviewed" ? "opacity-60" : ""}`}>
+                      {/* Thumbnail */}
+                      <div className="w-12 h-12 rounded bg-muted overflow-hidden shrink-0">
+                        {thumbnails[c.path] ? (
+                          <img src={thumbnails[c.path]} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Image className="w-4 h-4 text-muted-foreground/30" />
+                          </div>
+                        )}
+                      </div>
+                      {/* Path */}
+                      <span className="text-[11px] font-mono truncate flex-1" title={c.path}>
+                        {c.path.split(/[\\/]/).pop()}
+                      </span>
+                      {/* Distance */}
+                      {c.distance != null && (
+                        <Badge variant="secondary" className="text-[10px] shrink-0">d={c.distance}</Badge>
+                      )}
+                      {/* Decision buttons */}
+                      <div className="flex gap-0.5 shrink-0">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant={c.draft_decision === "keep_reference" ? "default" : "ghost"}
+                              size="icon" className="h-7 w-7" onClick={() => { setDraftDecision(c.id, "keep_reference"); markReviewed(c.id) }}>
+                              <Check className="h-3 w-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{t("Keep", "Behalten")}</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant={c.draft_decision === "remove_later" ? "destructive" : "ghost"}
+                              size="icon" className="h-7 w-7" onClick={() => { setDraftDecision(c.id, "remove_later"); markReviewed(c.id) }}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{t("Remove", "Entfernen")}</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant={c.draft_decision === "ignore" ? "secondary" : "ghost"}
+                              size="icon" className="h-7 w-7" onClick={() => { setDraftDecision(c.id, "ignore"); markReviewed(c.id) }}>
+                              <EyeOff className="h-3 w-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{t("Ignore", "Ignorieren")}</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          ))}
+
+          {/* Apply confirmation dialog */}
+          <Dialog open={applyDialogOpen} onOpenChange={setApplyDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t("Apply review decisions?", "Prüfentscheidungen anwenden?")}</DialogTitle>
+                <DialogDescription>
+                  {t("This will move files marked for removal to the trash. This action can be undone from the History page.", "Dies verschiebt zum Entfernen markierte Dateien in den Papierkorb. Die Aktion kann über die Verlaufsseite rückgängig gemacht werden.")}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-1 text-sm">
+                <p>✅ {stats.keep} {t("files kept", "Dateien behalten")}</p>
+                <p className="text-red-500">🗑️ {stats.remove} {t("files to remove", "Dateien zum Entfernen")}</p>
+                <p className="text-muted-foreground">👁️ {stats.ignore} {t("files ignored", "Dateien ignoriert")}</p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setApplyDialogOpen(false)}>{t("Cancel", "Abbrechen")}</Button>
+                <Button variant="destructive" onClick={handleApply} disabled={applying}>
+                  {applying ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                  {t("Remove files", "Dateien entfernen")}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </main>
     </>

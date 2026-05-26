@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
 
 from .people_recognition import (
     PeopleCatalog,

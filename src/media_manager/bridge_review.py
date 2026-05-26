@@ -8,13 +8,36 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 from pathlib import Path
 
-from media_manager.bridge_base import emit as _emit, fail as _fail, get_app_dir as _get_app_dir, validate_app_path as _validate_app_path
+from media_manager.bridge_base import emit as _emit, fail as _fail, validate_app_path as _validate_app_path
 
 logger = logging.getLogger(__name__)
+
+
+def cmd_apply() -> int:
+    """Apply review decisions: move files marked for removal to trash."""
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _fail(f"Invalid JSON: {exc}")
+
+    to_remove = payload.get("to_remove", [])
+
+    removed = 0
+    errors = []
+    import send2trash
+    for path in to_remove:
+        try:
+            send2trash.send2trash(path)
+            removed += 1
+        except Exception as e:
+            errors.append(str(e))
+
+    _emit({"status": "applied", "removed": removed, "errors": errors})
+    return 0
 
 
 def cmd_save_session() -> int:
@@ -85,7 +108,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="media_manager.bridge_review",
         description="Review workbench bridge for Tauri desktop app.",
     )
-    parser.add_argument("action", choices=["save-session", "load-session"])
+    parser.add_argument("action", choices=["save-session", "load-session", "apply"])
     return parser
 
 
@@ -97,6 +120,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.action == "save-session":
         logger.info("Review: saving session")
         return cmd_save_session()
+    if args.action == "apply":
+        logger.info("Review: applying decisions")
+        return cmd_apply()
     logger.info("Review: loading session")
     return cmd_load_session()
 

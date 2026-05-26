@@ -1,12 +1,10 @@
 """Tests for the run history bridge module."""
 
 import json
-import os
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 from media_manager.bridge_history import (
     DEFAULT_RUNS_PATH,

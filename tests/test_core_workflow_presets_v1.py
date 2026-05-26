@@ -5,7 +5,6 @@ from pathlib import Path
 
 from media_manager.core.workflows import (
     build_workflow_profile_argv,
-    get_workflow_preset,
     list_workflow_presets,
     load_workflow_profile,
     render_workflow_preset_command,

@@ -68,6 +68,7 @@ export default function LibraryPage() {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(48)
   const [loadedPages, setLoadedPages] = useState<Map<number, LibraryBrowsePaginatedResult["files"]>>(new Map())
+  const loadedPagesRef = useRef<Map<number, LibraryBrowsePaginatedResult["files"]>>(new Map())
   const [deleteDialog, setDeleteDialog] = useState<{ path: string; name: string } | null>(null)
   const [renameDialog, setRenameDialog] = useState<{ path: string; name: string } | null>(null)
   const [renameValue, setRenameValue] = useState("")
@@ -166,7 +167,7 @@ export default function LibraryPage() {
 
   const loadPageData = useCallback(async (pageNum: number) => {
     if (!rootDir) return
-    if (loadedPages.has(pageNum)) return
+    if (loadedPagesRef.current.has(pageNum)) return
 
     try {
       const { libraryBrowsePaginated } = await import("@/lib/tauri-bridge")
@@ -178,6 +179,11 @@ export default function LibraryPage() {
       setLoadedPages(prev => {
         const next = new Map(prev)
         next.set(pageNum, r.files)
+        if (next.size > 5) {
+          const keys = [...next.keys()].sort((a, b) => Math.abs(a - pageNum) - Math.abs(b - pageNum))
+          for (const k of keys.slice(5)) next.delete(k)
+        }
+        loadedPagesRef.current = next
         return next
       })
       if (pageNum === 0) {
@@ -191,6 +197,7 @@ export default function LibraryPage() {
   const browse = useCallback(async () => {
     if (!rootDir) return
     setLoading(true); setError(null); setPage(0); setLoadedPages(new Map())
+    loadedPagesRef.current = new Map()
     localStorage.setItem("library_root", rootDir)
     setElapsed(0)
     elapsedRef.current = setInterval(() => setElapsed(e => e + 1), 1000)
@@ -255,6 +262,7 @@ export default function LibraryPage() {
       const next = new Map(loadedPages)
       next.delete(page)
       setLoadedPages(next)
+      loadedPagesRef.current = next
       loadPageData(page)
     } catch (e) { setError(String(e)) }
   }
@@ -290,6 +298,7 @@ export default function LibraryPage() {
       const next = new Map(loadedPages)
       next.delete(page)
       setLoadedPages(next)
+      loadedPagesRef.current = next
       loadPageData(page)
     } catch (e) { setError(String(e)) }
   }
@@ -314,9 +323,15 @@ export default function LibraryPage() {
   const currentFiles = loadedPages.get(page) || []
   const totalPages = data?.total_pages || 1
 
-  // Batch-load thumbnails for current page
+  // Batch-load thumbnails for current page with abort support
+  const abortRef = useRef(false)
+
   useEffect(() => {
+    abortRef.current = true
     if (currentFiles.length === 0) return
+
+    abortRef.current = false
+    const currentAbort = { current: false }
 
     const paths = currentFiles
       .filter(f => isImageFile(f.suffix))
@@ -324,30 +339,37 @@ export default function LibraryPage() {
 
     if (paths.length === 0) return
 
-    const chunkSize = 12
+    const chunkSize = 6
+
     const loadChunk = async (startIdx: number) => {
+      if (currentAbort.current) return
       const chunk = paths.slice(startIdx, startIdx + chunkSize)
       if (chunk.length === 0) return
 
       try {
         const urls = await invoke<string[]>("read_thumbnails_batch", { paths: chunk })
+        if (currentAbort.current) return
         setThumbnailUrls(prev => {
           const next = { ...prev }
-          chunk.forEach((path, i) => {
-            if (urls[i]) next[path] = urls[i]
-          })
+          chunk.forEach((path, i) => { if (urls[i]) next[path] = urls[i] })
+          const keys = Object.keys(next)
+          if (keys.length > 200) {
+            for (const k of keys.slice(0, keys.length - 200)) delete next[k]
+          }
           return next
         })
-      } catch (e) { console.error("Batch thumbnail failed:", e) }
+      } catch {}
 
-      if (startIdx + chunkSize < paths.length) {
-        setTimeout(() => loadChunk(startIdx + chunkSize), 100)
+      if (startIdx + chunkSize < paths.length && !currentAbort.current) {
+        setTimeout(() => loadChunk(startIdx + chunkSize), 200)
       }
     }
 
     setThumbnailUrls({})
     loadChunk(0)
-  }, [currentFiles])
+
+    return () => { currentAbort.current = true }
+  }, [currentFiles, page])
 
   const crossDupes = useMemo(() => {
     if (!compareData || !data) return new Set<string>()
@@ -654,6 +676,7 @@ export default function LibraryPage() {
                 setPageSize(newSize)
                 setPage(0)
                 setLoadedPages(new Map())
+                loadedPagesRef.current = new Map()
                 loadPageData(0)
               }}
               className="text-xs border rounded px-2 py-1 bg-background"

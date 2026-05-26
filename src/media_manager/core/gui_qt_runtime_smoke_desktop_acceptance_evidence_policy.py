@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
 
 QT_RUNTIME_SMOKE_DESKTOP_ACCEPTANCE_EVIDENCE_POLICY_SCHEMA_VERSION = "1.0"
 

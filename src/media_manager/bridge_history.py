@@ -24,10 +24,9 @@ from media_manager.core.run_index import (
     build_run_artifacts_payload,
     find_run_artifact,
     list_run_artifacts,
-    load_run_artifact_payload,
 )
 
-from media_manager.bridge_base import emit as _emit, fail as _fail, get_app_dir as _get_app_dir, validate_app_path as _validate_app_path
+from media_manager.bridge_base import emit as _emit, fail as _fail, validate_app_path as _validate_app_path
 
 DEFAULT_RUNS_PATH = Path.home() / ".media-manager" / "runs"
 

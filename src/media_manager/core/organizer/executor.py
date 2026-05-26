@@ -123,7 +123,6 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None,
         checkpoint_path: If set, write a checkpoint after each batch for resume support.
         resume: If True and checkpoint_path exists, skip already-processed entries.
     """
-    from media_manager.core.progress_tracker import ProgressTracker  # local import avoids circular
 
     result = OrganizeExecutionResult(plan=plan)
     total = len(plan.entries)
@@ -142,7 +141,7 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None,
             start_index = int(checkpoint_data.get("last_processed_index", 0))
             if start_index >= total:
                 start_index = total
-        except (OSError, IOError, ValueError) as exc:
+        except (OSError, IOError, ValueError):
             start_index = 0
 
     # ── Phase: create directories ──

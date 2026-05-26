@@ -3,10 +3,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 import json
 from pathlib import Path
-from typing import Any
 
 from .people_review_assets import build_people_review_assets, write_people_review_asset_manifest
-from .people_review_ui import build_people_review_workspace, build_people_review_workspace_summary_text
+from .people_review_ui import build_people_review_workspace
 from .people_review_workflow import build_people_review_workflow, write_people_review_workflow
 
 BUNDLE_SCHEMA_VERSION = 1

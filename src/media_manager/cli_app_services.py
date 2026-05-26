@@ -13,7 +13,6 @@ from .core.app_services import (
     build_review_workbench_stateful_rebuild_bundle,
     build_review_workbench_stateful_callback_plan,
     build_review_workbench_stateful_callback_response,
-    map_review_workbench_callback_intent_to_rebuild_intent,
     normalize_review_workbench_rebuild_intent,
     write_review_workbench_stateful_rebuild_bundle,
     write_review_workbench_stateful_callback_plan,

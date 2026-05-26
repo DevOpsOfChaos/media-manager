@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-import hashlib
 import json
 from pathlib import Path
-from typing import Any
 
 from PIL import Image
 

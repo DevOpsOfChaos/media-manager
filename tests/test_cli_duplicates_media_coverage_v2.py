@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-from media_manager.core.duplicate_report import build_duplicate_review_export, build_duplicate_summary
+from media_manager.core.duplicate_report import build_duplicate_review_export
 from media_manager.duplicate_workflow import build_duplicate_workflow_bundle
 from media_manager.duplicates import DuplicateScanConfig, scan_exact_duplicates
 from media_manager.media_formats import get_media_format_capability, summarize_supported_media_formats

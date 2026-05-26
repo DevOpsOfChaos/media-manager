@@ -9,11 +9,9 @@ Reports Python version, import health, and settings path status.
 
 from __future__ import annotations
 
-import json
 import sys
-from pathlib import Path
 
-from media_manager.bridge_base import emit as _emit, fail as _fail
+from media_manager.bridge_base import emit as _emit
 
 
 def get_gpu_diagnostics() -> dict:

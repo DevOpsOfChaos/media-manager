@@ -5,7 +5,7 @@ from typing import Any
 
 from .gui_guided_flow import build_guided_step, build_guided_flow
 from .gui_i18n import translate
-from .gui_modern_components import build_action_button, build_card
+from .gui_modern_components import build_action_button
 
 PEOPLE_ONBOARDING_SCHEMA_VERSION = "1.0"
 

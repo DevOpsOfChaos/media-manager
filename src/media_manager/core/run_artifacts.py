@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import json
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -74,7 +73,7 @@ def build_run_summary_text(
 ) -> str:
     """Build a small human-readable summary for a run artifact directory."""
     lines = [
-        f"Media Manager run summary",
+        "Media Manager run summary",
         f"Command: {command_name}",
         f"Mode: {'apply' if apply_requested else 'preview'}",
         f"Created at UTC: {created_at_utc}",

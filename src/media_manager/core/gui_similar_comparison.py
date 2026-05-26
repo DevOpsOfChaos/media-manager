@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from ..similar_review import build_similar_review_report
 from .gui_empty_states import build_empty_state
 
 PAGE_MODEL_SCHEMA_VERSION = "3.0"
@@ -100,13 +99,9 @@ def build_similar_comparison_page_model(
 
     total_groups = len(groups)
     group_index = max(0, min(selected_group_index, total_groups - 1)) if total_groups else 0
-    current_group = groups[group_index] if groups else None
-
     pairs: list[dict[str, object]] = []
     total_candidates = 0
     current_pair_index = 0
-    review_report = build_similar_review_report(groups, keep_policy="first") if groups else None
-
     for g_idx, group in enumerate(groups):
         group_decisions = decisions.get(f"similar-{group.anchor_path.stem}_{group.members[0].hash_hex[:12]}", {})
         keep_path = group.anchor_path

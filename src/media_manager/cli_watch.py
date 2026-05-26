@@ -86,7 +86,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: {source} does not exist", file=sys.stderr)
         return 1
 
-    use_json = os.environ.get("MEDIA_MANAGER_JSON") == "1"
     use_quiet = os.environ.get("MEDIA_MANAGER_QUIET") == "1"
 
     if not use_quiet:

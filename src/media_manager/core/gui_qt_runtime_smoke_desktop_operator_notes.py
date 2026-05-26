@@ -10,7 +10,7 @@ def build_qt_runtime_smoke_desktop_operator_notes(*, language: str = "de") -> di
         {"id": "no-training", "text": "No apply/training action should start automatically." if lang == "en" else "Keine Apply-/Training-Aktion darf automatisch starten."},
     ]
     return {
-        "schema_version": QT_RUNTIME_SMOKE_OPERATOR_NOTES_SCHEMA_VERSION if False else QT_RUNTIME_SMOKE_DESKTOP_OPERATOR_NOTES_SCHEMA_VERSION,
+        "schema_version": QT_RUNTIME_SMOKE_DESKTOP_OPERATOR_NOTES_SCHEMA_VERSION,
         "kind": "qt_runtime_smoke_desktop_operator_notes",
         "language": lang,
         "notes": notes,

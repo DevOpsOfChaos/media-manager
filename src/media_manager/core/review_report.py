@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterable, Mapping
-from pathlib import Path
 
 
 def _string_or_none(value: object) -> str | None:

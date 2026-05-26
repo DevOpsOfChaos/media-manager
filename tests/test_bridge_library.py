@@ -1,5 +1,6 @@
 from __future__ import annotations
-import json, sys
+import json
+import sys
 from io import StringIO
 from pathlib import Path
 from unittest import mock

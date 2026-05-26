@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
 RUN_MONITOR_SCHEMA_VERSION = "1.0"
 

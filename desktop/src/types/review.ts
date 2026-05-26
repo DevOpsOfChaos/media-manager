@@ -73,14 +73,6 @@ export interface ReviewGroup {
   note: string | null
 }
 
-// ── Unsupported reason (why a feature is not available yet) ──
-
-export interface ReviewUnsupportedReason {
-  feature: string
-  reason: string
-  planned: boolean
-}
-
 // ── Review workbench session (in-memory only) ──
 
 export interface ReviewSession {
@@ -111,25 +103,4 @@ export const REVIEW_FEATURE_STATUS = {
   undo_execution: "not_implemented" as const,
 } as const
 
-export const UNSUPPORTED_FEATURES: ReviewUnsupportedReason[] = [
-  {
-    feature: "Decision persistence",
-    reason: "Decision file format and write path are defined and available.",
-    planned: false,
-  },
-  {
-    feature: "Apply decisions",
-    reason: "Requires journal, undo plan, preflight checks, and user confirmation.",
-    planned: true,
-  },
-  {
-    feature: "Journal write",
-    reason: "Journal format exists in backend (execution_journal) but not wired to desktop.",
-    planned: true,
-  },
-  {
-    feature: "Undo execution",
-    reason: "Requires journal entries and undo plan model.",
-    planned: true,
-  },
-]
+

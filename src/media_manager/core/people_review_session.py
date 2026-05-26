@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
 
 SESSION_SCHEMA_VERSION = 1
 SESSION_KIND = "people_review_session"

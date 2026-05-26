@@ -8,10 +8,8 @@ import json
 import math
 import os
 from pathlib import Path
-from typing import Any
 
 from media_manager.core.path_filters import path_is_included_by_patterns
-from media_manager.core.schema_migration import migrate_catalog
 from media_manager.media_formats import list_supported_similar_image_extensions, normalize_extensions
 from media_manager.sorter import iter_media_files
 

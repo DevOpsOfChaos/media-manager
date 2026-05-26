@@ -181,7 +181,6 @@ def _augment_files_with_associated_sidecars(
 
 def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=None, cancel_event=None,
                           progress: "ProgressTracker | None" = None) -> OrganizeDryRun:
-    from media_manager.core.progress_tracker import ProgressTracker
 
     # ── Phase: scanning ──
     if progress:

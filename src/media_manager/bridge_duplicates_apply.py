@@ -16,7 +16,6 @@ import sys
 from pathlib import Path
 
 from media_manager.duplicate_workflow import (
-    DuplicateWorkflowBundle,
     build_duplicate_workflow_bundle,
     execute_duplicate_workflow_bundle,
 )
@@ -46,7 +45,6 @@ def cmd_apply() -> int:
         return _fail("decisions is required and must be non-empty.")
 
     mode = payload.get("mode", "delete")
-    policy = payload.get("policy", "first")
     target_root = payload.get("target_root", "")
 
     config = DuplicateScanConfig(

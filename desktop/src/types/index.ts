@@ -45,13 +45,11 @@ export type {
   ReviewSafetyState,
   ReviewCandidate,
   ReviewGroup,
-  ReviewUnsupportedReason,
   ReviewSession,
 } from "./review"
 
 export {
   REVIEW_FEATURE_STATUS,
-  UNSUPPORTED_FEATURES,
 } from "./review"
 
 export type {

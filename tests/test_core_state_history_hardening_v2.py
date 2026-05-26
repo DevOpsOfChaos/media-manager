@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from media_manager.core.state.history import WorkflowHistoryEntry, build_history_summary

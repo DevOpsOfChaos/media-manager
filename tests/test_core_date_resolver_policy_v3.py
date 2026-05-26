@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 
 from media_manager.core.date_resolver import resolve_capture_datetime

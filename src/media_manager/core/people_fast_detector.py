@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import numpy as np
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,6 @@ def detect_faces_yunet(
     """
     try:
         import cv2
-        import numpy as np
     except ImportError:
         logger.debug("OpenCV not available for YuNet detection")
         return []
@@ -188,7 +187,6 @@ def score_face_quality(
     """
     try:
         import cv2
-        import numpy as np
     except ImportError:
         return {"size_score": 0.0, "sharpness_score": 0.0, "overall_score": 0.0, "usable": False}
 
@@ -268,7 +266,6 @@ def estimate_age_range(image_path: Path, face_box: tuple[int, int, int, int]) ->
 def is_available() -> bool:
     """Check if YuNet fast detection is available."""
     try:
-        import cv2
         model_path = _get_yunet_model_path()
         return model_path is not None and model_path.exists()
     except Exception:

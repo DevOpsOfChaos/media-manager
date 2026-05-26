@@ -1,6 +1,5 @@
 """Job queue management CLI."""
 import argparse
-import json
 import time
 from dataclasses import asdict
 

@@ -39,7 +39,6 @@ from .gui_review_workbench_executor_handoff_panel import (
 )
 from .gui_review_workbench_stateful_rebuild import (
     build_review_workbench_stateful_rebuild_bundle,
-    build_review_workbench_stateful_rebuild_loop_contract,
     normalize_review_workbench_rebuild_intent,
     write_review_workbench_stateful_rebuild_bundle,
 )
@@ -295,6 +294,9 @@ __all__ = [
     "build_review_workbench_confirmation_dialog_model",
     "build_review_workbench_apply_executor_contract",
     "build_review_workbench_executor_handoff_panel",
+    "build_review_workbench_stateful_rebuild_bundle",
+    "normalize_review_workbench_rebuild_intent",
+    "write_review_workbench_stateful_rebuild_bundle",
     "build_review_workbench_stateful_callback_plan",
     "build_review_workbench_stateful_callback_response",
     "map_review_workbench_callback_intent_to_rebuild_intent",

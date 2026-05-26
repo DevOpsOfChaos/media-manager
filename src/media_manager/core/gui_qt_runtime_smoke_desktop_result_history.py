@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime, timezone
-from typing import Any
 
 QT_RUNTIME_SMOKE_DESKTOP_RESULT_HISTORY_SCHEMA_VERSION = "1.0"
 

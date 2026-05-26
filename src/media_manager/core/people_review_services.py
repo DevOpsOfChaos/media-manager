@@ -4,7 +4,6 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 import json
 from pathlib import Path
-from typing import Any
 
 from .people_review_bundle import (
     DEFAULT_ASSET_DIR,

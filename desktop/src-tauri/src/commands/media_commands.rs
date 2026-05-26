@@ -153,6 +153,16 @@ pub async fn review_load_session(payload: Value) -> Result<Value, String> {
     bridge()?.run_module("bridge_review", "load-session", &[], Some(&json))
 }
 
+#[tauri::command]
+pub async fn review_apply_decisions(session_path: String, to_keep: Vec<Value>, to_remove: Vec<String>) -> Result<Value, String> {
+    let json = serde_json::to_string(&serde_json::json!({
+        "session_path": session_path,
+        "to_keep": to_keep,
+        "to_remove": to_remove,
+    })).map_err(|e| format!("Serialize error: {e}"))?;
+    bridge()?.run_module("bridge_review", "apply", &[], Some(&json))
+}
+
 // ── People ──
 
 #[tauri::command]
@@ -419,7 +429,7 @@ pub async fn read_thumbnails_batch(paths: Vec<String>) -> Result<Vec<String>, St
         match fs::File::open(path) {
             Ok(file) => {
                 let mut buf = Vec::new();
-                if file.take(64 * 1024).read_to_end(&mut buf).is_ok() && !buf.is_empty() {
+                if file.take(16 * 1024).read_to_end(&mut buf).is_ok() && !buf.is_empty() {
                     use base64::Engine;
                     let b64 = base64::engine::general_purpose::STANDARD.encode(&buf);
                     results.push(format!("data:{};base64,{}", mime, b64));

@@ -11,7 +11,6 @@ from .core.app_profiles import (
     build_app_profile_payload,
     build_app_profile_preview,
     load_app_profile,
-    render_app_profile_command,
     scan_app_profiles,
     summarize_app_profiles,
     validate_app_profile,

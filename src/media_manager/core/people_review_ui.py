@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 import hashlib
-from typing import Any
 
 from .people_review_workflow import build_people_review_workflow
 

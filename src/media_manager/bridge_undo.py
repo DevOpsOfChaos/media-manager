@@ -13,13 +13,12 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 from pathlib import Path
 
 from media_manager.core.state.undo import execute_undo_journal
 
-from media_manager.bridge_base import emit as _emit, fail as _fail, get_app_dir as _get_app_dir, validate_app_path as _validate_app_path
+from media_manager.bridge_base import emit as _emit, fail as _fail, validate_app_path as _validate_app_path
 
 logger = logging.getLogger(__name__)
 

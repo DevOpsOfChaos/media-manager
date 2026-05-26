@@ -2,9 +2,6 @@
 from __future__ import annotations
 
 import json
-import os
-import sys
-import tempfile
 import zipfile
 from io import StringIO
 from pathlib import Path
@@ -485,11 +482,6 @@ class TestCmdWebGallery:
 
 
 class TestCmdBackup:
-    def test_invalid_json_returns_error(self):
-        with patch("sys.stdin", _stdin_raw("bad")), patch("sys.stderr", new_callable=StringIO) as m:
-            exit_code = cmd_backup()
-        assert exit_code == 1
-
     def test_missing_app_dir_returns_error(self, monkeypatch, tmp_path):
         monkeypatch.setenv("MEDIA_MANAGER_HOME", str(tmp_path / ".media-manager"))
         monkeypatch.delenv("MEDIA_MANAGER_HOME", raising=False)

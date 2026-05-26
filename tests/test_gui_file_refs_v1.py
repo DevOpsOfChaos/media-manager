@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from media_manager.core.gui_file_refs import build_asset_ref, build_local_file_ref, collect_asset_refs
+from media_manager.core.gui_file_refs import build_local_file_ref, collect_asset_refs
 
 
 def test_build_local_file_ref_marks_existing_file(tmp_path: Path) -> None:

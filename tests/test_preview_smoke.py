@@ -1,6 +1,9 @@
 """Smoke tests for organize preview pipeline."""
 from pathlib import Path
-import tempfile, json, sys, io
+import tempfile
+import json
+import sys
+import io
 
 sys.path.insert(0, "D:/LocalRepos/media-manager/src")
 

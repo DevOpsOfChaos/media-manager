@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from .gui_qt_render_tree import summarize_render_tree, walk_render_tree
+from .gui_qt_render_tree import summarize_render_tree
 from .gui_qt_runtime_component_catalog import build_qt_runtime_component_catalog, lookup_qt_component_spec
 
 QT_RUNTIME_WIDGET_PLAN_SCHEMA_VERSION = "1.0"

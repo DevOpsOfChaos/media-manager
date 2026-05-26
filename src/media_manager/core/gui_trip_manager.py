@@ -5,7 +5,7 @@ from typing import Any
 
 from .gui_empty_states import build_empty_state
 from .gui_i18n import translate
-from .gui_modern_components import build_action_button, build_card
+from .gui_modern_components import build_action_button
 
 TRIP_MANAGER_SCHEMA_VERSION = "1.0"
 

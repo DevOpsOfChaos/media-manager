@@ -8,7 +8,6 @@ from PIL import Image
 from src.media_manager.core.similar_assets import (
     build_similar_group_id,
     build_similar_image_assets,
-    write_similar_image_asset_manifest,
 )
 from src.media_manager.core.similar_cleanup_plan import build_similar_cleanup_plan
 from src.media_manager.core.similar_decisions import (

@@ -29,7 +29,7 @@ from media_manager.core.gui_settings_model import (
     write_gui_settings,
 )
 
-from media_manager.bridge_base import emit as _emit, fail as _fail, get_app_dir as _get_app_dir, validate_app_path as _validate_app_path
+from media_manager.bridge_base import emit as _emit, fail as _fail, validate_app_path as _validate_app_path
 
 DEFAULT_SETTINGS_PATH = Path.home() / ".media-manager" / "gui-settings.json"
 

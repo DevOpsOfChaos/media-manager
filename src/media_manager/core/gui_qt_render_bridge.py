@@ -7,7 +7,7 @@ from .gui_qt_render_tree_snapshot import build_render_tree_snapshot
 from .gui_qt_render_tree_validator import validate_render_tree
 from .gui_qt_shell_render_tree import build_shell_render_tree, summarize_shell_render_tree
 from .gui_qt_visible_desktop_plan import build_qt_visible_desktop_plan, desktop_plan_is_ready
-from .gui_render_contracts import build_page_render_contract, summarize_render_contract
+from .gui_render_contracts import build_page_render_contract
 
 QT_RENDER_BRIDGE_SCHEMA_VERSION = "1.0"
 
@@ -36,7 +36,6 @@ def build_qt_render_bridge(shell_model: Mapping[str, Any]) -> dict[str, object]:
         density=str(_mapping(shell_model.get("layout")).get("density") or "comfortable"),
         target="qt",
     )
-    contract_summary = summarize_render_contract(render_contract)
     shell_summary = summarize_shell_render_tree(shell_tree)
     ready = bool(validation.get("valid")) and bool(desktop_plan_is_ready(desktop_plan)) and bool(render_contract.get("ready_to_render"))
     return {

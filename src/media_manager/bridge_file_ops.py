@@ -77,7 +77,6 @@ def cmd_delete() -> int:
     except ImportError:
         try:
             if sys.platform == "win32":
-                import winshell
                 from send2trash import send2trash
                 send2trash(str(path))
             else:
@@ -355,11 +354,6 @@ def cmd_web_gallery() -> int:
 
 def cmd_backup() -> int:
     """Create a ZIP backup of the media-manager data directory."""
-    raw = sys.stdin.read()
-    try:
-        payload = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        return _fail(f"Invalid JSON: {exc}")
 
     import zipfile
     import datetime as _dt

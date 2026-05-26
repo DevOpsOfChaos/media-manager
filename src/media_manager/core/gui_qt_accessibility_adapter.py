@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import Any
 
 ACCESSIBILITY_ADAPTER_SCHEMA_VERSION = "1.0"
