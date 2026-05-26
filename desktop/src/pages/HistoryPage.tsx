@@ -19,6 +19,7 @@ import {
   type HistoryRunEntry,
 } from "@/lib/tauri-bridge"
 import { EmptyState } from "@/components/shared/EmptyState"
+import { ToolGuide } from "@/components/shared/ToolGuide"
 
 export default function HistoryPage() {
   const t = useT()
@@ -93,6 +94,15 @@ export default function HistoryPage() {
       </PageHeader>
       <main className="flex flex-1 gap-4 p-4">
         <div className="flex-1 max-w-3xl space-y-4">
+          <ToolGuide
+            toolId="history"
+            title={t("Run History", "Durchlauf-Verlauf")}
+            description={t("Review past organize, rename, and scan runs. See what was executed and when. Roll back operations if needed.", "Überprüfe vergangene Organisieren-, Umbenennen- und Scan-Durchläufe. Sieh, was wann ausgeführt wurde. Mache Vorgänge bei Bedarf rückgängig.")}
+            tips={[
+              t("Click a run to see detailed execution results", "Klicke einen Durchlauf für detaillierte Ausführungsergebnisse"),
+              t("Use the filter to find specific operations quickly", "Nutze den Filter, um bestimmte Vorgänge schnell zu finden"),
+            ]}
+          />
           {error && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive space-y-2">
               <p>{error}</p>

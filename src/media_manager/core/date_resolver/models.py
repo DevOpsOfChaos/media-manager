@@ -27,3 +27,4 @@ class DateResolution:
     unparseable_candidate_count: int = 0
     metadata_conflict: bool = False
     decision_policy: str = ""
+    metadata: dict[str, str] | None = None

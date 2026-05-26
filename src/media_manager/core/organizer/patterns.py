@@ -29,6 +29,8 @@ _MONTH_NAMES_DE = [
 def render_organize_directory(pattern: str, resolution: DateResolution, *, source_root: Path | None = None) -> Path:
     dt = resolution.resolved_datetime
     month_idx = dt.month
+    camera_model = resolution.metadata.get("Model", "Unknown") if resolution.metadata else "Unknown"
+    camera_model = camera_model.replace(" ", "_").replace("/", "-")
     tokens = {
         "year": dt.strftime("%Y"),
         "month": dt.strftime("%m"),
@@ -38,6 +40,8 @@ def render_organize_directory(pattern: str, resolution: DateResolution, *, sourc
         "year_month": dt.strftime("%Y-%m"),
         "year_month_day": dt.strftime("%Y-%m-%d"),
         "source_name": source_root.name if source_root is not None else "",
+        "camera_model": camera_model,
+        "extension": resolution.path.suffix.lower() if resolution.path else "",
     }
     normalized_pattern = pattern.replace("\\", "/")
     raw_segments = [segment for segment in normalized_pattern.split("/") if segment]

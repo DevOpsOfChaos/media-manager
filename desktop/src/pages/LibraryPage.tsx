@@ -30,6 +30,7 @@ import { PickRejectBar, type FlagState } from "@/components/shared/PickRejectBar
 import { EmailShare } from "@/components/shared/EmailShare"
 import { trackRecentlyViewed } from "@/components/shared/RecentFiles"
 import { WatchdogIndicator } from "@/components/shared/WatchdogIndicator"
+import { ToolGuide } from "@/components/shared/ToolGuide"
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48, 96]
 
@@ -363,6 +364,16 @@ export default function LibraryPage() {
         }}
       >
         <div className="flex-1 max-w-6xl space-y-4">
+
+          <ToolGuide
+            toolId="library"
+            title={t("Your Media Library", "Deine Medienbibliothek")}
+            description={t("Browse all your organized media. Double-click to open, right-click for actions like rename and delete.", "Durchsuche alle organisierten Medien. Doppelklick zum Öffnen, Rechtsklick für Aktionen wie Umbenennen und Löschen.")}
+            tips={[
+              t("Use filters to find specific files quickly", "Nutze Filter, um bestimmte Dateien schnell zu finden"),
+              t("Rate with stars and add color labels to organize", "Bewerte mit Sternen und füge Farblabels hinzu"),
+            ]}
+          />
 
       {/* Search bar */}
       <div className="flex gap-2 relative">

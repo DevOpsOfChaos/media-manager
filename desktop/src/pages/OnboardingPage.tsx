@@ -47,6 +47,15 @@ export default function OnboardingPage() {
 
   const STEPS = [
     {
+      title: t("Choose Your Language", "Wähle deine Sprache", lang),
+      description: t(
+        "This can be changed later in Settings.",
+        "Kann später in den Einstellungen geändert werden.",
+        lang
+      ),
+      icon: Globe,
+    },
+    {
       title: t("Welcome to Media Manager", "Willkommen bei Media Manager", lang),
       description: t(
         "Organize, rename, and clean up your photo and video library — safely and with full undo support.",
@@ -56,22 +65,13 @@ export default function OnboardingPage() {
       icon: Image,
     },
     {
-      title: t("Choose Your Media Sources", "Wähle deine Medien-Quellen", lang),
+      title: t("How It Works", "So funktioniert's", lang),
       description: t(
-        "Tell Media Manager where your photos and videos live. This folder will be used as the default source across all tools.",
-        "Sage Media Manager, wo deine Fotos und Videos liegen. Dieser Ordner wird als Standard-Quelle in allen Werkzeugen verwendet.",
+        "Media Manager lets you preview every change before applying it. Nothing happens without your approval.",
+        "Media Manager zeigt dir jede Änderung in der Vorschau, bevor sie angewendet wird. Nichts passiert ohne deine Zustimmung.",
         lang
       ),
       icon: FolderOpen,
-    },
-    {
-      title: t("Language", "Sprache", lang),
-      description: t(
-        "Choose your preferred language. You can change this later in Settings.",
-        "Wähle deine bevorzugte Sprache. Du kannst dies später in den Einstellungen ändern.",
-        lang
-      ),
-      icon: Globe,
     },
     {
       title: t("You're All Set!", "Du bist startklar!", lang),
@@ -105,8 +105,37 @@ export default function OnboardingPage() {
             ))}
           </div>
 
-          {/* STEP 0: Welcome + Language picker */}
+          {/* STEP 0: Language selection FIRST */}
           {step === 0 && (
+            <div className="space-y-4">
+              <p className="text-muted-foreground text-center">
+                {t("This can be changed later in Settings.", "Kann später in den Einstellungen geändert werden.", lang)}
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => { setLang("en"); updateSettings({ language: "en" }); setStep(step + 1) }}
+                  className={`p-6 rounded-xl border-2 text-center transition-all ${
+                    lang === "en" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <span className="text-4xl mb-2 block">🇬🇧</span>
+                  <span className="font-semibold">English</span>
+                </button>
+                <button
+                  onClick={() => { setLang("de"); updateSettings({ language: "de" }); setStep(step + 1) }}
+                  className={`p-6 rounded-xl border-2 text-center transition-all ${
+                    lang === "de" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <span className="text-4xl mb-2 block">🇩🇪</span>
+                  <span className="font-semibold">Deutsch</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 1: Welcome + Folder picker */}
+          {step === 1 && (
             <div className="space-y-4">
               <ul className="space-y-2">
                 {[
@@ -121,76 +150,61 @@ export default function OnboardingPage() {
                   </li>
                 ))}
               </ul>
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
-                <Globe className="w-4 h-4 text-muted-foreground" />
-                <select
-                  value={lang}
-                  onChange={e => setLang(e.target.value as Lang)}
-                  className="text-sm bg-transparent border-none outline-none cursor-pointer"
-                >
-                  <option value="en">English</option>
-                  <option value="de">Deutsch</option>
-                </select>
+              <div className="border-t pt-4">
+                <Button variant="outline" size="sm" onClick={browseFolder} className="w-full justify-start gap-2">
+                  <FolderOpen className="w-4 h-4" />
+                  {selectedFolder
+                    ? selectedFolder
+                    : t("Click to choose folder...", "Klicke um Ordner zu wählen...", lang)}
+                </Button>
+                {selectedFolder && (
+                  <div className="mt-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <p className="text-sm font-medium text-green-400 flex items-center gap-2">
+                      <Check className="w-4 h-4" />
+                      {t("Folder selected", "Ordner ausgewählt", lang)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1 break-all">{selectedFolder}</p>
+                  </div>
+                )}
+                {folderError && <p className="text-xs text-red-400 mt-2">{folderError}</p>}
+                <ul className="space-y-2 mt-3">
+                  {[
+                    t("This folder will be the default source for all tools", "Dieser Ordner wird Standard-Quelle für alle Werkzeuge", lang),
+                    t("You can always change it later on each page", "Du kannst ihn später auf jeder Seite ändern", lang),
+                    t("Subfolders are included automatically", "Unterordner werden automatisch einbezogen", lang),
+                  ].map((d, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm">
+                      <Check className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />
+                      <span className="text-muted-foreground">{d}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           )}
 
-          {/* STEP 1: Folder picker */}
-          {step === 1 && (
-            <div className="space-y-4">
-              <Button variant="outline" size="sm" onClick={browseFolder} className="w-full justify-start gap-2">
-                <FolderOpen className="w-4 h-4" />
-                {selectedFolder
-                  ? selectedFolder
-                  : t("Click to choose folder...", "Klicke um Ordner zu wählen...", lang)}
-              </Button>
-              {selectedFolder && (
-                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                  <p className="text-sm font-medium text-green-400 flex items-center gap-2">
-                    <Check className="w-4 h-4" />
-                    {t("Folder selected", "Ordner ausgewählt", lang)}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1 break-all">{selectedFolder}</p>
-                </div>
-              )}
-              {folderError && <p className="text-xs text-red-400">{folderError}</p>}
-              <ul className="space-y-2">
-                {[
-                  t("This folder will be the default source for all tools", "Dieser Ordner wird Standard-Quelle für alle Werkzeuge", lang),
-                  t("You can always change it later on each page", "Du kannst ihn später auf jeder Seite ändern", lang),
-                  t("Subfolders are included automatically", "Unterordner werden automatisch einbezogen", lang),
-                ].map((d, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm">
-                    <Check className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />
-                    <span className="text-muted-foreground">{d}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* STEP 2: Language */}
+          {/* STEP 2: Pattern / organize preferences */}
           {step === 2 && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setLang("en")}
-                  className={`p-4 rounded-lg border-2 text-center transition-colors ${lang === "en" ? "border-primary bg-primary/10" : "border-border hover:border-primary/30"}`}
-                >
-                  <p className="text-lg font-bold">🇬🇧 English</p>
-                  <p className="text-xs text-muted-foreground mt-1">English</p>
-                </button>
-                <button
-                  onClick={() => setLang("de")}
-                  className={`p-4 rounded-lg border-2 text-center transition-colors ${lang === "de" ? "border-primary bg-primary/10" : "border-border hover:border-primary/30"}`}
-                >
-                  <p className="text-lg font-bold">🇩🇪 Deutsch</p>
-                  <p className="text-xs text-muted-foreground mt-1">German</p>
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground text-center">
-                {t("Language can be changed anytime in Settings", "Die Sprache kann jederzeit in den Einstellungen geändert werden", lang)}
+              <p className="text-sm text-muted-foreground">
+                {t(
+                  "Media Manager organizes files into a clean folder structure based on date and metadata patterns. You control the naming scheme per tool.",
+                  "Media Manager organisiert Dateien in eine saubere Ordnerstruktur basierend auf Datum und Metadaten-Mustern. Du bestimmst das Namensschema pro Werkzeug.",
+                  lang
+                )}
               </p>
+              <div className="space-y-3">
+                <div className="p-3 rounded-lg bg-muted/30 border">
+                  <p className="text-sm font-medium">{t("Default pattern", "Standard-Muster", lang)}</p>
+                  <p className="text-xs text-muted-foreground font-mono mt-1">{t("{YYYY}/{MM}/{DD}_{stem}", "{YYYY}/{MM}/{DD}_{stem}", lang)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("Creates year/month/day folders with original filenames.", "Erstellt Jahr/Monat/Tag-Ordner mit originalen Dateinamen.", lang)}
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("Patterns can be customized later in the Organize page before any action is applied.", "Muster können später auf der Organize-Seite vor jeder Aktion angepasst werden.", lang)}
+                </p>
+              </div>
             </div>
           )}
 

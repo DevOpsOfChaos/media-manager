@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/shared/EmptyState"
  import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff, GitMerge, MoreHorizontal, EyeOff } from "lucide-react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { FaceReviewSwiper } from "@/components/shared/FaceReviewSwiper"
+import { ToolGuide } from "@/components/shared/ToolGuide"
 import { Zap } from "lucide-react"
 
 function friendlyPeopleError(e: unknown, context: "scan" | "load" | "rename" | "create" | "reassign"): string {
@@ -249,6 +250,16 @@ export default function PeoplePage() {
         </PageHeader>
         <main className="flex flex-1 gap-4 p-4">
           <div className="flex-1 max-w-4xl mx-auto space-y-6">
+
+            <ToolGuide
+              toolId="people"
+              title={t("People & Faces", "Personen & Gesichter")}
+              description={t("Browse and manage recognized people from your photo library. Rename, merge, and review faces.", "Durchsuche und verwalte erkannte Personen aus deiner Fotobibliothek. Benenne um, führe zusammen und überprüfe Gesichter.")}
+              tips={[
+                t("Use Quick Review to rapidly verify unknown faces", "Nutze die Schnellprüfung für schnelle Verifizierung unbekannter Gesichter"),
+                t("Merge duplicate person entries for a cleaner catalog", "Führe doppelte Personeneinträge für einen saubereren Katalog zusammen"),
+              ]}
+            />
 
         <div className="flex items-center gap-2">
           <Switch checked={enabled} onCheckedChange={handleToggle} />

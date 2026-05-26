@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/shared/EmptyState"
+import { ToolGuide } from "@/components/shared/ToolGuide"
 import {
   UNSUPPORTED_FEATURES,
   type ReviewSourceKind,
@@ -89,6 +90,15 @@ export default function ReviewWorkbenchPage() {
       </PageHeader>
       <main className="flex flex-1 gap-4 p-4">
         <div className="flex-1 max-w-4xl space-y-4">
+          <ToolGuide
+            toolId="review"
+            title={t("Review Workbench", "Prüf-Workbench")}
+            description={t("Review and decide on scan candidates. Run a scan first to load candidates, then approve, reject, or assign to people.", "Überprüfe und entscheide über Scan-Kandidaten. Führe zuerst einen Scan durch, um Kandidaten zu laden, dann genehmige, lehne ab oder weise Personen zu.")}
+            tips={[
+              t("Decisions are persisted to disk and restored on return", "Entscheidungen werden gespeichert und bei Rückkehr wiederhergestellt"),
+              t("Use keyboard shortcuts (A=approve, R=reject, S=skip) for speed", "Nutze Tastaturkürzel (A=genehmigen, R=ablehnen, S=überspringen) für Tempo"),
+            ]}
+          />
           {persistError ? (
             <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-800 dark:text-red-200">
               <p className="font-medium">{t("Save failed", "Speichern fehlgeschlagen")}</p>

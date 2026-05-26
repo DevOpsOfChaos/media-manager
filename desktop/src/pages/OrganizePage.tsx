@@ -14,67 +14,79 @@ import { Input } from "@/components/ui/input"
 import { organizePreview, organizeApply } from "@/lib/tauri-bridge"
 import { userFriendlyError } from "@/lib/error-utils"
 import { PreflightCheck } from "@/components/shared/PreflightCheck"
-import type { OrganizePreviewResponse, OrganizeExecutionResult } from "@/types"
+import type { OrganizePreviewResponse, OrganizeExecutionResult, OrganizePlannerOptions } from "@/types"
 import { useOrganizeStore } from "@/stores/organize-store"
 import { useSettingsStore } from "@/stores/settings-store"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { RecentPathsDropdown, addRecentPath } from "@/components/shared/RecentPaths"
 import { FullPageProgress } from "@/components/shared/FullPageProgress"
 import { useProgress } from "@/lib/progress-context"
-import { AlertTriangle, Pause, Play, Zap } from "lucide-react"
+import { AlertTriangle, Pause, Play, Zap, Star } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { ToolGuide } from "@/components/shared/ToolGuide"
+import { loadFavorite, saveFavorite, hasFavorite } from "@/lib/favorites-store"
 
 // ── Pattern presets ──
 
-interface Preset {
+interface PresetDef {
   id: string
   label: string
   labelDe: string
   pattern: string
-  example: (lang: string) => string
+  example: () => string
+  exampleDe?: () => string
+  description?: string
+  descriptionDe?: string
 }
 
-// File names are always preserved automatically by the backend.
-// The pattern controls only the folder structure.
-// Examples show the full result: folder structure + auto file name.
-const PRESETS: Preset[] = [
+const PRESETS: PresetDef[] = [
+  {
+    id: "year-month-day",
+    label: "Year / Month / Day",
+    labelDe: "Jahr / Monat / Tag",
+    pattern: "{year}/{month_name}/{day}",
+    example: () => {
+      const d = new Date()
+      const months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
+      return `${d.getFullYear()}/${months[d.getMonth()]}/${String(d.getDate()).padStart(2,"0")}/IMG_0001.jpg`
+    },
+    exampleDe: () => {
+      const d = new Date()
+      const monthsDe = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"]
+      return `${d.getFullYear()}/${monthsDe[d.getMonth()]}/${String(d.getDate()).padStart(2,"0")}/IMG_0001.jpg`
+    },
+    description: "Photos grouped by date they were taken. Best for most users.",
+    descriptionDe: "Fotos gruppiert nach Aufnahmedatum. Am besten für die meisten Nutzer.",
+  },
   {
     id: "year-month",
     label: "Year / Month",
     labelDe: "Jahr / Monat",
     pattern: "{year}/{year_month}",
-    example: () => "2026/2026-05/DSC_0001.jpg",
+    example: () => `2026/2026-05/IMG_0001.jpg`,
+    exampleDe: () => `2026/2026-05/IMG_0001.jpg`,
+    description: "Photos grouped by month. Simpler structure.",
+    descriptionDe: "Fotos nach Monat gruppiert. Einfachere Struktur.",
   },
   {
-    id: "year-monthname",
-    label: "Year / Month name",
-    labelDe: "Jahr / Monatsname",
-    pattern: `{year}/{month_name}`,
-    example: (lang) =>
-      lang === "de"
-        ? "2026/Mai/DSC_0001.jpg"
-        : "2026/May/DSC_0001.jpg",
+    id: "flat-date",
+    label: "Year-Month-Day (flat)",
+    labelDe: "Jahr-Monat-Tag (flach)",
+    pattern: "{year}-{month}-{day}",
+    example: () => `2026-05-26/IMG_0001.jpg`,
+    exampleDe: () => `2026-05-26/IMG_0001.jpg`,
+    description: "All in dated folders, no year subfolders.",
+    descriptionDe: "Alles in datierten Ordnern, keine Jahres-Unterordner.",
   },
   {
-    id: "year-monthname-de",
-    label: "Year / Month name (German)",
-    labelDe: "Jahr / Monatsname (Deutsch)",
-    pattern: `{year}/{month_name_de}`,
-    example: () => "2026/Mai/DSC_0001.jpg",
-  },
-  {
-    id: "year-monthday",
-    label: "Year / Year-Month-Day",
-    labelDe: "Jahr / Jahr-Monat-Tag",
-    pattern: "{year}/{year_month_day}",
-    example: () => "2026/2026-05-12/DSC_0001.jpg",
-  },
-  {
-    id: "flat-year-month-day",
-    label: "Flat: Year-Month-Day",
-    labelDe: "Flach: Jahr-Monat-Tag",
-    pattern: "{year_month_day}",
-    example: () => "2026-05-12/DSC_0001.jpg",
+    id: "camera-date",
+    label: "Camera / Date",
+    labelDe: "Kamera / Datum",
+    pattern: "{camera_model}/{year}/{month_name}",
+    example: () => `iPhone 15 Pro/2026/May/IMG_0001.jpg`,
+    exampleDe: () => `iPhone 15 Pro/2026/Mai/IMG_0001.jpg`,
+    description: "Group by camera, then by date. Good for multiple cameras.",
+    descriptionDe: "Gruppiert nach Kamera, dann nach Datum. Gut bei mehreren Kameras.",
   },
 ]
 
@@ -87,30 +99,16 @@ interface TokenDef {
 }
 
 const TOKENS: TokenDef[] = [
-  { token: "{year}", label: "Year", labelDe: "Jahr" },
-  { token: "{month}", label: "Month (01–12)", labelDe: "Monat (01–12)" },
-  {
-    token: "{month_name}",
-    label: "Month name (English)",
-    labelDe: "Monatsname (Englisch)",
-  },
-  {
-    token: "{month_name_de}",
-    label: "Month name (German)",
-    labelDe: "Monatsname (Deutsch)",
-  },
-  { token: "{day}", label: "Day (01–31)", labelDe: "Tag (01–31)" },
-  {
-    token: "{year_month}",
-    label: "Year-Month (2026-05)",
-    labelDe: "Jahr-Monat (2026-05)",
-  },
-  {
-    token: "{year_month_day}",
-    label: "Year-Month-Day (2026-05-12)",
-    labelDe: "Jahr-Monat-Tag (2026-05-12)",
-  },
-  { token: "{source_name}", label: "Source folder name (e.g. \"Import\")", labelDe: "Quellordner-Name (z.B. \"Import\")" },
+  { token: "{year}", label: "Year (2026)", labelDe: "Jahr (2026)" },
+  { token: "{month}", label: "Month 01-12", labelDe: "Monat 01-12" },
+  { token: "{month_name}", label: "Month name EN (May)", labelDe: "Monatsname EN (May)" },
+  { token: "{month_name_de}", label: "Month name DE (Mai)", labelDe: "Monatsname DE (Mai)" },
+  { token: "{day}", label: "Day 01-31", labelDe: "Tag 01-31" },
+  { token: "{year_month}", label: "Year-Month (2026-05)", labelDe: "Jahr-Monat (2026-05)" },
+  { token: "{year_month_day}", label: "Full date (2026-05-26)", labelDe: "Komplettes Datum (2026-05-26)" },
+  { token: "{camera_model}", label: "Camera model", labelDe: "Kamera-Modell" },
+  { token: "{extension}", label: "File type (.jpg)", labelDe: "Dateityp (.jpg)" },
+  { token: "{source_name}", label: "Source folder name", labelDe: "Quellordner-Name" },
 ]
 
 const SEPARATORS = [
@@ -150,9 +148,10 @@ function buildLiveExample(pattern: string): string {
     .replace(/{day}/g, day)
     .replace(/{year_month}/g, yearMonth)
     .replace(/{year_month_day}/g, yearMonthDay)
+    .replace(/{camera_model}/g, "iPhone_15_Pro")
     .replace(/{source_name}/g, "Import")
-  // File names are always preserved automatically
-  return `${rendered}/DSC_0001.jpg`
+    .replace(/{extension}/g, ".jpg")
+  return `${rendered}/IMG_0001.jpg`
 }
 
 // ── Main component ──
@@ -169,11 +168,20 @@ export default function OrganizePage() {
   const [applyLoading, setApplyLoading] = useState(false)
   const [applyResult, setApplyResult] = useState<OrganizeExecutionResult | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [selectedPreset, setSelectedPreset] = useState<string>("year-month")
+  const [selectedPreset, setSelectedPreset] = useState<string>("year-month-day")
   const [showCustomPattern, setShowCustomPattern] = useState(false)
   const [showApplyConfirm, setShowApplyConfirm] = useState(false)
   const [applyProgress, setApplyProgress] = useState({ current: 0, total: 0, startedAt: 0 })
   const [progressInterval, setProgressInterval] = useState<ReturnType<typeof setInterval> | null>(null)
+
+  const [isFavorite, setIsFavorite] = useState(() => hasFavorite("organize"))
+
+  useEffect(() => {
+    const fav = loadFavorite("organize")
+    if (fav && !options.source_dirs.length && !options.target_root) {
+      setOptions(fav as Partial<OrganizePlannerOptions>)
+    }
+  }, [])
 
   const [savedPatterns, setSavedPatterns] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("organize_patterns") || "[]") }
@@ -401,6 +409,16 @@ export default function OrganizePage() {
       <PageHeader title={t("Organize", "Organisieren")} />
       <main className="flex flex-1 gap-4 p-4">
         <div className="flex-1 max-w-4xl space-y-4">
+          <ToolGuide
+            toolId="organize"
+            title={t("How to Organize", "So organisierst du")}
+            description={t("Choose source and target folders, pick a naming pattern, then preview. Use Hardlinks for instant results without copying data.", "Wähle Quell- und Zielordner, ein Namensmuster, dann Vorschau. Nutze Hardlinks für sofortige Ergebnisse ohne Datenkopie.")}
+            tips={[
+              t("Use Hardlinks for large libraries (no extra disk space)", "Nutze Hardlinks für große Bibliotheken (kein Extra-Speicher)"),
+              t("Preview first to check the results before applying", "Erst Vorschau anzeigen, dann ausführen"),
+              t("Set your favorite settings once, reuse them next time", "Lieblingseinstellungen einmal setzen, beim nächsten Mal wiederverwenden"),
+            ]}
+          />
           {/* Resume banner */}
           {savedState && (
             <Card className="border-amber-500/30 bg-amber-50 dark:bg-amber-950/10">
@@ -456,6 +474,9 @@ export default function OrganizePage() {
                 <label className="text-sm font-medium">
                   {t("Source folder", "Quellordner")}
                 </label>
+                <p className="text-[10px] text-muted-foreground">
+                  {t("Where are your unorganized photos?", "Wo sind deine unsortierten Fotos?")}
+                </p>
                     <div className="flex gap-2">
                       <Input
                         type="text"
@@ -495,6 +516,9 @@ export default function OrganizePage() {
                 <label className="text-sm font-medium">
                   {t("Target folder", "Zielordner")}
                 </label>
+                <p className="text-[10px] text-muted-foreground">
+                  {t("Where should organized photos go?", "Wohin sollen die organisierten Fotos?")}
+                </p>
                     <div className="flex gap-2">
                       <Input
                         type="text"
@@ -561,10 +585,14 @@ export default function OrganizePage() {
                       {lang === "de" ? preset.labelDe : preset.label}
                     </p>
                     <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                      {preset.example(lang)}
+                      {lang === "de" && preset.exampleDe ? preset.exampleDe() : preset.example()}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/70 mt-1">
+                      {lang === "de" ? (preset.descriptionDe || preset.description) : preset.description}
                     </p>
                   </button>
-                ))}
+                ))
+              }
                 <button
                   onClick={() => applyPreset("custom")}
                   className={`rounded-lg border p-3 text-left transition-colors ${
@@ -671,12 +699,15 @@ export default function OrganizePage() {
 
                   {/* Advanced: raw pattern */}
                   <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">
+                    <label className="text-xs font-medium">
                       {t(
                         "Advanced: raw pattern",
                         "Erweitert: Roh-Muster",
                       )}
                     </label>
+                    <p className="text-[10px] text-muted-foreground">
+                      {t("Use {year}, {month}, {month_name}, etc. to build your folder structure.", "Verwende {year}, {month}, {month_name}, usw. für die Ordnerstruktur.")}
+                    </p>
                     <Input
                       type="text"
                       value={options.pattern || ""}
@@ -738,7 +769,7 @@ export default function OrganizePage() {
               {!showCustomPattern && (
                 <div className="rounded-md border bg-background px-3 py-2">
                   <p className="text-xs text-muted-foreground">
-                    {t("Example:", "Beispiel:")}
+                    {t("Preview:", "Vorschau:")}
                   </p>
                   <p className="text-sm font-mono">{liveExample}</p>
                 </div>
@@ -862,6 +893,22 @@ export default function OrganizePage() {
 
             </CardContent>
           </Card>
+
+          {/* Favorite button */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                saveFavorite("organize", options as unknown as Record<string, any>)
+                setIsFavorite(true)
+              }}
+              className="text-xs"
+            >
+              <Star className={`h-3 w-3 mr-1 ${isFavorite ? "fill-yellow-500 text-yellow-500" : ""}`} />
+              {isFavorite ? t("Favorite saved", "Favorit gespeichert") : t("Save as favorite", "Als Favorit speichern")}
+            </Button>
+          </div>
 
           {/* Preview button */}
           <div className="flex items-center gap-3">

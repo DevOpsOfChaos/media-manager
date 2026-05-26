@@ -127,6 +127,7 @@ def resolve_capture_datetime(
             unparseable_candidate_count=total_skipped,
             metadata_conflict=metadata_conflict,
             decision_policy="highest_priority_parseable_metadata",
+            metadata=inspection.metadata,
         )
 
     if date_source not in ("auto", "filename"):
@@ -150,6 +151,7 @@ def resolve_capture_datetime(
             unparseable_candidate_count=total_skipped,
             metadata_conflict=False,
             decision_policy="date_source_restriction",
+            metadata=inspection.metadata,
         )
 
     filename_match = find_filename_datetime(file_path)
@@ -179,6 +181,7 @@ def resolve_capture_datetime(
                 unparseable_candidate_count=total_skipped,
                 metadata_conflict=False,
                 decision_policy="mtime_fallback",
+                metadata=inspection.metadata,
             )
         reason = f"Fell back to a recognized filename pattern: {filename_match.matched_text}."
         if inspection.date_candidates:
@@ -202,6 +205,7 @@ def resolve_capture_datetime(
             unparseable_candidate_count=total_skipped,
             metadata_conflict=False,
             decision_policy="filename_fallback",
+            metadata=inspection.metadata,
         )
 
     modified_at = datetime.fromtimestamp(file_path.stat().st_mtime)
@@ -227,4 +231,5 @@ def resolve_capture_datetime(
         unparseable_candidate_count=total_skipped,
         metadata_conflict=False,
         decision_policy="mtime_fallback",
+        metadata=inspection.metadata,
     )

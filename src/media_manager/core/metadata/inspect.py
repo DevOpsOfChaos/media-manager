@@ -79,6 +79,8 @@ def inspect_media_file(file_path: Path, exiftool_path: Path | None = None) -> Fi
     candidates = extract_date_candidates(metadata or {}) if metadata is not None else []
     metadata_tag_count = len(metadata or {}) if metadata is not None else 0
 
+    metadata_dict = {str(k): str(v) for k, v in (metadata or {}).items() if isinstance(v, str)} if metadata is not None else None
+
     if candidates:
         selected = candidates[0]
         return FileInspection(
@@ -92,6 +94,7 @@ def inspect_media_file(file_path: Path, exiftool_path: Path | None = None) -> Fi
             metadata_tag_count=metadata_tag_count,
             metadata_error_kind=metadata_error_kind,
             error=error,
+            metadata=metadata_dict,
         )
 
     return FileInspection(
@@ -105,6 +108,7 @@ def inspect_media_file(file_path: Path, exiftool_path: Path | None = None) -> Fi
         metadata_tag_count=metadata_tag_count,
         metadata_error_kind=metadata_error_kind,
         error=error,
+        metadata=metadata_dict,
     )
 
 
@@ -146,6 +150,8 @@ def inspect_media_files_batch(
         file_modified_value = datetime.fromtimestamp(stat.st_mtime).strftime(TIME_OUTPUT_FORMAT)
         metadata = metadata_map.get(file_path)
 
+        metadata_dict = {str(k): str(v) for k, v in (metadata or {}).items() if isinstance(v, str)} if metadata is not None else None
+
         if metadata is not None:
             candidates = extract_date_candidates(metadata)
             metadata_tag_count = len(metadata)
@@ -160,6 +166,7 @@ def inspect_media_files_batch(
                     metadata_available=True,
                     exiftool_available=True,
                     metadata_tag_count=metadata_tag_count,
+                    metadata=metadata_dict,
                 )
                 continue
 
@@ -173,6 +180,7 @@ def inspect_media_files_batch(
             metadata_available=metadata is not None,
             exiftool_available=bool(metadata_map),
             metadata_tag_count=len(metadata) if metadata else 0,
+            metadata=metadata_dict,
         )
 
     return inspections

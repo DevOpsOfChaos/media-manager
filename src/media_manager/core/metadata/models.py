@@ -23,3 +23,4 @@ class FileInspection:
     metadata_tag_count: int = 0
     metadata_error_kind: str | None = None
     error: str | None = None
+    metadata: dict[str, str] | None = None

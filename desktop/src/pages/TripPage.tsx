@@ -10,7 +10,9 @@ import { useProgress } from "@/lib/progress-context"
 import { libraryBrowse } from "@/lib/tauri-bridge"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
-import { Plane, Plus, FolderOpen, Loader2, ImageOff, ChevronRight } from "lucide-react"
+import { ToolGuide } from "@/components/shared/ToolGuide"
+import { loadFavorite, saveFavorite, hasFavorite } from "@/lib/favorites-store"
+import { Plane, Plus, FolderOpen, Loader2, ImageOff, ChevronRight, Star } from "lucide-react"
 
 interface TripEntry {
   name: string
@@ -76,6 +78,15 @@ export default function TripPage() {
   const [createResult, setCreateResult] = useState<TripApplyResponse | null>(null)
   const [createError, setCreateError] = useState<string | null>(null)
 
+  const [isFavorite, setIsFavorite] = useState(() => hasFavorite("trip"))
+
+  useEffect(() => {
+    const fav = loadFavorite("trip")
+    if (fav && !tripsRoot) {
+      if (fav.tripsRoot) setTripsRoot(fav.tripsRoot)
+    }
+  }, [])
+
   // Trip detail view
   const [selectedTrip, setSelectedTrip] = useState<TripEntry | null>(null)
 
@@ -140,6 +151,15 @@ export default function TripPage() {
   // ── Main Dashboard ──
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <ToolGuide
+        toolId="trip"
+        title={t("Trip Collections", "Reisesammlungen")}
+        description={t("Create and browse trip-based collections of your media. Organize photos from a specific trip by date range, with hardlinks for zero-copy organization.", "Erstelle und durchsuche reisebasierte Sammlungen deiner Medien. Organisiere Fotos einer Reise nach Datumsbereich, mit Hardlinks für kopierfreie Organisation.")}
+        tips={[
+          t("Use Hardlinks for instant trip creation without extra disk space", "Nutze Hardlinks für sofortige Reiseerstellung ohne Extra-Speicher"),
+          t("Set start and end dates to filter only relevant photos", "Setze Start- und Enddaten, um nur relevante Fotos zu filtern"),
+        ]}
+      />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Plane className="w-6 h-6 text-primary" />
@@ -159,6 +179,18 @@ export default function TripPage() {
           {loadingTrips ? <Loader2 className="w-4 h-4 animate-spin" /> : t("Refresh", "Aktualisieren")}
         </Button>
         {trips.length > 0 && <Badge variant="secondary" className="ml-auto">{trips.length} {t("trips", "Reisen")}</Badge>}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              saveFavorite("trip", { tripsRoot })
+              setIsFavorite(true)
+            }}
+            className="text-xs"
+          >
+            <Star className={`h-3 w-3 mr-1 ${isFavorite ? "fill-yellow-500 text-yellow-500" : ""}`} />
+            {isFavorite ? t("Favorite saved", "Favorit gespeichert") : t("Save as favorite", "Als Favorit speichern")}
+          </Button>
       </div>
 
       {trips.length > 0 ? (
