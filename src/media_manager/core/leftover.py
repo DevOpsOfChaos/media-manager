@@ -95,7 +95,7 @@ def remove_empty_directories(source_root: Path, leftover_dir_name: str) -> list[
     removed: list[Path] = []
     # os.walk uses scandir internally. topdown=False ensures bottom-up
     # traversal so we remove nested empty dirs before their parents.
-    for current_root, dirnames, filenames in os.walk(source_root, topdown=False):
+    for current_root, _dirnames, _filenames in os.walk(source_root, topdown=False):
         current_root_path = Path(current_root)
         if current_root_path == source_root:
             continue
@@ -103,8 +103,20 @@ def remove_empty_directories(source_root: Path, leftover_dir_name: str) -> list[
             continue
         if _normalized_path_key(current_root_path).startswith(_normalized_path_key(leftover_dir)):
             continue
-        if dirnames or filenames:
+
+        # Prüfe tatsächlichen Verzeichnisinhalt — os.walk's dirnames/filenames
+        # Listen sind veraltet wenn übergeordnete Verzeichnisse bereits gelöscht wurden.
+        try:
+            has_contents = False
+            for _ in current_root_path.iterdir():
+                has_contents = True
+                break
+        except OSError:
             continue
+
+        if has_contents:
+            continue
+
         try:
             current_root_path.rmdir()
         except OSError:

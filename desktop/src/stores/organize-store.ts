@@ -18,6 +18,7 @@ export const defaultOrganizeOptions: OrganizePlannerOptions = {
   exclude_patterns: [],
   batch_size: 0,
   date_source: "auto",
+  cleanup_empty_dirs: false,
 }
 
 interface OrganizeState {
