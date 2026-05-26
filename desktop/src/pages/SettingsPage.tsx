@@ -19,7 +19,7 @@ import {
 } from "@/lib/tauri-bridge"
 import type { Language, Theme } from "@/types"
 import { FolderSearch } from "lucide-react"
-import { ToolGuide } from "@/components/shared/ToolGuide"
+
 
 export default function SettingsPage() {
   const t = useT()
@@ -109,15 +109,7 @@ export default function SettingsPage() {
       <PageHeader title={t("Settings", "Einstellungen")} />
       <main className="flex flex-1 gap-4 p-4">
         <div className="flex-1 max-w-2xl space-y-4">
-          <ToolGuide
-            toolId="settings"
-            title={t("Settings", "Einstellungen")}
-            description={t("Configure language, theme, and system behavior. Set default directories and manage media folder auto-discovery.", "Konfiguriere Sprache, Design und Systemverhalten. Lege Standardverzeichnisse fest und verwalte die automatische Erkennung von Medienordnern.")}
-            tips={[
-              t("Set a default source directory to pre-fill tools on launch", "Lege ein Standard-Quellverzeichnis fest, um Tools beim Start vorauszufüllen"),
-              t("Disable confirmation dialogs once you're comfortable with the tools", "Deaktiviere Bestätigungsdialoge, sobald du mit den Tools vertraut bist"),
-            ]}
-          />
+
           {error && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               {error}
@@ -230,6 +222,15 @@ export default function SettingsPage() {
                 />
                 <span className="text-sm">{t("Show onboarding for new users", "Onboarding für neue Benutzer anzeigen")}</span>
               </label>
+
+              <div className="pt-2 border-t">
+                <Button variant="outline" size="sm" onClick={() => {
+                  localStorage.removeItem("onboarding_complete")
+                  window.location.reload()
+                }}>
+                  {t("Restart onboarding tour", "Onboarding-Tour neu starten")}
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

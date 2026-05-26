@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { PreflightCheck } from "@/components/shared/PreflightCheck"
-import { ToolGuide } from "@/components/shared/ToolGuide"
+
 import { Pencil, Loader2, Play } from "lucide-react"
 
 // Reuse organize bridge for rename operations since rename uses the same planner
@@ -55,15 +55,7 @@ export default function RenamePage() {
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <ToolGuide
-        toolId="rename"
-        title={t("Rename Files", "Dateien umbenennen")}
-        description={t("Standardize file names using preset templates or custom patterns with metadata tokens. Preview changes before applying.", "Standardisiere Dateinamen mit Vorlagen oder eigenen Mustern mit Metadaten-Tokens. Vorschau der Änderungen vor der Ausführung.")}
-        tips={[
-          t("Preview first to verify the new names look correct", "Erst Vorschau anzeigen, um die neuen Namen zu überprüfen"),
-          t("Use {date}, {camera}, and {stem} tokens for flexible naming", "Nutze {date}, {camera} und {stem} Tokens für flexible Benennung"),
-        ]}
-      />
+
       <div className="flex items-center gap-3">
         <Pencil className="w-6 h-6 text-primary" />
         <div>

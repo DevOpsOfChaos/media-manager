@@ -6,6 +6,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
+import { OnboardingTour } from "@/components/shared/OnboardingTour"
 import { ProgressOverlay } from "@/components/shared/ProgressOverlay"
 import { MiniProgressOverlay } from "@/components/shared/MiniProgressOverlay"
 import { CommandPalette } from "@/components/shared/CommandPalette"
@@ -18,6 +19,7 @@ function App() {
   const navigate = useNavigate()
   const location = useLocation()
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [showOnboardingTour, setShowOnboardingTour] = useState(false)
   const t = useT()
   const [dryRun] = useState(() => localStorage.getItem("dry_run") === "true")
 
@@ -29,6 +31,14 @@ function App() {
     if (!settingsLoaded) return
     if (settings.show_onboarding && location.pathname !== "/onboarding") {
       navigate("/onboarding", { replace: true })
+    }
+  }, [settingsLoaded, settings?.show_onboarding, location.pathname])
+
+  useEffect(() => {
+    if (!settingsLoaded) return
+    const completed = localStorage.getItem("onboarding_complete") === "true"
+    if (!completed && !settings.show_onboarding && location.pathname !== "/onboarding") {
+      setShowOnboardingTour(true)
     }
   }, [settingsLoaded, settings?.show_onboarding, location.pathname])
 
@@ -77,6 +87,9 @@ function App() {
         <KeyboardShortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       </TooltipProvider>
       <MiniProgressOverlay />
+      {showOnboardingTour && (
+        <OnboardingTour onClose={() => setShowOnboardingTour(false)} />
+      )}
     </ProgressProvider>
   )
 }

@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ErrorBanner } from "@/components/shared/ErrorBanner"
 import { EmptyState } from "@/components/shared/EmptyState"
-import { ToolGuide } from "@/components/shared/ToolGuide"
+
 import { loadFavorite, saveFavorite, hasFavorite } from "@/lib/favorites-store"
 import { duplicateScan, similarImagesScan, duplicatesApply } from "@/lib/tauri-bridge"
 import { useSettingsStore } from "@/stores/settings-store"
@@ -309,16 +309,7 @@ export default function DuplicatesPage() {
       <PageHeader title={t("Duplicates", "Duplikate")} />
       <main className="flex flex-1 gap-4 p-4">
         <div className="flex-1 max-w-4xl space-y-4">
-          <ToolGuide
-            toolId="duplicates"
-            title={t("Find Duplicates", "Duplikate finden")}
-            description={t("Scan your library for exact byte-identical duplicates or visually similar images. Select groups and delete redundant copies to reclaim disk space.", "Scanne deine Bibliothek nach exakten byte-identischen Duplikaten oder visuell ähnlichen Bildern. Wähle Gruppen aus und lösche überflüssige Kopien, um Speicherplatz freizugeben.")}
-            tips={[
-              t("Use Smart Clean to auto-select all groups with duplicates", "Nutze Smart Clean zur automatischen Auswahl aller Gruppen mit Duplikaten"),
-              t("Review each group before deleting — deletion is permanent", "Überprüfe jede Gruppe vor dem Löschen — Löschung ist dauerhaft"),
-              t("Save your favorite settings for quick re-scanning later", "Speichere deine Lieblingseinstellungen für schnelles erneutes Scannen"),
-            ]}
-          />
+
           <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-4 py-3 text-sm text-blue-800 dark:text-blue-200">
             {t(
               "Select groups with checkboxes, then click \"Delete N Groups\" to permanently remove duplicates. Deletion cannot be undone.",

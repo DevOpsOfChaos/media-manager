@@ -8,8 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { fileOpen, fileReveal, fileDelete, fileRename, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
-import { convertFileSrc } from "@tauri-apps/api/core"
-import { FolderOpen, Film, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, File, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive } from "lucide-react"
+
+import { FolderOpen, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,12 +25,13 @@ import { TagInput } from "@/components/shared/TagInput"
 import { TagCloud } from "@/components/shared/TagCloud"
 import { Slideshow } from "@/components/shared/Slideshow"
 import { SplitView } from "@/components/shared/SplitView"
+import { LazyImage } from "@/components/shared/LazyImage"
 import { LABEL_COLORS } from "@/components/shared/ColorLabel"
 import { PickRejectBar, type FlagState } from "@/components/shared/PickRejectBar"
 import { EmailShare } from "@/components/shared/EmailShare"
 import { trackRecentlyViewed } from "@/components/shared/RecentFiles"
 import { WatchdogIndicator } from "@/components/shared/WatchdogIndicator"
-import { ToolGuide } from "@/components/shared/ToolGuide"
+
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48, 96]
 
@@ -47,10 +48,6 @@ function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
-}
-
-function isImageFile(suffix: string): boolean {
-  return [".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff", ".heic"].includes(suffix)
 }
 
 function isVideoFile(suffix: string): boolean {
@@ -365,15 +362,7 @@ export default function LibraryPage() {
       >
         <div className="flex-1 max-w-6xl space-y-4">
 
-          <ToolGuide
-            toolId="library"
-            title={t("Your Media Library", "Deine Medienbibliothek")}
-            description={t("Browse all your organized media. Double-click to open, right-click for actions like rename and delete.", "Durchsuche alle organisierten Medien. Doppelklick zum Öffnen, Rechtsklick für Aktionen wie Umbenennen und Löschen.")}
-            tips={[
-              t("Use filters to find specific files quickly", "Nutze Filter, um bestimmte Dateien schnell zu finden"),
-              t("Rate with stars and add color labels to organize", "Bewerte mit Sternen und füge Farblabels hinzu"),
-            ]}
-          />
+
 
       {/* Search bar */}
       <div className="flex gap-2 relative">
@@ -636,36 +625,12 @@ export default function LibraryPage() {
                     {fileFlags[f.path] === "pick" ? "✓" : "✕"}
                   </div>
                 )}
-                {isImageFile(f.suffix) ? (
-                  <>
-                    <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50 animate-pulse" />
-                    <img
-                      src={convertFileSrc(f.path)}
-                      alt={f.name}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                      style={{ opacity: 0, transition: "opacity 0.3s ease-in-out" }}
-                      onLoad={(e) => {
-                        (e.target as HTMLImageElement).style.opacity = "1"
-                      }}
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement
-                        target.style.display = "none"
-                        if (target.parentElement) {
-                          target.parentElement.classList.add("fallback-visible")
-                        }
-                      }}
-                    />
-                  </>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    {isVideoFile(f.suffix) ? (
-                      <Film className="w-10 h-10 text-muted-foreground/40" />
-                    ) : (
-                      <File className="w-10 h-10 text-muted-foreground/40" />
-                    )}
-                  </div>
-                )}
+                <LazyImage
+                  path={f.path}
+                  name={f.name}
+                  isVideo={isVideoFile(f.suffix)}
+                  className="w-full h-full"
+                />
                 {/* Action overlay on hover */}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                   <Button
@@ -797,6 +762,11 @@ export default function LibraryPage() {
             <span className="text-muted-foreground">{t("Path", "Pfad")}</span>
             <span className="truncate text-[10px]" title={selectedFile.path}>{selectedFile.relative}</span>
           </div>
+          {exifData && (exifData.image_width as number) > 6000 && (
+            <p className="text-[10px] text-amber-500 mt-1">
+              {t("High resolution image \u2014 may take longer to load", "Hochaufl\u00f6sendes Bild \u2014 Laden kann l\u00e4nger dauern")}
+            </p>
+          )}
           <div className="flex items-center justify-between mt-3 pt-3 border-t">
             <span className="text-[10px] text-muted-foreground">{t("Flag", "Markierung")}</span>
             <PickRejectBar

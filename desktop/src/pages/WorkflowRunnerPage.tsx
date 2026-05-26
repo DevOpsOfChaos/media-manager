@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { organizePreview, organizeApply, duplicateScan, duplicatesApply, libraryBrowse, peopleScan, tripApply } from "@/lib/tauri-bridge"
 import type { DuplicatesPreviewResponse } from "@/types"
 import { PreflightCheck } from "@/components/shared/PreflightCheck"
-import { ToolGuide } from "@/components/shared/ToolGuide"
+
 import { Workflow, Play, CheckCircle2, Loader2, XCircle } from "lucide-react"
 import { open } from "@tauri-apps/plugin-dialog"
 
@@ -201,15 +201,7 @@ export default function WorkflowRunnerPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <ToolGuide
-        toolId="workflow"
-        title={t("Workflow Runner", "Workflow-Ausführung")}
-        description={t("Run multiple tools in sequence: organize files, find duplicates, and consolidate leftovers — all in one automated pass.", "Führe mehrere Werkzeuge nacheinander aus: Dateien organisieren, Duplikate finden und Überreste konsolidieren — alles in einem automatisierten Durchlauf.")}
-        tips={[
-          t("Enable People and Trip steps for a complete library setup", "Aktiviere Personen- und Reise-Schritte für eine vollständige Bibliothekseinrichtung"),
-          t("Review each step's results before running the full workflow", "Überprüfe die Ergebnisse jedes Schritts vor dem vollständigen Durchlauf"),
-        ]}
-      />
+
       <div className="flex items-center gap-3">
         <Workflow className="w-6 h-6 text-primary" />
         <div>

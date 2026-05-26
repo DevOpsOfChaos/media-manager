@@ -10,7 +10,7 @@ import { useProgress } from "@/lib/progress-context"
 import { libraryBrowse } from "@/lib/tauri-bridge"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
-import { ToolGuide } from "@/components/shared/ToolGuide"
+
 import { loadFavorite, saveFavorite, hasFavorite } from "@/lib/favorites-store"
 import { Plane, Plus, FolderOpen, Loader2, ImageOff, ChevronRight, Star } from "lucide-react"
 
@@ -151,15 +151,7 @@ export default function TripPage() {
   // ── Main Dashboard ──
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <ToolGuide
-        toolId="trip"
-        title={t("Trip Collections", "Reisesammlungen")}
-        description={t("Create and browse trip-based collections of your media. Organize photos from a specific trip by date range, with hardlinks for zero-copy organization.", "Erstelle und durchsuche reisebasierte Sammlungen deiner Medien. Organisiere Fotos einer Reise nach Datumsbereich, mit Hardlinks für kopierfreie Organisation.")}
-        tips={[
-          t("Use Hardlinks for instant trip creation without extra disk space", "Nutze Hardlinks für sofortige Reiseerstellung ohne Extra-Speicher"),
-          t("Set start and end dates to filter only relevant photos", "Setze Start- und Enddaten, um nur relevante Fotos zu filtern"),
-        ]}
-      />
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Plane className="w-6 h-6 text-primary" />

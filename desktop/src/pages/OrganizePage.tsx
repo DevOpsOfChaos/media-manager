@@ -23,7 +23,7 @@ import { FullPageProgress } from "@/components/shared/FullPageProgress"
 import { useProgress } from "@/lib/progress-context"
 import { AlertTriangle, Pause, Play, Zap, Star } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { ToolGuide } from "@/components/shared/ToolGuide"
+
 import { loadFavorite, saveFavorite, hasFavorite } from "@/lib/favorites-store"
 
 // ── Pattern presets ──
@@ -409,16 +409,7 @@ export default function OrganizePage() {
       <PageHeader title={t("Organize", "Organisieren")} />
       <main className="flex flex-1 gap-4 p-4">
         <div className="flex-1 max-w-4xl space-y-4">
-          <ToolGuide
-            toolId="organize"
-            title={t("How to Organize", "So organisierst du")}
-            description={t("Choose source and target folders, pick a naming pattern, then preview. Use Hardlinks for instant results without copying data.", "Wähle Quell- und Zielordner, ein Namensmuster, dann Vorschau. Nutze Hardlinks für sofortige Ergebnisse ohne Datenkopie.")}
-            tips={[
-              t("Use Hardlinks for large libraries (no extra disk space)", "Nutze Hardlinks für große Bibliotheken (kein Extra-Speicher)"),
-              t("Preview first to check the results before applying", "Erst Vorschau anzeigen, dann ausführen"),
-              t("Set your favorite settings once, reuse them next time", "Lieblingseinstellungen einmal setzen, beim nächsten Mal wiederverwenden"),
-            ]}
-          />
+
           {/* Resume banner */}
           {savedState && (
             <Card className="border-amber-500/30 bg-amber-50 dark:bg-amber-950/10">
