@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Switch } from "@/components/ui/switch"
 import { peopleCatalogList, peoplePersonRename, peoplePersonCreate, peoplePersonReassign, peoplePersonMerge, peopleScan, peopleScanStatus, peopleFaceIgnore, peopleFaceAge, type PersonEntry, type CatalogListResponse } from "@/lib/tauri-bridge"
 import { useProgress } from "@/lib/progress-context"
-import { safeConvertFileSrc } from "@/lib/safe-asset"
+import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
  import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff, GitMerge, MoreHorizontal, EyeOff } from "lucide-react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
@@ -59,7 +59,7 @@ function FaceThumb({ path, size = 96, alt }: { path: string; size?: number; alt?
   return (
     <div className="relative rounded overflow-hidden" style={{ width: size, height: size }}>
       {!loaded && <div className="absolute inset-0 bg-muted animate-pulse" />}
-      <img src={safeConvertFileSrc(path) || ""} alt={alt || path.split(/[\\/]/).pop() || "Face"} className="w-full h-full object-cover" onLoad={() => setLoaded(true)} onError={() => setErrored(true)} />
+      <img src={convertFileSrc(path) || ""} alt={alt || path.split(/[\\/]/).pop() || "Face"} className="w-full h-full object-cover" onLoad={() => setLoaded(true)} onError={() => setErrored(true)} />
     </div>
   )
 }
@@ -428,7 +428,7 @@ export default function PeoplePage() {
           <DialogHeader><DialogTitle className="text-sm">{modalImage?.split(/[\\/]/).pop()}</DialogTitle></DialogHeader>
           {modalImage && (
             <div className="space-y-4">
-              <img src={safeConvertFileSrc(modalImage) || ""} alt={modalImage?.split(/[\\/]/).pop() || t("Person image", "Personenbild")} className="w-full max-h-[60vh] object-contain rounded" />
+              <img src={convertFileSrc(modalImage) || ""} alt={modalImage?.split(/[\\/]/).pop() || t("Person image", "Personenbild")} className="w-full max-h-[60vh] object-contain rounded" />
               {!showReassign ? (
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">

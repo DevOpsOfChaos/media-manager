@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, Component, type ReactNode } from "react"
 import { useNavigate, useLocation, Outlet } from "react-router-dom"
 import { useSettingsStore } from "@/stores/settings-store"
 import { useT } from "@/lib/i18n"
@@ -13,6 +13,32 @@ import { CommandPalette } from "@/components/shared/CommandPalette"
 import { ProgressProvider } from "@/lib/progress-context"
 import { NotificationSystem } from "@/components/shared/NotificationSystem"
 import { KeyboardShortcuts } from "@/components/shared/KeyboardShortcuts"
+
+class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex items-center justify-center min-h-screen p-8">
+          <div className="text-center space-y-4 max-w-md">
+            <h1 className="text-xl font-bold text-red-500">App Error</h1>
+            <p className="text-sm text-muted-foreground">{this.state.error.message}</p>
+            <button onClick={() => { this.setState({ error: null }); window.location.reload() }}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded">
+              Reload App
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 function App() {
   const { settings, loaded: settingsLoaded, load: loadSettings } = useSettingsStore()
@@ -76,7 +102,9 @@ function App() {
                 </div>
               )}
               <div key={location.pathname} className="page-enter">
-                <Outlet />
+                <AppErrorBoundary>
+                  <Outlet />
+                </AppErrorBoundary>
               </div>
             </ErrorBoundary>
           </SidebarInset>

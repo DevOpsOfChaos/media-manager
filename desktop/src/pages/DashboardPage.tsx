@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { safeConvertFileSrc } from "@/lib/safe-asset"
+import { convertFileSrc } from "@tauri-apps/api/core"
 import {
   runtimeDiagnostics,
   settingsRead,
@@ -280,7 +280,7 @@ export default function DashboardPage() {
                     {recentFiles.map((f, i) => (
                       <div key={i} className="flex items-center gap-2 text-xs py-1 hover:bg-muted/50 rounded px-1 cursor-pointer"
                         role="button" tabIndex={0}>
-                        {(() => { const s = safeConvertFileSrc(f.path); return s ? <img src={s} className="h-8 w-8 rounded object-cover bg-muted" alt={f.name} /> : <div className="h-8 w-8 rounded bg-muted" /> })()}
+                        {(() => { const s = convertFileSrc(f.path); return s ? <img src={s} className="h-8 w-8 rounded object-cover bg-muted" alt={f.name} /> : <div className="h-8 w-8 rounded bg-muted" /> })()}
                         <div className="flex-1 min-w-0">
                           <p className="truncate font-medium">{f.name}</p>
                           <p className="text-muted-foreground text-[10px]">{f.relative}</p>

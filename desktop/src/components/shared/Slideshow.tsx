@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react"
-import { safeConvertFileSrc } from "@/lib/safe-asset"
+import { convertFileSrc } from "@tauri-apps/api/core"
 import { ChevronLeft, ChevronRight, X, Pause, Play, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useT } from "@/lib/i18n"
@@ -53,7 +53,7 @@ export function Slideshow({ files, startIndex = 0, onClose }: SlideshowProps) {
   if (safeFiles.length === 0) return null
 
   const file = safeFiles[index]
-  const src = safeConvertFileSrc(file.path) || ""
+  const src = convertFileSrc(file.path) || ""
 
   return (
     <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center">

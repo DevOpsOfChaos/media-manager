@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { CheckSquare, Square, Trash2, Info, Loader2, ScanText, Wand2, Star } from "lucide-react"
-import { safeConvertFileSrc } from "@/lib/safe-asset"
+import { convertFileSrc } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
 import { userFriendlyError } from "@/lib/error-utils"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -33,7 +33,7 @@ type Tab = "exact" | "similar" | "all"
 const srcCache = new Map<string, string>()
 function getSrc(path: string): string {
   if (!srcCache.has(path)) {
-    srcCache.set(path, safeConvertFileSrc(path) || "")
+    srcCache.set(path, convertFileSrc(path) || "")
   }
   return srcCache.get(path) || ""
 }

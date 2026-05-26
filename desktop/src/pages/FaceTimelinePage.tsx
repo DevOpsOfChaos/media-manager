@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { peopleCatalogList, type PersonEntry } from "@/lib/tauri-bridge"
-import { safeConvertFileSrc } from "@/lib/safe-asset"
+import { convertFileSrc } from "@tauri-apps/api/core"
 import { User, Calendar, Loader2, ArrowLeft } from "lucide-react"
 
 export default function FaceTimelinePage() {
@@ -87,7 +87,7 @@ export default function FaceTimelinePage() {
           <div className="space-y-3">
             {[...selectedPerson.source_paths].sort().reverse().map((path, i) => (
               <Card key={i} className="flex items-center gap-3 p-3">
-                <img src={safeConvertFileSrc(path) || ""} className="h-16 w-16 rounded object-cover bg-muted" alt="" />
+                <img src={convertFileSrc(path) || ""} className="h-16 w-16 rounded object-cover bg-muted" alt="" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm truncate">{path.split("/").pop() || path.split("\\").pop()}</p>
                   <p className="text-[10px] text-muted-foreground truncate">{path}</p>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useT } from "@/lib/i18n"
 import { invoke } from "@tauri-apps/api/core"
+import { convertFileSrc } from "@tauri-apps/api/core"
 import { appLocalDataDir, join } from "@tauri-apps/api/path"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card } from "@/components/ui/card"
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Check, EyeOff, Trash2, Image, Loader2 } from "lucide-react"
+import { Check, EyeOff, Trash2, Loader2 } from "lucide-react"
 import type { ReviewSourceKind } from "@/types"
 import { useReviewStore } from "@/stores/review-store"
 
@@ -26,40 +27,8 @@ export default function ReviewWorkbenchPage() {
     reset, sessionPath, setSessionPath,
   } = useReviewStore()
 
-  const [thumbnails, setThumbnails] = useState<Record<string, string>>({})
   const [applyDialogOpen, setApplyDialogOpen] = useState(false)
   const [applying, setApplying] = useState(false)
-
-  // Load thumbnails for visible candidates
-  useEffect(() => {
-    const allPaths: string[] = []
-    for (const g of groups.slice(0, 50)) {
-      for (const c of g.candidates) {
-        if (c.path && !thumbnails[c.path]) {
-          allPaths.push(c.path)
-        }
-      }
-    }
-    if (allPaths.length === 0) return
-
-    const chunks = []
-    for (let i = 0; i < allPaths.length; i += 12) {
-      chunks.push(allPaths.slice(i, i + 12))
-    }
-
-    chunks.forEach((chunk, idx) => {
-      setTimeout(async () => {
-        try {
-          const urls = await invoke<string[]>("read_thumbnails_batch", { paths: chunk })
-          setThumbnails(prev => {
-            const next = { ...prev }
-            chunk.forEach((p, i) => { if (urls[i]) next[p] = urls[i] })
-            return next
-          })
-        } catch {}
-      }, idx * 100)
-    })
-  }, [groups])
 
   // Initialize session
   useEffect(() => {
@@ -173,13 +142,17 @@ export default function ReviewWorkbenchPage() {
                     <div key={c.id} className={`flex items-center gap-2 p-1.5 rounded ${c.role === "reviewed" ? "opacity-60" : ""}`}>
                       {/* Thumbnail */}
                       <div className="w-12 h-12 rounded bg-muted overflow-hidden shrink-0">
-                        {thumbnails[c.path] ? (
-                          <img src={thumbnails[c.path]} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Image className="w-4 h-4 text-muted-foreground/30" />
-                          </div>
-                        )}
+                        <img
+                          src={convertFileSrc(c.path)}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none"
+                            if ((e.target as HTMLImageElement).parentElement) {
+                              (e.target as HTMLImageElement).parentElement!.classList.add("fallback-icon")
+                            }
+                          }}
+                        />
                       </div>
                       {/* Path */}
                       <span className="text-[11px] font-mono truncate flex-1" title={c.path}>

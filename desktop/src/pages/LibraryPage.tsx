@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
-import { invoke } from "@tauri-apps/api/core"
+import { convertFileSrc } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fileOpen, fileReveal, fileDelete, fileRename, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
 
-import { FolderOpen, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive, Film } from "lucide-react"
+import { FolderOpen, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive, Film, File } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,10 +78,6 @@ export default function LibraryPage() {
   const [slideshowOpen, setSlideshowOpen] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
-  const [thumbQuality, setThumbQuality] = useState<"fast" | "quality">(() => {
-    return (localStorage.getItem("thumb_quality") as "fast" | "quality") || "fast"
-  })
-
   const [ratings, setRatings] = useState<Record<string, number>>(() => {
     try { return JSON.parse(localStorage.getItem("library_ratings") || "{}") }
     catch { return {} }
@@ -126,7 +122,6 @@ export default function LibraryPage() {
     isoMax?: number
     apertureMin?: string
   }>({})
-  const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string>>({})
   const [fileTypes, setFileTypes] = useState<string[]>([])
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
@@ -340,78 +335,6 @@ export default function LibraryPage() {
 
   const currentFiles = loadedPages.get(page) || []
   const totalPages = data?.total_pages || 1
-
-  // Batch-load thumbnails for current page with abort support
-  const abortRef = useRef(false)
-
-  useEffect(() => {
-    abortRef.current = true
-    if (currentFiles.length === 0) return
-
-    abortRef.current = false
-    const currentAbort = { current: false }
-
-    const paths = currentFiles
-      .filter(f => isImageFile(f.suffix))
-      .map(f => f.path)
-
-    if (paths.length === 0) return
-
-    const chunkSize = 6
-
-    const loadChunk = async (startIdx: number) => {
-      if (currentAbort.current) return
-      const chunk = paths.slice(startIdx, startIdx + chunkSize)
-      if (chunk.length === 0) return
-
-      try {
-        const urls = await invoke<string[]>("read_thumbnails_batch", { paths: chunk })
-        if (currentAbort.current) return
-        setThumbnailUrls(prev => {
-          const next = { ...prev }
-          chunk.forEach((path, i) => { if (urls[i]) next[path] = urls[i] })
-          const keys = Object.keys(next)
-          if (keys.length > 200) {
-            for (const k of keys.slice(0, keys.length - 200)) delete next[k]
-          }
-          return next
-        })
-      } catch {}
-
-      if (startIdx + chunkSize < paths.length && !currentAbort.current) {
-        setTimeout(() => loadChunk(startIdx + chunkSize), 200)
-      }
-    }
-
-    setThumbnailUrls({})
-    loadChunk(0)
-
-    return () => { currentAbort.current = true }
-  }, [currentFiles, page])
-
-  useEffect(() => {
-    if (!data || currentFiles.length === 0) return
-
-    const missing = currentFiles
-      .filter(f => isImageFile(f.suffix) && !thumbnailUrls[f.path])
-      .map(f => f.path)
-      .slice(0, 3)
-
-    if (missing.length === 0) return
-
-    const timer = setTimeout(async () => {
-      try {
-        const urls = await invoke<string[]>("read_thumbnails_batch", { paths: missing })
-        setThumbnailUrls(prev => {
-          const next = { ...prev }
-          missing.forEach((p, i) => { if (urls[i]) next[p] = urls[i] })
-          return next
-        })
-      } catch {}
-    }, 2000)
-
-    return () => clearTimeout(timer)
-  }, [currentFiles, thumbnailUrls])
 
   const crossDupes = useMemo(() => {
     if (!compareData || !data) return new Set<string>()
@@ -750,14 +673,6 @@ export default function LibraryPage() {
                 <ArrowLeftRight className="h-3 w-3 mr-1" /> {t("Compare", "Vergleichen")}
               </Button>
             )}
-            <button onClick={() => {
-              const next = thumbQuality === "fast" ? "quality" : "fast"
-              setThumbQuality(next)
-              localStorage.setItem("thumb_quality", next)
-            }} className="text-[10px] px-1.5 py-0.5 rounded border bg-muted/50"
-              title={t("Toggle thumbnail quality", "Vorschaubild-Qualität umschalten")}>
-              {thumbQuality === "fast" ? "⚡" : "🖼️"}
-            </button>
             <span className="text-xs text-muted-foreground">{t("Per page:", "Pro Seite:")}</span>
             <select
               value={pageSize}
@@ -895,17 +810,26 @@ export default function LibraryPage() {
                   </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50" />
-                {isImageFile(f.suffix) && thumbnailUrls[f.path] && (
+                {isImageFile(f.suffix) ? (
                   <img
-                    src={thumbnailUrls[f.path]}
+                    src={convertFileSrc(f.path)}
                     alt={f.name}
                     className="w-full h-full object-cover absolute inset-0"
                     loading="lazy"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none"
+                      if ((e.target as HTMLImageElement).parentElement) {
+                        (e.target as HTMLImageElement).parentElement!.classList.add("fallback-icon")
+                      }
+                    }}
                   />
-                )}
-                {isVideoFile(f.suffix) && (
+                ) : isVideoFile(f.suffix) ? (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Film className="w-8 h-8 text-muted-foreground/40" />
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <File className="w-8 h-8 text-muted-foreground/40" />
                   </div>
                 )}
                 {/* Action overlay on hover */}
