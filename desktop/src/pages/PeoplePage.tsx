@@ -226,8 +226,8 @@ function friendlyPeopleError(err: unknown): string {
             </Button>
           )}
         </PageHeader>
-        <main className="flex flex-1 gap-4 p-4">
-          <div className="flex-1 max-w-4xl mx-auto space-y-6">
+        <main className="flex flex-1 gap-4 p-6">
+          <div className="flex-1 max-w-5xl mx-auto space-y-6">
 
 
 
@@ -353,29 +353,25 @@ function friendlyPeopleError(err: unknown): string {
 
   // ── Person Detail View ──
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-3">
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <PageHeader
+        title={selectedPerson.name}
+        subtitle={t(`${selectedPerson.face_count} faces recognized`, `${selectedPerson.face_count} Gesichter erkannt`)}
+      >
         <Button variant="ghost" size="sm" onClick={() => setSelectedPerson(null)}><ArrowLeft className="w-4 h-4 mr-1" /> {t("Back", "Zurück")}</Button>
-        <div className="flex-1">
-          {editingName ? (
-            <div className="flex items-center gap-2">
-              <Input value={editName} onChange={e => setEditName(e.target.value)} className="text-lg font-bold h-9 w-64" autoFocus onKeyDown={e => { if (e.key === "Enter") handleRename(); if (e.key === "Escape") setEditingName(false) }} />
-              <Button size="sm" variant="ghost" onClick={handleRename}><Check className="w-4 h-4" /></Button>
-              <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}><X className="w-4 h-4" /></Button>
-            </div>
-          ) : (
-            <h1 className="text-xl font-bold flex items-center gap-2">
-              {selectedPerson.name}
-              <Button variant="ghost" size="sm" onClick={() => { setEditName(selectedPerson.name); setEditingName(true) }}><Pencil className="w-3.5 h-3.5" /></Button>
-            </h1>
-          )}
-          <p className="text-sm text-muted-foreground">{selectedPerson.face_count} {t("faces recognized", "Gesichter erkannt")}
-            {selectedPerson.source_paths.length > 0 && ageCache[selectedPerson.source_paths[0]]?.bracket && ageCache[selectedPerson.source_paths[0]]?.bracket !== "unknown" && (
-              <> &middot; <Badge variant="outline" className="text-[10px] align-middle">{t("Est. age:", "Geschätztes Alter:")} {ageCache[selectedPerson.source_paths[0]].bracket}</Badge></>
-            )}
-          </p>
-        </div>
-      </div>
+        {editingName ? (
+          <div className="flex items-center gap-2">
+            <Input value={editName} onChange={e => setEditName(e.target.value)} className="text-sm h-8 w-64" autoFocus onKeyDown={e => { if (e.key === "Enter") handleRename(); if (e.key === "Escape") setEditingName(false) }} />
+            <Button size="sm" variant="ghost" onClick={handleRename}><Check className="w-4 h-4" /></Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}><X className="w-4 h-4" /></Button>
+          </div>
+        ) : (
+          <Button variant="ghost" size="sm" onClick={() => { setEditName(selectedPerson.name); setEditingName(true) }}><Pencil className="w-3.5 h-3.5" /></Button>
+        )}
+      </PageHeader>
+      {selectedPerson.source_paths.length > 0 && ageCache[selectedPerson.source_paths[0]]?.bracket && ageCache[selectedPerson.source_paths[0]]?.bracket !== "unknown" && (
+        <Badge variant="outline" className="text-[10px] mb-2">{t("Est. age:", "Geschätztes Alter:")} {ageCache[selectedPerson.source_paths[0]].bracket}</Badge>
+      )}
 
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
         {selectedPerson.source_paths.filter(path => !ignoredFaces.has(`${path}::0`)).map((path, i) => (

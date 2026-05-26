@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useSettingsStore } from "@/stores/settings-store"
 import { open } from "@tauri-apps/plugin-dialog"
@@ -88,7 +89,12 @@ export default function OnboardingPage() {
   const Icon = currentStep.icon
 
   return (
-    <div className="flex items-center justify-center min-h-[80vh] p-4">
+    <>
+      <PageHeader
+        title={t("Setup Wizard", "Einrichtungs-Assistent", lang)}
+        subtitle={t("Configure Media Manager to get started.", "Konfigurieren Sie Media Manager für den Einstieg.", lang)}
+      />
+      <div className="flex items-center justify-center min-h-[80vh] p-4">
       <Card className="w-full max-w-lg">
         <CardHeader className="text-center pb-2">
           <div className="mx-auto mb-4 flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
@@ -268,5 +274,6 @@ export default function OnboardingPage() {
         </CardContent>
       </Card>
     </div>
+    </>
   )
 }

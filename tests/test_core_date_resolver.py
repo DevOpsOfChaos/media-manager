@@ -82,6 +82,7 @@ def test_resolve_capture_datetime_falls_back_to_filename_when_metadata_is_unpars
     media_file = tmp_path / "VID_20240102_123456.mp4"
     media_file.write_bytes(b"mp4")
 
+    actual_mtime = datetime.fromtimestamp(media_file.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
     inspection = FileInspection(
         path=media_file,
         selected_value="not-a-date",
@@ -89,7 +90,7 @@ def test_resolve_capture_datetime_falls_back_to_filename_when_metadata_is_unpars
         date_candidates=[
             DateCandidate(source_tag="QuickTime:CreateDate", value="not-a-date", priority_index=0),
         ],
-        file_modified_value="2026-01-01 00:00:00",
+        file_modified_value=actual_mtime,
         metadata_available=True,
         exiftool_available=True,
         error=None,
@@ -131,6 +132,7 @@ def test_resolve_capture_datetime_rejects_unrealistic_metadata_year(tmp_path: Pa
     media_file = tmp_path / "IMG_20240102_123456.jpg"
     media_file.write_bytes(b"jpg")
 
+    actual_mtime = datetime.fromtimestamp(media_file.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
     inspection = FileInspection(
         path=media_file,
         selected_value="0047:08:10 11:12:13",
@@ -138,7 +140,7 @@ def test_resolve_capture_datetime_rejects_unrealistic_metadata_year(tmp_path: Pa
         date_candidates=[
             DateCandidate(source_tag="EXIF:DateTimeOriginal", value="0047:08:10 11:12:13", priority_index=0),
         ],
-        file_modified_value="2026-01-01 00:00:00",
+        file_modified_value=actual_mtime,
         metadata_available=True,
         exiftool_available=True,
         error=None,

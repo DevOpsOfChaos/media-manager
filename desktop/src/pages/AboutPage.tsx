@@ -1,4 +1,5 @@
 import { useT } from "@/lib/i18n"
+import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -15,18 +16,11 @@ export default function AboutPage() {
   const t = useT()
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 p-6">
-      {/* Hero section */}
-      <div className="text-center space-y-3">
-        <h1 className="text-3xl font-bold">{t("Media Manager", "Media Manager")}</h1>
-        <p className="text-lg text-muted-foreground">
-          {t("Local-first media workflow assistant", "Lokaler Medien-Workflow-Assistent")}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          v0.6.0 — {t("Pre-Alpha", "Pre-Alpha")}
-        </p>
-      </div>
-
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <PageHeader
+        title={t("Media Manager", "Media Manager")}
+        subtitle={t("Local-first media workflow assistant — v0.6.0 Pre-Alpha", "Lokaler Medien-Workflow-Assistent — v0.6.0 Pre-Alpha")}
+      />
       <Separator />
 
       {/* Developer section */}

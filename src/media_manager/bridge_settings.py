@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -30,6 +31,8 @@ from media_manager.core.gui_settings_model import (
 )
 
 from media_manager.bridge_base import emit as _emit, fail as _fail, validate_app_path as _validate_app_path
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_SETTINGS_PATH = Path.home() / ".media-manager" / "gui-settings.json"
 
@@ -48,9 +51,11 @@ def _resolve_settings_path(cli_path: str | None = None) -> Path:
 
 
 def cmd_read(settings_path: Path) -> int:
+    logger.info("Settings read: %s", settings_path)
     try:
         settings = load_gui_settings(settings_path)
     except OSError as exc:
+        logger.error("Settings read failed: %s: %s", settings_path, exc)
         return _fail(f"Cannot read settings file {settings_path}: {exc}")
     _emit(dict(settings))
     return 0
@@ -66,8 +71,10 @@ def cmd_write(settings_path: Path) -> int:
         return _fail("Expected a JSON object")
     normalized = normalize_gui_settings(payload)
     try:
+        logger.info("Settings write: %s", settings_path)
         write_gui_settings(settings_path, normalized)
     except OSError as exc:
+        logger.error("Settings write failed: %s: %s", settings_path, exc)
         return _fail(f"Cannot write settings file {settings_path}: {exc}")
     _emit(dict(normalized))
     return 0
@@ -76,8 +83,10 @@ def cmd_write(settings_path: Path) -> int:
 def cmd_reset(settings_path: Path) -> int:
     defaults = default_gui_settings()
     try:
+        logger.info("Settings reset: %s", settings_path)
         write_gui_settings(settings_path, defaults)
     except OSError as exc:
+        logger.error("Settings reset failed: %s: %s", settings_path, exc)
         return _fail(f"Cannot write settings file {settings_path}: {exc}")
     _emit(dict(defaults))
     return 0

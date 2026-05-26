@@ -15,6 +15,33 @@ fn emit_progress(app: &tauri::AppHandle, event: &str, label: &str, detail: Optio
     let _ = app.emit(event, payload);
 }
 
+fn emit_completion(app: &tauri::AppHandle, label: &str, result: &Result<Value, String>) {
+    let detail = match result {
+        Ok(val) => {
+            let summary = pick_summary_keys(val);
+            if summary.is_null() { "success".to_string() } else { summary.to_string() }
+        }
+        Err(e) => e.clone(),
+    };
+    emit_progress(app, "operation:completed", label, Some(&detail));
+}
+
+fn pick_summary_keys(val: &Value) -> Value {
+    let obj = match val.as_object() {
+        Some(o) => o,
+        None => return Value::Null,
+    };
+    let mut summary = serde_json::Map::new();
+    for key in &["executed_count", "planned_count", "renamed_count", "removed",
+                  "total_faces", "matched_faces", "file_count", "exact_duplicate_files",
+                  "similar_pairs", "copied_count", "moved_count", "linked_count", "undone_count"] {
+        if let Some(v) = obj.get(*key) {
+            summary.insert((*key).to_string(), v.clone());
+        }
+    }
+    if summary.is_empty() { Value::Null } else { Value::Object(summary) }
+}
+
 // ── Settings ──
 
 #[tauri::command]
@@ -47,8 +74,7 @@ pub async fn organize_preview(app: tauri::AppHandle, options: Value) -> Result<V
         &[],
         Some(&json),
     );
-    emit_progress(&app, "operation:completed", "Organize Preview",
-        Some(if result.is_ok() { "success" } else { "failed" }));
+    emit_completion(&app, "Organize Preview", &result);
     result
 }
 
@@ -63,8 +89,7 @@ pub async fn organize_apply(app: tauri::AppHandle, options: Value) -> Result<Val
         &[],
         Some(&json),
     );
-    emit_progress(&app, "operation:completed", "Organize Apply",
-        Some(if result.is_ok() { "success" } else { "failed" }));
+    emit_completion(&app, "Organize Apply", &result);
     result
 }
 
@@ -81,8 +106,7 @@ pub async fn duplicates_scan(app: tauri::AppHandle, config: Value) -> Result<Val
         &[],
         Some(&json),
     );
-    emit_progress(&app, "operation:completed", "Duplicate Scan",
-        Some(if result.is_ok() { "success" } else { "failed" }));
+    emit_completion(&app, "Duplicate Scan", &result);
     result
 }
 
@@ -97,8 +121,7 @@ pub async fn similar_images_scan(app: tauri::AppHandle, config: Value) -> Result
         &[],
         Some(&json),
     );
-    emit_progress(&app, "operation:completed", "Similar Images Scan",
-        Some(if result.is_ok() { "success" } else { "failed" }));
+    emit_completion(&app, "Similar Images Scan", &result);
     result
 }
 
@@ -108,8 +131,7 @@ pub async fn duplicates_apply(app: tauri::AppHandle, payload: Value) -> Result<V
     let json = serde_json::to_string(&payload)
         .map_err(|e| format!("Failed to serialize: {e}"))?;
     let result = bridge()?.run_module("bridge_duplicates_apply", "", &[], Some(&json));
-    emit_progress(&app, "operation:completed", "Duplicate Deletion",
-        Some(if result.is_ok() { "success" } else { "failed" }));
+    emit_completion(&app, "Duplicate Deletion", &result);
     result
 }
 
@@ -121,8 +143,7 @@ pub async fn rename_preview(app: tauri::AppHandle, options: Value) -> Result<Val
     let json = serde_json::to_string(&options)
         .map_err(|e| format!("Failed to serialize rename options: {e}"))?;
     let result = bridge()?.run_module("bridge_rename", "preview", &[], Some(&json));
-    emit_progress(&app, "operation:completed", "Rename Preview",
-        Some(if result.is_ok() { "success" } else { "failed" }));
+    emit_completion(&app, "Rename Preview", &result);
     result
 }
 
@@ -132,8 +153,7 @@ pub async fn rename_apply(app: tauri::AppHandle, options: Value) -> Result<Value
     let json = serde_json::to_string(&options)
         .map_err(|e| format!("Failed to serialize rename options: {e}"))?;
     let result = bridge()?.run_module("bridge_rename", "apply", &[], Some(&json));
-    emit_progress(&app, "operation:completed", "Rename Apply",
-        Some(if result.is_ok() { "success" } else { "failed" }));
+    emit_completion(&app, "Rename Apply", &result);
     result
 }
 
@@ -145,8 +165,7 @@ pub async fn trip_preview(app: tauri::AppHandle, options: Value) -> Result<Value
     let json = serde_json::to_string(&options)
         .map_err(|e| format!("Failed to serialize: {e}"))?;
     let result = bridge()?.run_module("bridge_trip", "preview", &[], Some(&json));
-    emit_progress(&app, "operation:completed", "Trip Preview",
-        Some(if result.is_ok() { "success" } else { "failed" }));
+    emit_completion(&app, "Trip Preview", &result);
     result
 }
 
@@ -156,8 +175,7 @@ pub async fn trip_apply(app: tauri::AppHandle, options: Value) -> Result<Value, 
     let json = serde_json::to_string(&options)
         .map_err(|e| format!("Failed to serialize: {e}"))?;
     let result = bridge()?.run_module("bridge_trip", "apply", &[], Some(&json));
-    emit_progress(&app, "operation:completed", "Trip Apply",
-        Some(if result.is_ok() { "success" } else { "failed" }));
+    emit_completion(&app, "Trip Apply", &result);
     result
 }
 
@@ -195,8 +213,7 @@ pub async fn people_scan(app: tauri::AppHandle, config: Value) -> Result<Value, 
     let json = serde_json::to_string(&config)
         .map_err(|e| format!("Failed to serialize: {e}"))?;
     let result = bridge()?.run_module("bridge_people", "scan", &[], Some(&json));
-    emit_progress(&app, "operation:completed", "Face Scan",
-        Some(if result.is_ok() { "success" } else { "failed" }));
+    emit_completion(&app, "Face Scan", &result);
     result
 }
 
@@ -250,8 +267,7 @@ pub async fn people_catalog_info(app: tauri::AppHandle, options: Value) -> Resul
     let json = serde_json::to_string(&options)
         .map_err(|e| format!("Failed to serialize: {e}"))?;
     let result = bridge()?.run_module("bridge_people", "catalog-info", &[], Some(&json));
-    emit_progress(&app, "operation:completed", "Catalog Info",
-        Some(if result.is_ok() { "success" } else { "failed" }));
+    emit_completion(&app, "Catalog Info", &result);
     result
 }
 
@@ -352,8 +368,7 @@ pub async fn doctor_check(app: tauri::AppHandle, options: Value) -> Result<Value
     let json = serde_json::to_string(&options)
         .map_err(|e| format!("Failed to serialize: {e}"))?;
     let result = bridge()?.run_module("bridge_doctor", "", &[], Some(&json));
-    emit_progress(&app, "operation:completed", "Preflight Check",
-        Some(if result.is_ok() { "success" } else { "failed" }));
+    emit_completion(&app, "Preflight Check", &result);
     result
 }
 

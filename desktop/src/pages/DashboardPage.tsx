@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { FolderOpen, FolderSync, Scan, Users, MapPin } from "lucide-react"
+import { PageHeader } from "@/components/layout/PageHeader"
 import { CameraImport } from "@/components/shared/CameraImport"
 import { OnboardingTour } from "@/components/shared/OnboardingTour"
 
@@ -24,11 +25,11 @@ export default function DashboardPage() {
   const [showTour, setShowTour] = useState(() => localStorage.getItem("onboarding_complete") !== "true")
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">{greeting}</h1>
-        <p className="text-muted-foreground">{t("What would you like to do?", "Was möchtest du tun?")}</p>
-      </div>
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <PageHeader
+        title={greeting}
+        subtitle={t("What would you like to do?", "Was möchtest du tun?")}
+      />
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

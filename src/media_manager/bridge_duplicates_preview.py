@@ -65,7 +65,7 @@ def cmd_preview() -> int:
         logger.info("Starting duplicate scan preview: %d source dirs", len(config.source_dirs))
         result = scan_exact_duplicates(config)
     except Exception as exc:
-        logger.error("Duplicate scan preview failed: %s", exc)
+        logger.exception("Duplicate scan preview failed")
         return _fail(f"Duplicate scan failed: {exc}")
 
     output: dict = {

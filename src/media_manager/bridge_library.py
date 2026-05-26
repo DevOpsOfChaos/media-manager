@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse as _ap
 import datetime as _dt
 import json
+import logging
 import os
 import sys
 import time
@@ -33,6 +34,8 @@ def _get_file_category(suffix: str) -> str:
 
 
 from media_manager.bridge_base import emit as _emit, fail as _fail
+
+logger = logging.getLogger(__name__)
 
 
 def _scan_directory(root: Path, max_depth: int, date_from: str | None, date_to: str | None, file_types: list[str] | None) -> list[dict]:
@@ -91,10 +94,12 @@ def _scan_directory(root: Path, max_depth: int, date_from: str | None, date_to: 
 
 
 def cmd_browse() -> int:
+    logger.info("Browse: starting")
     raw = sys.stdin.read()
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
+        logger.error("Browse: invalid JSON: %s", exc)
         return _fail(f"Invalid JSON: {exc}")
 
     root = Path(payload.get("root_dir", ""))
@@ -172,7 +177,7 @@ def cmd_browse() -> int:
                     "sidecars": [],
                 })
     except Exception:
-        pass
+        logger.exception("Browse: MediaCache load failed, falling back to directory scan")
 
     if not media_files:
         media_files = _scan_directory(root, max_depth, date_from, date_to, file_types)
@@ -205,6 +210,7 @@ def cmd_browse() -> int:
             "file_types": file_types,
         },
     })
+    logger.info("Browse: complete, %d files (cached=%s)", total_count, cache_valid)
     return 0
 
 

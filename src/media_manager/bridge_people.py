@@ -13,6 +13,7 @@ import argparse
 import datetime
 import hashlib
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -33,6 +34,8 @@ from media_manager.core.people_recognition import (
 )
 
 from media_manager.bridge_base import emit as _emit, fail as _fail, get_app_dir as _get_app_dir, validate_app_path as _validate_app_path
+
+logger = logging.getLogger(__name__)
 
 CACHE_VERSION = 1
 
@@ -110,6 +113,7 @@ def _build_result_payload(result: PeopleScanResult | None, files_to_scan: list[P
 
 
 def cmd_scan() -> int:
+    logger.info("People scan: starting")
     raw = sys.stdin.read()
     if not raw.strip():
         return _fail("Empty stdin.")
@@ -181,6 +185,7 @@ def cmd_scan() -> int:
         )
         result = scan_people(options)
     except Exception as exc:
+        logger.exception("People scan failed")
         _save_cache(cp, cache)
         return _fail(f"Scan failed: {exc}")
 
@@ -195,6 +200,7 @@ def cmd_scan() -> int:
     _save_cache(cp, cache)
 
     _emit(_build_result_payload(result, [], 0, total_files, incremental and not force_full, cp))
+    logger.info("People scan: complete (%d faces, %d matched)", result.face_count, result.matched_faces)
     return 0
 
 
@@ -251,12 +257,12 @@ def cmd_catalog_info() -> int:
 
     try:
         catalog = load_people_catalog(catalog_path, load_embeddings=False)
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        logger.exception("Catalog load failed: %s", catalog_path)
         return _fail(f"Catalog load failed: {exc}")
 
     _emit({
         "kind": "catalog_info",
-        "path": str(catalog_path),
         "person_count": len(catalog.persons),
         "people": [
             {"person_id": p.person_id, "name": p.name, "face_count": p.face_count}
@@ -281,7 +287,8 @@ def cmd_catalog_list() -> int:
 
     try:
         catalog = load_people_catalog(catalog_path, load_embeddings=False)
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        logger.exception("Catalog list load failed: %s", catalog_path)
         return _fail(f"Catalog load failed: {exc}")
 
     
@@ -325,7 +332,8 @@ def cmd_person_rename() -> int:
         catalog = load_people_catalog(catalog_path, load_embeddings=False)
         rename_person_in_catalog(catalog, person_id=person_id, name=new_name)
         write_people_catalog(catalog_path, catalog)
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, ValueError, KeyError) as exc:
+        logger.exception("Person rename failed: %s -> %s", person_id, new_name)
         return _fail(f"Rename failed: {exc}")
 
     _emit({"kind": "person_renamed", "person_id": person_id, "name": new_name})
@@ -352,7 +360,8 @@ def cmd_person_create() -> int:
         catalog = load_people_catalog(catalog_path, load_embeddings=False)
         person = add_person_to_catalog(catalog, name=name, aliases=payload.get("aliases", []))
         write_people_catalog(catalog_path, catalog)
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, ValueError, KeyError) as exc:
+        logger.exception("Person create failed: %s", name)
         return _fail(f"Create failed: {exc}")
 
     _emit({"kind": "person_created", "person_id": person.person_id, "name": person.name})
@@ -382,7 +391,8 @@ def cmd_person_reassign() -> int:
 
     try:
         catalog = load_people_catalog(catalog_path, load_embeddings=True)
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        logger.exception("Catalog load failed for reassign: %s", catalog_path)
         return _fail(f"Catalog load failed: {exc}")
 
     from_person = catalog.persons.get(from_person_id)
@@ -419,7 +429,8 @@ def cmd_person_reassign() -> int:
 
     try:
         write_people_catalog(catalog_path, catalog)
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        logger.exception("Person reassign save failed: %s", catalog_path)
         return _fail(f"Save failed: {exc}")
 
     _emit({
@@ -453,7 +464,8 @@ def cmd_person_merge() -> int:
 
     try:
         catalog = load_people_catalog(catalog_path, load_embeddings=True)
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        logger.exception("Failed to load catalog for merge: %s", catalog_path)
         return _fail(f"Failed to load catalog: {exc}")
 
     from_person = catalog.persons.get(from_id)
@@ -484,7 +496,8 @@ def cmd_person_merge() -> int:
 
     try:
         write_people_catalog(catalog_path, catalog)
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        logger.exception("Failed to write catalog after merge: %s", catalog_path)
         return _fail(f"Failed to write catalog: {exc}")
 
     return _emit({
@@ -589,7 +602,7 @@ def cmd_face_feedback() -> int:
         total = len([l for l in lines if l.strip()])
         confirms = len([l for l in lines if '"confirm_match"' in l])
         rejects = len([l for l in lines if '"reject_match"' in l])
-    except Exception:
+    except (OSError, json.JSONDecodeError):
         total = confirms = rejects = 0
 
     return _emit({

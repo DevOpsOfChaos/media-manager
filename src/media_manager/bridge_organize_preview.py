@@ -125,7 +125,7 @@ def cmd_preview() -> int:
     try:
         dry_run = build_organize_dry_run(options)
     except Exception as exc:
-        logger.error("Organize preview: plan build failed: %s", exc)
+        logger.exception("Organize preview: plan build failed")
         return _fail(f"Preview failed: {exc}")
 
     job = queue.create("organize", {
@@ -140,6 +140,7 @@ def cmd_preview() -> int:
         review = build_review_export({"organize": dry_run.entries})
         review_candidate_count = review.get("candidate_count", 0) if isinstance(review, dict) else 0
     except Exception:
+        logger.exception("Organize preview: review export failed")
         review = None
         review_candidate_count = 0
 

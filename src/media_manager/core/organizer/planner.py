@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import stat as _stat
 import time
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -27,6 +29,7 @@ from .patterns import render_organize_directory
 _ASSOCIATED_SIDECAR_EXTENSIONS = frozenset({".xmp", ".aae"})
 
 
+@lru_cache(maxsize=131072)
 def _normalized_path_key(path: Path) -> str:
     return os.path.normcase(str(path))
 
@@ -55,12 +58,22 @@ def _build_group_target_paths(entry_target_dir: Path, target_root: Path, *, sour
     }
 
 
-def _quick_content_match(src: Path, dst: Path) -> bool | None:
+@lru_cache(maxsize=131072)
+def _cached_path_stat(path: Path) -> os.stat_result | None:
     try:
-        src_stat = src.stat()
-        dst_stat = dst.stat()
-        if src_stat.st_size != dst_stat.st_size:
-            return False
+        return os.stat(str(path))
+    except OSError:
+        return None
+
+
+def _quick_content_match(src: Path, dst: Path) -> bool | None:
+    src_stat = _cached_path_stat(src)
+    dst_stat = _cached_path_stat(dst)
+    if src_stat is None or dst_stat is None:
+        return None
+    if src_stat.st_size != dst_stat.st_size:
+        return False
+    try:
         if os.path.samefile(src, dst):
             return True
     except OSError:
@@ -151,7 +164,11 @@ def _augment_files_with_associated_sidecars(
                 seen_paths.add(candidate_key)
                 continue
 
-            if not candidate.is_file():
+            try:
+                candidate_st = candidate.stat()
+            except OSError:
+                continue
+            if not _stat.S_ISREG(candidate_st.st_mode):
                 continue
             if exclude_patterns and not path_is_included_by_patterns(
                 candidate,
@@ -160,10 +177,7 @@ def _augment_files_with_associated_sidecars(
                 source_root=item.source_root,
             ):
                 continue
-            try:
-                size_bytes = candidate.stat().st_size
-            except OSError:
-                size_bytes = 0
+            size_bytes = candidate_st.st_size
             augmented.append(
                 ScannedFile(
                     source_root=item.source_root,

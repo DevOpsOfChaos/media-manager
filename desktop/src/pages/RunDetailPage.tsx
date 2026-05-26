@@ -87,8 +87,8 @@ export default function RunDetailPage() {
   return (
     <>
       <PageHeader title={t(`Run: ${runId ?? "unknown"}`, `Durchlauf: ${runId ?? "unbekannt"}`)} />
-      <main className="flex flex-1 gap-4 p-4">
-        <div className="flex-1 max-w-3xl space-y-4">
+      <main className="flex flex-1 gap-4 p-6">
+        <div className="flex-1 max-w-5xl space-y-4">
           <div className="flex items-center gap-2">
             {detail?.has_journal && (
               <>

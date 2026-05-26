@@ -95,7 +95,7 @@ export default function ReviewWorkbenchPage() {
         )}
       </PageHeader>
 
-      <main className="flex flex-1 gap-4 p-4">
+      <main className="flex flex-1 gap-4 p-6">
         <div className="flex-1 max-w-5xl space-y-4">
           {/* Source selector */}
           <div className="flex gap-2 flex-wrap">
@@ -118,7 +118,7 @@ export default function ReviewWorkbenchPage() {
             <EmptyState
               title={t("No review data", "Keine Prüfdaten")}
               description={t("Run a duplicate scan first. Results appear here for review.", "Führe erst einen Duplikatscan durch. Ergebnisse erscheinen hier zur Prüfung.")}
-              action={<Button onClick={() => navigate("/duplicates")}>{t("Go to Duplicates", "Zu Duplikaten")}</Button>}
+              action={<Button size="sm" variant="outline" onClick={() => navigate("/duplicates")}>{t("Go to Duplicates", "Zu Duplikaten")}</Button>}
             />
           )}
 
@@ -213,8 +213,8 @@ export default function ReviewWorkbenchPage() {
                 <p className="text-muted-foreground">👁️ {stats.ignore} {t("files ignored", "Dateien ignoriert")}</p>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setApplyDialogOpen(false)}>{t("Cancel", "Abbrechen")}</Button>
-                <Button variant="destructive" onClick={handleApply} disabled={applying}>
+                <Button variant="outline" size="sm" onClick={() => setApplyDialogOpen(false)}>{t("Cancel", "Abbrechen")}</Button>
+                <Button variant="destructive" size="sm" onClick={handleApply} disabled={applying}>
                   {applying ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
                   {t("Remove files", "Dateien entfernen")}
                 </Button>

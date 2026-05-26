@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge"
 import { organizePreview, organizeApply, duplicateScan, duplicatesApply, libraryBrowse, peopleScan, tripApply } from "@/lib/tauri-bridge"
 import type { DuplicatesPreviewResponse } from "@/types"
 import { PreflightCheck } from "@/components/shared/PreflightCheck"
+import { PageHeader } from "@/components/layout/PageHeader"
 
-import { Workflow, Play, CheckCircle2, Loader2, XCircle } from "lucide-react"
+import { Play, CheckCircle2, Loader2, XCircle } from "lucide-react"
 import { open } from "@tauri-apps/plugin-dialog"
 
 type StepStatus = "pending" | "running" | "done" | "error" | "skipped"
@@ -200,15 +201,12 @@ export default function WorkflowRunnerPage() {
   const allDone = steps.every(s => s.status === "done" || s.status === "skipped")
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
 
-      <div className="flex items-center gap-3">
-        <Workflow className="w-6 h-6 text-primary" />
-        <div>
-          <h1 className="text-xl font-bold">{t("Workflow Runner", "Workflow-Ausführung")}</h1>
-          <p className="text-sm text-muted-foreground">{t("Run organize → duplicates → leftovers in sequence.", "Führen Sie Organisieren → Duplikate → Überreste in Folge aus.")}</p>
-        </div>
-      </div>
+      <PageHeader
+        title={t("Workflow Runner", "Workflow-Ausführung")}
+        subtitle={t("Run organize → duplicates → leftovers in sequence.", "Führen Sie Organisieren → Duplikate → Überreste in Folge aus.")}
+      />
 
       <Card>
         <CardHeader><CardTitle className="text-base">{t("Source & Target", "Quelle & Ziel")}</CardTitle></CardHeader>
@@ -251,6 +249,7 @@ export default function WorkflowRunnerPage() {
       <Button
         onClick={runWorkflow}
         disabled={running || !sourceDir || !targetDir}
+        variant="default"
         size="sm"
         className="w-full"
       >

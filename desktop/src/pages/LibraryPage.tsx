@@ -628,7 +628,7 @@ export default function LibraryPage() {
         subtitle={t("Browse your media files with actions.", "Medien durchsuchen mit Aktionen.")}
       />
       <main
-        className="flex flex-1 gap-4 p-4"
+        className="flex flex-1 gap-4 p-6"
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
@@ -644,7 +644,7 @@ export default function LibraryPage() {
           }
         }}
       >
-        <div className="flex-1 max-w-6xl space-y-4">
+        <div className="flex-1 max-w-5xl space-y-4">
 
 
 
@@ -1212,10 +1212,10 @@ export default function LibraryPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog(null)}>
+            <Button variant="outline" size="sm" onClick={() => setDeleteDialog(null)}>
               {t("Cancel", "Abbrechen")}
             </Button>
-            <Button variant="destructive" onClick={handleDeleteConfirm}>
+            <Button variant="destructive" size="sm" onClick={handleDeleteConfirm}>
               {t("Move to trash", "In Papierkorb")}
             </Button>
           </DialogFooter>
@@ -1239,10 +1239,10 @@ export default function LibraryPage() {
             autoFocus
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRenameDialog(null)}>
+            <Button variant="outline" size="sm" onClick={() => setRenameDialog(null)}>
               {t("Cancel", "Abbrechen")}
             </Button>
-            <Button onClick={handleRenameConfirm} disabled={!renameValue.trim() || renameValue === renameDialog?.name}>
+            <Button variant="default" size="sm" onClick={handleRenameConfirm} disabled={!renameValue.trim() || renameValue === renameDialog?.name}>
               {t("Rename", "Umbenennen")}
             </Button>
           </DialogFooter>

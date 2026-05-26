@@ -5,12 +5,19 @@ import hashlib
 import json
 from pathlib import Path
 
-from PIL import Image
-
 ASSET_SCHEMA_VERSION = 1
 ASSET_KIND = "people_review_assets"
 DEFAULT_THUMBNAIL_SIZE = 256
 DEFAULT_CROP_PADDING_RATIO = 0.25
+
+_Image = None
+
+def _get_pil_image():
+    global _Image
+    if _Image is None:
+        from PIL import Image as _PILImage
+        _Image = _PILImage
+    return _Image
 
 
 def _as_text(value: object) -> str:
@@ -159,7 +166,7 @@ def _write_face_crop(
         return base_payload
 
     try:
-        with Image.open(source_path) as image:
+        with _get_pil_image().open(source_path) as image:
             rgb = image.convert("RGB")
             crop_box = _padded_crop_box(
                 normalized_box,

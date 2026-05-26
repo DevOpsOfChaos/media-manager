@@ -92,8 +92,8 @@ export default function HistoryPage() {
           ) : t("Refresh", "Aktualisieren")}
         </Button>
       </PageHeader>
-      <main className="flex flex-1 gap-4 p-4">
-        <div className="flex-1 max-w-3xl space-y-4">
+      <main className="flex flex-1 gap-4 p-6">
+        <div className="flex-1 max-w-5xl space-y-4">
 
           {error && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive space-y-2">

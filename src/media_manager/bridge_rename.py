@@ -60,7 +60,7 @@ def cmd_preview() -> int:
     try:
         dry_run = build_rename_dry_run(options)
     except Exception as exc:
-        logger.error("Rename preview: plan build failed: %s", exc)
+        logger.exception("Rename preview: plan build failed")
         return _fail(f"Preview failed: {exc}")
 
     entries = [{
@@ -98,7 +98,7 @@ def cmd_apply() -> int:
         dry_run = build_rename_dry_run(options)
         result = execute_rename_dry_run(dry_run, apply=True)
     except Exception as exc:
-        logger.error("Rename apply: execution failed: %s", exc)
+        logger.exception("Rename apply: execution failed")
         return _fail(f"Apply failed: {exc}")
 
     _emit({

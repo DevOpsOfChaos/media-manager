@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -27,6 +28,8 @@ from media_manager.core.run_index import (
 )
 
 from media_manager.bridge_base import emit as _emit, fail as _fail, validate_app_path as _validate_app_path
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_RUNS_PATH = Path.home() / ".media-manager" / "runs"
 
@@ -41,6 +44,7 @@ def _resolve_runs_path(cli_path: str | None = None) -> Path:
 
 
 def cmd_list(runs_path: Path, limit: int) -> int:
+    logger.info("History list: %s (limit=%d)", runs_path, limit)
     if not runs_path.exists():
         _emit({"root_dir": str(runs_path), "run_count": 0, "valid_count": 0, "invalid_count": 0, "runs": []})
         return 0
@@ -51,6 +55,7 @@ def cmd_list(runs_path: Path, limit: int) -> int:
 
 
 def cmd_get(runs_path: Path, run_id: str) -> int:
+    logger.info("History get: %s/%s", runs_path, run_id)
     record = find_run_artifact(runs_path, run_id)
     if record is None:
         return _fail(f"Run not found: {run_id}", exit_code=1)

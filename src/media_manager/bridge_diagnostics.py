@@ -9,9 +9,12 @@ Reports Python version, import health, and settings path status.
 
 from __future__ import annotations
 
+import logging
 import sys
 
 from media_manager.bridge_base import emit as _emit
+
+logger = logging.getLogger(__name__)
 
 
 def get_gpu_diagnostics() -> dict:
@@ -33,7 +36,7 @@ def get_gpu_diagnostics() -> dict:
             net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
             info["cuda"] = True
             info["recommendation"] = "CUDA GPU available"
-        except Exception:
+        except (cv2.error, OSError, RuntimeError):
             pass
 
         try:
@@ -42,7 +45,7 @@ def get_gpu_diagnostics() -> dict:
             info["openvino"] = True
             if not info["cuda"]:
                 info["recommendation"] = "OpenVINO available"
-        except Exception:
+        except (cv2.error, OSError, RuntimeError):
             pass
     except ImportError:
         info["recommendation"] = "OpenCV not installed"
@@ -59,6 +62,7 @@ def _check_import(module_name: str) -> dict:
 
 
 def cmd_diagnostics() -> int:
+    logger.info("Diagnostics: starting")
     py_version = sys.version
 
     mm_import = _check_import("media_manager")
@@ -77,6 +81,7 @@ def cmd_diagnostics() -> int:
         "gpu": get_gpu_diagnostics(),
     }
     _emit(result)
+    logger.info("Diagnostics: complete")
     return 0
 
 

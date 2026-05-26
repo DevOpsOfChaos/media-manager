@@ -9,14 +9,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
 from media_manager.bridge_base import emit, fail
+
+logger = logging.getLogger(__name__)
+
 from media_manager.core.doctor import DoctorOptions, build_doctor_report
 
 
 def cmd_check() -> int:
+    logger.info("Doctor check: starting")
     raw = sys.stdin.read()
     if not raw.strip():
         return fail("Empty stdin. Expected JSON doctor options.")
@@ -45,6 +50,7 @@ def cmd_check() -> int:
     try:
         report = build_doctor_report(options)
     except Exception as exc:
+        logger.exception("Doctor check failed")
         return fail(f"Doctor check failed: {exc}")
 
     output: dict = {
@@ -86,6 +92,7 @@ def cmd_check() -> int:
         ],
     }
     emit(output)
+    logger.info("Doctor check: complete (status=%s)", report.status)
     return 0
 
 

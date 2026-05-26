@@ -4,13 +4,20 @@ from collections.abc import Mapping
 import json
 from pathlib import Path
 
-from PIL import Image
-
 from ..similar_images import SimilarImageGroup
 
 ASSET_SCHEMA_VERSION = 1
 ASSET_KIND = "similar_image_assets"
 DEFAULT_THUMBNAIL_SIZE = 512
+
+_Image = None
+
+def _get_pil_image():
+    global _Image
+    if _Image is None:
+        from PIL import Image as _PILImage
+        _Image = _PILImage
+    return _Image
 
 
 def build_similar_group_id(group: SimilarImageGroup) -> str:
@@ -61,7 +68,7 @@ def _write_similar_thumbnail(
     if output_path.exists() and not overwrite:
         base_payload.update({"status": "exists", "error": None})
         try:
-            with Image.open(output_path) as img:
+            with _get_pil_image().open(output_path) as img:
                 base_payload["thumbnail_size"] = {"width": img.width, "height": img.height}
         except Exception:
             base_payload["thumbnail_size"] = {"width": 0, "height": 0}
@@ -72,7 +79,7 @@ def _write_similar_thumbnail(
         return base_payload
 
     try:
-        with Image.open(source_path) as image:
+        with _get_pil_image().open(source_path) as image:
             rgb = image.convert("RGB")
             rgb.thumbnail((thumbnail_size, thumbnail_size))
             output_dir.mkdir(parents=True, exist_ok=True)

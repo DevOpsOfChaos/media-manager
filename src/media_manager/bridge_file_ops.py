@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import argparse as _ap
 import json
+import logging
 import os
 import subprocess
 import sys
 from pathlib import Path
 
 from media_manager.bridge_base import emit as _emit, fail as _fail
+
+logger = logging.getLogger(__name__)
 
 
 def cmd_open() -> int:
@@ -25,10 +28,12 @@ def cmd_open() -> int:
         return _fail(f"File not found: {path}")
 
     try:
+        logger.info("File open: %s", path)
         os.startfile(str(path))
         _emit({"status": "opened", "path": str(path)})
         return 0
     except OSError as exc:
+        logger.error("File open failed: %s: %s", path, exc)
         return _fail(f"Could not open file: {exc}")
 
 
@@ -45,6 +50,7 @@ def cmd_reveal() -> int:
         return _fail(f"Path not found: {path}")
 
     try:
+        logger.info("File reveal: %s", path)
         if sys.platform == "win32":
             subprocess.run(["explorer", "/select,", str(path)], check=False)
         elif sys.platform == "darwin":
@@ -54,6 +60,7 @@ def cmd_reveal() -> int:
         _emit({"status": "revealed", "path": str(path)})
         return 0
     except OSError as exc:
+        logger.error("File reveal failed: %s: %s", path, exc)
         return _fail(f"Could not reveal file: {exc}")
 
 
@@ -70,6 +77,7 @@ def cmd_delete() -> int:
         return _fail(f"File not found: {path}")
 
     try:
+        logger.info("File delete: %s", path)
         import send2trash
         send2trash.send2trash(str(path))
         _emit({"status": "deleted", "path": str(path)})
@@ -83,9 +91,17 @@ def cmd_delete() -> int:
                 subprocess.run(["gio", "trash", "--", str(path)], check=False)
             _emit({"status": "deleted", "path": str(path)})
             return 0
-        except Exception as exc:
+        except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
+            logger.error("File delete fallback failed: %s: %s", path, exc)
             return _fail(f"Could not delete file: {exc}")
+        except Exception as exc:
+            logger.exception("File delete unexpected error: %s", path)
+            return _fail(f"Could not delete file: {exc}")
+    except (OSError, RuntimeError) as exc:
+        logger.error("File delete failed: %s: %s", path, exc)
+        return _fail(f"Could not delete file: {exc}")
     except Exception as exc:
+        logger.exception("File delete unexpected error: %s", path)
         return _fail(f"Could not delete file: {exc}")
 
 
@@ -109,10 +125,12 @@ def cmd_rename() -> int:
         return _fail(f"Target already exists: {new_path}")
 
     try:
+        logger.info("File rename: %s -> %s", path, new_name)
         path.rename(new_path)
         _emit({"status": "renamed", "old_path": str(path), "new_path": str(new_path), "new_name": new_name})
         return 0
     except OSError as exc:
+        logger.error("File rename failed: %s -> %s: %s", path, new_name, exc)
         return _fail(f"Could not rename file: {exc}")
 
 
@@ -134,6 +152,7 @@ def cmd_export() -> int:
 
     try:
         from PIL import Image
+        logger.info("File export: %s -> %s", source, target)
         img = Image.open(source)
         ratio = width / img.width
         new_height = int(img.height * ratio)
@@ -145,7 +164,11 @@ def cmd_export() -> int:
         return 0
     except ImportError:
         return _fail("Pillow (PIL) is required for image export. Install with: pip install Pillow")
+    except (OSError, ValueError, RuntimeError) as exc:
+        logger.error("File export failed: %s: %s", source, exc)
+        return _fail(f"Export failed: {exc}")
     except Exception as exc:
+        logger.exception("File export unexpected error: %s", source)
         return _fail(f"Export failed: {exc}")
 
 
@@ -223,11 +246,11 @@ def cmd_contact_sheet() -> int:
 
     try:
         font_title = ImageFont.truetype("arial.ttf", 18)
-    except Exception:
+    except OSError:
         font_title = ImageFont.load_default()
     try:
         font_label = ImageFont.truetype("arial.ttf", 11)
-    except Exception:
+    except OSError:
         font_label = ImageFont.load_default()
 
     draw.text((margin, margin), title, fill="black", font=font_title)
@@ -245,7 +268,7 @@ def cmd_contact_sheet() -> int:
             ox = x + (thumb_size - img.width) // 2
             oy = y + (thumb_size - img.height) // 2
             canvas.paste(img, (ox, oy))
-        except Exception:
+        except (OSError, ValueError, RuntimeError):
             draw.rectangle([x, y, x + thumb_size, y + thumb_size], outline="gray")
             draw.text((x + 5, y + thumb_size // 2 - 10), "Error", fill="red", font=font_label)
 
@@ -313,7 +336,7 @@ def cmd_web_gallery() -> int:
   </a>
   <p>{src.name}</p>
 </div>''')
-        except Exception:
+        except (OSError, ValueError, RuntimeError):
             continue
 
     html = f'''<!DOCTYPE html>
@@ -381,8 +404,13 @@ def cmd_backup() -> int:
             "size_mb": size_mb,
             "timestamp": timestamp,
         })
+        logger.info("Backup complete: %s (%.1f MB)", backup_path, size_mb)
         return 0
+    except (OSError, ValueError, RuntimeError) as exc:
+        logger.error("Backup failed: %s", exc)
+        return _fail(f"Backup failed: {exc}")
     except Exception as exc:
+        logger.exception("Backup unexpected error")
         return _fail(f"Backup failed: {exc}")
 
 
@@ -400,6 +428,7 @@ def cmd_exif() -> int:
 
     try:
         from media_manager.exiftool import read_exiftool_metadata
+        logger.info("EXIF read: %s", path)
         meta, success, error_type, error_msg = read_exiftool_metadata(path)
         if not success or meta is None:
             return _fail(f"Could not read EXIF: {error_msg or error_type or 'unknown error'}")
@@ -430,7 +459,11 @@ def cmd_exif() -> int:
             },
         })
         return 0
+    except (OSError, RuntimeError) as exc:
+        logger.error("EXIF read failed: %s: %s", path, exc)
+        return _fail(f"Could not read EXIF: {exc}")
     except Exception as exc:
+        logger.exception("EXIF read unexpected error: %s", path)
         return _fail(f"Could not read EXIF: {exc}")
 
 
@@ -463,7 +496,7 @@ def cmd_watermark() -> int:
 
         try:
             font = ImageFont.truetype("arial.ttf", font_size)
-        except Exception:
+        except OSError:
             font = ImageFont.load_default()
 
         bbox = draw.textbbox((0, 0), text, font=font)
@@ -493,7 +526,11 @@ def cmd_watermark() -> int:
         return 0
     except ImportError:
         return _fail("Pillow required")
+    except (OSError, ValueError, RuntimeError) as exc:
+        logger.error("Watermark failed: %s", exc)
+        return _fail(f"Watermark failed: {exc}")
     except Exception as exc:
+        logger.exception("Watermark unexpected error")
         return _fail(f"Watermark failed: {exc}")
 
 

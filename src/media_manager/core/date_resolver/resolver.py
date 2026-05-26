@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 import re
 import logging
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 
 from media_manager.core.metadata import FileInspection, inspect_media_file
@@ -17,6 +19,28 @@ _REALISTIC_YEAR_MIN = 1800
 _REALISTIC_YEAR_MAX = datetime.now().year + 1
 
 logger = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=65536)
+def _cached_stat(path_key: str) -> os.stat_result | None:
+    try:
+        return os.stat(path_key)
+    except OSError:
+        return None
+
+
+def _get_mtime(inspection: FileInspection) -> float | None:
+    """Extract mtime from inspection if available, avoiding redundant stat()."""
+    st = _cached_stat(str(inspection.path))
+    if st:
+        return st.st_mtime
+    if inspection.file_modified_value:
+        try:
+            from media_manager.core.metadata.inspect import TIME_OUTPUT_FORMAT
+            return datetime.strptime(inspection.file_modified_value, TIME_OUTPUT_FORMAT).timestamp()
+        except (ValueError, OSError):
+            pass
+    return None
 
 
 def _year_is_realistic(value: datetime) -> bool:
@@ -139,7 +163,8 @@ def resolve_capture_datetime(
         )
 
     if date_source not in ("auto", "filename"):
-        modified_at = datetime.fromtimestamp(file_path.stat().st_mtime)
+        mtime = _get_mtime(inspection) or file_path.stat().st_mtime
+        modified_at = datetime.fromtimestamp(mtime)
         reason = f"Date source set to '{date_source}' — falling back to file modification time."
         if inspection.date_candidates:
             count = len(inspection.date_candidates)
@@ -165,13 +190,14 @@ def resolve_capture_datetime(
     # After EXIF, before filename: try Windows creation date
     if date_source in ("auto", "filename"):
         try:
-            stat = file_path.stat()
-            if hasattr(stat, 'st_birthtime'):
-                created = datetime.fromtimestamp(stat.st_birthtime)
+            st = _cached_stat(str(file_path)) or file_path.stat()
+            if hasattr(st, 'st_birthtime'):
+                created = datetime.fromtimestamp(st.st_birthtime)
             else:
-                created = datetime.fromtimestamp(stat.st_ctime)
+                created = datetime.fromtimestamp(st.st_ctime)
 
-            modified_at = datetime.fromtimestamp(stat.st_mtime)
+            mtime = _get_mtime(inspection) or st.st_mtime
+            modified_at = datetime.fromtimestamp(mtime)
             if _year_is_realistic(created) and abs((created - modified_at).total_seconds()) > 2:
                 reason = "No parseable EXIF metadata. Using file creation date (what Windows Explorer shows)."
                 if inspection.date_candidates:
@@ -209,7 +235,8 @@ def resolve_capture_datetime(
             if unrealistic_year_count:
                 label = "candidate" if unrealistic_year_count == 1 else "candidates"
                 reason += f" Also rejected {unrealistic_year_count} metadata {label} with unrealistic year."
-            modified_at = datetime.fromtimestamp(file_path.stat().st_mtime)
+            fallback_mtime = _get_mtime(inspection) or file_path.stat().st_mtime
+            modified_at = datetime.fromtimestamp(fallback_mtime)
             return DateResolution(
                 path=file_path,
                 resolved_datetime=modified_at,
@@ -251,7 +278,8 @@ def resolve_capture_datetime(
             metadata=inspection.metadata,
         )
 
-    modified_at = datetime.fromtimestamp(file_path.stat().st_mtime)
+    final_mtime = _get_mtime(inspection) or file_path.stat().st_mtime
+    modified_at = datetime.fromtimestamp(final_mtime)
     reason = "No parseable metadata or filename datetime was found, so the file modification time was used."
     if inspection.date_candidates:
         count = len(inspection.date_candidates)

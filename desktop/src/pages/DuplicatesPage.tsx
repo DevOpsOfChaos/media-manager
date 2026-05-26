@@ -309,8 +309,8 @@ export default function DuplicatesPage() {
   return (
     <>
       <PageHeader title={t("Duplicates", "Duplikate")} />
-      <main className="flex flex-1 gap-4 p-4">
-        <div className="flex-1 max-w-4xl space-y-4">
+      <main className="flex flex-1 gap-4 p-6">
+        <div className="flex-1 max-w-5xl space-y-4">
 
           <Card>
             <CardHeader>

@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/shared/EmptyState"
+import { PageHeader } from "@/components/layout/PageHeader"
 import { peopleCatalogList, type PersonEntry } from "@/lib/tauri-bridge"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { User, Calendar, Loader2, ArrowLeft } from "lucide-react"
@@ -33,16 +34,11 @@ export default function FaceTimelinePage() {
   }, [catalogPath])
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center gap-3">
-        <User className="w-6 h-6 text-primary" />
-        <div>
-          <h1 className="text-xl font-bold">{t("Face Timeline", "Gesichter-Zeitleiste")}</h1>
-          <p className="text-sm text-muted-foreground">
-            {t("Browse all photos of a person, sorted by date.", "Alle Fotos einer Person nach Datum sortiert durchsuchen.")}
-          </p>
-        </div>
-      </div>
+    <div className="max-w-5xl mx-auto p-6 space-y-4">
+      <PageHeader
+        title={t("Face Timeline", "Gesichter-Zeitleiste")}
+        subtitle={t("Browse all photos of a person, sorted by date.", "Alle Fotos einer Person nach Datum sortiert durchsuchen.")}
+      />
 
       <div className="flex gap-2">
         <Input

@@ -14,10 +14,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
 from media_manager.bridge_base import emit as _emit, fail as _fail
+
+logger = logging.getLogger(__name__)
+
 from media_manager.similar_images import (
     SimilarImageScanConfig,
     scan_similar_images,
@@ -117,8 +121,10 @@ def cmd_preview() -> int:
     )
 
     try:
+        logger.info("Similar image scan: %d source dirs, %d image files", len(config.source_dirs), image_count)
         result = scan_similar_images(config)
     except Exception as exc:
+        logger.exception("Similar image scan failed")
         return _fail(f"Similar image scan failed: {exc}")
 
     output: dict = {
@@ -135,6 +141,7 @@ def cmd_preview() -> int:
         "skipped_filtered_files": result.skipped_filtered_files,
     }
     _emit(output)
+    logger.info("Similar image scan: complete (%d groups)", len(result.similar_groups))
     return 0
 
 

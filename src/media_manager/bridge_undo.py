@@ -42,7 +42,7 @@ def cmd_preview() -> int:
         logger.info("Starting undo preview: %s", journal_path)
         result = execute_undo_journal(journal_path, apply=False)
     except Exception as exc:
-        logger.error("Undo preview failed: %s", exc)
+        logger.exception("Undo preview failed")
         return _fail(f"Undo preview failed: {exc}")
 
     output: dict = {
@@ -95,7 +95,7 @@ def cmd_apply() -> int:
         logger.info("Starting undo apply: %s", journal_path)
         result = execute_undo_journal(journal_path, apply=True)
     except Exception as exc:
-        logger.error("Undo apply failed: %s", exc)
+        logger.exception("Undo apply failed")
         return _fail(f"Undo apply failed: {exc}")
 
     output: dict = {

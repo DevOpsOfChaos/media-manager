@@ -9,9 +9,10 @@ import { tripPreview, tripApply, libraryBrowse, type TripOptions, type TripApply
 import { useProgress } from "@/lib/progress-context"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
+import { PageHeader } from "@/components/layout/PageHeader"
 
 import { loadFavorite, saveFavorite, hasFavorite } from "@/lib/favorites-store"
-import { Plane, Plus, FolderOpen, Loader2, ImageOff, ChevronRight, Star } from "lucide-react"
+import { Plus, FolderOpen, Loader2, ImageOff, ChevronRight, Star } from "lucide-react"
 
 interface TripEntry {
   name: string
@@ -31,7 +32,7 @@ function TripDetailView({ trip, onBack }: { trip: TripEntry; onBack: () => void 
   }, [trip.path])
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-4">
+    <div className="max-w-5xl mx-auto p-6 space-y-4">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={onBack}>{t("← Back", "← Zurück")}</Button>
         <h1 className="text-xl font-bold">{trip.name}</h1>
@@ -149,20 +150,16 @@ export default function TripPage() {
 
   // ── Main Dashboard ──
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Plane className="w-6 h-6 text-primary" />
-          <div>
-            <h1 className="text-xl font-bold">{t("Trips", "Reisen")}</h1>
-            <p className="text-sm text-muted-foreground">{t("Your trip collections.", "Ihre Reisesammlungen.")}</p>
-          </div>
-        </div>
+      <PageHeader
+        title={t("Trips", "Reisen")}
+        subtitle={t("Your trip collections.", "Ihre Reisesammlungen.")}
+      >
         <Button onClick={() => setShowCreate(true)} size="sm">
           <Plus className="w-4 h-4 mr-1" /> {t("New Trip", "Neue Reise")}
         </Button>
-      </div>
+      </PageHeader>
 
       <div className="flex items-center gap-2">
         <Input value={tripsRoot} onChange={e => { setTripsRoot(e.target.value); localStorage.setItem("trips_root", e.target.value) }} placeholder={t("Trips root directory (e.g. C:\\Trips)", "Reise-Stammverzeichnis (z.B. C:\\Reisen)")} className="text-xs w-64" />

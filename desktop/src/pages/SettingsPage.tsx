@@ -107,8 +107,8 @@ export default function SettingsPage() {
   return (
     <>
       <PageHeader title={t("Settings", "Einstellungen")} />
-      <main className="flex flex-1 gap-4 p-4">
-        <div className="flex-1 max-w-2xl space-y-4">
+      <main className="flex flex-1 gap-4 p-6">
+        <div className="flex-1 max-w-5xl space-y-4">
 
           {error && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -279,10 +279,10 @@ export default function SettingsPage() {
           </Card>
 
           <div className="flex items-center gap-3">
-            <Button onClick={save} disabled={loading || !dirty}>
+            <Button variant="default" size="sm" onClick={save} disabled={loading || !dirty}>
               {loading ? t("Saving...", "Speichere...") : t("Save", "Speichern")}
             </Button>
-            <Button variant="outline" onClick={reset} disabled={loading}>
+            <Button variant="outline" size="sm" onClick={reset} disabled={loading}>
               {t("Reset to defaults", "Auf Standard zurücksetzen")}
             </Button>
             {dirty && (

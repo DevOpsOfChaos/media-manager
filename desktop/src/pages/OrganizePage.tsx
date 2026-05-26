@@ -113,7 +113,7 @@ export default function OrganizePage() {
     return (
       <>
         <PageHeader title={t("Organize Files", "Dateien organisieren")} />
-        <main className="max-w-2xl mx-auto p-6 space-y-6">
+        <main className="max-w-5xl mx-auto p-6 space-y-6">
           {/* Source */}
           <Card>
             <CardHeader><CardTitle>{t("1. Source", "1. Quelle")}</CardTitle></CardHeader>
@@ -238,7 +238,7 @@ export default function OrganizePage() {
             <ChevronLeft className="h-4 w-4 mr-1" /> {t("Back", "Zurück")}
           </Button>
         </PageHeader>
-        <main className="max-w-2xl mx-auto p-6 space-y-4">
+        <main className="max-w-5xl mx-auto p-6 space-y-4">
           {/* Stats */}
           <div className="grid grid-cols-4 gap-2">
             <Card className="text-center p-3"><p className="text-xl font-bold text-green-600">{preview.planned_count.toLocaleString()}</p><p className="text-[10px] text-muted-foreground">{t("Planned", "Geplant")}</p></Card>
@@ -284,7 +284,7 @@ export default function OrganizePage() {
     return (
       <>
         <PageHeader title={t("Complete!", "Fertig!")} />
-        <main className="max-w-xl mx-auto p-6 space-y-6 text-center">
+        <main className="max-w-5xl mx-auto p-6 space-y-6 text-center">
           {/* Success */}
           <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto">
             <Check className="h-10 w-10 text-green-600" />
@@ -326,10 +326,10 @@ export default function OrganizePage() {
 
           {/* Actions */}
           <div className="flex gap-2 justify-center">
-            <Button onClick={startOver} variant="outline">
+            <Button onClick={startOver} variant="outline" size="sm">
               <RotateCcw className="h-4 w-4 mr-1" /> {t("Organize more", "Weitere organisieren")}
             </Button>
-            <Button onClick={() => navigate("/library")} variant="default">
+            <Button onClick={() => navigate("/library")} variant="default" size="sm">
               {t("View Library", "Bibliothek ansehen")} <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
