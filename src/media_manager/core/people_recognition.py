@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 from typing import Any
 
@@ -733,6 +734,25 @@ def _selected_backend(preferred_backend: str):
     return None, None
 
 
+def _load_face_process_cache(cache_path: Path) -> dict[str, float]:
+    if not cache_path.exists():
+        return {}
+    try:
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return {str(k): float(v) for k, v in data.items()}
+    except Exception:
+        pass
+    return {}
+
+
+def _save_face_process_cache(cache_path: Path, cache: dict[str, float]) -> None:
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = cache_path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(cache_path)
+
+
 def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
     if config.tolerance <= 0:
         raise ValueError("tolerance must be greater than zero")
@@ -787,7 +807,24 @@ def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
 
     result.image_files = len(image_files)
     detections: list[DetectedFace] = []
+
+    face_cache_path = (Path(config.catalog_path).with_suffix(".face_processed.json")
+                       if config.catalog_path else Path.home() / ".media-manager" / "face_processed.json")
+    face_cache = _load_face_process_cache(face_cache_path)
+    face_cache_updated = False
+
     for path in image_files:
+        norm_key = os.path.normcase(str(path))
+        try:
+            current_mtime = path.stat().st_mtime
+        except OSError:
+            current_mtime = 0.0
+
+        cached_mtime = face_cache.get(norm_key)
+        if cached_mtime is not None and abs(current_mtime - cached_mtime) < 1.0:
+            result.processed_files += 1
+            continue
+
         try:
             if config.use_fast_detector and selected_name == "dlib":
                 faces = _detect_faces_with_yunet_dlib(path, backend)
@@ -798,6 +835,8 @@ def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
             else:
                 faces = _detect_faces_with_opencv(path, backend)
             result.processed_files += 1
+            face_cache[norm_key] = current_mtime
+            face_cache_updated = True
         except Exception as exc:  # pragma: no cover - backend/runtime dependent
             result.errors.append({"path": str(path), "error": str(exc)})
             continue
@@ -813,6 +852,9 @@ def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
                     backend=selected_name,
                 )
             )
+
+    if face_cache_updated:
+        _save_face_process_cache(face_cache_path, face_cache)
 
     result.detections = _cluster_unknown_faces(detections, tolerance=config.tolerance)
     result.face_count = len(result.detections)
@@ -878,12 +920,30 @@ def scan_people_two_stage(config: PeopleScanConfig) -> PeopleScanResult:
     ambiguous_indices: set[int] = set()
     processed = 0
 
+    face_cache_path = (Path(config.catalog_path).with_suffix(".face_processed.json")
+                       if config.catalog_path else Path.home() / ".media-manager" / "face_processed.json")
+    face_cache = _load_face_process_cache(face_cache_path)
+    face_cache_updated = False
+
     for path in image_files:
+        norm_key = os.path.normcase(str(path))
+        try:
+            current_mtime = path.stat().st_mtime
+        except OSError:
+            current_mtime = 0.0
+
+        cached_mtime = face_cache.get(norm_key)
+        if cached_mtime is not None and abs(current_mtime - cached_mtime) < 1.0:
+            processed += 1
+            continue
+
         try:
             faces = _detect_faces_with_yunet_dlib(path, backend)
         except Exception:
             continue
         processed += 1
+        face_cache[norm_key] = current_mtime
+        face_cache_updated = True
         for face_index, (box, encoding) in enumerate(faces):
             match = _best_match(encoding, catalog, tolerance=config.tolerance)
             det = DetectedFace(
@@ -897,6 +957,9 @@ def scan_people_two_stage(config: PeopleScanConfig) -> PeopleScanResult:
             stage1_faces.append(det)
             if match is None or match.distance > config.tolerance * 0.85:
                 ambiguous_indices.add(len(stage1_faces) - 1)
+
+    if face_cache_updated:
+        _save_face_process_cache(face_cache_path, face_cache)
 
     if not ambiguous_indices:
         _log.info("No ambiguous faces found - skipping Stage 2")

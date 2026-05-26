@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
 from . import (
     cli_app,
     cli_cleanup,
+    cli_completions,
+    cli_config,
     cli_duplicates,
     cli_doctor,
     cli_inspect,
@@ -15,8 +18,10 @@ from . import (
     cli_people,
     cli_rename,
     cli_runs,
+    cli_stats,
     cli_trip,
     cli_undo,
+    cli_watch,
     cli_workflow,
 )
 
@@ -39,6 +44,8 @@ def _setup_logging() -> None:
 COMMAND_HANDLERS = {
     "app": cli_app.main,
     "cleanup": cli_cleanup.main,
+    "completions": cli_completions.main,
+    "config": cli_config.main,
     "duplicates": cli_duplicates.main,
     "doctor": cli_doctor.main,
     "inspect": cli_inspect.main,
@@ -46,8 +53,10 @@ COMMAND_HANDLERS = {
     "people": cli_people.main,
     "rename": cli_rename.main,
     "runs": cli_runs.main,
+    "stats": cli_stats.main,
     "trip": cli_trip.main,
     "undo": cli_undo.main,
+    "watch": cli_watch.main,
     "workflow": cli_workflow.main,
 }
 
@@ -59,6 +68,18 @@ def build_parser() -> argparse.ArgumentParser:
             "Core-first media manager CLI. "
             "Desktop UI entry points were removed from the active repository baseline."
         ),
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        default=False,
+        help="Machine-readable JSON output for all commands.",
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        default=False,
+        help="Suppress non-error output.",
     )
     parser.add_argument(
         "command",
@@ -73,6 +94,9 @@ def build_parser() -> argparse.ArgumentParser:
         "  media-manager duplicates --source ~/Photos\n"
         "  media-manager people scan --source ~/Photos --catalog catalog.json\n"
         "  media-manager trip --source ~/Photos --label \"Italy 2024\"\n"
+        "  media-manager watch --source ~/Photos --target ~/Organized\n"
+        "  media-manager stats --source ~/Photos\n"
+        "  media-manager config --show\n"
         "\n"
         "For detailed help on a subcommand:\n"
         "  media-manager <subcommand> --help"
@@ -95,14 +119,29 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "\nNo command provided.\n"
             "Run an explicit CLI command such as 'inspect', 'organize', 'rename', 'trip', "
-            "'duplicates', 'doctor', 'people', 'runs', 'app', 'undo', 'cleanup', or 'workflow'."
+            "'duplicates', 'doctor', 'people', 'runs', 'app', 'undo', 'cleanup', 'workflow', "
+            "'watch', 'stats', or 'config'.\n"
+            "Use 'media-manager <command> --help' for detailed command help."
         )
         return 0
 
     parsed = parser.parse_args(argv)
     if parsed.command is None:
         parser.print_help()
+        if parsed.json or parsed.quiet:
+            pass  # flags alone with no command is not an error
+        else:
+            print(
+                "\nHint: Did you forget a command? Available: "
+                + ", ".join(sorted(COMMAND_HANDLERS.keys()))
+            )
         return 2
+
+    # Propagate global flags to subcommands via environment
+    if parsed.json:
+        os.environ["MEDIA_MANAGER_JSON"] = "1"
+    if parsed.quiet:
+        os.environ["MEDIA_MANAGER_QUIET"] = "1"
 
     handler = COMMAND_HANDLERS[parsed.command]
     return handler(parsed.args)

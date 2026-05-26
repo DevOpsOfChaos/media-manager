@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react"
+import { useT } from "@/lib/i18n"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -157,6 +158,7 @@ function buildLiveExample(pattern: string): string {
 // ── Main component ──
 
 export default function OrganizePage() {
+  const t = useT()
   const { options, setOptions } = useOrganizeStore()
   const { settings } = useSettingsStore()
   const { startProgress, updateProgress, finishProgress } = useProgress()
@@ -183,8 +185,6 @@ export default function OrganizePage() {
       return saved ? JSON.parse(saved) : null
     } catch { return null }
   })
-  const t = <T extends string>(en: T, de: T): T => (lang === "de" ? de : en)
-
   // Keep source_dirs as a single string in the store but display as text input
   const sourceDir =
     options.source_dirs.length > 0 ? options.source_dirs[0] : ""

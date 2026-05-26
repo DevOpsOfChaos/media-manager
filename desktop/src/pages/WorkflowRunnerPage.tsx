@@ -31,7 +31,7 @@ export default function WorkflowRunnerPage() {
 
   const browseDir = useCallback(async (setter: (v: string) => void) => {
     try {
-      const selected = await open({ directory: true, multiple: false, title: "Select directory" })
+      const selected = await open({ directory: true, multiple: false, title: t("Select directory", "Verzeichnis auswählen") })
       if (selected && typeof selected === "string") setter(selected)
     } catch { /* dialog may not be available */ }
   }, [])

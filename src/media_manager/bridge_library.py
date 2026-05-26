@@ -76,8 +76,9 @@ def _scan_directory(root: Path, max_depth: int, date_from: str | None, date_to: 
                     continue
 
             try:
-                size = fp.stat().st_size
-                mtime = fp.stat().st_mtime
+                st = fp.stat()
+                size = st.st_size
+                mtime = st.st_mtime
             except OSError:
                 size = 0
                 mtime = 0
@@ -154,34 +155,71 @@ def cmd_browse() -> int:
         return 0
 
     # --- Phase 2: Cached paginated load ---
-    cache_dir = Path(os.environ.get("MEDIA_MANAGER_HOME", Path.home() / ".media-manager")) / "cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    root_hash = hashlib.md5(str(root.resolve()).encode()).hexdigest()[:12]
-    cache_path = cache_dir / f"library_{root_hash}.json"
-
-    # Check if cache is valid (exists, same root, < 5 min old)
+    # Try SQLite MediaCache first (instant, no walk needed on repeat access)
+    media_files: list[dict] = []
     cache_valid = False
-    if cache_path.exists():
-        try:
-            cache_data = json.loads(cache_path.read_text())
-            cache_age = time.time() - cache_data.get("created_at", 0)
-            if cache_data.get("root") == str(root) and cache_age < 300:
-                cache_valid = True
-        except Exception:
-            pass
+    cache_data: dict = {}
+    try:
+        from media_manager.core.media_cache import MediaCache
+        mc = MediaCache.get()
+        mc._ensure_schema()
+        source_root_str = str(root)
+        row = mc._conn().execute("SELECT value FROM cache_meta WHERE key='last_sync'").fetchone()
+        last_sync = float(row[0]) if row else 0
+        if time.time() - last_sync > 60:
+            mc.sync([source_root_str])
+            mc._conn().execute(
+                "INSERT OR REPLACE INTO cache_meta(key,value) VALUES('last_sync',?)",
+                (str(time.time()),)
+            )
+            mc._conn().commit()
+        cached_rows = mc.get_scanned_files([source_root_str])
+        if cached_rows:
+            cache_valid = True
+            for sf in cached_rows:
+                suffix = sf.extension
+                cat = _get_file_category(suffix)
+                if file_types and cat not in file_types:
+                    continue
+                media_files.append({
+                    "path": str(sf.path),
+                    "name": sf.path.name,
+                    "relative": str(sf.relative_path),
+                    "size": sf.size_bytes,
+                    "suffix": suffix,
+                    "modified": "",
+                    "category": cat,
+                    "sidecars": [],
+                })
+    except Exception:
+        pass
 
-    # Build or load cache
-    if not cache_valid:
-        media_files = _scan_directory(root, max_depth, date_from, date_to, file_types)
-        cache_data = {
-            "root": str(root),
-            "created_at": time.time(),
-            "file_count": len(media_files),
-            "files": media_files,
-        }
-        cache_path.write_text(json.dumps(cache_data, ensure_ascii=False))
-    else:
-        media_files = cache_data["files"]
+    # Fallback to JSON file cache if SQLite cache didn't populate
+    if not media_files:
+        cache_dir = Path(os.environ.get("MEDIA_MANAGER_HOME", Path.home() / ".media-manager")) / "cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        root_hash = hashlib.md5(str(root.resolve()).encode()).hexdigest()[:12]
+        cache_path = cache_dir / f"library_{root_hash}.json"
+
+        if cache_path.exists():
+            try:
+                cache_data = json.loads(cache_path.read_text())
+                cache_age = time.time() - cache_data.get("created_at", 0)
+                if cache_data.get("root") == str(root) and cache_age < 300:
+                    cache_valid = True
+                    media_files = cache_data["files"]
+            except Exception:
+                pass
+
+        if not media_files:
+            media_files = _scan_directory(root, max_depth, date_from, date_to, file_types)
+            cache_data = {
+                "root": str(root),
+                "created_at": time.time(),
+                "file_count": len(media_files),
+                "files": media_files,
+            }
+            cache_path.write_text(json.dumps(cache_data, ensure_ascii=False))
 
     total_count = len(media_files)
 

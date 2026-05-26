@@ -241,12 +241,91 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
     idx = 0
     if options.include_associated_files:
         groups = build_media_groups(scanned_files)
+
+        # ── Cache: load previously resolved dates ──
+        cached_dates: dict[str, tuple[str, str]] = {}
+        try:
+            from media_manager.core.media_cache import MediaCache
+            cache = MediaCache.get()
+            source_roots = [str(d) for d in options.source_dirs]
+            cached_dates = {os.path.normcase(k): (v.split("|", 1)[0], v.split("|", 1)[1] if "|" in v else "metadata")
+                           for k, v in cache.get_resolved_dates(source_roots).items()}
+        except (OSError, ValueError) as exc:
+            logger.debug("Date resolution fallback: %s", exc)
+
+        # ── Build inspections for uncached group main files (batch ExifTool) ──
+        group_main_paths = [group.main_path for group in groups]
+        inspections: dict[Path, FileInspection] = {}
+        uncached: list[Path] = []
+        for fp in group_main_paths:
+            norm = os.path.normcase(str(fp))
+            if norm in cached_dates:
+                date_str, source = cached_dates[norm]
+                candidate = DateCandidate(source_tag=source, value=date_str, priority_index=0)
+                inspections[fp] = FileInspection(
+                    path=fp, selected_value=date_str, selected_source=source,
+                    date_candidates=[candidate], metadata_available=True, exiftool_available=True,
+                )
+            else:
+                uncached.append(fp)
+
+        new_date_entries: list[tuple[str, str, str, str | None]] = []
+        if uncached:
+            import concurrent.futures
+            parallel_batch_size = max(batch_size, 2000)
+            parallel_batches = []
+            for bs in range(0, len(uncached), parallel_batch_size):
+                parallel_batches.append(uncached[bs:bs + parallel_batch_size])
+            from media_manager.core.parallel_utils import get_optimal_workers
+            max_workers = min(get_optimal_workers(), len(parallel_batches))
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {}
+                for i, batch_paths in enumerate(parallel_batches):
+                    if cancel_event and cancel_event.is_set():
+                        break
+                    future = executor.submit(
+                        inspect_media_files_batch,
+                        batch_paths,
+                        exiftool_path=options.exiftool_path,
+                    )
+                    futures[future] = batch_paths
+
+                for future in concurrent.futures.as_completed(futures):
+                    if cancel_event and cancel_event.is_set():
+                        break
+                    try:
+                        batch_inspections = future.result()
+                        inspections.update(batch_inspections)
+                        batch_paths = futures[future]
+                        for fp in batch_paths:
+                            insp = batch_inspections.get(fp)
+                            if insp and insp.selected_value and insp.selected_source:
+                                new_date_entries.append((
+                                    str(fp), f"{insp.selected_value}|{insp.selected_source}",
+                                    insp.selected_source, None,
+                                ))
+                    except Exception as exc:
+                        logger.warning("Batch inspection failed: %s", exc)
+
+        if new_date_entries:
+            try:
+                cache.set_dates_batch(new_date_entries)
+            except (OSError, KeyError) as exc:
+                logger.debug("Metadata parse failed: %s", exc)
+
+        # ── Process groups using cached/batched inspections ──
         for group in groups:
             if cancel_event and cancel_event.is_set():
                 break
             scanned_file = scanned_by_path[group.main_path]
+            inspection = inspections.get(scanned_file.path)
             try:
-                resolution = resolve_capture_datetime(scanned_file.path, exiftool_path=options.exiftool_path, date_source=options.date_source)
+                resolution = resolve_capture_datetime(
+                    scanned_file.path, inspection=inspection,
+                    exiftool_path=options.exiftool_path,
+                    date_source=options.date_source,
+                )
                 target_relative_dir = render_organize_directory(options.pattern, resolution, source_root=scanned_file.source_root)
                 group_target_paths = _build_group_target_paths(
                     target_relative_dir,
@@ -346,7 +425,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
             for bs in range(0, len(uncached), parallel_batch_size):
                 parallel_batches.append(uncached[bs:bs + parallel_batch_size])
 
-            max_workers = min(4, len(parallel_batches))
+            from media_manager.core.parallel_utils import get_optimal_workers
+            max_workers = min(get_optimal_workers(), len(parallel_batches))
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = {}

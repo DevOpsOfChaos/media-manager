@@ -168,7 +168,7 @@ export default function DuplicatesPage() {
   const browseForSource = async () => {
     try {
       const { open } = await import("@tauri-apps/plugin-dialog")
-      const selected = await open({ directory: true, multiple: false, title: "Select source directory" })
+      const selected = await open({ directory: true, multiple: false, title: t("Select source directory", "Quellverzeichnis auswählen") })
       if (selected && typeof selected === "string") setSourceDir(selected)
     } catch { /* browser fallback */ }
   }

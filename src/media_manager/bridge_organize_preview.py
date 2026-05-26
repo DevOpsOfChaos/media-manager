@@ -19,6 +19,7 @@ import os
 import sys
 from pathlib import Path
 
+from media_manager.core.job_queue import JobQueue
 from media_manager.core.organizer import OrganizePlannerOptions, build_organize_dry_run
 from media_manager.core.outcome_report import build_plan_outcome_report
 from media_manager.core.review_report import build_review_export
@@ -91,6 +92,10 @@ def cmd_preview() -> int:
         if not target_root_raw:
             return _fail("target_root is required.")
 
+        queue = JobQueue()
+        if queue.has_pending_or_running("organize", {"source_dirs": source_dirs_raw, "target_root": target_root_raw}):
+            return _fail("An identical organize job is already pending or running.")
+
         source_dirs = []
         missing_sources = []
         for p in source_dirs_raw:
@@ -130,6 +135,13 @@ def cmd_preview() -> int:
     except Exception as exc:
         logger.error("Organize preview: plan build failed: %s", exc)
         return _fail(f"Preview failed: {exc}")
+
+    job = queue.create("organize", {
+        "source_dirs": [str(p) for p in source_dirs],
+        "target_root": str(target_root),
+        "pattern": options.pattern,
+    })
+    queue.complete(job.job_id, {"planned_count": dry_run.planned_count})
 
     # Build review candidates
     try:

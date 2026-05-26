@@ -5,15 +5,13 @@ from __future__ import annotations
 import argparse as _ap
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 
-def _emit(payload: dict) -> int:
+def _emit(payload: dict) -> None:
     print(json.dumps(payload, indent=2, ensure_ascii=False))
-    return 0
 
 
 def _fail(message: str, exit_code: int = 1) -> int:
@@ -35,7 +33,8 @@ def cmd_open() -> int:
 
     try:
         os.startfile(str(path))
-        return _emit({"status": "opened", "path": str(path)})
+        _emit({"status": "opened", "path": str(path)})
+        return 0
     except OSError as exc:
         return _fail(f"Could not open file: {exc}")
 
@@ -59,7 +58,8 @@ def cmd_reveal() -> int:
             subprocess.run(["open", "-R", str(path)], check=False)
         else:
             subprocess.run(["xdg-open", str(path.parent)], check=False)
-        return _emit({"status": "revealed", "path": str(path)})
+        _emit({"status": "revealed", "path": str(path)})
+        return 0
     except OSError as exc:
         return _fail(f"Could not reveal file: {exc}")
 
@@ -79,7 +79,8 @@ def cmd_delete() -> int:
     try:
         import send2trash
         send2trash.send2trash(str(path))
-        return _emit({"status": "deleted", "path": str(path)})
+        _emit({"status": "deleted", "path": str(path)})
+        return 0
     except ImportError:
         try:
             if sys.platform == "win32":
@@ -88,7 +89,8 @@ def cmd_delete() -> int:
                 send2trash(str(path))
             else:
                 subprocess.run(["gio", "trash", str(path)], check=False)
-            return _emit({"status": "deleted", "path": str(path)})
+            _emit({"status": "deleted", "path": str(path)})
+            return 0
         except Exception as exc:
             return _fail(f"Could not delete file: {exc}")
     except Exception as exc:
@@ -116,7 +118,8 @@ def cmd_rename() -> int:
 
     try:
         path.rename(new_path)
-        return _emit({"status": "renamed", "old_path": str(path), "new_path": str(new_path), "new_name": new_name})
+        _emit({"status": "renamed", "old_path": str(path), "new_path": str(new_path), "new_name": new_name})
+        return 0
     except OSError as exc:
         return _fail(f"Could not rename file: {exc}")
 
@@ -146,7 +149,8 @@ def cmd_export() -> int:
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
         img.save(target, "JPEG", quality=quality)
-        return _emit({"status": "exported", "source": str(source), "target": str(target), "width": width, "height": new_height})
+        _emit({"status": "exported", "source": str(source), "target": str(target), "width": width, "height": new_height})
+        return 0
     except ImportError:
         return _fail("Pillow (PIL) is required for image export. Install with: pip install Pillow")
     except Exception as exc:
@@ -178,7 +182,7 @@ def cmd_integrity() -> int:
             except OSError:
                 missing.append({"path": str(p), "expected_size": entry.get("size")})
 
-    return _emit({
+    _emit({
         "status": "ok",
         "total_checked": len(file_paths),
         "missing_count": len(missing),
@@ -187,6 +191,7 @@ def cmd_integrity() -> int:
         "size_changed": size_changed,
         "healthy": len(missing) == 0 and len(size_changed) == 0,
     })
+    return 0
 
 
 def cmd_contact_sheet() -> int:
@@ -258,13 +263,14 @@ def cmd_contact_sheet() -> int:
         draw.text((x, y + thumb_size + 2), name, fill="black", font=font_label)
 
     canvas.save(output_path, "PDF", resolution=150)
-    return _emit({
+    _emit({
         "status": "created",
         "output": output_path,
         "images": len(image_paths),
         "cols": cols,
         "rows": rows,
     })
+    return 0
 
 
 def cmd_web_gallery() -> int:
@@ -346,7 +352,7 @@ def cmd_web_gallery() -> int:
     index_path = out / "index.html"
     index_path.write_text(html, encoding="utf-8")
 
-    return _emit({
+    _emit({
         "status": "created",
         "output_dir": str(out),
         "index": str(index_path),
@@ -382,12 +388,13 @@ def cmd_backup() -> int:
                     zf.write(file_path, arcname)
 
         size_mb = round(backup_path.stat().st_size / (1024 * 1024), 1)
-        return _emit({
+        _emit({
             "status": "backed_up",
             "path": str(backup_path),
             "size_mb": size_mb,
             "timestamp": timestamp,
         })
+        return 0
     except Exception as exc:
         return _fail(f"Backup failed: {exc}")
 
@@ -410,7 +417,7 @@ def cmd_exif() -> int:
         if not success or meta is None:
             return _fail(f"Could not read EXIF: {error_msg or error_type or 'unknown error'}")
 
-        return _emit({
+        _emit({
             "status": "ok",
             "path": str(path),
             "metadata": {
@@ -435,6 +442,7 @@ def cmd_exif() -> int:
                 "duration": meta.get("Duration"),
             },
         })
+        return 0
     except Exception as exc:
         return _fail(f"Could not read EXIF: {exc}")
 
@@ -494,7 +502,8 @@ def cmd_watermark() -> int:
             result = result.convert("RGB")
             result.save(target, "JPEG", quality=90)
 
-        return _emit({"status": "watermarked", "source": str(source), "target": str(target)})
+        _emit({"status": "watermarked", "source": str(source), "target": str(target)})
+        return 0
     except ImportError:
         return _fail("Pillow required")
     except Exception as exc:

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react"
 import { useT } from "@/lib/i18n"
+import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -233,25 +234,21 @@ export default function PeoplePage() {
   // ── Person Grid View ──
   if (!selectedPerson) {
     return (
-      <div className="max-w-4xl mx-auto p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Users className="w-6 h-6 text-primary" />
-            <div>
-              <h1 className="text-xl font-bold">{t("People", "Personen")}</h1>
-              <p className="text-sm text-muted-foreground">{t("Recognized people from your photo library.", "Erkannte Personen aus Ihrer Fotobibliothek.")}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Input value={catalogPath} onChange={e => { setCatalogPath(e.target.value); localStorage.setItem("people_catalog_path", e.target.value) }} placeholder="catalog.json" className="text-xs w-48" />
-            <Button onClick={loadCatalog} size="sm" variant="outline" disabled={!catalogPath}>{t("Refresh", "Aktualisieren")}</Button>
-            {unknownFaces.length > 0 && (
-              <Button size="sm" variant="secondary" onClick={() => setShowFaceSwiper(true)}>
-                <Zap className="w-3.5 h-3.5 mr-1" /> {t("Quick Review", "Schnellprüfung")}
-              </Button>
-            )}
-          </div>
-        </div>
+      <>
+        <PageHeader
+          title={t("People", "Personen")}
+          subtitle={t("Recognized people from your photo library.", "Erkannte Personen aus Ihrer Fotobibliothek.")}
+        >
+          <Input value={catalogPath} onChange={e => { setCatalogPath(e.target.value); localStorage.setItem("people_catalog_path", e.target.value) }} placeholder={t("catalog.json", "catalog.json")} className="text-xs w-48" />
+          <Button onClick={loadCatalog} size="sm" variant="outline" disabled={!catalogPath}>{t("Refresh", "Aktualisieren")}</Button>
+          {unknownFaces.length > 0 && (
+            <Button size="sm" variant="secondary" onClick={() => setShowFaceSwiper(true)}>
+              <Zap className="w-3.5 h-3.5 mr-1" /> {t("Quick Review", "Schnellprüfung")}
+            </Button>
+          )}
+        </PageHeader>
+        <main className="flex flex-1 gap-4 p-4">
+          <div className="flex-1 max-w-4xl mx-auto space-y-6">
 
         <div className="flex items-center gap-2">
           <Switch checked={enabled} onCheckedChange={handleToggle} />
@@ -367,7 +364,9 @@ export default function PeoplePage() {
             </DialogContent>
           </Dialog>
         )}
-      </div>
+          </div>
+        </main>
+      </>
     )
   }
 

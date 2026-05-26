@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { useT } from "@/lib/i18n"
+import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -339,32 +340,29 @@ export default function LibraryPage() {
   }, [currentFiles, filter, tagFilter, fileTags, flagFilter, fileFlags])
 
   return (
-    <div className="p-6 space-y-4"
-      onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
-        e.preventDefault()
-        setDragOver(false)
-        const files = Array.from(e.dataTransfer.files)
-        if (files.length > 0) {
-          const path = (files[0] as any).path
-          if (path) {
-            setRootDir(path)
-            browse()
+    <>
+      <PageHeader
+        title={t("Library", "Bibliothek")}
+        subtitle={t("Browse your media files with actions.", "Medien durchsuchen mit Aktionen.")}
+      />
+      <main
+        className="flex flex-1 gap-4 p-4"
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setDragOver(false)
+          const files = Array.from(e.dataTransfer.files)
+          if (files.length > 0) {
+            const path = (files[0] as any).path
+            if (path) {
+              setRootDir(path)
+              browse()
+            }
           }
-        }
-      }}
-    >
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <FolderOpen className="w-6 h-6 text-primary" />
-        <div className="flex-1">
-          <h1 className="text-xl font-bold">{t("Library", "Bibliothek")}</h1>
-          <p className="text-sm text-muted-foreground">
-            {t("Browse your media files with actions.", "Medien durchsuchen mit Aktionen.")}
-          </p>
-        </div>
-      </div>
+        }}
+      >
+        <div className="flex-1 max-w-6xl space-y-4">
 
       {/* Search bar */}
       <div className="flex gap-2 relative">
@@ -1019,6 +1017,8 @@ export default function LibraryPage() {
           </div>
         </div>
       )}
-    </div>
+        </div>
+      </main>
+    </>
   )
 }

@@ -39,6 +39,7 @@ import { Button } from "@/components/ui/button"
 import { useDashboardStore } from "@/stores/dashboard-store"
 import { historyList, peopleCatalogList } from "@/lib/tauri-bridge"
 import { DryRunToggle } from "@/components/shared/DryRunToggle"
+import { useT } from "@/lib/i18n"
 
 interface SidebarItem {
   icon: React.ComponentType<any>
@@ -67,6 +68,7 @@ const defaultSidebarItems: Omit<SidebarItem, "visible">[] = [
 const savedConfigKey = "sidebar_config"
 
 export function AppSidebar() {
+  const t = useT()
   const location = useLocation()
   const navigate = useNavigate()
   const lastScanStats = useDashboardStore((s) => s.lastScanStats)
@@ -158,7 +160,7 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("Navigation", "Navigation")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {visibleItems.map((item) => {
@@ -205,7 +207,7 @@ export function AppSidebar() {
             <div className="peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-hidden transition-[width,height,padding]">
               <SidebarTrigger className="-ml-1" />
               <span className="group-data-[collapsible=icon]:hidden">
-                Collapse
+                {t("Collapse", "Einklappen")}
               </span>
             </div>
           </SidebarMenuItem>
@@ -223,7 +225,7 @@ export function AppSidebar() {
                   className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-colors ${
                     isActive ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
-                  title={theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System"}
+                  title={t(theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System", theme === "light" ? "Hell" : theme === "dark" ? "Dunkel" : "System")}
                 >
                   <Icon className="h-3.5 w-3.5" />
                 </button>
@@ -244,7 +246,7 @@ export function AppSidebar() {
           <button onClick={toggleFullscreen}
             className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground px-1 py-1 w-full">
             {isFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
-            {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            {isFullscreen ? t("Exit fullscreen", "Vollbild verlassen") : t("Fullscreen", "Vollbild")}
           </button>
         </div>
 
@@ -252,7 +254,7 @@ export function AppSidebar() {
         <div className="px-3 pb-2">
           <button onClick={() => setShowCustomize(true)}
             className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground px-1 py-1 w-full">
-            <Settings className="h-3 w-3" /> Customize sidebar
+            <Settings className="h-3 w-3" /> {t("Customize sidebar", "Sidebar anpassen")}
           </button>
         </div>
 
@@ -260,8 +262,8 @@ export function AppSidebar() {
         {showCustomize && (
           <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center" onClick={() => setShowCustomize(false)}>
             <div className="bg-background rounded-lg shadow-xl p-4 w-80 max-h-96 overflow-y-auto" onClick={e => e.stopPropagation()}>
-              <h3 className="text-sm font-semibold mb-3">Customize Sidebar</h3>
-              <p className="text-[10px] text-muted-foreground mb-3">Toggle visibility of sidebar items.</p>
+              <h3 className="text-sm font-semibold mb-3">{t("Customize Sidebar", "Sidebar anpassen")}</h3>
+              <p className="text-[10px] text-muted-foreground mb-3">{t("Toggle visibility of sidebar items.", "Sichtbarkeit der Sidebar-Einträge umschalten.")}</p>
               {sidebarItems.map((item, i) => (
                 <label key={item.path} className="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-muted/50 rounded px-1">
                   <input type="checkbox" checked={item.visible} onChange={() => {
@@ -274,7 +276,7 @@ export function AppSidebar() {
                 </label>
               ))}
               <Button size="sm" className="mt-2 w-full" onClick={() => setShowCustomize(false)}>
-                Done
+                {t("Done", "Fertig")}
               </Button>
             </div>
           </div>

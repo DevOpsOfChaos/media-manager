@@ -29,7 +29,9 @@ def _get_app_dir() -> Path:
 def _validate_app_path(path: Path) -> Path:
     app_dir = _get_app_dir()
     resolved = path.resolve()
-    if not str(resolved).startswith(str(app_dir)):
+    try:
+        resolved.relative_to(app_dir)
+    except ValueError:
         raise ValueError(f"Path {resolved} is outside app directory {app_dir}")
     return resolved
 

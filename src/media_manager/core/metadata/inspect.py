@@ -122,9 +122,20 @@ def inspect_media_files_batch(
     if not file_paths:
         return {}
 
-    metadata_map = read_exiftool_metadata_batch(
-        file_paths, exiftool_path=exiftool_path, timeout_seconds=timeout_seconds,
-    )
+    # Try persistent ExifTool first (10-100x faster for repeated calls)
+    metadata_map: dict[Path, dict[str, object]] = {}
+    try:
+        from media_manager.core.exiftool_persistent import get_persistent_exiftool
+        persistent = get_persistent_exiftool()
+        if persistent.is_alive or persistent.start():
+            metadata_map = persistent.read_metadata_batch(file_paths)
+    except Exception:
+        metadata_map = {}
+
+    if not metadata_map:
+        metadata_map = read_exiftool_metadata_batch(
+            file_paths, exiftool_path=exiftool_path, timeout_seconds=timeout_seconds,
+        )
 
     inspections: dict[Path, FileInspection] = {}
     for file_path in file_paths:

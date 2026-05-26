@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 import threading
@@ -281,6 +282,99 @@ class MediaCache:
             files=files,
             missing_sources=[Path(m) for m in missing],
         )
+
+    # ── scan result caching ──
+
+    def get_cached_scan(self, root_dir: str) -> list[dict] | None:
+        self._ensure_schema()
+        root_norm = os.path.normcase(root_dir)
+        conn = self._conn()
+        row = conn.execute(
+            "SELECT value FROM cache_meta WHERE key=?",
+            (f"scan_root_mtime:{root_norm}",),
+        ).fetchone()
+        if not row:
+            return None
+        try:
+            cached_mtime = float(row[0])
+        except (ValueError, TypeError):
+            return None
+        try:
+            actual_mtime = os.path.getmtime(root_dir)
+        except OSError:
+            return None
+        if actual_mtime - cached_mtime > 1.0:
+            return None
+        rows = conn.execute(
+            "SELECT path, source_root, relative_path, extension, size_bytes, kind, date_taken, date_source FROM media_files WHERE source_root=? ORDER BY path",
+            (root_norm,),
+        )
+        return [dict(r) for r in rows]
+
+    def cache_scan(self, root_dir: str, files: list[dict]) -> None:
+        self._ensure_schema()
+        root_norm = os.path.normcase(root_dir)
+        conn = self._conn()
+        now = datetime.now(timezone.utc).isoformat()
+        try:
+            root_mtime = os.path.getmtime(root_dir)
+        except OSError:
+            root_mtime = time.time()
+        inserts: list[tuple] = []
+        for f in files:
+            path = f.get("path", "")
+            rel = f.get("relative_path", os.path.relpath(path, root_dir) if path else "")
+            inserts.append((
+                os.path.normcase(path), root_norm, rel.replace("\\", "/"),
+                f.get("extension", ""), f.get("size_bytes", 0), f.get("mtime", 0),
+                f.get("kind", _kind(f.get("extension", ""))),
+                f.get("date_taken"), f.get("date_source"), f.get("exif_json"), now,
+            ))
+        if inserts:
+            conn.executemany(
+                "INSERT OR REPLACE INTO media_files(path, source_root, relative_path, extension, size_bytes, mtime, kind, date_taken, date_source, exif_json, last_seen) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                inserts,
+            )
+        conn.execute(
+            "INSERT OR REPLACE INTO cache_meta(key,value) VALUES(?,?)",
+            (f"scan_root_mtime:{root_norm}", str(root_mtime)),
+        )
+        conn.commit()
+
+    # ── per-file EXIF caching ──
+
+    def get_cached_exif(self, file_path: str) -> dict | None:
+        self._ensure_schema()
+        conn = self._conn()
+        row = conn.execute(
+            "SELECT exif_json, mtime, size_bytes FROM media_files WHERE path=?",
+            (os.path.normcase(file_path),),
+        ).fetchone()
+        if not row or not row[0]:
+            return None
+        try:
+            actual_st = os.stat(file_path)
+        except OSError:
+            return None
+        if abs(row[1] - actual_st.st_mtime) >= 1.0 or row[2] != actual_st.st_size:
+            return None
+        try:
+            return json.loads(row[0])
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+    def cache_exif(self, file_path: str, data: dict) -> None:
+        self._ensure_schema()
+        conn = self._conn()
+        try:
+            exif_json = json.dumps(data)
+        except (TypeError, ValueError):
+            return
+        conn.execute(
+            "UPDATE media_files SET exif_json=? WHERE path=?",
+            (exif_json, os.path.normcase(file_path)),
+        )
+        conn.commit()
 
     def close(self) -> None:
         if hasattr(self._local, "conn") and self._local.conn:

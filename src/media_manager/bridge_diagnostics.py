@@ -18,9 +18,9 @@ def _emit(payload: dict) -> None:
     print(json.dumps(payload, indent=2, ensure_ascii=False))
 
 
-def _fail(message: str) -> int:
+def _fail(message: str, exit_code: int = 1) -> int:
     print(json.dumps({"error": message}), file=sys.stderr)
-    return 1
+    return exit_code
 
 
 def _check_import(module_name: str) -> dict:
