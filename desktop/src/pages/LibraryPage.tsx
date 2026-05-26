@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from "react"
+import { useState, useCallback, useEffect, useRef, useMemo, memo } from "react"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -58,6 +58,202 @@ function isVideoFile(suffix: string): boolean {
 function isImageFile(suffix: string): boolean {
   return !isVideoFile(suffix)
 }
+
+type FileItem = LibraryBrowsePaginatedResult["files"][0]
+
+const FileCard = memo(function FileCard({
+  f,
+  isSelected,
+  isCrossDupe,
+  label,
+  flag,
+  rating,
+  tags,
+  isActionLoading,
+  selectMode,
+  onOpen,
+  onReveal,
+  onSetLabel,
+  onFlag,
+  onDeleteDialog,
+  onRenameDialog,
+  onToggleSelect,
+  onSelectFile,
+  onUpdateTags,
+  onRatingChange,
+}: {
+  f: FileItem
+  isSelected: boolean
+  isCrossDupe: boolean
+  label: string | undefined
+  flag: "pick" | "reject" | undefined
+  rating: number
+  tags: string[]
+  isActionLoading: boolean
+  selectMode: boolean
+  onOpen: (path: string, name: string) => void
+  onReveal: (path: string) => void
+  onSetLabel: (path: string, color: string) => void
+  onFlag: (path: string, state: FlagState) => void
+  onDeleteDialog: (item: { path: string; name: string }) => void
+  onRenameDialog: (item: { path: string; name: string }) => void
+  onToggleSelect: (path: string) => void
+  onSelectFile: (f: FileItem) => void
+  onUpdateTags: (path: string, tags: string[]) => void
+  onRatingChange: (path: string, value: number) => void
+}) {
+  const t = useT()
+
+  return (
+    <Card
+      className={`overflow-hidden hover:border-primary/30 transition-colors group relative ${isSelected ? "ring-2 ring-primary" : ""} ${isCrossDupe ? "ring-2 ring-yellow-500/50" : ""}`}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => e.key === "Enter" && onOpen(f.path, f.name)}
+      onClick={selectMode ? () => onToggleSelect(f.path) : () => onSelectFile(f)}
+      onDoubleClick={() => onOpen(f.path, f.name)}
+    >
+      {selectMode && (
+        <div
+          className={`absolute top-1 left-1 z-20 h-5 w-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${
+            isSelected ? "bg-primary border-primary" : "border-primary/50 bg-background/80"
+          }`}
+          onClick={(e) => { e.stopPropagation(); onToggleSelect(f.path) }}
+        >
+          {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+        </div>
+      )}
+      {label && label !== "none" && (
+        <div className={`absolute top-1 right-1 h-2 w-2 rounded-full bg-${label}-500 z-10`} />
+      )}
+
+      <div className="aspect-square bg-muted relative overflow-hidden">
+        {!selectMode && flag && (
+          <div className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] z-20 ${
+            flag === "pick" ? "bg-green-500 text-white" : "bg-red-500 text-white"
+          }`}>
+            {flag === "pick" ? "✓" : "✕"}
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50" />
+        {isImageFile(f.suffix) ? (
+          <img
+            src={convertFileSrc(f.path)}
+            alt={f.name}
+            className="w-full h-full object-cover absolute inset-0"
+            loading="lazy"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = "none"
+              if ((e.target as HTMLImageElement).parentElement) {
+                (e.target as HTMLImageElement).parentElement!.classList.add("fallback-icon")
+              }
+            }}
+          />
+        ) : isVideoFile(f.suffix) ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Film className="w-8 h-8 text-muted-foreground/40" />
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <File className="w-8 h-8 text-muted-foreground/40" />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-7 text-xs"
+            onClick={(e) => { e.stopPropagation(); onOpen(f.path, f.name) }}
+          >
+            {t("Open", "Öffnen")}
+          </Button>
+        </div>
+      </div>
+
+      <CardContent className="p-2">
+        <div className="flex items-start justify-between gap-1">
+          <p className="text-[11px] font-medium truncate flex-1" title={f.name}>{f.name}</p>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={e => e.stopPropagation()}
+                aria-label={t("Actions", "Aktionen")}
+              >
+                <MoreVertical className="h-3 w-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => onOpen(f.path, f.name)} disabled={isActionLoading}>
+                <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                {t("Open", "Öffnen")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onReveal(f.path)}>
+                <FolderOpen className="h-3.5 w-3.5 mr-2" />
+                {t("Show in folder", "Im Ordner zeigen")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Tag className="h-3.5 w-3.5 mr-2" />
+                  {t("Color label", "Farb-Label")}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {LABEL_COLORS.map(c => (
+                    <DropdownMenuItem key={c.key} onClick={() => onSetLabel(f.path, c.key)}>
+                      <div className={`h-3 w-3 rounded-full ${c.bg} mr-2`} />
+                      {t(c.label, c.label)}
+                      {label === c.key && <Check className="h-3 w-3 ml-auto" />}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onRenameDialog({ path: f.path, name: f.name })}>
+                <Pencil className="h-3.5 w-3.5 mr-2" />
+                {t("Rename", "Umbenennen")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onDeleteDialog({ path: f.path, name: f.name })}
+                className="text-red-500"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                {t("Delete", "Löschen")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <div className="px-2 py-1">
+                <PickRejectBar
+                  flagState={flag || "none"}
+                  onFlag={(state) => onFlag(f.path, state)}
+                  compact
+                />
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <Badge className={`text-[9px] px-1 py-0 ${SUFFIX_COLORS[f.suffix] || "bg-muted text-muted-foreground"}`}>
+            {f.suffix}
+          </Badge>
+          <span className="text-[10px] text-muted-foreground">{formatSize(f.size)}</span>
+        </div>
+        <div className="mt-0.5">
+          <StarRating
+            value={rating}
+            onChange={(v) => onRatingChange(f.path, v)}
+            size="sm"
+          />
+        </div>
+        <div className="mt-1">
+          <TagInput
+            tags={tags}
+            onChange={(newTags) => onUpdateTags(f.path, newTags)}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  )
+})
 
 export default function LibraryPage() {
   const t = useT()
@@ -252,7 +448,7 @@ export default function LibraryPage() {
     return () => window.removeEventListener("keydown", handle)
   }, [selectedFile, setFlag])
 
-  const handleOpen = async (path: string, name: string) => {
+  const handleOpen = useCallback(async (path: string, name: string) => {
     setActionLoading(path)
     try {
       await fileOpen(path)
@@ -260,12 +456,12 @@ export default function LibraryPage() {
     }
     catch (e) { setError(String(e)) }
     finally { setActionLoading(null) }
-  }
+  }, [])
 
-  const handleReveal = async (path: string) => {
+  const handleReveal = useCallback(async (path: string) => {
     try { await fileReveal(path) }
     catch (e) { setError(String(e)) }
-  }
+  }, [])
 
   const handleDeleteConfirm = async () => {
     if (!deleteDialog) return
@@ -280,28 +476,29 @@ export default function LibraryPage() {
     } catch (e) { setError(String(e)) }
   }
 
-  const handleSetLabel = (filePath: string, color: string) => {
+  const handleSetLabel = useCallback((filePath: string, color: string) => {
     setLabels(prev => {
       const next = { ...prev, [filePath]: color }
       localStorage.setItem("library_labels", JSON.stringify(next))
       return next
     })
-  }
+  }, [])
 
-  const updateFileTags = (path: string, tags: string[]) => {
+  const updateFileTags = useCallback((path: string, tags: string[]) => {
     setFileTags(prev => {
       const next = { ...prev, [path]: tags }
       localStorage.setItem("library_file_tags", JSON.stringify(next))
       return next
     })
-    setAllTags(() => {
-      const tagSet = new Set<string>()
-      Object.values({ ...fileTags, [path]: tags }).forEach(ts => ts.forEach(t => tagSet.add(t)))
+    setAllTags(prevAll => {
+      const tagSet = new Set(prevAll)
+      tags.forEach(t => tagSet.add(t))
+      Object.values(fileTags).forEach(ts => ts.forEach(t => tagSet.add(t)))
       const newAll = Array.from(tagSet).sort()
       localStorage.setItem("library_tags", JSON.stringify(newAll))
       return newAll
     })
-  }
+  }, [fileTags])
 
   const handleRenameConfirm = async () => {
     if (!renameDialog || !renameValue.trim()) return
@@ -316,14 +513,14 @@ export default function LibraryPage() {
     } catch (e) { setError(String(e)) }
   }
 
-  const toggleSelect = (path: string) => {
+  const toggleSelect = useCallback((path: string) => {
     setSelectedPaths(prev => {
       const next = new Set(prev)
       if (next.has(path)) next.delete(path)
       else next.add(path)
       return next
     })
-  }
+  }, [])
 
   const selectAll = () => {
     if (selectedPaths.size === sortedFiles.length) {
@@ -395,7 +592,34 @@ export default function LibraryPage() {
     return files
   }, [currentFiles, filter, tagFilter, fileTags, flagFilter, fileFlags, fileTypes, dateFrom, dateTo, sizeMin, sizeMax, sortBy, sortDir])
 
-  const activeFilterCount = [fileTypes.length > 0, !!dateFrom, !!dateTo, flagFilter !== "all", tagFilter.length > 0].filter(Boolean).length
+  const activeFilterCount = useMemo(
+    () => [fileTypes.length > 0, !!dateFrom, !!dateTo, flagFilter !== "all", tagFilter.length > 0].filter(Boolean).length,
+    [fileTypes.length, dateFrom, dateTo, flagFilter, tagFilter.length]
+  )
+
+  const slideshowFiles = useMemo(
+    () => currentFiles.map(f => ({ path: f.path, name: f.name })),
+    [currentFiles]
+  )
+
+  const splitViewFiles = useMemo(
+    () => currentFiles.filter(f => selectedPaths.has(f.path)).map(f => ({ path: f.path, name: f.name })),
+    [currentFiles, selectedPaths]
+  )
+
+  const handleDeleteDialog = useCallback((item: { path: string; name: string }) => setDeleteDialog(item), [])
+  const handleRenameDialog = useCallback((item: { path: string; name: string }) => {
+    setRenameDialog(item)
+    setRenameValue(item.name)
+  }, [])
+
+  const handleSetRating = useCallback((path: string, value: number) => {
+    setRatings(prev => {
+      const next = { ...prev, [path]: value }
+      localStorage.setItem("library_ratings", JSON.stringify(next))
+      return next
+    })
+  }, [])
 
   return (
     <>
@@ -775,167 +999,28 @@ export default function LibraryPage() {
       {!loading && data && currentFiles.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
           {sortedFiles.map((f) => (
-            <Card
+            <FileCard
               key={f.path}
-              className={`overflow-hidden hover:border-primary/30 transition-colors group relative ${selectedPaths.has(f.path) ? "ring-2 ring-primary" : ""} ${crossDupes.has(f.path) ? "ring-2 ring-yellow-500/50" : ""}`}
-              role="button"
-              tabIndex={0}
-              onKeyDown={e => e.key === "Enter" && handleOpen(f.path, f.name)}
-              onClick={selectMode ? () => toggleSelect(f.path) : () => setSelectedFile(f)}
-              onDoubleClick={() => handleOpen(f.path, f.name)}
-            >
-              {/* Select checkbox */}
-              {selectMode && (
-                <div
-                  className={`absolute top-1 left-1 z-20 h-5 w-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${
-                    selectedPaths.has(f.path) ? "bg-primary border-primary" : "border-primary/50 bg-background/80"
-                  }`}
-                  onClick={(e) => { e.stopPropagation(); toggleSelect(f.path) }}
-                >
-                  {selectedPaths.has(f.path) && <Check className="h-3 w-3 text-primary-foreground" />}
-                </div>
-              )}
-              {/* Color label dot */}
-              {labels[f.path] && labels[f.path] !== "none" && (
-                <div className={`absolute top-1 right-1 h-2 w-2 rounded-full bg-${labels[f.path]}-500 z-10`} />
-              )}
-
-              {/* Thumbnail */}
-              <div className="aspect-square bg-muted relative overflow-hidden">
-                {!selectMode && fileFlags[f.path] && (
-                  <div className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] z-20 ${
-                    fileFlags[f.path] === "pick" ? "bg-green-500 text-white" : "bg-red-500 text-white"
-                  }`}>
-                    {fileFlags[f.path] === "pick" ? "✓" : "✕"}
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50" />
-                {isImageFile(f.suffix) ? (
-                  <img
-                    src={convertFileSrc(f.path)}
-                    alt={f.name}
-                    className="w-full h-full object-cover absolute inset-0"
-                    loading="lazy"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none"
-                      if ((e.target as HTMLImageElement).parentElement) {
-                        (e.target as HTMLImageElement).parentElement!.classList.add("fallback-icon")
-                      }
-                    }}
-                  />
-                ) : isVideoFile(f.suffix) ? (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Film className="w-8 h-8 text-muted-foreground/40" />
-                  </div>
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <File className="w-8 h-8 text-muted-foreground/40" />
-                  </div>
-                )}
-                {/* Action overlay on hover */}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="h-7 text-xs"
-                    onClick={(e) => { e.stopPropagation(); handleOpen(f.path, f.name) }}
-                  >
-                    {t("Open", "Öffnen")}
-                  </Button>
-                </div>
-              </div>
-
-              {/* File info */}
-              <CardContent className="p-2">
-                <div className="flex items-start justify-between gap-1">
-                  <p className="text-[11px] font-medium truncate flex-1" title={f.name}>{f.name}</p>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={e => e.stopPropagation()}
-                        aria-label={t("Actions", "Aktionen")}
-                      >
-                        <MoreVertical className="h-3 w-3" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-40">
-                      <DropdownMenuItem onClick={() => handleOpen(f.path, f.name)} disabled={actionLoading === f.path}>
-                        <ExternalLink className="h-3.5 w-3.5 mr-2" />
-                        {t("Open", "Öffnen")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleReveal(f.path)}>
-                        <FolderOpen className="h-3.5 w-3.5 mr-2" />
-                        {t("Show in folder", "Im Ordner zeigen")}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger>
-                          <Tag className="h-3.5 w-3.5 mr-2" />
-                          {t("Color label", "Farb-Label")}
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent>
-                          {LABEL_COLORS.map(c => (
-                            <DropdownMenuItem key={c.key} onClick={() => handleSetLabel(f.path, c.key)}>
-                              <div className={`h-3 w-3 rounded-full ${c.bg} mr-2`} />
-                              {t(c.label, c.label)}
-                              {labels[f.path] === c.key && <Check className="h-3 w-3 ml-auto" />}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => { setRenameDialog({ path: f.path, name: f.name }); setRenameValue(f.name) }}>
-                        <Pencil className="h-3.5 w-3.5 mr-2" />
-                        {t("Rename", "Umbenennen")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => setDeleteDialog({ path: f.path, name: f.name })}
-                        className="text-red-500"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-2" />
-                        {t("Delete", "Löschen")}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <div className="px-2 py-1">
-                        <PickRejectBar
-                          flagState={fileFlags[f.path] || "none"}
-                          onFlag={(state) => setFlag(f.path, state)}
-                          compact
-                        />
-                      </div>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                <div className="flex items-center justify-between mt-1">
-                  <Badge className={`text-[9px] px-1 py-0 ${SUFFIX_COLORS[f.suffix] || "bg-muted text-muted-foreground"}`}>
-                    {f.suffix}
-                  </Badge>
-                  <span className="text-[10px] text-muted-foreground">{formatSize(f.size)}</span>
-                </div>
-                {/* Star rating */}
-                <div className="mt-0.5">
-                  <StarRating
-                    value={ratings[f.path] || 0}
-                    onChange={(v) => {
-                      setRatings(prev => {
-                        const next = { ...prev, [f.path]: v }
-                        localStorage.setItem("library_ratings", JSON.stringify(next))
-                        return next
-                      })
-                    }}
-                    size="sm"
-                  />
-                </div>
-                {/* Tags */}
-                <div className="mt-1">
-                  <TagInput
-                    tags={fileTags[f.path] || []}
-                    onChange={(tags) => updateFileTags(f.path, tags)}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+              f={f}
+              isSelected={selectedPaths.has(f.path)}
+              isCrossDupe={crossDupes.has(f.path)}
+              label={labels[f.path]}
+              flag={fileFlags[f.path]}
+              rating={ratings[f.path] || 0}
+              tags={fileTags[f.path] || []}
+              isActionLoading={actionLoading === f.path}
+              selectMode={selectMode}
+              onOpen={handleOpen}
+              onReveal={handleReveal}
+              onSetLabel={handleSetLabel}
+              onFlag={setFlag}
+              onDeleteDialog={handleDeleteDialog}
+              onRenameDialog={handleRenameDialog}
+              onToggleSelect={toggleSelect}
+              onSelectFile={setSelectedFile}
+              onUpdateTags={updateFileTags}
+              onRatingChange={handleSetRating}
+            />
           ))}
         </div>
       )}
@@ -1167,7 +1252,7 @@ export default function LibraryPage() {
       {/* Slideshow */}
       {slideshowOpen && (
         <Slideshow
-          files={currentFiles.map(f => ({ path: f.path, name: f.name }))}
+          files={slideshowFiles}
           onClose={() => setSlideshowOpen(false)}
         />
       )}
@@ -1175,7 +1260,7 @@ export default function LibraryPage() {
       {/* Split View */}
       {splitViewOpen && (
         <SplitView
-          files={currentFiles.filter(f => selectedPaths.has(f.path)).map(f => ({ path: f.path, name: f.name }))}
+          files={splitViewFiles}
           onClose={() => setSplitViewOpen(false)}
         />
       )}

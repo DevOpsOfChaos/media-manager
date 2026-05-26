@@ -733,19 +733,25 @@ def _selected_backend(preferred_backend: str):
     return None, None
 
 
-def _load_face_process_cache(cache_path: Path) -> dict[str, float]:
+def _load_face_process_cache(cache_path: Path) -> dict[str, dict]:
     if not cache_path.exists():
         return {}
     try:
         data = json.loads(cache_path.read_text(encoding="utf-8"))
         if isinstance(data, dict):
-            return {str(k): float(v) for k, v in data.items()}
+            result: dict[str, dict] = {}
+            for k, v in data.items():
+                if isinstance(v, dict) and "mtime" in v:
+                    result[str(k)] = v
+                elif isinstance(v, (int, float)):
+                    result[str(k)] = {"mtime": float(v), "faces": []}
+            return result
     except Exception:
         pass
     return {}
 
 
-def _save_face_process_cache(cache_path: Path, cache: dict[str, float]) -> None:
+def _save_face_process_cache(cache_path: Path, cache: dict[str, dict]) -> None:
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = cache_path.with_suffix(".tmp")
     tmp.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
@@ -819,9 +825,30 @@ def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
         except OSError:
             current_mtime = 0.0
 
-        cached_mtime = face_cache.get(norm_key)
+        cached_entry = face_cache.get(norm_key)
+        cached_mtime = cached_entry.get("mtime") if isinstance(cached_entry, dict) else cached_entry
+
         if cached_mtime is not None and abs(current_mtime - cached_mtime) < 1.0:
             result.processed_files += 1
+            cached_faces = cached_entry.get("faces") if isinstance(cached_entry, dict) else None
+            if cached_faces:
+                for face_index, face_data in enumerate(cached_faces):
+                    if isinstance(face_data, list) and len(face_data) >= 2:
+                        box_data, enc_data = face_data[0], face_data[1]
+                        box = FaceBox(**box_data) if isinstance(box_data, dict) else FaceBox(*box_data) if isinstance(box_data, list) else None
+                        encoding = tuple(float(v) for v in enc_data) if isinstance(enc_data, list) else ()
+                        if box is not None:
+                            match = _best_match(encoding, catalog, tolerance=config.tolerance)
+                            detections.append(
+                                DetectedFace(
+                                    path=path,
+                                    face_index=face_index,
+                                    box=box,
+                                    encoding=encoding,
+                                    match=match,
+                                    backend=selected_name,
+                                )
+                            )
             continue
 
         try:
@@ -834,23 +861,25 @@ def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
             else:
                 faces = _detect_faces_with_opencv(path, backend)
             result.processed_files += 1
-            face_cache[norm_key] = current_mtime
+            cached_faces_data = []
+            for face_index, (box, encoding) in enumerate(faces):
+                cached_faces_data.append([box.to_dict(), [round(float(v), 10) for v in encoding]])
+                match = _best_match(encoding, catalog, tolerance=config.tolerance)
+                detections.append(
+                    DetectedFace(
+                        path=path,
+                        face_index=face_index,
+                        box=box,
+                        encoding=encoding,
+                        match=match,
+                        backend=selected_name,
+                    )
+                )
+            face_cache[norm_key] = {"mtime": current_mtime, "faces": cached_faces_data}
             face_cache_updated = True
         except Exception as exc:  # pragma: no cover - backend/runtime dependent
             result.errors.append({"path": str(path), "error": str(exc)})
             continue
-        for face_index, (box, encoding) in enumerate(faces):
-            match = _best_match(encoding, catalog, tolerance=config.tolerance)
-            detections.append(
-                DetectedFace(
-                    path=path,
-                    face_index=face_index,
-                    box=box,
-                    encoding=encoding,
-                    match=match,
-                    backend=selected_name,
-                )
-            )
 
     if face_cache_updated:
         _save_face_process_cache(face_cache_path, face_cache)
@@ -937,9 +966,31 @@ def scan_people_two_stage(config: PeopleScanConfig) -> PeopleScanResult:
         except OSError:
             current_mtime = 0.0
 
-        cached_mtime = face_cache.get(norm_key)
+        cached_entry = face_cache.get(norm_key)
+        cached_mtime = cached_entry.get("mtime") if isinstance(cached_entry, dict) else cached_entry
+
         if cached_mtime is not None and abs(current_mtime - cached_mtime) < 1.0:
             processed += 1
+            cached_faces = cached_entry.get("faces") if isinstance(cached_entry, dict) else None
+            if cached_faces:
+                for face_index, face_data in enumerate(cached_faces):
+                    if isinstance(face_data, list) and len(face_data) >= 2:
+                        box_data, enc_data = face_data[0], face_data[1]
+                        box = FaceBox(**box_data) if isinstance(box_data, dict) else FaceBox(*box_data) if isinstance(box_data, list) else None
+                        encoding = tuple(float(v) for v in enc_data) if isinstance(enc_data, list) else ()
+                        if box is not None:
+                            match = _best_match(encoding, catalog, tolerance=config.tolerance)
+                            det = DetectedFace(
+                                path=path,
+                                face_index=face_index,
+                                box=box,
+                                encoding=encoding,
+                                match=match,
+                                backend="yunet+dlib",
+                            )
+                            stage1_faces.append(det)
+                            if match is None or match.distance > config.tolerance * 0.85:
+                                ambiguous_indices.add(len(stage1_faces) - 1)
             continue
 
         try:
@@ -947,9 +998,9 @@ def scan_people_two_stage(config: PeopleScanConfig) -> PeopleScanResult:
         except Exception:
             continue
         processed += 1
-        face_cache[norm_key] = current_mtime
-        face_cache_updated = True
+        cached_faces_data = []
         for face_index, (box, encoding) in enumerate(faces):
+            cached_faces_data.append([box.to_dict(), [round(float(v), 10) for v in encoding]])
             match = _best_match(encoding, catalog, tolerance=config.tolerance)
             det = DetectedFace(
                 path=path,
@@ -962,6 +1013,8 @@ def scan_people_two_stage(config: PeopleScanConfig) -> PeopleScanResult:
             stage1_faces.append(det)
             if match is None or match.distance > config.tolerance * 0.85:
                 ambiguous_indices.add(len(stage1_faces) - 1)
+        face_cache[norm_key] = {"mtime": current_mtime, "faces": cached_faces_data}
+        face_cache_updated = True
 
     if face_cache_updated:
         _save_face_process_cache(face_cache_path, face_cache)

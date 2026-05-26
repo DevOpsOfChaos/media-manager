@@ -15,49 +15,18 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { FaceReviewSwiper } from "@/components/shared/FaceReviewSwiper"
 
-function friendlyPeopleError(e: unknown, context: "scan" | "load" | "rename" | "create" | "reassign"): string {
-  const msg = String(e).toLowerCase()
-  if (context === "scan") {
-    if (msg.includes("no module") || msg.includes("importerror") || msg.includes("module"))
-      return "Could not scan for faces. Make sure the 'people' dependencies are installed."
-    if (msg.includes("permission") || msg.includes("access"))
-      return "Cannot access source directory. Check folder permissions."
-    return `Scan failed: ${String(e)}`
-  }
-  if (context === "load") {
-    if (msg.includes("not found") || msg.includes("no such file") || msg.includes("enoent"))
-      return "Catalog file not found. Create one with the button below."
-    if (msg.includes("invalid") || msg.includes("parse"))
-      return "Catalog file appears to be corrupted or invalid."
-    return `Could not load catalog: ${String(e)}`
-  }
-  if (context === "rename") {
-    if (msg.includes("not found"))
-      return "Person not found in catalog. Refresh and try again."
-    return `Could not rename person: ${String(e)}`
-  }
-  if (context === "create") {
-    if (msg.includes("exists") || msg.includes("duplicate"))
-      return "A person with that name already exists."
-    return `Could not create person: ${String(e)}`
-  }
-  if (context === "reassign") {
-    if (msg.includes("not found"))
-      return "Source face or person not found. Refresh and try again."
-    return `Could not reassign face: ${String(e)}`
-  }
-  return `Error: ${String(e)}`
-}
+
 
 // ── Thumbnail component ──
 function FaceThumb({ path, size = 96, alt }: { path: string; size?: number; alt?: string }) {
+  const t = useT()
   const [loaded, setLoaded] = useState(false)
   const [errored, setErrored] = useState(false)
   if (errored) return <div className="flex items-center justify-center bg-muted rounded" style={{ width: size, height: size }}><ImageOff className="w-6 h-6 text-muted-foreground" /></div>
   return (
     <div className="relative rounded overflow-hidden" style={{ width: size, height: size }}>
       {!loaded && <div className="absolute inset-0 bg-muted animate-pulse" />}
-      <img src={convertFileSrc(path) || ""} alt={alt || path.split(/[\\/]/).pop() || "Face"} className="w-full h-full object-cover" onLoad={() => setLoaded(true)} onError={() => setErrored(true)} />
+      <img src={convertFileSrc(path) || ""} alt={alt || path.split(/[\\/]/).pop() || t("Face", "Gesicht")} className="w-full h-full object-cover" onLoad={() => setLoaded(true)} onError={() => setErrored(true)} />
     </div>
   )
 }
@@ -66,6 +35,17 @@ function FaceThumb({ path, size = 96, alt }: { path: string; size?: number; alt?
 export default function PeoplePage() {
   const t = useT()
   const { startProgress, updateProgress, finishProgress } = useProgress()
+
+function friendlyPeopleError(err: unknown): string {
+  const msg = String(err)
+  if (msg.includes("dependencies")) return t("Could not scan for faces. Face recognition dependencies may not be installed.", "Gesichtserkennungs-Abhängigkeiten sind möglicherweise nicht installiert.")
+  if (msg.includes("Permission")) return t("Cannot access source directory. Check folder permissions.", "Kein Zugriff auf das Quellverzeichnis. Ordnerberechtigungen prüfen.")
+  if (msg.includes("catalog") && msg.includes("not found")) return t("Catalog file not found. Create one with the button below.", "Katalogdatei nicht gefunden. Mit dem Button unten erstellen.")
+  if (msg.includes("corrupted") || msg.includes("invalid")) return t("Catalog file appears to be corrupted.", "Katalogdatei scheint beschädigt zu sein.")
+  if (msg.includes("not found") && msg.includes("person")) return t("Person not found in catalog. Refresh and try again.", "Person nicht im Katalog gefunden. Aktualisieren und erneut versuchen.")
+  if (msg.includes("already exists")) return t("A person with that name already exists.", "Eine Person mit diesem Namen existiert bereits.")
+  return String(err).split("\n")[0].slice(0, 200)
+}
   const [catalogPath, setCatalogPath] = useState(() => localStorage.getItem("people_catalog_path") || "")
   const [enabled, setEnabled] = useState(() => localStorage.getItem("people_scan_enabled") === "true")
   const [catalog, setCatalog] = useState<CatalogListResponse | null>(null)
@@ -137,7 +117,7 @@ export default function PeoplePage() {
     try {
       const data = await peopleCatalogList({ catalog_path: catalogPath })
       setCatalog(data)
-    } catch (e) { setError(friendlyPeopleError(e, "load")) }
+    } catch (e) { setError(friendlyPeopleError(e)) }
     finally { void setLoading(false) }
   }, [catalogPath])
 
@@ -177,7 +157,7 @@ export default function PeoplePage() {
       setLastScanTime(new Date().toLocaleTimeString())
       const status = await peopleScanStatus({ source_dirs: [sourceDir] })
       setScanStatus(status)
-    } catch (e) { setError(friendlyPeopleError(e, "scan")) }
+    } catch (e) { setError(friendlyPeopleError(e)) }
     finally { setTimeout(() => finishProgress(), 500); setLoading(false) }
   }
 
@@ -187,7 +167,7 @@ export default function PeoplePage() {
       await peoplePersonRename({ catalog_path: catalogPath, person_id: selectedPerson.person_id, name: editName.trim() })
       setEditingName(false)
       loadCatalog()
-    } catch (e) { setError(friendlyPeopleError(e, "rename")) }
+    } catch (e) { setError(friendlyPeopleError(e)) }
   }
 
   const handleCreatePerson = async () => {
@@ -197,7 +177,7 @@ export default function PeoplePage() {
       setShowCreatePerson(false)
       setCreateName("")
       loadCatalog()
-    } catch (e) { setError(friendlyPeopleError(e, "create")) }
+    } catch (e) { setError(friendlyPeopleError(e)) }
   }
 
   const handleReassign = async () => {
@@ -216,7 +196,7 @@ export default function PeoplePage() {
       setReassignToId("")
       setNewPersonName("")
       loadCatalog()
-    } catch (e) { setError(friendlyPeopleError(e, "reassign")) }
+    } catch (e) { setError(friendlyPeopleError(e)) }
   }
 
   const handleIgnoreFace = async (facePath: string) => {

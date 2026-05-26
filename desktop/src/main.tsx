@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from "react"
 import ReactDOM from "react-dom/client"
 import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { Loader2 } from "lucide-react"
 import App from "./App"
 import "./index.css"
 
@@ -153,8 +154,8 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 
 function PageFallback() {
   return (
-    <main className="flex flex-1 items-center justify-center p-4">
-      <p className="text-sm text-muted-foreground">Loading...</p>
-    </main>
+    <div className="flex items-center justify-center min-h-screen">
+      <Loader2 className="h-8 w-8 animate-spin" />
+    </div>
   )
 }

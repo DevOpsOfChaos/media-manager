@@ -28,6 +28,7 @@ class OrganizePlannerOptions:
     exclude_patterns: tuple[str, ...] = ()
     batch_size: int = 0
     date_source: str = "auto"  # "auto", "exif", "filename", "mtime"
+    stream_results: bool = False
 
 
 @dataclass(slots=True)

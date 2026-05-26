@@ -592,4 +592,22 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
     if progress:
         progress.done(f"Plan complete — {dry_run.planned_count:,} files ready")
 
+    if getattr(options, 'stream_results', False):
+        return _stream_plan_entries(dry_run)
+
     return dry_run
+
+
+def _stream_plan_entries(dry_run: OrganizeDryRun):
+    while dry_run.entries:
+        yield dry_run.entries.pop(0)
+
+
+def stream_organize_plan(options: OrganizePlannerOptions, progress_callback=None, cancel_event=None,
+                         progress: "ProgressTracker | None" = None):
+    result = build_organize_dry_run(options, progress_callback=progress_callback, cancel_event=cancel_event,
+                                    progress=progress)
+    if isinstance(result, OrganizeDryRun):
+        yield from result.entries
+    else:
+        yield from result

@@ -93,6 +93,46 @@ export function AppSidebar() {
     return defaultSidebarItems.map(item => ({ ...item, visible: true }))
   })
 
+  const sidebarLabel = (label: string) => {
+    const map: Record<string, [string, string]> = {
+      "Dashboard": ["Dashboard", "Dashboard"],
+      "Library": ["Library", "Bibliothek"],
+      "Organize": ["Organize", "Organisieren"],
+      "Duplicates": ["Duplicates", "Duplikate"],
+      "Rename": ["Rename", "Umbenennen"],
+      "Trip": ["Trip", "Reise"],
+      "Workflow": ["Workflow", "Workflow"],
+      "Review": ["Review", "Überprüfung"],
+      "People": ["People", "Personen"],
+      "Face Timeline": ["Face Timeline", "Gesichter-Zeitachse"],
+      "History": ["History", "Verlauf"],
+      "About": ["About", "Über"],
+      "Settings": ["Settings", "Einstellungen"],
+    }
+    const pair = map[label]
+    return pair ? t(pair[0], pair[1]) : label
+  }
+
+  const sidebarTooltip = (label: string) => {
+    const map: Record<string, [string, string]> = {
+      "Dashboard": ["Overview and quick actions", "Übersicht und Schnellaktionen"],
+      "Library": ["Browse and manage your media library", "Medienbibliothek durchsuchen und verwalten"],
+      "Organize": ["Auto-organize files into folders", "Dateien automatisch in Ordner organisieren"],
+      "Duplicates": ["Find and remove duplicate files", "Doppelte Dateien finden und entfernen"],
+      "Rename": ["Batch rename media files", "Mediendateien stapelweise umbenennen"],
+      "Trip": ["Organize photos by trip / location", "Fotos nach Reise / Ort organisieren"],
+      "Workflow": ["Create and run processing workflows", "Verarbeitungsworkflows erstellen und ausführen"],
+      "Review": ["Review flagged items before applying changes", "Markierte Elemente vor der Anwendung von Änderungen überprüfen"],
+      "People": ["Manage detected faces and people", "Erkannte Gesichter und Personen verwalten"],
+      "Face Timeline": ["Browse all photos of a person chronologically", "Alle Fotos einer Person chronologisch durchsuchen"],
+      "History": ["View recent activity and undo actions", "Letzte Aktivitäten anzeigen und Aktionen rückgängig machen"],
+      "About": ["About Media Manager", "Über Media Manager"],
+      "Settings": ["Configure app preferences", "App-Einstellungen konfigurieren"],
+    }
+    const pair = map[label]
+    return pair ? t(pair[0], pair[1]) : ""
+  }
+
   const [showCustomize, setShowCustomize] = useState(false)
 
   const visibleItems = sidebarItems.filter(item => item.visible)
@@ -182,15 +222,15 @@ export function AppSidebar() {
                           onClick={() => navigate(item.path)}
                         >
                           <item.icon />
-                          <span>{item.label}</span>
+                          <span>{sidebarLabel(item.label)}</span>
                           {badgeCount != null && (
                             <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0 h-4">{badgeCount}</Badge>
                           )}
                         </SidebarMenuButton>
                       </TooltipTrigger>
                       <TooltipContent side="right">
-                        <p className="font-medium">{item.label}</p>
-                        <p className="text-xs text-muted-foreground">{item.tooltip}</p>
+                        <p className="font-medium">{sidebarLabel(item.label)}</p>
+                        <p className="text-xs text-muted-foreground">{sidebarTooltip(item.label)}</p>
                       </TooltipContent>
                     </Tooltip>
                   </SidebarMenuItem>
@@ -272,7 +312,7 @@ export function AppSidebar() {
                     localStorage.setItem(savedConfigKey, JSON.stringify(next.map(({label, path, visible}) => ({label, path, visible}))))
                   }} className="rounded" />
                   <item.icon className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs">{item.label}</span>
+                  <span className="text-xs">{sidebarLabel(item.label)}</span>
                 </label>
               ))}
               <Button size="sm" className="mt-2 w-full" onClick={() => setShowCustomize(false)}>

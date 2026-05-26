@@ -27,6 +27,7 @@ media-manager organize --source C:\Inbox --target D:\Library --pattern "yyyy\\yy
 - **Hardlink support** for organize (`--operation-mode hardlink`)
 - **Pause/Resume** for long-running operations via job queue
 - **Date source control** (`--date-source` to pick EXIF/fs/name)
+- **3-Step Wizards** for guided organize, rename, and cleanup workflows
 - **Face recognition**: ignore list, person merge, training feedback mode
 - **Custom tags** + **color labels** + **star ratings** (sidecar/catalog)
 - **Smart collections**: auto-updating rule-based collections

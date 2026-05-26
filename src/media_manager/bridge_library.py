@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse as _ap
 import datetime as _dt
-import hashlib
 import json
 import os
 import sys
@@ -137,29 +136,27 @@ def cmd_browse() -> int:
         })
         return 0
 
-    # --- Phase 2: Cached paginated load ---
-    # Try SQLite MediaCache first (instant, no walk needed on repeat access)
+    # --- Phase 2: Cached paginated load via MediaCache ---
     media_files: list[dict] = []
     cache_valid = False
-    cache_data: dict = {}
     try:
         from media_manager.core.media_cache import MediaCache
-        mc = MediaCache.get()
-        mc._ensure_schema()
+        cache = MediaCache.get()
+        cache._ensure_schema()
         source_root_str = str(root)
-        row = mc._conn().execute("SELECT value FROM cache_meta WHERE key='last_sync'").fetchone()
+        row = cache._conn().execute("SELECT value FROM cache_meta WHERE key='last_sync'").fetchone()
         last_sync = float(row[0]) if row else 0
         if time.time() - last_sync > 60:
-            mc.sync([source_root_str])
-            mc._conn().execute(
+            cache.sync([source_root_str])
+            cache._conn().execute(
                 "INSERT OR REPLACE INTO cache_meta(key,value) VALUES('last_sync',?)",
                 (str(time.time()),)
             )
-            mc._conn().commit()
-        cached_rows = mc.get_scanned_files([source_root_str])
-        if cached_rows:
+            cache._conn().commit()
+        scan_summary = cache.build_scan_summary([source_root_str])
+        if scan_summary and scan_summary.files:
             cache_valid = True
-            for sf in cached_rows:
+            for sf in scan_summary.files:
                 suffix = sf.extension
                 cat = _get_file_category(suffix)
                 if file_types and cat not in file_types:
@@ -177,32 +174,8 @@ def cmd_browse() -> int:
     except Exception:
         pass
 
-    # Fallback to JSON file cache if SQLite cache didn't populate
     if not media_files:
-        cache_dir = Path(os.environ.get("MEDIA_MANAGER_HOME", Path.home() / ".media-manager")) / "cache"
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        root_hash = hashlib.md5(str(root.resolve()).encode()).hexdigest()[:12]
-        cache_path = cache_dir / f"library_{root_hash}.json"
-
-        if cache_path.exists():
-            try:
-                cache_data = json.loads(cache_path.read_text())
-                cache_age = time.time() - cache_data.get("created_at", 0)
-                if cache_data.get("root") == str(root) and cache_age < 300:
-                    cache_valid = True
-                    media_files = cache_data["files"]
-            except Exception:
-                pass
-
-        if not media_files:
-            media_files = _scan_directory(root, max_depth, date_from, date_to, file_types)
-            cache_data = {
-                "root": str(root),
-                "created_at": time.time(),
-                "file_count": len(media_files),
-                "files": media_files,
-            }
-            cache_path.write_text(json.dumps(cache_data, ensure_ascii=False))
+        media_files = _scan_directory(root, max_depth, date_from, date_to, file_types)
 
     total_count = len(media_files)
 
@@ -219,7 +192,7 @@ def cmd_browse() -> int:
         "kind": "browse",
         "root": str(root),
         "file_count": total_count,
-        "other_count": cache_data.get("other_count", 0) if cache_valid else 0,
+        "other_count": 0,
         "page": page,
         "page_size": page_size,
         "total_pages": max(1, (total_count + page_size - 1) // page_size) if page_size > 0 else 1,

@@ -869,7 +869,7 @@ function ExactGroupCard({
             </div>
           ))}
           <div className="flex gap-2 pt-1 text-xs text-muted-foreground font-mono">
-            <span>Digest: {group.full_digest}</span>
+            <span>{t("Digest:", "Digest:")} {group.full_digest}</span>
           </div>
         </div>
       )}

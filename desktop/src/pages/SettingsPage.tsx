@@ -166,7 +166,7 @@ export default function SettingsPage() {
                     updateSettings({ start_page_id: e.target.value })
                   }
                 >
-                  <option value="dashboard">Dashboard</option>
+                  <option value="dashboard">{t("Dashboard", "Dashboard")}</option>
                   <option value="library">{t("Library", "Bibliothek")}</option>
                   <option value="organize">{t("Organize", "Organisieren")}</option>
                   <option value="duplicates">{t("Duplicates", "Duplikate")}</option>
