@@ -11,11 +11,9 @@ import { peopleCatalogList, peoplePersonRename, peoplePersonCreate, peoplePerson
 import { useProgress } from "@/lib/progress-context"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
- import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff, GitMerge, MoreHorizontal, EyeOff } from "lucide-react"
+ import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff, GitMerge, MoreHorizontal, EyeOff, Zap } from "lucide-react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { FaceReviewSwiper } from "@/components/shared/FaceReviewSwiper"
-
-import { Zap } from "lucide-react"
 
 function friendlyPeopleError(e: unknown, context: "scan" | "load" | "rename" | "create" | "reassign"): string {
   const msg = String(e).toLowerCase()

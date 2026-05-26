@@ -34,6 +34,7 @@ def _parse_options(payload: dict) -> RenamePlannerOptions:
         recursive=payload.get("recursive", True),
         include_hidden=payload.get("include_hidden", False),
         follow_symlinks=payload.get("follow_symlinks", False),
+        include_associated_files=payload.get("include_associated_files", False),
         include_patterns=tuple(payload.get("include_patterns", ())),
         exclude_patterns=tuple(payload.get("exclude_patterns", ())),
         conflict_policy=payload.get("conflict_policy", "conflict"),

@@ -12,8 +12,7 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { historyGet, type HistoryDetail } from "@/lib/tauri-bridge"
-import { undoPreview, undoApply } from "@/lib/tauri-bridge"
+import { historyGet, undoPreview, undoApply, type HistoryDetail } from "@/lib/tauri-bridge"
 import type { UndoExecutionResult } from "@/types"
 
 export default function RunDetailPage() {

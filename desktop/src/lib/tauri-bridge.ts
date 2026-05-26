@@ -7,7 +7,6 @@ import type {
   DuplicatesPreviewResponse,
   SimilarImageScanConfig,
   SimilarImagesPreviewResponse,
-  RunSummary,
   UndoExecutionResult,
   GuiSettings,
 } from "@/types"
@@ -24,30 +23,6 @@ export async function settingsWrite(settings: GuiSettings): Promise<GuiSettings>
 
 export async function settingsReset(): Promise<GuiSettings> {
   return invoke("settings_reset")
-}
-
-// ── Python Bridge ──
-
-export async function runPythonCli(
-  command: string,
-  args: string[],
-): Promise<unknown> {
-  return invoke("run_python_cli", { command, args })
-}
-
-export async function readRunArtifact(
-  runDir: string,
-  artifactName: string,
-): Promise<unknown> {
-  return invoke("read_run_artifact", { runDir, artifactName })
-}
-
-export async function listRuns(): Promise<RunSummary[]> {
-  return invoke("list_runs")
-}
-
-export async function getPythonInfo(): Promise<unknown> {
-  return invoke("get_python_info")
 }
 
 // ── Organize ──
@@ -87,6 +62,14 @@ export async function duplicatesApply(config: {
 }
 
 // ── Review Sessions ──
+
+export async function reviewApplyDecisions(options: { sessionPath: string; toKeep: Array<{path: string; decision: string}>; toRemove: string[] }): Promise<{ status: string; removed: number; errors: string[] }> {
+  return invoke("review_apply_decisions", { sessionPath: options.sessionPath, toKeep: options.toKeep, toRemove: options.toRemove })
+}
+
+export async function readThumbnailsBatch(paths: string[]): Promise<string[]> {
+  return invoke("read_thumbnails_batch", { paths })
+}
 
 export async function reviewSaveSession(payload: {
   session_path: string

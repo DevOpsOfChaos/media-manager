@@ -33,8 +33,3 @@ def validate_app_path(path: Path) -> Path:
         raise ValueError(f"Path {resolved} is outside app directory {app_dir}")
     return resolved
 
-
-def read_stdin_json() -> dict:
-    """Read and parse JSON from stdin. Returns parsed dict or raises."""
-    raw = sys.stdin.read()
-    return json.loads(raw)

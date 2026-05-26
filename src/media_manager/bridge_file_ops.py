@@ -80,7 +80,7 @@ def cmd_delete() -> int:
                 from send2trash import send2trash
                 send2trash(str(path))
             else:
-                subprocess.run(["gio", "trash", str(path)], check=False)
+                subprocess.run(["gio", "trash", "--", str(path)], check=False)
             _emit({"status": "deleted", "path": str(path)})
             return 0
         except Exception as exc:

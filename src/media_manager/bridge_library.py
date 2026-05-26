@@ -33,17 +33,6 @@ def _get_file_category(suffix: str) -> str:
     return "other"
 
 
-def _stem_similarity(a: str, b: str) -> float:
-    """Simple fuzzy similarity between two strings."""
-    if a == b:
-        return 1.0
-    shorter = min(len(a), len(b))
-    if shorter == 0:
-        return 0.0
-    matches = sum(1 for i in range(shorter) if a[i] == b[i])
-    return matches / max(len(a), len(b))
-
-
 from media_manager.bridge_base import emit as _emit, fail as _fail
 
 
