@@ -2,7 +2,7 @@ import { useEffect } from "react"
 import { listen } from "@tauri-apps/api/event"
 import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification"
 
-function formatSuccessBody(label: string, detail: string | undefined): string {
+function formatSuccessBody(detail: string | undefined): string {
   if (detail === "success" || !detail) return "Completed successfully"
 
   try {
@@ -35,7 +35,7 @@ export function NotificationSystem() {
 
       const unlisten = await listen<{ label: string; detail?: string }>("operation:completed", async (event) => {
         const body = event.payload.detail === "success"
-          ? formatSuccessBody(event.payload.label, event.payload.detail)
+          ? formatSuccessBody(event.payload.detail)
           : `Finished: ${event.payload.detail || "done"}`
         sendNotification({
           title: event.payload.label,

@@ -1,11 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useT } from "@/lib/i18n"
 import { Loader2, Minimize2, Maximize2, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useProgress } from "@/lib/progress-context"
-
-// Top-level import — fails fast if API unavailable
-import { getCurrentWindow, PhysicalSize } from "@tauri-apps/api/window"
+import { resizeWindow, getWindowSize } from "@/lib/tauri-bridge"
 
 export function MiniProgressOverlay() {
   const t = useT()
@@ -29,36 +27,27 @@ export function MiniProgressOverlay() {
     prevActive.current = progress.active
   }, [progress.active])
 
-  const saveSize = useCallback(async () => {
-    if (originalSize.current) return
+  const shrinkWindow = async () => {
     try {
-      const w = getCurrentWindow()
-      const s = await w.outerSize()
-      originalSize.current = { w: s.width, h: s.height }
-    } catch {}
-  }, [])
-
-  const shrinkWindow = useCallback(async () => {
-    await saveSize()
-    try {
-      const w = getCurrentWindow()
-      await w.setSize(new PhysicalSize(400, 350))
-      await w.center()
-    } catch (e) { console.log("Resize failed:", e) }
+      const [w, h] = await getWindowSize()
+      originalSize.current = { w, h }
+      await resizeWindow(400, 350)
+    } catch (e) {
+      console.log("Window resize not available:", e)
+    }
     setMiniMode(true)
-  }, [saveSize])
+  }
 
-  const restoreWindow = useCallback(async () => {
+  const restoreWindow = async () => {
     setMiniMode(false)
     setCompleted(false)
     try {
-      if (!originalSize.current) return
-      const w = getCurrentWindow()
-      await w.setSize(new PhysicalSize(originalSize.current.w, originalSize.current.h))
-      await w.center()
-      originalSize.current = null
+      if (originalSize.current) {
+        await resizeWindow(originalSize.current.w, originalSize.current.h)
+        originalSize.current = null
+      }
     } catch {}
-  }, [])
+  }
 
   const pct = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0
   const elapsed = elapsedDisplay

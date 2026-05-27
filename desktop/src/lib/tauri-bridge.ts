@@ -620,3 +620,13 @@ export interface WatermarkResult {
 export async function fileWatermark(options: WatermarkOptions): Promise<WatermarkResult> {
   return invoke("file_watermark", { options })
 }
+
+// ── Window ──
+
+export async function resizeWindow(width: number, height: number): Promise<void> {
+  return invoke("resize_window", { width, height })
+}
+
+export async function getWindowSize(): Promise<[number, number]> {
+  return invoke("get_window_size")
+}

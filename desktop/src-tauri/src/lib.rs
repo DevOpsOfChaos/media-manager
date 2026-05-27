@@ -91,6 +91,9 @@ pub fn run() {
             media_commands::file_web_gallery,
             media_commands::file_watermark,
             media_commands::read_thumbnails_batch,
+            // Window
+            media_commands::resize_window,
+            media_commands::get_window_size,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

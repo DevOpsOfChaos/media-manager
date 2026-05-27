@@ -53,5 +53,5 @@ def render_organize_directory(pattern: str, resolution: DateResolution, *, sourc
             raise ValueError(f"Unknown organize pattern token: {exc.args[0]}") from exc
         rendered_segments.append(_sanitize_segment(rendered))
     if not rendered_segments:
-        raise ValueError("Organize pattern produced an empty target directory.")
+        return Path()
     return Path(*rendered_segments)

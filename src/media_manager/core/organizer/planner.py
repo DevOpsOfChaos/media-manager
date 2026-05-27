@@ -346,18 +346,24 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                     source_paths=[member.path for member in group.members],
                 )
                 original_target_path = group_target_paths[scanned_file.path]
-                if options.conflict_policy == "rename":
-                    new_group: dict[Path, Path] = {}
-                    for sp, tp in group_target_paths.items():
-                        if tp.exists():
-                            new_group[sp] = _generate_unique_target_path(tp, sp, preview=True)
-                        else:
-                            new_group[sp] = tp
-                    group_target_paths = new_group
-                target_path = group_target_paths[scanned_file.path]
-                status, reason = _evaluate_group_plan_state(group_target_paths, conflict_policy=options.conflict_policy)
-                if target_path != original_target_path:
-                    reason = "planned (renamed to avoid conflict)"
+                # Same-path check BEFORE rename (rename would otherwise hide same-path)
+                if all(_normalized_path_key(sp) == _normalized_path_key(tp) for sp, tp in group_target_paths.items()):
+                    status = "skipped"
+                    reason = "source already matches the planned target path"
+                    target_path = original_target_path
+                else:
+                    if options.conflict_policy == "rename":
+                        new_group: dict[Path, Path] = {}
+                        for sp, tp in group_target_paths.items():
+                            if tp.exists():
+                                new_group[sp] = _generate_unique_target_path(tp, sp, preview=True)
+                            else:
+                                new_group[sp] = tp
+                        group_target_paths = new_group
+                    target_path = group_target_paths[scanned_file.path]
+                    status, reason = _evaluate_group_plan_state(group_target_paths, conflict_policy=options.conflict_policy)
+                    if target_path != original_target_path:
+                        reason = "planned (renamed to avoid conflict)"
             except Exception as exc:
                 dry_run.entries.append(
                     OrganizePlanEntry(
@@ -497,18 +503,25 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
                     options.pattern, resolution, source_root=scanned_file.source_root,
                 )
                 original_target_path = options.target_root / target_relative_dir / scanned_file.path.name
-                if _target_is_empty:
+                # Same-path check BEFORE rename (rename would otherwise hide same-path)
+                if _normalized_path_key(scanned_file.path) == _normalized_path_key(original_target_path):
+                    status = "skipped"
+                    reason = "source already matches the planned target path"
                     target_path = original_target_path
-                elif options.conflict_policy == "rename":
-                    target_path = _generate_unique_target_path(original_target_path, scanned_file.path, preview=True)
+                    group_target_paths = {scanned_file.path: original_target_path}
                 else:
-                    target_path = original_target_path
-                group_target_paths = {scanned_file.path: target_path}
-                status, reason = _evaluate_group_plan_state(
-                    group_target_paths, conflict_policy=options.conflict_policy,
-                )
-                if target_path != original_target_path:
-                    reason = "planned (renamed to avoid conflict)"
+                    if _target_is_empty:
+                        target_path = original_target_path
+                    elif options.conflict_policy == "rename":
+                        target_path = _generate_unique_target_path(original_target_path, scanned_file.path, preview=True)
+                    else:
+                        target_path = original_target_path
+                    group_target_paths = {scanned_file.path: target_path}
+                    status, reason = _evaluate_group_plan_state(
+                        group_target_paths, conflict_policy=options.conflict_policy,
+                    )
+                    if target_path != original_target_path:
+                        reason = "planned (renamed to avoid conflict)"
             except Exception as exc:
                 dry_run.entries.append(
                     OrganizePlanEntry(

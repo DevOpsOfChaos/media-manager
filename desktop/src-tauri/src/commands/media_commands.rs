@@ -1,5 +1,6 @@
 use serde_json::Value;
 use tauri::Emitter;
+use tauri::Manager;
 
 use super::python_bridge::PythonBridge;
 
@@ -483,4 +484,21 @@ pub async fn read_thumbnails_batch(paths: Vec<String>) -> Result<Vec<String>, St
     }
 
     Ok(results)
+}
+
+// ── Window ──
+
+#[tauri::command]
+pub async fn resize_window(app: tauri::AppHandle, width: u32, height: u32) -> Result<(), String> {
+    let window = app.get_webview_window("main").ok_or("Window 'main' not found")?;
+    window.set_size(tauri::Size::Physical(tauri::PhysicalSize { width, height }))
+        .map_err(|e| format!("Failed to resize: {e}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_window_size(app: tauri::AppHandle) -> Result<(u32, u32), String> {
+    let window = app.get_webview_window("main").ok_or("Window 'main' not found")?;
+    let size = window.outer_size().map_err(|e| format!("Failed to get size: {e}"))?;
+    Ok((size.width, size.height))
 }

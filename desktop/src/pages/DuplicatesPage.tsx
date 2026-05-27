@@ -242,7 +242,7 @@ export default function DuplicatesPage() {
 
   const confirmDelete = useCallback(async () => {
     setShowDeleteConfirm(false)
-    const active = tab === "exact" ? exactPreview : null
+    const active = (tab === "exact" || tab === "all") ? exactPreview : null
     if (!active || !sourceDir) return
     setDeleteLoading(true)
     setDeleteResult(null)
@@ -250,7 +250,7 @@ export default function DuplicatesPage() {
       const decisions: Record<string, string> = {}
       for (const g of active.exact_groups || []) {
         if (selectedGroups.has(g.full_digest) && g.files?.length > 1) {
-          decisions[`${g.file_size * g.files.length}:${g.full_digest}`] = g.files[0]
+            decisions[`${g.file_size}:${g.full_digest}`] = g.files[0]
         }
       }
       const result = await duplicatesApply({ source_dirs: [sourceDir], decisions, mode: "delete" })
