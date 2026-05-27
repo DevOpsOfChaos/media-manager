@@ -28,6 +28,11 @@ from media_manager.bridge_base import emit as _emit, fail as _fail
 logger = logging.getLogger(__name__)
 
 
+def _progress_to_stderr(message: str) -> None:
+    """Write progress message as JSON to stderr for the Rust bridge to forward."""
+    print(json.dumps({"progress": message}), file=sys.stderr, flush=True)
+
+
 def _serialize_group(group) -> dict:
     return {
         "files": [str(p) for p in group.files],
@@ -63,7 +68,7 @@ def cmd_preview() -> int:
 
     try:
         logger.info("Starting duplicate scan preview: %d source dirs", len(config.source_dirs))
-        result = scan_exact_duplicates(config)
+        result = scan_exact_duplicates(config, progress_callback=_progress_to_stderr)
     except Exception as exc:
         logger.exception("Duplicate scan preview failed")
         return _fail(f"Duplicate scan failed: {exc}")

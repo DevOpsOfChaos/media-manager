@@ -72,27 +72,23 @@ impl PythonBridge {
         }
     }
 
-    /// Run a Python bridge module with the given action and optional extra args.
+    /// Run a Python bridge module — returns both parsed stdout JSON and raw stderr text.
     ///
-    /// - `module`: the dotted module name under `media_manager` (e.g. `bridge_settings`)
-    /// - `action`: the first CLI argument (e.g. `read`, `write`, `reset`)
-    /// - `extra_args`: additional arguments appended after the action
-    /// - `stdin_json`: optional JSON string to pipe to stdin
-    pub fn run_module(
+    /// Callers that want to forward progress events can inspect the stderr lines
+    /// for `{"progress": "..."}` JSON objects emitted by the Python bridge.
+    pub fn run_module_with_stderr(
         &self,
         module: &str,
         action: &str,
         extra_args: &[&str],
         stdin_json: Option<&str>,
-    ) -> Result<Value, String> {
+    ) -> Result<(Value, String), String> {
         let full_module = format!("media_manager.{module}");
         let src_dir = self.project_root.join("src");
 
-        // Build augmented environment
         let mut env_vars: HashMap<String, String> =
             std::env::vars().collect();
 
-        // Prepend src/ to PYTHONPATH so `media_manager` is importable
         let separator = if cfg!(windows) { ";" } else { ":" };
         let existing = env_vars.get("PYTHONPATH").cloned().unwrap_or_default();
         let new_pythonpath = if existing.is_empty() {
@@ -106,7 +102,6 @@ impl PythonBridge {
             env_vars.insert("MEDIA_MANAGER_SETTINGS_PATH".into(), sp.clone());
         }
 
-        // Build args list: -m <module> <action> [extra_args...]
         let mut args: Vec<String> = vec![
             "-m".into(),
             full_module,
@@ -116,7 +111,6 @@ impl PythonBridge {
             args.push(a.to_string());
         }
 
-        // Pass --settings-path if bridge supports it and we have an override
         if let Some(ref sp) = self.settings_path {
             args.push("--settings-path".into());
             args.push(sp.clone());
@@ -145,7 +139,6 @@ impl PythonBridge {
                 )
             })?;
 
-        // Write stdin if provided
         if let Some(input) = stdin_json {
             if let Some(mut stdin) = child.stdin.take() {
                 stdin
@@ -166,7 +159,6 @@ impl PythonBridge {
             let detail = if stderr_text.is_empty() {
                 format!("exit code {}", output.status.code().unwrap_or(-1))
             } else {
-                // Try to extract the JSON error from stderr
                 if let Ok(err_val) = serde_json::from_str::<Value>(&stderr_text) {
                     err_val
                         .get("error")
@@ -174,7 +166,7 @@ impl PythonBridge {
                         .unwrap_or(&stderr_text)
                         .to_string()
                 } else {
-                    stderr_text
+                    stderr_text.clone()
                 }
             };
             return Err(format!(
@@ -190,7 +182,7 @@ impl PythonBridge {
             ));
         }
 
-        serde_json::from_str(trimmed).map_err(|e| {
+        let value = serde_json::from_str(trimmed).map_err(|e| {
             let preview: String = trimmed
                 .chars()
                 .take(300)
@@ -199,7 +191,21 @@ impl PythonBridge {
                 "Failed to parse Python bridge output as JSON ({module} {action}): {e}\n\
                  Raw output (first 300 chars): {preview}"
             )
-        })
+        })?;
+
+        Ok((value, stderr_text))
+    }
+
+    /// Run a Python bridge module — convenience wrapper that discards stderr.
+    pub fn run_module(
+        &self,
+        module: &str,
+        action: &str,
+        extra_args: &[&str],
+        stdin_json: Option<&str>,
+    ) -> Result<Value, String> {
+        self.run_module_with_stderr(module, action, extra_args, stdin_json)
+            .map(|(value, _stderr)| value)
     }
 }
 

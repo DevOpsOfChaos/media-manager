@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { CheckSquare, Square, Trash2, Info, Loader2, ScanText, Wand2, Star } from "lucide-react"
 import { convertFileSrc } from "@tauri-apps/api/core"
+import { listen } from "@tauri-apps/api/event"
 import { useT } from "@/lib/i18n"
 import { userFriendlyError } from "@/lib/error-utils"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -95,6 +96,7 @@ export default function DuplicatesPage() {
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [scanAllLoading, setScanAllLoading] = useState(false)
+  const [scanLog, setScanLog] = useState<string[]>([])
 
   const [isFavorite, setIsFavorite] = useState(() => hasFavorite("duplicates"))
 
@@ -106,6 +108,16 @@ export default function DuplicatesPage() {
       if (fav.maxImages) setMaxImages(fav.maxImages)
       if (fav.maxPairs) setMaxPairs(fav.maxPairs)
     }
+  }, [])
+
+  useEffect(() => {
+    const unlisten = listen("scan-progress", (event) => {
+      const msg = (event.payload as any)?.progress
+      if (msg) {
+        setScanLog(prev => [...prev.slice(-20), msg])
+      }
+    })
+    return () => { unlisten.then(fn => fn()) }
   }, [])
 
   const handleScanAll = async () => {
@@ -497,6 +509,13 @@ export default function DuplicatesPage() {
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <p className="text-sm text-muted-foreground">{t("Scanning...", "Scanne...")}</p>
                 </div>
+                {scanLog.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto bg-muted/30 rounded p-2 mt-2">
+                    {scanLog.map((msg, i) => (
+                      <p key={i} className="text-[10px] text-muted-foreground font-mono">{msg}</p>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

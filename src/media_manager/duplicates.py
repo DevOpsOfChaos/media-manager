@@ -274,6 +274,8 @@ def scan_exact_duplicates(
         return result
 
     sampled_groups: dict[tuple[int, str], list[Path]] = defaultdict(list)
+    sample_count = 0
+    total_samples = sum(len(paths) for paths in candidate_size_groups.values())
     for file_size, paths in candidate_size_groups.items():
         for path in paths:
             try:
@@ -282,7 +284,11 @@ def scan_exact_duplicates(
                 _record_stage_error(result, "sample")
                 continue
             result.sampled_files += 1
+            sample_count += 1
             sampled_groups[(file_size, sample_digest)].append(path)
+            if sample_count % 500 == 0 and total_samples > 0:
+                _emit_progress(progress_callback, f"Stage 2/4 — sampled {sample_count}/{total_samples} files ({sample_count*100//total_samples}%)")
+    _emit_progress(progress_callback, f"Stage 2/4 — sample fingerprinting complete: {sample_count} files in {len(sampled_groups)} groups")
 
     sample_candidates = {
         key: sorted(paths, key=_normalized_sort_key)
@@ -299,6 +305,8 @@ def scan_exact_duplicates(
         return result
 
     hashed_groups: dict[tuple[int, str, str], list[Path]] = defaultdict(list)
+    hash_count = 0
+    total_hashes = sum(len(paths) for paths in sample_candidates.values())
     for (file_size, sample_digest), paths in sample_candidates.items():
         for path in paths:
             try:
@@ -307,7 +315,11 @@ def scan_exact_duplicates(
                 _record_stage_error(result, "hash")
                 continue
             result.hashed_files += 1
+            hash_count += 1
             hashed_groups[(file_size, sample_digest, full_digest)].append(path)
+            if hash_count % 500 == 0 and total_hashes > 0:
+                _emit_progress(progress_callback, f"Stage 3/4 — hashed {hash_count}/{total_hashes} files ({hash_count*100//total_hashes}%)")
+    _emit_progress(progress_callback, f"Stage 3/4 — full hashing complete: {hash_count} files")
 
     full_hash_candidates = {
         key: sorted(paths, key=_normalized_sort_key)
