@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { CheckSquare, Square, Trash2, Info, Loader2, ScanText, Wand2, Star } from "lucide-react"
 import { convertFileSrc } from "@tauri-apps/api/core"
-import { listen } from "@tauri-apps/api/event"
 import { useT } from "@/lib/i18n"
 import { userFriendlyError } from "@/lib/error-utils"
+import { useSimulatedProgress } from "@/lib/use-simulated-progress"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -95,8 +95,14 @@ export default function DuplicatesPage() {
   const [deleteResult, setDeleteResult] = useState<{ executed_rows: number; error_rows: number } | null>(null)
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [scanAllLoading, setScanAllLoading] = useState(false)
-  const [scanLog, setScanLog] = useState<string[]>([])
+
+  const DUP_PHASES = [
+    { nameEn: "Phase 1/4 — Scanning source folders...", nameDe: "Phase 1/4 — Quellordner werden gescannt...", endAt: 15, increment: 1.5 },
+    { nameEn: "Phase 2/4 — Sample fingerprinting...", nameDe: "Phase 2/4 — Sample-Fingerprinting...", endAt: 50, increment: 1 },
+    { nameEn: "Phase 3/4 — Full hashing candidates...", nameDe: "Phase 3/4 — Vollständiges Hashing der Kandidaten...", endAt: 85, increment: 0.5 },
+    { nameEn: "Phase 4/4 — Byte comparison...", nameDe: "Phase 4/4 — Byte-Vergleich...", endAt: 98, increment: 0.3 },
+  ]
+  const { phase: scanPhase, progress: simulatedProgress, log: scanLog, start: startDupProgress, complete: completeDupProgress } = useSimulatedProgress(DUP_PHASES)
 
   const [isFavorite, setIsFavorite] = useState(() => hasFavorite("duplicates"))
 
@@ -110,26 +116,17 @@ export default function DuplicatesPage() {
     }
   }, [])
 
-  useEffect(() => {
-    const unlisten = listen("scan-progress", (event) => {
-      const msg = (event.payload as any)?.progress
-      if (msg) {
-        setScanLog(prev => [...prev.slice(-20), msg])
-      }
-    })
-    return () => { unlisten.then(fn => fn()) }
-  }, [])
-
   const handleScanAll = async () => {
     if (!sourceDir.trim()) {
       setError(t("Please select a source directory.", "Bitte wählen Sie ein Quellverzeichnis aus."))
       return
     }
-    setScanAllLoading(true)
+    setLoading(true)
     setError(null)
     setExactPreview(null)
     setSimilarPreview(null)
     setExpandedGroups(new Set())
+    startDupProgress()
     startProgress(t("Scanning for duplicates...", "Suche nach Duplikaten..."), 2)
     try {
       const config = { source_dirs: [sourceDir.trim()], include_patterns: [], exclude_patterns: [] }
@@ -138,6 +135,7 @@ export default function DuplicatesPage() {
         similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages, max_pairs: maxPairs }),
       ])
       updateProgress(2)
+      completeDupProgress(`Complete! ${exact.exact_groups?.length || 0} exact + ${similar.similar_groups?.length || 0} similar groups found.`)
       setExactPreview(exact)
       setSimilarPreview(similar)
       setTab("all")
@@ -145,7 +143,7 @@ export default function DuplicatesPage() {
       setError(userFriendlyError(err))
     } finally {
       setTimeout(() => finishProgress(), 500)
-      setScanAllLoading(false)
+      setLoading(false)
     }
   }
 
@@ -159,7 +157,7 @@ export default function DuplicatesPage() {
     setSelectedGroups(smartSelected)
   }, [exactPreview])
 
-  const handleScan = async () => {
+  const handleScan = useCallback(async () => {
     if (!sourceDir.trim()) {
       setError(t("Please select a source directory.", "Bitte wählen Sie ein Quellverzeichnis aus."))
       return
@@ -169,18 +167,24 @@ export default function DuplicatesPage() {
     setExactPreview(null)
     setSimilarPreview(null)
     setExpandedGroups(new Set())
+    startDupProgress()
     startProgress(t("Scanning for duplicates...", "Suche nach Duplikaten..."), 2)
     try {
       const config = { source_dirs: [sourceDir.trim()], include_patterns: [], exclude_patterns: [] }
       if (tab === "exact") {
-        setExactPreview(await duplicateScan(config))
+        const result = await duplicateScan(config)
+        completeDupProgress(`Complete! ${result.exact_groups?.length || 0} groups found.`)
+        setExactPreview(result)
       } else if (tab === "similar") {
-        setSimilarPreview(await similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages, max_pairs: maxPairs }))
+        const result = await similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages, max_pairs: maxPairs })
+        completeDupProgress(`Complete! ${result.similar_groups?.length || 0} groups found.`)
+        setSimilarPreview(result)
       } else {
         const [exact, similar] = await Promise.all([
           duplicateScan(config),
           similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages, max_pairs: maxPairs }),
         ])
+        completeDupProgress(`Complete! ${exact.exact_groups?.length || 0} exact + ${similar.similar_groups?.length || 0} similar groups found.`)
         setExactPreview(exact)
         setSimilarPreview(similar)
       }
@@ -191,7 +195,7 @@ export default function DuplicatesPage() {
       setTimeout(() => finishProgress(), 500)
       setLoading(false)
     }
-  }
+  }, [sourceDir, t, tab, maxDistance, maxImages, maxPairs, startDupProgress, completeDupProgress, startProgress, updateProgress, finishProgress])
 
   const browseForSource = async () => {
     try {
@@ -437,8 +441,8 @@ export default function DuplicatesPage() {
               )}
 
               <div className="flex items-center gap-3">
-                <Button onClick={tab === "all" ? handleScanAll : handleScan} disabled={loading || scanAllLoading} size="sm">
-                  {loading || scanAllLoading ? t("Scanning...", "Scanne...") : tab === "exact" ? t("Scan for exact duplicates", "Nach exakten Duplikaten scannen") : tab === "similar" ? t("Scan for similar images", "Nach ähnlichen Bildern scannen") : t("Scan All", "Alle scannen")}
+                <Button onClick={tab === "all" ? handleScanAll : handleScan} disabled={loading} size="sm">
+                  {loading ? t("Scanning...", "Scanne...") : tab === "exact" ? t("Scan for exact duplicates", "Nach exakten Duplikaten scannen") : tab === "similar" ? t("Scan for similar images", "Nach ähnlichen Bildern scannen") : t("Scan All", "Alle scannen")}
                 </Button>
                 <Button
                   variant="ghost"
@@ -458,7 +462,7 @@ export default function DuplicatesPage() {
                   </Button>
                 )}
                 {exactPreview && exactPreview.exact_groups.length > 0 && (tab === "exact" || tab === "all") && (
-                  <Button onClick={handleSmartClean} disabled={loading || scanAllLoading} variant="secondary" size="sm">
+                   <Button onClick={handleSmartClean} disabled={loading} variant="secondary" size="sm">
                     <Wand2 className="h-3.5 w-3.5 mr-1" />
                     {t("Smart Clean", "Smart Clean")}
                   </Button>
@@ -504,18 +508,39 @@ export default function DuplicatesPage() {
 
           {loading && (
             <Card>
-              <CardContent className="py-8">
-                <div className="flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <p className="text-sm text-muted-foreground">{t("Scanning...", "Scanne...")}</p>
-                </div>
-                {scanLog.length > 0 && (
-                  <div className="max-h-32 overflow-y-auto bg-muted/30 rounded p-2 mt-2">
+              <CardContent className="py-6">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">{t("Scanning for duplicates...", "Suche nach Duplikaten...")}</span>
+                  </div>
+
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full transition-all duration-700"
+                      style={{ width: `${Math.max(simulatedProgress, 1)}%` }} />
+                  </div>
+
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4].map(phase => (
+                      <div key={phase} className={`flex-1 h-1 rounded-full ${scanPhase >= phase ? 'bg-blue-500' : 'bg-muted'}`} />
+                    ))}
+                  </div>
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>Phase {Math.min(scanPhase, 4)}/4</span>
+                    <span>{Math.round(simulatedProgress)}%</span>
+                  </div>
+
+                  <div className="max-h-24 overflow-y-auto bg-muted/20 rounded p-2 space-y-0.5">
                     {scanLog.map((msg, i) => (
                       <p key={i} className="text-[10px] text-muted-foreground font-mono">{msg}</p>
                     ))}
+                    {scanLog.length === 0 && (
+                      <p className="text-[10px] text-muted-foreground animate-pulse">
+                        {t("Scanning files... This may take a while for large libraries.", "Dateien werden gescannt... Bei großen Bibliotheken kann das dauern.")}
+                      </p>
+                    )}
                   </div>
-                )}
+                </div>
               </CardContent>
             </Card>
           )}

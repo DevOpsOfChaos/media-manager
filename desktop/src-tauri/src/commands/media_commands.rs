@@ -101,25 +101,14 @@ pub async fn duplicates_scan(app: tauri::AppHandle, config: Value) -> Result<Val
     emit_progress(&app, "operation:started", "Duplicate Scan", None);
     let json = serde_json::to_string(&config)
         .map_err(|e| format!("Failed to serialize duplicates config: {e}"))?;
-    let result = bridge()?.run_module_with_stderr(
+    let result = bridge()?.run_module(
         "bridge_duplicates_preview",
         "",
         &[],
         Some(&json),
     );
-    // Forward progress messages from Python stderr to the frontend
-    if let Ok((_value, ref stderr)) = &result {
-        for line in stderr.lines() {
-            if let Ok(progress) = serde_json::from_str::<Value>(line) {
-                if progress.get("progress").is_some() {
-                    let _ = app.emit("scan-progress", &progress);
-                }
-            }
-        }
-    }
-    let final_result = result.map(|(value, _stderr)| value);
-    emit_completion(&app, "Duplicate Scan", &final_result);
-    final_result
+    emit_completion(&app, "Duplicate Scan", &result);
+    result
 }
 
 #[tauri::command]

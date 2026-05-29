@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useT } from "@/lib/i18n"
+import { useSimulatedProgress } from "@/lib/use-simulated-progress"
 import { useOrganizeStore } from "@/stores/organize-store"
 import { useProgress } from "@/lib/progress-context"
 import { organizePreview, organizeApply } from "@/lib/tauri-bridge"
@@ -46,6 +47,13 @@ export default function OrganizePage() {
   const [error, setError] = useState<string | null>(null)
   const [customPattern, setCustomPattern] = useState(false)
 
+  const ORG_PHASES = [
+    { nameEn: "Phase 1/3 — Loading settings", nameDe: "Phase 1/3 — Einstellungen laden", endAt: 30, increment: 1 },
+    { nameEn: "Phase 2/3 — Scanning files", nameDe: "Phase 2/3 — Dateien scannen", endAt: 70, increment: 0.5 },
+    { nameEn: "Phase 3/3 — Building plan", nameDe: "Phase 3/3 — Plan erstellen", endAt: 95, increment: 0.3 },
+  ]
+  const { phase: scanPhase, progress: simulatedProgress, start: startOrgProgress, complete: completeOrgProgress } = useSimulatedProgress(ORG_PHASES)
+
   const browseDir = async (target: "source" | "target") => {
     try {
       const { open } = await import("@tauri-apps/plugin-dialog")
@@ -64,17 +72,15 @@ export default function OrganizePage() {
       return
     }
     setLoading(true); setError(null); setPreview(null)
-    let p = 0
-    const interval = setInterval(() => { p = Math.min(p + 0.5, 90); updateProgress(Math.round(p)) }, 1000)
+    startOrgProgress()
     startProgress(t("Building preview...", "Erstelle Vorschau..."), 100)
     try {
       const r = await organizePreview(options)
-      clearInterval(interval)
+      completeOrgProgress()
       updateProgress(100)
       setPreview(r)
       setStep("preview")
     } catch (e) {
-      clearInterval(interval)
       setError(userFriendlyError(e))
     } finally {
       setTimeout(() => finishProgress(), 500)
@@ -216,6 +222,28 @@ export default function OrganizePage() {
           </Card>
 
           {error && <p className="text-sm text-red-500">{error}</p>}
+
+          {loading && (
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/10">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">{t("Building preview...", "Erstelle Vorschau...")}</span>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 rounded-full transition-all duration-700"
+                  style={{ width: `${Math.max(simulatedProgress, 1)}%` }} />
+              </div>
+              <div className="flex gap-1">
+                {[1, 2, 3].map(phase => (
+                  <div key={phase} className={`flex-1 h-1 rounded-full ${scanPhase >= phase ? 'bg-blue-500' : 'bg-muted'}`} />
+                ))}
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>{scanPhase === 0 ? t("Phase 1/3 — Loading settings", "Phase 1/3 — Einstellungen laden") : scanPhase === 1 ? t("Phase 2/3 — Scanning files", "Phase 2/3 — Dateien scannen") : scanPhase === 2 ? t("Phase 3/3 — Building plan", "Phase 3/3 — Plan erstellen") : ""}</span>
+                <span>{Math.round(simulatedProgress)}%</span>
+              </div>
+            </div>
+          )}
 
           <Button onClick={runPreview} disabled={loading} className="w-full" size="lg">
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />}

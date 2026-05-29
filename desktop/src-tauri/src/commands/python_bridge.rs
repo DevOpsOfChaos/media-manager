@@ -72,17 +72,14 @@ impl PythonBridge {
         }
     }
 
-    /// Run a Python bridge module — returns both parsed stdout JSON and raw stderr text.
-    ///
-    /// Callers that want to forward progress events can inspect the stderr lines
-    /// for `{"progress": "..."}` JSON objects emitted by the Python bridge.
-    pub fn run_module_with_stderr(
+    /// Run a Python bridge module — spawns Python, waits for completion, returns parsed stdout JSON.
+    pub fn run_module(
         &self,
         module: &str,
         action: &str,
         extra_args: &[&str],
         stdin_json: Option<&str>,
-    ) -> Result<(Value, String), String> {
+    ) -> Result<Value, String> {
         let full_module = format!("media_manager.{module}");
         let src_dir = self.project_root.join("src");
 
@@ -151,11 +148,10 @@ impl PythonBridge {
             .wait_with_output()
             .map_err(|e| format!("Python process error: {e}"))?;
 
-        let stderr_text = String::from_utf8_lossy(&output.stderr)
-            .trim()
-            .to_string();
-
         if !output.status.success() {
+            let stderr_text = String::from_utf8_lossy(&output.stderr)
+                .trim()
+                .to_string();
             let detail = if stderr_text.is_empty() {
                 format!("exit code {}", output.status.code().unwrap_or(-1))
             } else {
@@ -166,7 +162,7 @@ impl PythonBridge {
                         .unwrap_or(&stderr_text)
                         .to_string()
                 } else {
-                    stderr_text.clone()
+                    stderr_text
                 }
             };
             return Err(format!(
@@ -193,19 +189,7 @@ impl PythonBridge {
             )
         })?;
 
-        Ok((value, stderr_text))
-    }
-
-    /// Run a Python bridge module — convenience wrapper that discards stderr.
-    pub fn run_module(
-        &self,
-        module: &str,
-        action: &str,
-        extra_args: &[&str],
-        stdin_json: Option<&str>,
-    ) -> Result<Value, String> {
-        self.run_module_with_stderr(module, action, extra_args, stdin_json)
-            .map(|(value, _stderr)| value)
+        Ok(value)
     }
 }
 
