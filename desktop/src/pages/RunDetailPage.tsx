@@ -97,7 +97,7 @@ export default function RunDetailPage() {
                 {t("Undo", "Rückgängig")}
               </Button>
               <span className="text-xs text-muted-foreground hidden sm:inline">{t("→ preview, then confirm", "→ Vorschau, dann bestätigen")}</span>
-              <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[10px] rounded border border-border ml-2 text-muted-foreground">Ctrl+Z</kbd>
+              <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-xs rounded border border-border ml-2 text-muted-foreground">Ctrl+Z</kbd>
               </>
             )}
             <Button variant="outline" size="sm" onClick={() => navigate("/history")}>

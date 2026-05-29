@@ -300,7 +300,16 @@ export function AppSidebar() {
 
         {/* Customize dialog */}
         {showCustomize && (
-          <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center" onClick={() => setShowCustomize(false)}>
+          <div
+            className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center"
+            onClick={() => setShowCustomize(false)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setShowCustomize(false)
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("Customize sidebar", "Sidebar anpassen")}
+          >
             <div className="bg-background rounded-lg shadow-xl p-4 w-80 max-h-96 overflow-y-auto" onClick={e => e.stopPropagation()}>
               <h3 className="text-sm font-semibold mb-3">{t("Customize Sidebar", "Sidebar anpassen")}</h3>
               <p className="text-[10px] text-muted-foreground mb-3">{t("Toggle visibility of sidebar items.", "Sichtbarkeit der Sidebar-Einträge umschalten.")}</p>

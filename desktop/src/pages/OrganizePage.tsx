@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { FolderOpen, FolderSync, Play, Check, ChevronRight, ChevronLeft, Loader2, Heart, Coffee, RotateCcw } from "lucide-react"
+import { ProgressBlock } from "@/components/shared/ProgressBlock"
 
 const STEPS = ["settings", "preview", "execute"] as const
 type Step = typeof STEPS[number]
@@ -52,7 +53,7 @@ export default function OrganizePage() {
     { nameEn: "Phase 2/3 — Scanning files", nameDe: "Phase 2/3 — Dateien scannen", endAt: 70, increment: 0.5 },
     { nameEn: "Phase 3/3 — Building plan", nameDe: "Phase 3/3 — Plan erstellen", endAt: 95, increment: 0.3 },
   ]
-  const { phase: scanPhase, progress: simulatedProgress, start: startOrgProgress, complete: completeOrgProgress } = useSimulatedProgress(ORG_PHASES)
+  const { phase: scanPhase, progress: simulatedProgress, log: scanLog, start: startOrgProgress, complete: completeOrgProgress } = useSimulatedProgress(ORG_PHASES)
 
   const browseDir = async (target: "source" | "target") => {
     try {
@@ -126,7 +127,7 @@ export default function OrganizePage() {
             <CardContent className="flex gap-2">
               <Input value={options.source_dirs?.[0] || ""} onChange={e => setOptions({ source_dirs: [e.target.value] })}
                 placeholder="G:\Bilder_unsortiert" className="text-sm" />
-              <Button variant="outline" onClick={() => browseDir("source")}><FolderOpen className="h-4 w-4" /></Button>
+              <Button variant="outline" onClick={() => browseDir("source")} aria-label={t("Browse folder", "Ordner durchsuchen")}><FolderOpen className="h-4 w-4" /></Button>
             </CardContent>
           </Card>
 
@@ -136,7 +137,7 @@ export default function OrganizePage() {
             <CardContent className="flex gap-2">
               <Input value={options.target_root} onChange={e => setOptions({ target_root: e.target.value })}
                 placeholder="G:\Medienspeicher" className="text-sm" />
-              <Button variant="outline" onClick={() => browseDir("target")}><FolderSync className="h-4 w-4" /></Button>
+              <Button variant="outline" onClick={() => browseDir("target")} aria-label={t("Browse folder", "Ordner durchsuchen")}><FolderSync className="h-4 w-4" /></Button>
             </CardContent>
           </Card>
 
@@ -154,8 +155,8 @@ export default function OrganizePage() {
                       options.pattern === p.pattern && !customPattern ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                     }`}>
                     <p className="text-sm font-medium">{t(p.label, p.labelDe)}</p>
-                    <p className="text-[10px] text-muted-foreground">{t(p.desc, p.descDe)}</p>
-                    <code className="text-[10px] text-primary/70 bg-muted px-1.5 py-0.5 rounded mt-1 inline-block">{p.example}</code>
+                    <p className="text-xs text-muted-foreground">{t(p.desc, p.descDe)}</p>
+                    <code className="text-xs text-primary/70 bg-muted px-1.5 py-0.5 rounded mt-1 inline-block">{p.example}</code>
                   </button>
                 ))}
                 <button onClick={() => setCustomPattern(true)}
@@ -168,7 +169,7 @@ export default function OrganizePage() {
                       <div className="flex flex-wrap gap-1">
                         {TOKENS.map(tk => (
                           <button key={tk.token} onClick={() => setOptions({ pattern: (options.pattern || "") + tk.token })}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-muted hover:bg-primary/10 border font-mono">
+                            className="text-xs px-1.5 py-0.5 rounded bg-muted hover:bg-primary/10 border font-mono">
                             {tk.token}
                           </button>
                         ))}
@@ -224,32 +225,14 @@ export default function OrganizePage() {
           {error && <p className="text-sm text-red-500">{error}</p>}
 
           {loading && (
-            <div className="space-y-3 p-4 border rounded-lg bg-muted/10">
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">{t("Building preview...", "Erstelle Vorschau...")}</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 rounded-full transition-all duration-700"
-                  style={{ width: `${Math.max(simulatedProgress, 1)}%` }} />
-              </div>
-              <div className="flex gap-1">
-                {[1, 2, 3].map(phase => (
-                  <div key={phase} className={`flex-1 h-1 rounded-full ${scanPhase >= phase ? 'bg-blue-500' : 'bg-muted'}`} />
-                ))}
-              </div>
-              <div className="flex justify-between text-[10px] text-muted-foreground">
-                <span>{scanPhase === 0 ? t("Phase 1/3 — Loading settings", "Phase 1/3 — Einstellungen laden") : scanPhase === 1 ? t("Phase 2/3 — Scanning files", "Phase 2/3 — Dateien scannen") : scanPhase === 2 ? t("Phase 3/3 — Building plan", "Phase 3/3 — Plan erstellen") : ""}</span>
-                <span>{Math.round(simulatedProgress)}%</span>
-              </div>
-            </div>
+            <ProgressBlock phase={scanPhase} totalPhases={3} progress={simulatedProgress} log={scanLog} />
           )}
 
           <Button onClick={runPreview} disabled={loading} className="w-full" size="lg">
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />}
             {t("Preview", "Vorschau")}
           </Button>
-          <p className="text-[10px] text-muted-foreground text-center">
+          <p className="text-xs text-muted-foreground text-center">
             {t("Large libraries (10,000+ files) may take a few minutes.", "Große Bibliotheken (10.000+ Dateien) können einige Minuten dauern.")}
           </p>
         </main>
@@ -269,10 +252,10 @@ export default function OrganizePage() {
         <main className="max-w-5xl mx-auto p-6 space-y-4">
           {/* Stats */}
           <div className="grid grid-cols-4 gap-2">
-            <Card className="text-center p-3"><p className="text-xl font-bold text-green-600">{preview.planned_count.toLocaleString()}</p><p className="text-[10px] text-muted-foreground">{t("Planned", "Geplant")}</p></Card>
-            <Card className="text-center p-3"><p className="text-xl font-bold text-amber-600">{preview.skipped_count.toLocaleString()}</p><p className="text-[10px] text-muted-foreground">{t("Skipped", "Überspr.")}</p></Card>
-            <Card className="text-center p-3"><p className="text-xl font-bold text-red-600">{preview.conflict_count.toLocaleString()}</p><p className="text-[10px] text-muted-foreground">{t("Conflicts", "Konflikte")}</p></Card>
-            <Card className="text-center p-3"><p className="text-xl font-bold">{((preview.scan_summary?.total_size_bytes || 0) / 1e9).toFixed(1)} GB</p><p className="text-[10px] text-muted-foreground">{t("Size", "Größe")}</p></Card>
+            <Card className="text-center p-3"><p className="text-xl font-bold text-green-600">{preview.planned_count.toLocaleString()}</p><p className="text-xs text-muted-foreground">{t("Planned", "Geplant")}</p></Card>
+            <Card className="text-center p-3"><p className="text-xl font-bold text-amber-600">{preview.skipped_count.toLocaleString()}</p><p className="text-xs text-muted-foreground">{t("Skipped", "Überspr.")}</p></Card>
+            <Card className="text-center p-3"><p className="text-xl font-bold text-red-600">{preview.conflict_count.toLocaleString()}</p><p className="text-xs text-muted-foreground">{t("Conflicts", "Konflikte")}</p></Card>
+            <Card className="text-center p-3"><p className="text-xl font-bold">{((preview.scan_summary?.total_size_bytes || 0) / 1e9).toFixed(1)} GB</p><p className="text-xs text-muted-foreground">{t("Size", "Größe")}</p></Card>
           </div>
 
           {/* File list preview (first 20) */}
@@ -282,13 +265,13 @@ export default function OrganizePage() {
               <CardContent className="max-h-64 overflow-y-auto space-y-1">
                 {preview.entries.slice(0, 20).map((e, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs py-1 border-b last:border-0">
-                    <Badge variant={e.status === "planned" ? "default" : "secondary"} className="text-[9px] shrink-0">{e.status}</Badge>
+                    <Badge variant={e.status === "planned" ? "default" : "secondary"} className="text-xs shrink-0">{e.status}</Badge>
                     <span className="font-mono truncate flex-1">{e.source_path?.split(/[\\/]/).pop()}</span>
                     <span className="text-muted-foreground truncate">{e.target_relative_dir || "—"}</span>
                   </div>
                 ))}
                 {preview.entries.length > 20 && (
-                  <p className="text-[10px] text-muted-foreground text-center pt-1">
+                  <p className="text-xs text-muted-foreground text-center pt-1">
                     {t(`... and ${preview.entries.length - 20} more`, `... und ${preview.entries.length - 20} weitere`)}
                   </p>
                 )}

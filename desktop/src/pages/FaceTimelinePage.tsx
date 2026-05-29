@@ -68,7 +68,7 @@ export default function FaceTimelinePage() {
                   <User className="w-6 h-6 text-muted-foreground" />
                 </div>
                 <p className="text-sm font-medium truncate">{p.name}</p>
-                <p className="text-[10px] text-muted-foreground">{p.face_count} {t("photos", "Fotos")}</p>
+                <p className="text-xs text-muted-foreground">{p.face_count} {t("photos", "Fotos")}</p>
               </CardContent>
             </Card>
           ))}
@@ -86,7 +86,7 @@ export default function FaceTimelinePage() {
                 <img src={convertFileSrc(path) || ""} className="h-16 w-16 rounded object-cover bg-muted" alt="" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm truncate">{path.split("/").pop() || path.split("\\").pop()}</p>
-                  <p className="text-[10px] text-muted-foreground truncate">{path}</p>
+                  <p className="text-xs text-muted-foreground truncate">{path}</p>
                 </div>
                 <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
               </Card>

@@ -133,7 +133,7 @@ export default function ReviewWorkbenchPage() {
                 className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/30">
                 <span>{selectedGroupId === group.id ? "▾" : "▸"}</span>
                 <span className="font-mono text-xs truncate flex-1">{group.label}</span>
-                <Badge variant="secondary" className="text-[10px]">{group.candidates.length}</Badge>
+                <Badge variant="secondary" className="text-xs">{group.candidates.length}</Badge>
               </button>
               {selectedGroupId === group.id && (
                 <div className="border-t p-2 space-y-1 bg-muted/10">
@@ -159,7 +159,7 @@ export default function ReviewWorkbenchPage() {
                       </span>
                       {/* Distance */}
                       {c.distance != null && (
-                        <Badge variant="secondary" className="text-[10px] shrink-0">d={c.distance}</Badge>
+                        <Badge variant="secondary" className="text-xs shrink-0">d={c.distance}</Badge>
                       )}
                       {/* Decision buttons */}
                       <div className="flex gap-0.5 shrink-0">

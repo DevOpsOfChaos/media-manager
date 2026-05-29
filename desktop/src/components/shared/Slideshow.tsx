@@ -57,7 +57,7 @@ export function Slideshow({ files, startIndex = 0, onClose }: SlideshowProps) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center">
-      <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white z-10">
+      <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white z-10" aria-label={t("Close", "Schließen")}>
         <X className="h-6 w-6" />
       </button>
 
@@ -109,11 +109,13 @@ export function Slideshow({ files, startIndex = 0, onClose }: SlideshowProps) {
       {safeFiles.length > 1 && (
         <>
           <Button variant="ghost" size="icon" onClick={prev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white hover:bg-white/10 h-12 w-12">
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white hover:bg-white/10 h-12 w-12"
+            aria-label={t("Previous", "Zurück")}>
             <ChevronLeft className="h-8 w-8" />
           </Button>
           <Button variant="ghost" size="icon" onClick={next}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white hover:bg-white/10 h-12 w-12">
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white hover:bg-white/10 h-12 w-12"
+            aria-label={t("Next", "Weiter")}>
             <ChevronRight className="h-8 w-8" />
           </Button>
         </>
@@ -121,7 +123,8 @@ export function Slideshow({ files, startIndex = 0, onClose }: SlideshowProps) {
 
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
         <Button variant="ghost" size="icon" onClick={() => setPlaying(p => !p)}
-          className="text-white/70 hover:text-white hover:bg-white/10 h-8 w-8">
+          className="text-white/70 hover:text-white hover:bg-white/10 h-8 w-8"
+          aria-label={playing ? t("Pause", "Pause") : t("Play", "Abspielen")}>
           {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
         </Button>
         {files.length > MAX_SLIDESHOW_FILES && (

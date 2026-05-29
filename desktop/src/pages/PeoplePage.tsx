@@ -338,7 +338,7 @@ function friendlyPeopleError(err: unknown): string {
                     }}>
                     <Users className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">{p.name}</span>
-                    <Badge variant="outline" className="text-[10px] ml-auto">{p.face_count}</Badge>
+                    <Badge variant="outline" className="text-xs ml-auto">{p.face_count}</Badge>
                   </button>
                 ))}
               </div>
@@ -362,15 +362,15 @@ function friendlyPeopleError(err: unknown): string {
         {editingName ? (
           <div className="flex items-center gap-2">
             <Input value={editName} onChange={e => setEditName(e.target.value)} className="text-sm h-8 w-64" autoFocus onKeyDown={e => { if (e.key === "Enter") handleRename(); if (e.key === "Escape") setEditingName(false) }} />
-            <Button size="sm" variant="ghost" onClick={handleRename}><Check className="w-4 h-4" /></Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}><X className="w-4 h-4" /></Button>
+            <Button size="sm" variant="ghost" onClick={handleRename} aria-label={t("Confirm", "Bestätigen")}><Check className="w-4 h-4" /></Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditingName(false)} aria-label={t("Close", "Schließen")}><X className="w-4 h-4" /></Button>
           </div>
         ) : (
-          <Button variant="ghost" size="sm" onClick={() => { setEditName(selectedPerson.name); setEditingName(true) }}><Pencil className="w-3.5 h-3.5" /></Button>
+          <Button variant="ghost" size="sm" onClick={() => { setEditName(selectedPerson.name); setEditingName(true) }} aria-label={t("Edit name", "Name bearbeiten")}><Pencil className="w-3.5 h-3.5" /></Button>
         )}
       </PageHeader>
       {selectedPerson.source_paths.length > 0 && ageCache[selectedPerson.source_paths[0]]?.bracket && ageCache[selectedPerson.source_paths[0]]?.bracket !== "unknown" && (
-        <Badge variant="outline" className="text-[10px] mb-2">{t("Est. age:", "Geschätztes Alter:")} {ageCache[selectedPerson.source_paths[0]].bracket}</Badge>
+        <Badge variant="outline" className="text-xs mb-2">{t("Est. age:", "Geschätztes Alter:")} {ageCache[selectedPerson.source_paths[0]].bracket}</Badge>
       )}
 
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
@@ -408,7 +408,7 @@ function friendlyPeopleError(err: unknown): string {
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">{t("Person:", "Person:")} {selectedPerson?.name}</span>
                     {modalImage && ageCache[modalImage]?.bracket && ageCache[modalImage]?.bracket !== "unknown" && (
-                      <Badge variant="outline" className="text-[10px]">{ageCache[modalImage].bracket}</Badge>
+                      <Badge variant="outline" className="text-xs">{ageCache[modalImage].bracket}</Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-2">

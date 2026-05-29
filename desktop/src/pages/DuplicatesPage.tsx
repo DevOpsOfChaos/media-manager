@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
-import { CheckSquare, Square, Trash2, Info, Loader2, ScanText, Wand2, Star } from "lucide-react"
+import { CheckSquare, Square, Trash2, Info, ScanText, Wand2, Star } from "lucide-react"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
 import { userFriendlyError } from "@/lib/error-utils"
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ErrorBanner } from "@/components/shared/ErrorBanner"
 import { EmptyState } from "@/components/shared/EmptyState"
+import { ProgressBlock } from "@/components/shared/ProgressBlock"
 
 import { loadFavorite, saveFavorite, hasFavorite } from "@/lib/favorites-store"
 import { duplicateScan, similarImagesScan, duplicatesApply } from "@/lib/tauri-bridge"
@@ -48,7 +49,7 @@ const FileThumbnail = React.memo(function FileThumbnail({ path, size = 80 }: { p
   if (errored) {
     return (
       <div
-        className="flex items-center justify-center bg-muted rounded text-muted-foreground text-[10px]"
+        className="flex items-center justify-center bg-muted rounded text-muted-foreground text-xs"
         style={{ width: size, height: size, minWidth: size }}
       >
         {t("no preview", "keine Vorschau")}
@@ -350,7 +351,7 @@ export default function DuplicatesPage() {
                     {t("Browse...", "Durchsuchen...")}
                   </Button>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {t("Drop a folder here or click Browse", "Ordner hier ablegen oder Durchsuchen klicken")}
                 </p>
               </div>
@@ -507,42 +508,7 @@ export default function DuplicatesPage() {
           {error && <ErrorBanner message={error} />}
 
           {loading && (
-            <Card>
-              <CardContent className="py-6">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">{t("Scanning for duplicates...", "Suche nach Duplikaten...")}</span>
-                  </div>
-
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 rounded-full transition-all duration-700"
-                      style={{ width: `${Math.max(simulatedProgress, 1)}%` }} />
-                  </div>
-
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4].map(phase => (
-                      <div key={phase} className={`flex-1 h-1 rounded-full ${scanPhase >= phase ? 'bg-blue-500' : 'bg-muted'}`} />
-                    ))}
-                  </div>
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>Phase {Math.min(scanPhase, 4)}/4</span>
-                    <span>{Math.round(simulatedProgress)}%</span>
-                  </div>
-
-                  <div className="max-h-24 overflow-y-auto bg-muted/20 rounded p-2 space-y-0.5">
-                    {scanLog.map((msg, i) => (
-                      <p key={i} className="text-[10px] text-muted-foreground font-mono">{msg}</p>
-                    ))}
-                    {scanLog.length === 0 && (
-                      <p className="text-[10px] text-muted-foreground animate-pulse">
-                        {t("Scanning files... This may take a while for large libraries.", "Dateien werden gescannt... Bei großen Bibliotheken kann das dauern.")}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <ProgressBlock phase={scanPhase} totalPhases={4} progress={simulatedProgress} log={scanLog} />
           )}
 
           {/* Exact duplicates results */}

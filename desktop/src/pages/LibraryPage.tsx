@@ -28,6 +28,14 @@ import { TagCloud } from "@/components/shared/TagCloud"
 import { Slideshow } from "@/components/shared/Slideshow"
 import { SplitView } from "@/components/shared/SplitView"
 import { LABEL_COLORS } from "@/components/shared/ColorLabel"
+
+const LABEL_CLASS_MAP: Record<string, string> = {
+  red: "bg-red-500",
+  yellow: "bg-yellow-500",
+  green: "bg-green-500",
+  blue: "bg-blue-500",
+  purple: "bg-purple-500",
+}
 import { PickRejectBar, type FlagState } from "@/components/shared/PickRejectBar"
 import { EmailShare } from "@/components/shared/EmailShare"
 import { trackRecentlyViewed } from "@/components/shared/RecentFiles"
@@ -106,7 +114,7 @@ const FileCard = memo(function FileCard({
 
   return (
     <Card
-      className={`overflow-hidden hover:border-primary/30 transition-colors group relative ${isSelected ? "ring-2 ring-primary" : ""} ${isCrossDupe ? "ring-2 ring-yellow-500/50" : ""}`}
+      className={`overflow-hidden hover:border-primary/30 transition-colors group relative cursor-pointer ${isSelected ? "ring-2 ring-primary" : ""} ${isCrossDupe ? "ring-2 ring-yellow-500/50" : ""}`}
       role="button"
       tabIndex={0}
       onKeyDown={e => e.key === "Enter" && onOpen(f.path, f.name)}
@@ -124,12 +132,12 @@ const FileCard = memo(function FileCard({
         </div>
       )}
       {label && label !== "none" && (
-        <div className={`absolute top-1 right-1 h-2 w-2 rounded-full bg-${label}-500 z-10`} />
+        <div className={`absolute top-1 right-1 h-2 w-2 rounded-full ${LABEL_CLASS_MAP[label] || "bg-muted"} z-10`} />
       )}
 
       <div className="aspect-square bg-muted relative overflow-hidden">
         {!selectMode && flag && (
-          <div className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] z-20 ${
+          <div className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs z-20 ${
             flag === "pick" ? "bg-green-500 text-white" : "bg-red-500 text-white"
           }`}>
             {flag === "pick" ? "✓" : "✕"}
@@ -232,10 +240,10 @@ const FileCard = memo(function FileCard({
           </DropdownMenu>
         </div>
         <div className="flex items-center justify-between mt-1">
-          <Badge className={`text-[9px] px-1 py-0 ${SUFFIX_COLORS[f.suffix] || "bg-muted text-muted-foreground"}`}>
+          <Badge className={`text-xs px-1 py-0 ${SUFFIX_COLORS[f.suffix] || "bg-muted text-muted-foreground"}`}>
             {f.suffix}
           </Badge>
-          <span className="text-[10px] text-muted-foreground">{formatSize(f.size)}</span>
+          <span className="text-xs text-muted-foreground">{formatSize(f.size)}</span>
         </div>
         <div className="mt-0.5">
           <StarRating
@@ -657,13 +665,13 @@ export default function LibraryPage() {
           className="text-xs flex-1"
           onKeyDown={e => e.key === "Enter" && browse()}
         />
-        <Button variant="ghost" size="sm" className="text-[10px] h-6" onClick={() => setShowNetworkHint(p => !p)}>
+        <Button variant="ghost" size="sm" className="text-xs h-6" onClick={() => setShowNetworkHint(p => !p)}>
           <HardDrive className="h-3 w-3 mr-1" />
           {t("Network", "Netzwerk")}
         </Button>
         {showNetworkHint && (
           <div className="absolute top-full left-0 mt-1 bg-background border rounded p-2 shadow-lg z-10 w-64">
-            <p className="text-[10px] font-medium mb-1">{t("Common network paths:", "Häufige Netzwerkpfade:")}</p>
+            <p className="text-xs font-medium mb-1">{t("Common network paths:", "Häufige Netzwerkpfade:")}</p>
             {[
               "\\\\NAS\\Photos",
               "\\\\SERVER\\Media",
@@ -671,7 +679,7 @@ export default function LibraryPage() {
               "/mnt/nas/photos",
               "/Volumes/Media",
             ].map(p => (
-              <button key={p} className="block text-[10px] text-left py-0.5 hover:bg-muted rounded px-1 w-full"
+              <button key={p} className="block text-xs text-left py-0.5 hover:bg-muted rounded px-1 w-full"
                 onClick={() => { setRootDir(p); setShowNetworkHint(false) }}>
                 <HardDrive className="h-2.5 w-2.5 mr-1 inline text-muted-foreground" />
                 {p}
@@ -708,7 +716,7 @@ export default function LibraryPage() {
             />
             {allTags.length > 0 && (
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground">{t("Filter by tag:", "Nach Tag filtern:")}</span>
+                <span className="text-xs text-muted-foreground">{t("Filter by tag:", "Nach Tag filtern:")}</span>
                 <TagCloud
                   tags={allTags}
                   selectedTags={tagFilter}
@@ -723,10 +731,10 @@ export default function LibraryPage() {
               {isNarrow ? (
                 <DropdownMenu open={filterDropdownOpen} onOpenChange={setFilterDropdownOpen}>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="text-[10px] h-7 gap-1">
+                    <Button variant="outline" size="sm" className="text-xs h-7 gap-1">
                       <SlidersHorizontal className="h-3 w-3" />
                       {t("Quick filters", "Schnellfilter")}
-                      {activeFilterCount > 0 && <Badge className="ml-1 h-4 px-1 text-[9px]">{activeFilterCount}</Badge>}
+                      {activeFilterCount > 0 && <Badge className="ml-1 h-4 px-1 text-xs">{activeFilterCount}</Badge>}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-48">
@@ -768,26 +776,26 @@ export default function LibraryPage() {
                   setFileTypes([]); setDateFrom(""); setDateTo(""); setFlagFilter("all")
                   setSizeMin(""); setSizeMax(""); setSortBy(""); setPage(0)
                 }}
-                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                   (!fileTypes.length && !dateFrom && !dateTo && flagFilter === "all" && !sortBy)
                     ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
                 }`}>
                 {t("All", "Alle")}
               </button>
               <button onClick={() => { setFileTypes(["photo"]); setPage(0) }}
-                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                   fileTypes.length === 1 && fileTypes[0] === "photo" ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
                 }`}>
                 🖼️ {t("Photos", "Fotos")}
               </button>
               <button onClick={() => { setFileTypes(["video"]); setPage(0) }}
-                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                   fileTypes.length === 1 && fileTypes[0] === "video" ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
                 }`}>
                 🎬 {t("Videos", "Videos")}
               </button>
               <button onClick={() => { setFileTypes(["raw"]); setPage(0) }}
-                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                   fileTypes.length === 1 && fileTypes[0] === "raw" ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
                 }`}>
                 📷 RAW
@@ -796,7 +804,7 @@ export default function LibraryPage() {
                   const today = new Date().toISOString().slice(0, 10)
                   setDateFrom(today); setDateTo(today); setPage(0)
                 }}
-                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                   dateFrom && dateFrom === dateTo ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
                 }`}>
                 📅 {t("Today", "Heute")}
@@ -806,7 +814,7 @@ export default function LibraryPage() {
                   const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10)
                   setDateFrom(weekAgo); setDateTo(now.toISOString().slice(0, 10)); setPage(0)
                 }}
-                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                   dateFrom && dateTo && !(dateFrom === dateTo) ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
                 }`}>
                 📅 {t("Week", "Woche")}
@@ -816,29 +824,29 @@ export default function LibraryPage() {
                   const monthAgo = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10)
                   setDateFrom(monthAgo); setDateTo(now.toISOString().slice(0, 10)); setPage(0)
                 }}
-                className="text-[10px] px-2 py-0.5 rounded-full border text-muted-foreground hover:text-foreground transition-colors">
+                className="text-xs px-2 py-0.5 rounded-full border text-muted-foreground hover:text-foreground transition-colors">
                 📅 {t("Month", "Monat")}
               </button>
               <button onClick={() => { setFlagFilter(flagFilter === "pick" ? "all" : "pick"); setPage(0) }}
-                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                   flagFilter === "pick" ? "bg-green-500 text-white border-green-500" : "text-muted-foreground hover:text-foreground"
                 }`}>
                 ✅ {t("Picks", "Picks")}
               </button>
               <button onClick={() => { setFlagFilter(flagFilter === "reject" ? "all" : "reject"); setPage(0) }}
-                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                   flagFilter === "reject" ? "bg-red-500 text-white border-red-500" : "text-muted-foreground hover:text-foreground"
                 }`}>
                 ❌ {t("Rejects", "Rejects")}
               </button>
               <button onClick={() => { setSortBy("date"); setSortDir(sortBy === "date" && sortDir === "desc" ? "asc" : "desc"); setPage(0) }}
-                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                   sortBy === "date" ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
                 }`}>
                 🆕 {sortBy === "date" && sortDir === "desc" ? t("Newest", "Neueste") : sortBy === "date" ? t("Oldest", "Älteste") : t("By date", "Nach Datum")}
               </button>
               <button onClick={() => { setSortBy("size"); setSortDir(sortBy === "size" && sortDir === "desc" ? "asc" : "desc"); setPage(0) }}
-                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                   sortBy === "size" ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:text-foreground"
                 }`}>
                 📦 {sortBy === "size" && sortDir === "desc" ? t("Largest", "Größte") : sortBy === "size" ? t("Smallest", "Kleinste") : t("By size", "Nach Größe")}
@@ -863,7 +871,7 @@ export default function LibraryPage() {
               </Button>
             )}
             <Button variant="ghost" size="sm" onClick={() => setShowAdvancedFilters(f => !f)}
-              className="text-[10px]">
+              className="text-xs">
               <SlidersHorizontal className="h-3 w-3 mr-1" />
               {showAdvancedFilters ? t("Hide filters", "Filter verbergen") : t("Advanced filters", "Erweiterte Filter")}
             </Button>
@@ -871,14 +879,14 @@ export default function LibraryPage() {
           <div className="flex items-center gap-2">
             <Input value={compareDir} onChange={e => setCompareDir(e.target.value)}
               placeholder={t("Compare with directory...", "Mit Verzeichnis vergleichen...")}
-              className="text-[10px] h-7 w-40" />
+              className="text-xs h-7 w-40" />
             <Button size="sm" variant="outline" onClick={runCompare} disabled={comparing || !compareDir}
-              className="h-7 text-[10px]">
+              className="h-7 text-xs">
               <ArrowLeftRight className="h-3 w-3 mr-1" />
               {comparing ? <Loader2 className="h-3 w-3 animate-spin" /> : t("Compare", "Vergleichen")}
             </Button>
             {compareData && (
-              <Badge className="text-[9px]">
+              <Badge className="text-xs">
                 {crossDupes.size} {t("matches", "Treffer")}
               </Badge>
             )}
@@ -921,29 +929,29 @@ export default function LibraryPage() {
       {showAdvancedFilters && data && (
         <div className="flex flex-wrap gap-2 p-2 border rounded bg-muted/20">
           <input placeholder={t("Camera model...", "Kamera-Modell...")}
-            className="text-[10px] border rounded px-2 py-1 w-32 bg-background"
+            className="text-xs border rounded px-2 py-1 w-32 bg-background"
             value={exifFilters.camera || ""}
             onChange={e => setExifFilters(prev => ({...prev, camera: e.target.value || undefined}))} />
           <input placeholder={t("Lens...", "Objektiv...")}
-            className="text-[10px] border rounded px-2 py-1 w-32 bg-background"
+            className="text-xs border rounded px-2 py-1 w-32 bg-background"
             value={exifFilters.lens || ""}
             onChange={e => setExifFilters(prev => ({...prev, lens: e.target.value || undefined}))} />
           <input placeholder={t("ISO min", "ISO min")} type="number"
-            className="text-[10px] border rounded px-2 py-1 w-20 bg-background"
+            className="text-xs border rounded px-2 py-1 w-20 bg-background"
             onChange={e => setExifFilters(prev => ({...prev, isoMin: e.target.value ? Number(e.target.value) : undefined}))} />
           <input placeholder={t("ISO max", "ISO max")} type="number"
-            className="text-[10px] border rounded px-2 py-1 w-20 bg-background"
+            className="text-xs border rounded px-2 py-1 w-20 bg-background"
             onChange={e => setExifFilters(prev => ({...prev, isoMax: e.target.value ? Number(e.target.value) : undefined}))} />
           <input placeholder={t("Size min (KB)", "Größe min (KB)")} type="number"
-            className="text-[10px] border rounded px-2 py-1 w-24 bg-background"
+            className="text-xs border rounded px-2 py-1 w-24 bg-background"
             value={sizeMin}
             onChange={e => setSizeMin(e.target.value)} />
           <input placeholder={t("Size max (KB)", "Größe max (KB)")} type="number"
-            className="text-[10px] border rounded px-2 py-1 w-24 bg-background"
+            className="text-xs border rounded px-2 py-1 w-24 bg-background"
             value={sizeMax}
             onChange={e => setSizeMax(e.target.value)} />
           {(exifFilters.camera || exifFilters.lens || exifFilters.isoMin || exifFilters.isoMax) && (
-            <Button variant="ghost" size="sm" className="text-[10px]"
+            <Button variant="ghost" size="sm" className="text-xs"
               onClick={() => setExifFilters({})}>
               {t("Clear", "Löschen")}
             </Button>
@@ -976,7 +984,7 @@ export default function LibraryPage() {
               </div>
             </div>
 
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {t("This may take a moment for large libraries.", "Bei großen Bibliotheken kann dies einen Moment dauern.")}
             </p>
           </div>
@@ -1046,15 +1054,15 @@ export default function LibraryPage() {
             <span className="text-muted-foreground">{t("Size", "Größe")}</span>
             <span>{formatSize(selectedFile.size)}</span>
             <span className="text-muted-foreground">{t("Path", "Pfad")}</span>
-            <span className="truncate text-[10px]" title={selectedFile.path}>{selectedFile.relative}</span>
+            <span className="truncate text-xs" title={selectedFile.path}>{selectedFile.relative}</span>
           </div>
           {exifData && (exifData.image_width as number) > 6000 && (
-            <p className="text-[10px] text-amber-500 mt-1">
+            <p className="text-xs text-amber-500 mt-1">
               {t("High resolution image \u2014 may take longer to load", "Hochaufl\u00f6sendes Bild \u2014 Laden kann l\u00e4nger dauern")}
             </p>
           )}
           <div className="flex items-center justify-between mt-3 pt-3 border-t">
-            <span className="text-[10px] text-muted-foreground">{t("Flag", "Markierung")}</span>
+            <span className="text-xs text-muted-foreground">{t("Flag", "Markierung")}</span>
             <PickRejectBar
               flagState={fileFlags[selectedFile.path] || "none"}
               onFlag={(state) => setFlag(selectedFile.path, state)}
@@ -1062,7 +1070,7 @@ export default function LibraryPage() {
             />
           </div>
           <div className="mt-3 pt-3 border-t">
-            <span className="text-[10px] text-muted-foreground">{t("Tags", "Tags")}</span>
+            <span className="text-xs text-muted-foreground">{t("Tags", "Tags")}</span>
             <div className="mt-1">
               <TagInput
                 tags={fileTags[selectedFile.path] || []}
@@ -1072,8 +1080,8 @@ export default function LibraryPage() {
           </div>
           {exifData?.gps_latitude != null && exifData.gps_longitude != null && (
             <div className="mt-3 pt-3 border-t">
-              <span className="text-[10px] text-muted-foreground">{t("GPS", "GPS")}</span>
-              <div className="mt-1 text-[10px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">{t("GPS", "GPS")}</span>
+              <div className="mt-1 text-xs text-muted-foreground">
                 {String(exifData.gps_latitude)}, {String(exifData.gps_longitude)}
               </div>
               <div className="mt-2 rounded overflow-hidden border">

@@ -38,7 +38,7 @@ export function SplitView({ files, onClose }: SplitViewProps) {
             className="text-xs bg-white/10 border border-white/20 rounded px-1 py-0.5">
             {safeFiles.map((f, i) => <option key={i} value={i}>{f.name}</option>)}
           </select>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-white/70 hover:text-white">
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-white/70 hover:text-white" aria-label={t("Close", "Schließen")}>
             <X className="h-4 w-4" />
           </Button>
         </div>

@@ -122,7 +122,7 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
               }`} />
             ))}
           </div>
-          <Button variant="ghost" size="icon" onClick={() => { setExiting(true); setTimeout(onClose, 200) }}>
+          <Button variant="ghost" size="icon" onClick={() => { setExiting(true); setTimeout(onClose, 200) }} aria-label={t("Close", "Schließen")}>
             <X className="h-4 w-4" />
           </Button>
         </div>

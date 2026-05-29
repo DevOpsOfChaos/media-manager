@@ -168,11 +168,11 @@ export default function HistoryPage() {
           </select>
           <div className="flex items-center gap-1 border rounded p-0.5">
             <button onClick={() => setViewMode("list")}
-              className={`text-[10px] px-1.5 py-0.5 rounded ${viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+              className={`text-xs px-1.5 py-0.5 rounded ${viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
               {t("List", "Liste")}
             </button>
             <button onClick={() => setViewMode("timeline")}
-              className={`text-[10px] px-1.5 py-0.5 rounded ${viewMode === "timeline" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+              className={`text-xs px-1.5 py-0.5 rounded ${viewMode === "timeline" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
               {t("Timeline", "Zeitleiste")}
             </button>
           </div>
@@ -201,17 +201,17 @@ export default function HistoryPage() {
                               <div className="flex items-center justify-between">
                                 <div>
                                   <p className="text-sm font-medium">{run.command || t("Unknown", "Unbekannt")}</p>
-                                  <p className="text-[10px] text-muted-foreground">
+                                  <p className="text-xs text-muted-foreground">
                                     {run.mode === "apply" ? t("Applied", "Angewendet") : t("Preview", "Vorschau")}
                                     {run.action_count > 0 && ` · ${run.action_count} ${t("actions", "Aktionen")}`}
                                     {run.review_candidate_count > 0 && ` · ${run.review_candidate_count} ${t("to review", "zu prüfen")}`}
                                   </p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="text-[10px] text-muted-foreground">
+                                  <p className="text-xs text-muted-foreground">
                                     {run.created_at_utc ? new Date(run.created_at_utc).toLocaleDateString() : "—"}
                                   </p>
-                                  <Badge className={`text-[9px] ${run.valid ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"}`}>
+                                  <Badge className={`text-xs ${run.valid ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"}`}>
                                     {run.valid ? t("Valid", "Gültig") : t("Invalid", "Ungültig")}
                                   </Badge>
                                 </div>
