@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import hashlib
@@ -13,8 +13,17 @@ from media_manager.core.path_filters import path_is_included_by_patterns
 from media_manager.media_formats import list_supported_similar_image_extensions, normalize_extensions
 from media_manager.sorter import iter_media_files
 
+_embedding_cache: dict[str, list[float]] = {}
+
+def get_cached_embedding(image_path: str) -> list[float] | None:
+    return _embedding_cache.get(image_path)
+
+def cache_embedding(image_path: str, embedding: list[float]) -> None:
+    _embedding_cache[image_path] = embedding
+
+from media_manager.constants import DEFAULT_TOLERANCE
+
 SCHEMA_VERSION = 1
-DEFAULT_TOLERANCE = 0.6
 DEFAULT_BACKEND = "auto"
 STRONG_BACKEND = "dlib"
 BACKEND_CHOICES = ("auto", "dlib", "face-recognition", "opencv")
@@ -596,6 +605,30 @@ def _euclidean_distance(first: Iterable[float], second: Iterable[float]) -> floa
     return math.sqrt(sum((float(left) - float(right)) ** 2 for left, right in zip(first, second, strict=True)))
 
 
+def _cosine_similarity(first: Iterable[float], second: Iterable[float]) -> float:
+    dot = sum(float(a) * float(b) for a, b in zip(first, second, strict=True))
+    norm_a = math.sqrt(sum(float(a) ** 2 for a in first))
+    norm_b = math.sqrt(sum(float(b) ** 2 for b in second))
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot / (norm_a * norm_b)
+
+
+def _cluster_similar_faces(embeddings: list[tuple[float, ...]], threshold: float = 0.5) -> list[list[tuple[float, ...]]]:
+    """Group similar face embeddings using simple clustering."""
+    clusters: list[list[tuple[float, ...]]] = []
+    for emb in embeddings:
+        placed = False
+        for cluster in clusters:
+            if _cosine_similarity(emb, cluster[0]) > threshold:
+                cluster.append(emb)
+                placed = True
+                break
+        if not placed:
+            clusters.append([emb])
+    return clusters
+
+
 def _best_match(encoding: tuple[float, ...], catalog: PeopleCatalog, *, tolerance: float) -> FaceMatch | None:
     if not encoding:
         return None
@@ -758,7 +791,7 @@ def _save_face_process_cache(cache_path: Path, cache: dict[str, dict]) -> None:
     tmp.replace(cache_path)
 
 
-def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
+def scan_people(config: PeopleScanConfig, progress_callback: Callable[[int, int], None] | None = None) -> PeopleScanResult:
     if config.tolerance <= 0:
         raise ValueError("tolerance must be greater than zero")
 
@@ -818,7 +851,7 @@ def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
     face_cache = _load_face_process_cache(face_cache_path)
     face_cache_updated = False
 
-    for path in image_files:
+    for file_index, path in enumerate(image_files):
         norm_key = os.path.normcase(str(path))
         try:
             current_mtime = path.stat().st_mtime
@@ -880,6 +913,8 @@ def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
         except Exception as exc:  # pragma: no cover - backend/runtime dependent
             result.errors.append({"path": str(path), "error": str(exc)})
             continue
+        if progress_callback is not None:
+            progress_callback(file_index + 1, len(image_files))
 
     if face_cache_updated:
         _save_face_process_cache(face_cache_path, face_cache)
@@ -897,6 +932,80 @@ def scan_people(config: PeopleScanConfig) -> PeopleScanResult:
             "the optional people-dlib backend."
         )
     return result
+
+
+def _process_batch(batch: list[Path], config: PeopleScanConfig, catalog: PeopleCatalog, selected_name: str, backend) -> tuple[list[DetectedFace], int]:
+    detections: list[DetectedFace] = []
+    processed = 0
+    for path in batch:
+        try:
+            if config.use_fast_detector and selected_name == "dlib":
+                faces = _detect_faces_with_yunet_dlib(path, backend)
+            elif selected_name == "dlib":
+                faces = _detect_faces_with_dlib(path, backend)
+            elif selected_name == "face-recognition":
+                faces = _detect_faces_with_face_recognition(path, backend)
+            else:
+                faces = _detect_faces_with_opencv(path, backend)
+            processed += 1
+            for face_index, (box, encoding) in enumerate(faces):
+                match = _best_match(encoding, catalog, tolerance=config.tolerance)
+                detections.append(
+                    DetectedFace(
+                        path=path,
+                        face_index=face_index,
+                        box=box,
+                        encoding=encoding,
+                        match=match,
+                        backend=selected_name,
+                    )
+                )
+        except Exception:
+            continue
+    return detections, processed
+
+
+def scan_people_batch(config: PeopleScanConfig, batch_size: int = 100, progress_callback: Callable[[int, int], None] | None = None) -> PeopleScanResult:
+    all_files = list(iter_media_files(config.source_dirs, media_extensions=SUPPORTED_FACE_IMAGE_EXTENSIONS))
+    results = PeopleScanResult(backend_requested=_validate_backend_name(config.backend))
+    catalog = load_people_catalog(config.catalog_path, load_embeddings=True)
+    results.catalog_person_count = len(catalog.persons)
+
+    backend_status = inspect_people_backend(_validate_backend_name(config.backend))
+    results.dlib_available = backend_status.dlib_available
+    results.face_recognition_available = backend_status.face_recognition_available
+    results.opencv_available = backend_status.opencv_available
+    results.backend_available = backend_status.available
+    results.detection_available = backend_status.detection_available
+    results.matching_available = backend_status.matching_available
+    results.unknown_grouping_available = backend_status.unknown_grouping_available
+    results.backend = backend_status.selected_backend
+
+    selected_name, backend = _selected_backend(_validate_backend_name(config.backend))
+    if backend is None or selected_name is None:
+        results.status = "backend_missing"
+        results.next_action = backend_status.next_action
+        return results
+
+    results.scanned_files = len(all_files)
+    all_detections: list[DetectedFace] = []
+    total_processed = 0
+
+    for i in range(0, len(all_files), batch_size):
+        batch = all_files[i:i + batch_size]
+        batch_detections, batch_processed = _process_batch(batch, config, catalog, selected_name, backend)
+        all_detections.extend(batch_detections)
+        total_processed += batch_processed
+        if progress_callback is not None:
+            progress_callback(i + len(batch), len(all_files))
+
+    results.processed_files = total_processed
+    results.detections = _cluster_unknown_faces(all_detections, tolerance=config.tolerance)
+    results.face_count = len(results.detections)
+    results.matched_faces = sum(1 for item in results.detections if item.match is not None)
+    results.unknown_faces = results.face_count - results.matched_faces
+    results.unknown_cluster_count = len({item.cluster_id for item in results.detections if item.cluster_id})
+    return results
 
 
 def scan_people_two_stage(config: PeopleScanConfig) -> PeopleScanResult:
@@ -1175,6 +1284,8 @@ __all__ = [
     "add_to_ignore_list",
     "backend_available",
     "build_people_review_payload",
+    "cache_embedding",
+    "get_cached_embedding",
     "inspect_people_backend",
     "load_ignore_list",
     "load_people_catalog",
@@ -1182,6 +1293,7 @@ __all__ = [
     "rename_person_in_catalog",
     "save_ignore_list",
     "scan_people",
+    "scan_people_batch",
     "scan_people_two_stage",
     "write_people_catalog",
 ]

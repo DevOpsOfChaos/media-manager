@@ -4,8 +4,10 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any
 
+from media_manager.constants import BRIDGE_ENTRY_LIMIT
+
 SCHEMA_VERSION = "1.0"
-DEFAULT_ENTRY_LIMIT = 200
+DEFAULT_ENTRY_LIMIT = BRIDGE_ENTRY_LIMIT
 
 
 def _now_utc() -> str:

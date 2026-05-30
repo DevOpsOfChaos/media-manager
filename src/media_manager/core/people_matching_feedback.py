@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+from media_manager.constants import DEFAULT_TOLERANCE
+
 
 FEEDBACK_SCHEMA_VERSION = 1
 
@@ -148,7 +150,7 @@ def save_matching_feedback(path: str | Path, store: MatchingFeedbackStore) -> Pa
     return output
 
 
-def suggest_tolerance_adjustment(store: MatchingFeedbackStore, current_tolerance: float = 0.6) -> dict[str, object]:
+def suggest_tolerance_adjustment(store: MatchingFeedbackStore, current_tolerance: float = DEFAULT_TOLERANCE) -> dict[str, object]:
     if store.total_suggestions < 5:
         return {"action": "keep", "suggested_tolerance": current_tolerance, "reason": "Not enough feedback data to adjust tolerance."}
     if store.accuracy_ratio >= 0.85:

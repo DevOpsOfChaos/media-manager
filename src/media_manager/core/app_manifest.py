@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any
 
+from media_manager.constants import BRIDGE_ENTRY_LIMIT
 from media_manager.media_formats import list_media_format_capabilities
 from .plan_snapshot import build_plan_snapshot_from_report
 
@@ -384,7 +385,7 @@ def build_plan_snapshot_state(
     command_name: str,
     report_payload: Mapping[str, Any],
     run_id: str | None = None,
-    entry_limit: int = 200,
+    entry_limit: int = BRIDGE_ENTRY_LIMIT,
 ) -> dict[str, Any]:
     return build_plan_snapshot_from_report(
         command_name=command_name,

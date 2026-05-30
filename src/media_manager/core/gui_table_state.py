@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from media_manager.constants import BRIDGE_ENTRY_LIMIT
+
 TABLE_STATE_SCHEMA_VERSION = "1.0"
 
 
@@ -43,7 +45,7 @@ def build_table_state(
     status_filter: str = "all",
     sort_key: str = "",
     descending: bool = False,
-    limit: int = 200,
+    limit: int = BRIDGE_ENTRY_LIMIT,
 ) -> dict[str, object]:
     filtered = filter_table_rows(rows, query=query, status_filter=status_filter)
     sorted_rows = sort_table_rows(filtered, sort_key=sort_key, descending=descending)

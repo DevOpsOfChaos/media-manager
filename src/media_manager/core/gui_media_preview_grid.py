@@ -3,8 +3,10 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from media_manager.constants import BRIDGE_ENTRY_LIMIT
+
 GRID_SCHEMA_VERSION = "1.0"
-DEFAULT_GRID_LIMIT = 200
+DEFAULT_GRID_LIMIT = BRIDGE_ENTRY_LIMIT
 
 
 def _text(value: object) -> str:

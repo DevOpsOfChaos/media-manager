@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from media_manager.constants import BRIDGE_ENTRY_LIMIT, MAX_PAGE_SIZE, MAX_SIMILAR_IMAGES
+
 RESOURCE_POLICY_SCHEMA_VERSION = "1.0"
 
 
@@ -10,7 +12,7 @@ def _as_mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
-def build_qt_resource_policy(*, max_visible_faces: int = 200, max_table_rows: int = 500, max_image_cache_items: int = 1000) -> dict[str, Any]:
+def build_qt_resource_policy(*, max_visible_faces: int = BRIDGE_ENTRY_LIMIT, max_table_rows: int = MAX_SIMILAR_IMAGES, max_image_cache_items: int = MAX_PAGE_SIZE) -> dict[str, Any]:
     return {
         "schema_version": RESOURCE_POLICY_SCHEMA_VERSION,
         "kind": "qt_resource_policy",

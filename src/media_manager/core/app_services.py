@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from media_manager.constants import BRIDGE_ENTRY_LIMIT
+
 from .action_model import build_action_model_from_report
 from .app_contract_inventory import build_app_contract_inventory, write_app_contract_inventory
 from .gui_app_contract_bindings import build_gui_app_contract_bindings, write_gui_app_contract_bindings
@@ -144,7 +146,7 @@ def build_report_service_bundle(
     report_payload: Mapping[str, Any],
     command_payload: Mapping[str, Any] | None = None,
     run_id: str | None = None,
-    entry_limit: int = 200,
+    entry_limit: int = BRIDGE_ENTRY_LIMIT,
 ) -> dict[str, object]:
     """Build all GUI-facing derived artifacts for a report in one service call."""
     ui_state = build_ui_state_from_report(
@@ -185,7 +187,7 @@ def write_report_service_bundle(
     report_payload: Mapping[str, Any],
     command_payload: Mapping[str, Any] | None = None,
     run_id: str | None = None,
-    entry_limit: int = 200,
+    entry_limit: int = BRIDGE_ENTRY_LIMIT,
 ) -> dict[str, object]:
     bundle = build_report_service_bundle(
         command_name=command_name,

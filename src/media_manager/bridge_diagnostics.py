@@ -10,7 +10,10 @@ Reports Python version, import health, and settings path status.
 from __future__ import annotations
 
 import logging
+import os
+import shutil
 import sys
+from pathlib import Path
 
 from media_manager.bridge_base import emit as _emit
 
@@ -23,12 +26,15 @@ def get_gpu_diagnostics() -> dict:
         "cuda": False,
         "openvino": False,
         "opencv_dnn": False,
+        "opencv_version": None,
         "recommendation": "CPU-only mode",
     }
 
     try:
         import cv2
+        cv2_version = cv2.__version__
         info["opencv_dnn"] = True
+        info["opencv_version"] = cv2_version
 
         try:
             net = cv2.dnn.readNetFromONNX("dummy")
@@ -61,6 +67,40 @@ def _check_import(module_name: str) -> dict:
         return {"ok": False, "error": str(exc)}
 
 
+def _get_system_diagnostics() -> dict:
+    """Collect system-level info: disk space, CPU count."""
+    info = {}
+    try:
+        import multiprocessing
+        info["cpu_count"] = multiprocessing.cpu_count()
+    except Exception:
+        info["cpu_count"] = None
+
+    try:
+        home = Path.home()
+        usage = shutil.disk_usage(home)
+        info["disk_free_gb"] = round(usage.free / (1024 ** 3), 1)
+        info["disk_total_gb"] = round(usage.total / (1024 ** 3), 1)
+    except Exception:
+        info["disk_free_gb"] = None
+        info["disk_total_gb"] = None
+
+    return info
+
+
+def _get_exiftool_version(exiftool_path: str | None = None) -> str | None:
+    """Get ExifTool version string."""
+    import subprocess
+    cmd = [exiftool_path or "exiftool", "-ver"]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
 def cmd_diagnostics() -> int:
     """Collect runtime diagnostics: Python version, imports, settings, GPU support."""
     logger.info("Diagnostics: starting")
@@ -80,6 +120,8 @@ def cmd_diagnostics() -> int:
         "settings_path": str(settings_path),
         "settings_file_exists": settings_path.is_file(),
         "gpu": get_gpu_diagnostics(),
+        "system": _get_system_diagnostics(),
+        "exiftool_version": _get_exiftool_version(),
     }
     _emit(result)
     logger.info("Diagnostics: complete")

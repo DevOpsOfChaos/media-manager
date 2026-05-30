@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from media_manager.constants import HASH_CHUNK_SIZE
+
 
 def files_have_same_size(first_path: Path, second_path: Path) -> bool:
     try:
@@ -10,7 +12,7 @@ def files_have_same_size(first_path: Path, second_path: Path) -> bool:
         return False
 
 
-def files_have_identical_content(first_path: Path, second_path: Path, *, chunk_size: int = 1024 * 1024) -> bool:
+def files_have_identical_content(first_path: Path, second_path: Path, *, chunk_size: int = HASH_CHUNK_SIZE) -> bool:
     if not files_have_same_size(first_path, second_path):
         return False
     try:

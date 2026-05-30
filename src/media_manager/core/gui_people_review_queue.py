@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from media_manager.constants import BRIDGE_ENTRY_LIMIT
+
 QUEUE_SCHEMA_VERSION = "1.0"
 STATUS_ORDER = {
     "needs_name": 0,
@@ -17,7 +19,7 @@ def _text(value: object) -> str:
     return str(value) if value is not None else ""
 
 
-def build_people_review_queue(groups: Iterable[Mapping[str, Any]], *, query: str = "", status_filter: str = "all", limit: int = 200) -> dict[str, object]:
+def build_people_review_queue(groups: Iterable[Mapping[str, Any]], *, query: str = "", status_filter: str = "all", limit: int = BRIDGE_ENTRY_LIMIT) -> dict[str, object]:
     normalized_query = query.strip().casefold()
     normalized_status = status_filter.strip().casefold() or "all"
     rows: list[dict[str, object]] = []

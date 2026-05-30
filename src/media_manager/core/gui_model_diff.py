@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from media_manager.constants import BRIDGE_ENTRY_LIMIT
+
 DIFF_SCHEMA_VERSION = "1.0"
 
 
@@ -30,7 +32,7 @@ def diff_mapping(before: Mapping[str, Any], after: Mapping[str, Any], *, path: s
     return changes
 
 
-def build_model_diff(before: Mapping[str, Any], after: Mapping[str, Any], *, max_changes: int = 200) -> dict[str, object]:
+def build_model_diff(before: Mapping[str, Any], after: Mapping[str, Any], *, max_changes: int = BRIDGE_ENTRY_LIMIT) -> dict[str, object]:
     all_changes = diff_mapping(_mapping(before), _mapping(after))
     limit = max(0, int(max_changes))
     returned = all_changes[:limit]

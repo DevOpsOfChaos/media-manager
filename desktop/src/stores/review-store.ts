@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import type { ReviewSourceKind, ReviewGroup, ReviewDecisionDraft } from "@/types"
 import { reviewSaveSession, reviewLoadSession } from "@/lib/tauri-bridge"
+import { trackError } from "@/lib/error-tracker"
 
 interface ReviewState {
   groups: ReviewGroup[]
@@ -104,6 +105,7 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
       })
       set({ persistError: null })
     } catch (err) {
+      trackError("reviewstore.persist", err)
       set({ persistError: String(err) })
     }
   },
@@ -129,7 +131,8 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
         persistError: null,
       })
       return true
-    } catch {
+    } catch (err) {
+      trackError("reviewstore.restore", err)
       return false
     }
   },

@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import type { OrganizePlannerOptions, OrganizeDryRun, OrganizeExecutionResult } from "@/types"
+import { STORAGE_KEYS } from "@/stores/settings-store"
 
 export type OrganizeStep = "sources" | "config" | "preview" | "result"
 
@@ -40,11 +41,9 @@ interface OrganizeActions {
   reset: () => void
 }
 
-const KEY = "organize_state"
-
-const saved = typeof localStorage !== "undefined" ? localStorage.getItem(KEY) : null
-const defaultSource = typeof localStorage !== "undefined" ? localStorage.getItem("default_source_dir") : null
-const parsed = saved ? (() => { try { return JSON.parse(saved) } catch { return null } })() : null
+const saved = typeof localStorage !== "undefined" ? localStorage.getItem(STORAGE_KEYS.organizeState) : null
+const defaultSource = typeof localStorage !== "undefined" ? localStorage.getItem(STORAGE_KEYS.defaultSourceDir) : null
+const parsed = saved ? (() => { try { return JSON.parse(saved) } catch (e) { trackError("organize.parseSaved", e); return null } })() : null
 const restored = parsed
   ? {
       options: { ...defaultOrganizeOptions, ...(parsed.options || {}) },
@@ -85,12 +84,12 @@ export const useOrganizeStore = create<OrganizeState & OrganizeActions>((set) =>
 useOrganizeStore.subscribe((state) => {
   try {
     localStorage.setItem(
-      KEY,
+      STORAGE_KEYS.organizeState,
       JSON.stringify({
         options: state.options,
         dryRun: state.dryRun,
         result: state.result,
       }),
     )
-  } catch {}
+  } catch (e) { trackError("organize.subscribePersist", e) }
 })

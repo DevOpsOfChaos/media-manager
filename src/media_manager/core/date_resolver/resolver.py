@@ -8,6 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from media_manager.core.metadata import FileInspection, inspect_media_file
+from media_manager.core.perf_timer import timer
 
 from .models import DateResolution, FilenameDateMatch
 from .parse import describe_timezone_status, format_resolution_value, parse_datetime_value
@@ -122,6 +123,17 @@ def _build_metadata_reason(selected_source_tag: str, parseable_candidates: list[
 
 
 def resolve_capture_datetime(
+    file_path: Path,
+    *,
+    inspection: FileInspection | None = None,
+    exiftool_path: Path | None = None,
+    date_source: str = "auto",
+) -> DateResolution:
+    with timer("resolve_capture_datetime", logger):
+        return _resolve_capture_datetime_impl(file_path, inspection=inspection, exiftool_path=exiftool_path, date_source=date_source)
+
+
+def _resolve_capture_datetime_impl(
     file_path: Path,
     *,
     inspection: FileInspection | None = None,

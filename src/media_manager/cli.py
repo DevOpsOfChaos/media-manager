@@ -34,13 +34,25 @@ from . import (
 def _setup_logging() -> None:
     log_dir = Path.home() / ".media-manager" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
+
+    if os.environ.get("MEDIA_MANAGER_LOG_JSON"):
+        formatter = logging.Formatter(
+            '{"time":"%(asctime)s","level":"%(levelname)s","name":"%(name)s","message":"%(message)s"}'
+        )
+    else:
+        formatter = logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+        )
+
+    file_handler = logging.FileHandler(log_dir / "app.log", encoding="utf-8")
+    file_handler.setFormatter(formatter)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        handlers=[
-            logging.FileHandler(log_dir / "app.log", encoding="utf-8"),
-            logging.StreamHandler(),  # also print to stderr
-        ],
+        handlers=[file_handler, stream_handler],
     )
     logging.getLogger("PIL").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)

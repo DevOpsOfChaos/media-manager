@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from media_manager.constants import MAX_SIMILAR_IMAGES
+
 TABLE_ADAPTER_SCHEMA_VERSION = "1.0"
 
 
@@ -37,7 +39,7 @@ def build_qt_table_adapter(
     *,
     rows: Sequence[Mapping[str, Any]],
     columns: Sequence[str] | None = None,
-    max_rows: int = 500,
+    max_rows: int = MAX_SIMILAR_IMAGES,
 ) -> dict[str, object]:
     selected_columns = list(columns or infer_table_columns(rows))
     visible_rows = list(rows)[: max(0, int(max_rows))]

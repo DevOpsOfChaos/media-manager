@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from media_manager.constants import BRIDGE_ENTRY_LIMIT
+
 TABLE_VISIBLE_PLAN_SCHEMA_VERSION = "1.0"
 
 
@@ -34,7 +36,7 @@ def build_qt_table_visible_plan(
     table_id: str,
     columns: Iterable[object] = (),
     rows: Iterable[Mapping[str, Any]] = (),
-    max_rows: int = 200,
+    max_rows: int = BRIDGE_ENTRY_LIMIT,
     empty_title: str = "No rows",
 ) -> dict[str, object]:
     row_list = [dict(row) for row in rows]

@@ -4,6 +4,8 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
+from media_manager.constants import BRIDGE_ENTRY_LIMIT
+
 IMAGE_LOADING_SCHEMA_VERSION = "1.0"
 
 
@@ -25,7 +27,7 @@ def build_image_load_request(asset_ref: Mapping[str, Any], *, thumbnail_size: in
     }
 
 
-def build_image_loading_queue(asset_refs: Iterable[Mapping[str, Any]], *, thumbnail_size: int = 256, max_items: int = 200) -> dict[str, object]:
+def build_image_loading_queue(asset_refs: Iterable[Mapping[str, Any]], *, thumbnail_size: int = 256, max_items: int = BRIDGE_ENTRY_LIMIT) -> dict[str, object]:
     requests = [build_image_load_request(ref, thumbnail_size=thumbnail_size) for ref in asset_refs]
     requests.sort(key=lambda item: (int(item["priority"]), str(item["source_path"]).casefold()))
     returned = requests[: max(0, max_items)]

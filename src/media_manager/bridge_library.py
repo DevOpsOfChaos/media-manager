@@ -34,6 +34,7 @@ def _get_file_category(suffix: str) -> str:
 
 
 from media_manager.bridge_base import emit as _emit, fail as _fail
+from media_manager.constants import MAX_PAGE_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -186,8 +187,8 @@ def cmd_browse() -> int:
     total_count = len(media_files)
 
     # Paginate — force upper bound to keep memory predictable for 160k+ libraries
-    if page_size <= 0 or page_size > 1000:
-        page_size = 1000
+    if page_size <= 0 or page_size > MAX_PAGE_SIZE:
+        page_size = MAX_PAGE_SIZE
     start = page * page_size
     end = start + page_size
     paged_files = media_files[start:end]

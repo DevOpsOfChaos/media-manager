@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 
 from media_manager.bridge_base import emit as _emit, fail as _fail
+from media_manager.constants import MAX_SIMILAR_IMAGES, MAX_SIMILAR_PAIRS
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,12 @@ def _serialize_group(group) -> dict:
     }
 
 
+def _progress_to_stderr(message: str) -> None:
+    """Write progress message to stderr as structured JSON."""
+    print(json.dumps({"kind": "progress", "phase": "similar_scan", "message": message}), file=sys.stderr)
+    sys.stderr.flush()
+
+
 def cmd_preview() -> int:
     """Scan similar images from stdin JSON config, emit similarity groups."""
     raw = sys.stdin.read()
@@ -60,9 +67,9 @@ def cmd_preview() -> int:
     if not source_dirs_raw:
         return _fail("source_dirs is required and must be non-empty.")
 
-    max_images = payload.get("max_images", 500)
+    max_images = payload.get("max_images", MAX_SIMILAR_IMAGES)
     if not isinstance(max_images, int) or max_images < 1:
-        max_images = 500
+        max_images = MAX_SIMILAR_IMAGES
 
     # Guardrail: count image files before scanning
     from media_manager.sorter import iter_media_files
@@ -74,9 +81,9 @@ def cmd_preview() -> int:
     # Estimate pair count: n*(n-1)/2
     estimated_pairs = image_count * (image_count - 1) // 2 if image_count > 1 else 0
 
-    max_pairs = payload.get("max_pairs", 150_000)
+    max_pairs = payload.get("max_pairs", MAX_SIMILAR_PAIRS)
     if not isinstance(max_pairs, int) or max_pairs < 1:
-        max_pairs = 150_000
+        max_pairs = MAX_SIMILAR_PAIRS
 
     if image_count > max_images or estimated_pairs > max_pairs:
         blocked_reasons = []
@@ -113,9 +120,14 @@ def cmd_preview() -> int:
         })
         return 0
 
+    hash_sizes = payload.get("hash_sizes", [payload.get("hash_size", 8)])
+    if not isinstance(hash_sizes, list) or len(hash_sizes) == 0:
+        hash_sizes = [8]
+
     config = SimilarImageScanConfig(
         source_dirs=source_paths,
         hash_size=payload.get("hash_size", 8),
+        hash_sizes=tuple(hash_sizes),
         max_distance=payload.get("max_distance", 6),
         include_patterns=tuple(payload.get("include_patterns", ())),
         exclude_patterns=tuple(payload.get("exclude_patterns", ())),
@@ -123,7 +135,7 @@ def cmd_preview() -> int:
 
     try:
         logger.info("Similar image scan: %d source dirs, %d image files", len(config.source_dirs), image_count)
-        result = scan_similar_images(config)
+        result = scan_similar_images(config, progress_callback=_progress_to_stderr)
     except Exception as exc:
         logger.exception("Similar image scan failed")
         return _fail(f"Similar image scan failed: {exc}")

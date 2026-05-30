@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from collections import Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from media_manager.constants import SAMPLE_SIZE, HASH_CHUNK_SIZE
+
 from .core.path_filters import path_is_included_by_patterns
+from .core.perf_timer import timer
 from .media_formats import media_kind_for_extension, normalize_extensions
 from .sorter import iter_media_files
+
+_logger = logging.getLogger(__name__)
 
 ProgressCallback = Callable[[str], None]
 
@@ -16,8 +22,8 @@ ProgressCallback = Callable[[str], None]
 @dataclass(slots=True)
 class DuplicateScanConfig:
     source_dirs: list[Path]
-    sample_size: int = 64 * 1024
-    hash_chunk_size: int = 1024 * 1024
+    sample_size: int = SAMPLE_SIZE
+    hash_chunk_size: int = HASH_CHUNK_SIZE
     include_patterns: tuple[str, ...] = ()
     exclude_patterns: tuple[str, ...] = ()
     media_extensions: frozenset[str] | None = None
@@ -102,7 +108,7 @@ def _sample_offsets(file_size: int, sample_size: int) -> list[int]:
     return unique_offsets
 
 
-def compute_sample_fingerprint(path: Path, sample_size: int = 64 * 1024) -> str:
+def compute_sample_fingerprint(path: Path, sample_size: int = SAMPLE_SIZE) -> str:
     file_size = path.stat().st_size
     digest = hashlib.blake2b(digest_size=20)
     digest.update(file_size.to_bytes(16, byteorder="little", signed=False))
@@ -116,7 +122,7 @@ def compute_sample_fingerprint(path: Path, sample_size: int = 64 * 1024) -> str:
     return digest.hexdigest()
 
 
-def compute_full_hash(path: Path, chunk_size: int = 1024 * 1024) -> str:
+def compute_full_hash(path: Path, chunk_size: int = HASH_CHUNK_SIZE) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         while True:
@@ -127,7 +133,7 @@ def compute_full_hash(path: Path, chunk_size: int = 1024 * 1024) -> str:
     return digest.hexdigest()
 
 
-def files_are_identical(first_path: Path, second_path: Path, chunk_size: int = 1024 * 1024) -> bool:
+def files_are_identical(first_path: Path, second_path: Path, chunk_size: int = HASH_CHUNK_SIZE) -> bool:
     if first_path.stat().st_size != second_path.stat().st_size:
         return False
 
@@ -265,6 +271,14 @@ def _byte_compare_clusters(
 
 
 def scan_exact_duplicates(
+    config: DuplicateScanConfig,
+    progress_callback: ProgressCallback | None = None,
+) -> DuplicateScanResult:
+    with timer("scan_exact_duplicates", _logger):
+        return _scan_exact_duplicates_impl(config, progress_callback)
+
+
+def _scan_exact_duplicates_impl(
     config: DuplicateScanConfig,
     progress_callback: ProgressCallback | None = None,
 ) -> DuplicateScanResult:

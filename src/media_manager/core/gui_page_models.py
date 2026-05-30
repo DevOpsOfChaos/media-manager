@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from media_manager.constants import BRIDGE_ENTRY_LIMIT
+
 from .gui_dashboard_model import build_dashboard_overview
 from .gui_empty_states import build_empty_state
 from .gui_file_refs import build_local_file_ref, collect_asset_refs
@@ -184,7 +186,7 @@ def build_profiles_page_model(home_state: Mapping[str, Any], *, language: str = 
     }
 
 
-def load_people_review_page_model(bundle_dir: str | Path | None, *, asset_limit: int = 200, language: str = "en", query: str = "", selected_group_id: str | None = None, density: str = "comfortable") -> dict[str, object]:
+def load_people_review_page_model(bundle_dir: str | Path | None, *, asset_limit: int = BRIDGE_ENTRY_LIMIT, language: str = "en", query: str = "", selected_group_id: str | None = None, density: str = "comfortable") -> dict[str, object]:
     root = Path(bundle_dir) if bundle_dir is not None else None
     manifest = _read_json_object(root / "bundle_manifest.json") if root is not None else None
     workspace = _read_json_object(root / "people_review_workspace.json") if root is not None else None
@@ -219,7 +221,7 @@ def load_people_review_page_model(bundle_dir: str | Path | None, *, asset_limit:
     return page
 
 
-def build_people_review_page_model(home_state: Mapping[str, Any], *, asset_limit: int = 200, language: str = "en", query: str = "", selected_group_id: str | None = None, density: str = "comfortable") -> dict[str, object]:
+def build_people_review_page_model(home_state: Mapping[str, Any], *, asset_limit: int = BRIDGE_ENTRY_LIMIT, language: str = "en", query: str = "", selected_group_id: str | None = None, density: str = "comfortable") -> dict[str, object]:
     people = home_state.get("people_review")
     bundle_dir = _as_mapping(people).get("bundle_dir") if isinstance(people, Mapping) else None
     return load_people_review_page_model(bundle_dir, asset_limit=asset_limit, language=language, query=query, selected_group_id=selected_group_id, density=density)

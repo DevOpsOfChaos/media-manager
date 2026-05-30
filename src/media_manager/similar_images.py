@@ -17,11 +17,22 @@ except Exception:  # pragma: no cover - runtime fallback
 ProgressCallback = Callable[[str], None]
 IMAGE_EXTENSIONS = list_supported_similar_image_extensions()
 
+_phash_cache: dict[str, int] = {}
+
+
+def get_cached_phash(path: str) -> int | None:
+    return _phash_cache.get(path)
+
+
+def cache_phash(path: str, phash: int) -> None:
+    _phash_cache[path] = phash
+
 
 @dataclass(slots=True, frozen=True)
 class SimilarImageScanConfig:
     source_dirs: list[Path]
     hash_size: int = 8
+    hash_sizes: tuple[int, ...] = (8,)
     max_distance: int = 6
     include_patterns: tuple[str, ...] = ()
     exclude_patterns: tuple[str, ...] = ()
@@ -108,6 +119,32 @@ def hash_to_hex(hash_value: int, hash_size: int) -> str:
     return f"{hash_value:0{width}x}"
 
 
+def compute_multires_hash(path: Path, sizes: list[int] | None = None) -> list[int]:
+    """Compute perceptual average hashes at multiple resolutions."""
+    _ensure_pillow()
+    if sizes is None:
+        sizes = [8, 16, 32]
+    hashes = []
+    with Image.open(path) as handle:
+        for size in sizes:
+            image = handle.convert("L").resize((size, size), Image.Resampling.LANCZOS)
+            pixels = list(image.getdata())
+            average = sum(pixels) / len(pixels)
+            value = 0
+            for pixel in pixels:
+                value = (value << 1) | int(pixel >= average)
+            hashes.append(value)
+    return hashes
+
+
+def _concat_hashes(hashes: list[int], sizes: list[int]) -> int:
+    """Concatenate hash values into a single large integer."""
+    result = 0
+    for h, s in zip(hashes, sizes):
+        result = (result << (s * s)) | h
+    return result
+
+
 def hamming_distance(first_hash: int, second_hash: int) -> int:
     return (first_hash ^ second_hash).bit_count()
 
@@ -123,6 +160,12 @@ def scan_similar_images(
         raise ValueError("hash_size must be greater than zero")
 
     result = SimilarImageScanResult()
+    use_multires = len(config.hash_sizes) > 1
+    hash_sizes_list = list(config.hash_sizes) if use_multires else [config.hash_size]
+    total_hash_bits = sum(s * s for s in hash_sizes_list)
+
+    _emit_progress(progress_callback, "Phase 1/4 — Scanning source folders...")
+
     scan_extensions = list_supported_media_extensions()
     if config.media_extensions is not None:
         scan_extensions = normalize_extensions(config.media_extensions) & scan_extensions
@@ -150,26 +193,44 @@ def scan_similar_images(
     result.image_files = len(image_files)
     _emit_progress(
         progress_callback,
-        f"Found {result.image_files} similarity-capable image file(s) among {result.scanned_files} media file(s).",
+        f"Phase 1 done. Found {result.image_files} similarity-capable image file(s) among {result.scanned_files} media file(s).",
     )
 
     if result.image_files == 0:
         return result
 
+    _emit_progress(progress_callback, f"Phase 2/4 — Computing perceptual hashes for {result.image_files} images...")
+
     hashes: dict[Path, int] = {}
     dimensions: dict[Path, tuple[int, int]] = {}
     for path in image_files:
+        cache_key = str(path)
         try:
-            hash_value, image_size = compute_average_hash_details(path, hash_size=config.hash_size)
+            if cache_key in _phash_cache:
+                hash_value = _phash_cache[cache_key]
+            elif use_multires:
+                hash_list = compute_multires_hash(path, sizes=hash_sizes_list)
+                hash_value = _concat_hashes(hash_list, hash_sizes_list)
+                _phash_cache[cache_key] = hash_value
+            else:
+                hash_value = _phash_cache.get(cache_key)
+                if hash_value is None:
+                    hash_value, _ = compute_average_hash_details(path, hash_size=config.hash_size)
+                    _phash_cache[cache_key] = hash_value
             hashes[path] = hash_value
-            dimensions[path] = image_size
+            with Image.open(path) as handle:
+                dimensions[path] = handle.size
             result.hashed_files += 1
         except Exception:
             result.errors += 1
             result.decode_errors += 1
 
+    _emit_progress(progress_callback, f"Phase 2 done. Hashed {result.hashed_files} of {result.image_files} images.")
+
     if len(hashes) < 2:
         return result
+
+    _emit_progress(progress_callback, f"Phase 3/4 — Finding pairs among {len(hashes)} hashes...")
 
     ordered_paths = sorted(hashes.keys(), key=_normalized_sort_key)
     adjacency: dict[Path, set[Path]] = defaultdict(set)
@@ -184,6 +245,10 @@ def scan_similar_images(
                 adjacency[first_path].add(second_path)
                 adjacency[second_path].add(first_path)
                 result.similar_pairs += 1
+
+    _emit_progress(progress_callback, f"Phase 3 done. Checked {result.candidate_pairs_checked:,} candidate pairs, found {result.similar_pairs} similar.")
+
+    _emit_progress(progress_callback, "Phase 4/4 — Comparing candidates and building groups...")
 
     visited: set[Path] = set()
     groups: list[SimilarImageGroup] = []
@@ -211,7 +276,7 @@ def scan_similar_images(
                 members=[
                     SimilarImageMember(
                         path=item,
-                        hash_hex=hash_to_hex(hashes[item], config.hash_size),
+                        hash_hex=hash_to_hex(hashes[item], total_hash_bits if use_multires else config.hash_size),
                         distance=hamming_distance(anchor_hash, hashes[item]),
                         width=dimensions[item][0],
                         height=dimensions[item][1],
@@ -223,4 +288,6 @@ def scan_similar_images(
 
     groups.sort(key=lambda group: (-len(group.members), _normalized_sort_key(group.anchor_path)))
     result.similar_groups = groups
+
+    _emit_progress(progress_callback, f"Phase 4 done. Built {len(groups)} similar group(s).")
     return result

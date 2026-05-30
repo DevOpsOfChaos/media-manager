@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core"
+import { trackError } from "@/lib/error-tracker"
 
 export interface PreflightResult {
   ok: boolean
@@ -12,7 +13,8 @@ export async function runPreflight(sourceDir?: string): Promise<PreflightResult>
   try {
     const result = await invoke<PreflightResult>("run_preflight", { sourceDir })
     return result
-  } catch {
+  } catch (e) {
+    trackError("preflight", e)
     return {
       ok: false,
       python: false,

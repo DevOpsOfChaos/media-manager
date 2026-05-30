@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from media_manager.constants import BRIDGE_ENTRY_LIMIT
+
 from .gui_file_refs import build_local_file_ref
 
 PEOPLE_REVIEW_GUI_SCHEMA_VERSION = "1.0"
@@ -16,7 +18,7 @@ def _as_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
-def build_people_review_card_grid(page_model: Mapping[str, Any], *, face_limit: int = 200) -> dict[str, object]:
+def build_people_review_card_grid(page_model: Mapping[str, Any], *, face_limit: int = BRIDGE_ENTRY_LIMIT) -> dict[str, object]:
     groups = [item for item in _as_list(page_model.get("groups")) if isinstance(item, Mapping)]
     assets = [item for item in _as_list(page_model.get("asset_refs")) if isinstance(item, Mapping)]
     assets_by_face_id = {str(item.get("face_id")): item for item in assets if item.get("face_id")}

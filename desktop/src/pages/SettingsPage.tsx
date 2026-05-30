@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
+import { trackError } from "@/lib/error-tracker"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -57,6 +58,7 @@ export default function SettingsPage() {
       const result = await runtimeDiagnostics()
       setDiag(result)
     } catch (err) {
+      trackError("settings.diagnostics", err)
       setDiagError(String(err))
     } finally {
       setDiagLoading(false)
@@ -428,6 +430,32 @@ export default function SettingsPage() {
                         value={diag.env_hints.MEDIA_MANAGER_PROJECT_ROOT}
                       />
                     </div>
+
+                    <Separator />
+
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {t("System", "System")}
+                    </p>
+                    <InfoRow label={t("Python version", "Python-Version")} value={diag.python_version ?? "—"} />
+                    <InfoRow label={t("ExifTool version", "ExifTool-Version")} value={diag.exiftool_version ?? "—"} />
+                    <InfoRow label={t("CPU count", "CPU-Anzahl")} value={diag.system?.cpu_count != null ? String(diag.system.cpu_count) : "—"} />
+                    {diag.system?.disk_free_gb != null && (
+                      <InfoRow
+                        label={t("Disk free", "Speicher frei")}
+                        value={`${diag.system.disk_free_gb} GB / ${diag.system.disk_total_gb} GB`}
+                      />
+                    )}
+                    <StatusRow
+                      label={t("OpenCV", "OpenCV")}
+                      ok={diag.gpu?.opencv_dnn}
+                      detail={diag.gpu?.opencv_version ?? undefined}
+                    />
+                    <StatusRow
+                      label={t("CUDA", "CUDA")}
+                      ok={diag.gpu?.cuda}
+                      detail={diag.gpu?.recommendation ?? undefined}
+                    />
+
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">

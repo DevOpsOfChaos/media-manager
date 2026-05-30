@@ -4,6 +4,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from media_manager.constants import BRIDGE_ENTRY_LIMIT
+
 IMAGE_PIPELINE_SCHEMA_VERSION = "1.0"
 
 def _mapping(value: object) -> Mapping[str, Any]:
@@ -27,7 +29,7 @@ def build_qt_image_request(asset: Mapping[str, Any], *, size: int = 192) -> dict
         "redaction_allowed": sensitive,
     }
 
-def build_qt_image_pipeline(assets: Sequence[Mapping[str, Any]], *, size: int = 192, limit: int = 200) -> dict[str, object]:
+def build_qt_image_pipeline(assets: Sequence[Mapping[str, Any]], *, size: int = 192, limit: int = BRIDGE_ENTRY_LIMIT) -> dict[str, object]:
     selected = list(assets)[: max(0, limit)]
     requests = [build_qt_image_request(asset, size=size) for asset in selected]
     return {

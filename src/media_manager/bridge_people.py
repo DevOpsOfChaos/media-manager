@@ -40,6 +40,10 @@ logger = logging.getLogger(__name__)
 CACHE_VERSION = 1
 
 
+def _progress_to_stderr(message: str) -> None:
+    print(json.dumps({"progress": message}), file=sys.stderr, flush=True)
+
+
 def _cache_path(source_dirs: tuple[Path, ...]) -> Path:
     key = hashlib.sha1("|".join(sorted(str(p) for p in source_dirs)).encode()).hexdigest()[:12]
     return _get_app_dir() / "cache" / "people_scan_cache" / f"{key}.json"
@@ -184,7 +188,9 @@ def cmd_scan() -> int:
             tolerance=payload.get("tolerance", DEFAULT_TOLERANCE),
             backend=payload.get("backend", DEFAULT_BACKEND),
         )
-        result = scan_people(options)
+        def _on_progress(current: int, total: int) -> None:
+            _progress_to_stderr(f"Scanning faces: {current}/{total} ({current * 100 // max(total, 1)}%)")
+        result = scan_people(options, progress_callback=_on_progress)
     except Exception as exc:
         logger.exception("People scan failed")
         _save_cache(cp, cache)

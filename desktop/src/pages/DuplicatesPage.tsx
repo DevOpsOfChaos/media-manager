@@ -104,7 +104,14 @@ export default function DuplicatesPage() {
     { nameEn: "Phase 3/4 — Full hashing candidates...", nameDe: "Phase 3/4 — Vollständiges Hashing der Kandidaten...", endAt: 85, increment: 0.5 },
     { nameEn: "Phase 4/4 — Byte comparison...", nameDe: "Phase 4/4 — Byte-Vergleich...", endAt: 98, increment: 0.3 },
   ]
+  const SIMILAR_PHASES = [
+    { nameEn: "Phase 1/4 — Scanning files...", nameDe: "Phase 1/4 — Dateien werden gescannt...", endAt: 15, increment: 1.5 },
+    { nameEn: "Phase 2/4 — Computing perceptual hashes...", nameDe: "Phase 2/4 — Perzeptuelle Hashes werden berechnet...", endAt: 55, increment: 1 },
+    { nameEn: "Phase 3/4 — Finding pairs...", nameDe: "Phase 3/4 — Paare werden gesucht...", endAt: 85, increment: 0.5 },
+    { nameEn: "Phase 4/4 — Comparing candidates...", nameDe: "Phase 4/4 — Kandidaten werden verglichen...", endAt: 98, increment: 0.3 },
+  ]
   const { phase: scanPhase, progress: simulatedProgress, log: scanLog, start: startDupProgress, complete: completeDupProgress } = useSimulatedProgress(DUP_PHASES)
+  const { phase: similarPhase, progress: similarProgress, log: similarLog, start: startSimilarProgress, complete: completeSimilarProgress } = useSimulatedProgress(SIMILAR_PHASES)
 
   const [isFavorite, setIsFavorite] = useState(() => hasFavorite("duplicates"))
 
@@ -129,6 +136,7 @@ export default function DuplicatesPage() {
     setSimilarPreview(null)
     setExpandedGroups(new Set())
     startDupProgress()
+    startSimilarProgress()
     startProgress(t("Scanning for duplicates...", "Suche nach Duplikaten..."), 2)
     try {
       const config = { source_dirs: [sourceDir.trim()], include_patterns: [], exclude_patterns: [] }
@@ -138,6 +146,7 @@ export default function DuplicatesPage() {
       ])
       updateProgress(2)
       completeDupProgress(`Complete! ${exact.exact_groups?.length || 0} exact + ${similar.similar_groups?.length || 0} similar groups found.`)
+      completeSimilarProgress(`Complete! ${exact.exact_groups?.length || 0} exact + ${similar.similar_groups?.length || 0} similar groups found.`)
       toast("info", t(`Found ${(exact.exact_groups?.length || 0) + (similar.similar_groups?.length || 0)} duplicate groups`, `${(exact.exact_groups?.length || 0) + (similar.similar_groups?.length || 0)} Duplikatgruppen gefunden`))
       setExactPreview(exact)
       setSimilarPreview(similar)
@@ -171,6 +180,7 @@ export default function DuplicatesPage() {
     setSimilarPreview(null)
     setExpandedGroups(new Set())
     startDupProgress()
+    if (tab === "similar") startSimilarProgress()
     startProgress(t("Scanning for duplicates...", "Suche nach Duplikaten..."), 2)
     try {
       const config = { source_dirs: [sourceDir.trim()], include_patterns: [], exclude_patterns: [] }
@@ -181,7 +191,7 @@ export default function DuplicatesPage() {
         setExactPreview(result)
       } else if (tab === "similar") {
         const result = await similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages, max_pairs: maxPairs })
-        completeDupProgress(`Complete! ${result.similar_groups?.length || 0} groups found.`)
+        completeSimilarProgress(`Complete! ${result.similar_groups?.length || 0} groups found.`)
         toast("info", t(`Found ${result.similar_groups?.length || 0} similar image groups`, `${result.similar_groups?.length || 0} ähnliche Bildgruppen gefunden`))
         setSimilarPreview(result)
       } else {
@@ -201,7 +211,7 @@ export default function DuplicatesPage() {
       setTimeout(() => finishProgress(), 500)
       setLoading(false)
     }
-  }, [sourceDir, t, tab, maxDistance, maxImages, maxPairs, startDupProgress, completeDupProgress, startProgress, updateProgress, finishProgress])
+  }, [sourceDir, t, tab, maxDistance, maxImages, maxPairs, startDupProgress, completeDupProgress, startSimilarProgress, completeSimilarProgress, startProgress, updateProgress, finishProgress])
 
   const browseForSource = async () => {
     try {
@@ -512,7 +522,10 @@ export default function DuplicatesPage() {
 
           {error && <ErrorBanner message={error} />}
 
-          {loading && (
+          {loading && tab === "similar" && (
+            <ProgressBlock phase={similarPhase} totalPhases={4} progress={similarProgress} log={similarLog} />
+          )}
+          {loading && tab !== "similar" && (
             <ProgressBlock phase={scanPhase} totalPhases={4} progress={simulatedProgress} log={scanLog} />
           )}
 

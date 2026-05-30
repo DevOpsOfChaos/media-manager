@@ -2,6 +2,27 @@ import { create } from "zustand"
 import type { GuiSettings } from "@/types"
 import { settingsRead, settingsWrite, settingsReset } from "@/lib/tauri-bridge"
 
+export const STORAGE_KEYS = {
+  libraryRoot: "library_root",
+  defaultSourceDir: "default_source_dir",
+  theme: "theme",
+  language: "language",
+  sidebarConfig: "sidebar_config",
+  sidebarFavorites: "sidebar_favorites",
+  smartCollections: "smart_collections",
+  libraryFlags: "library_flags",
+  libraryTags: "library_tags",
+  libraryRatings: "library_ratings",
+  recentlyViewed: "recently_viewed",
+  lastBackup: "last_backup_date",
+  dryRun: "dry_run",
+  onboardingComplete: "onboarding_complete",
+  quickSetupDone: "quick_setup_done",
+  hasLaunchedBefore: "has_launched_before",
+  organizeState: "organize_state",
+  toolFavorites: "tool_favorites",
+} as const
+
 export const defaultSettings: GuiSettings = {
   schema_version: "1.1",
   language: "en",
@@ -73,6 +94,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>(
         const settings = await settingsRead()
         set({ settings, loaded: true, loading: false, dirty: false, saved: false })
       } catch (err) {
+        trackError("settings.load", err)
         set({ error: String(err), loaded: true, loading: false })
       }
     },
@@ -84,6 +106,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>(
         const saved = await settingsWrite(settings)
         set({ settings: saved, loading: false, dirty: false, saved: true })
       } catch (err) {
+        trackError("settings.save", err)
         set({ error: String(err), loading: false })
       }
     },
@@ -94,6 +117,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>(
         const settings = await settingsReset()
         set({ settings, loading: false, dirty: false, saved: true })
       } catch (err) {
+        trackError("settings.reset", err)
         set({ error: String(err), loading: false })
       }
     },

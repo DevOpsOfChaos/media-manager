@@ -8,6 +8,8 @@ interface Toast {
 
 export type { ToastType, Toast }
 
+const TOAST_DURATION = 4000
+
 let listeners: Array<(toasts: Toast[]) => void> = []
 let toasts: Toast[] = []
 
@@ -18,7 +20,7 @@ export function toast(type: ToastType, message: string) {
   setTimeout(() => {
     toasts = toasts.filter(t => t.id !== id)
     listeners.forEach(l => l(toasts))
-  }, 4000)
+  }, TOAST_DURATION)
 }
 
 export function subscribe(fn: (toasts: Toast[]) => void) {

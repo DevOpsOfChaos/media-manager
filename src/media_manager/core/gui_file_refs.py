@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from media_manager.constants import BRIDGE_ENTRY_LIMIT
+
 FILE_REF_SCHEMA_VERSION = "1.0"
 
 
@@ -68,7 +70,7 @@ def build_asset_ref(asset: dict[str, Any], *, bundle_dir: str | Path | None = No
     return ref
 
 
-def collect_asset_refs(asset_manifest: dict[str, Any] | None, *, bundle_dir: str | Path | None = None, limit: int = 200) -> list[dict[str, object]]:
+def collect_asset_refs(asset_manifest: dict[str, Any] | None, *, bundle_dir: str | Path | None = None, limit: int = BRIDGE_ENTRY_LIMIT) -> list[dict[str, object]]:
     if not isinstance(asset_manifest, dict):
         return []
     assets = asset_manifest.get("assets")

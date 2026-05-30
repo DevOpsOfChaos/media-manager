@@ -9,12 +9,15 @@ from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from media_manager.core.perf_timer import timer
+
 logger = logging.getLogger(__name__)
 
 from media_manager.core.date_resolver import resolve_capture_datetime
 from media_manager.core.file_identity import files_have_identical_content
 from media_manager.core.media_groups import build_media_groups
 from media_manager.core.metadata.inspect import inspect_media_files_batch
+from media_manager.constants import LARGE_BATCH_SIZE, LARGE_LIBRARY_THRESHOLD
 
 if TYPE_CHECKING:
     from media_manager.core.progress_tracker import ProgressTracker
@@ -195,7 +198,13 @@ def _augment_files_with_associated_sidecars(
 
 
 def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=None, cancel_event=None,
-                          progress: "ProgressTracker | None" = None) -> OrganizeDryRun:
+                           progress: "ProgressTracker | None" = None) -> OrganizeDryRun:
+    with timer("build_organize_dry_run", logger):
+        return _build_organize_dry_run_impl(options, progress_callback, cancel_event, progress)
+
+
+def _build_organize_dry_run_impl(options: OrganizePlannerOptions, progress_callback=None, cancel_event=None,
+                                 progress: "ProgressTracker | None" = None) -> OrganizeDryRun:
 
     # ── Phase: scanning ──
     if progress:
@@ -249,8 +258,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
         )
 
     batch_size = options.batch_size if options.batch_size > 0 else total
-    if total > 100_000 and batch_size < 5000:
-        batch_size = 5000
+    if total > LARGE_LIBRARY_THRESHOLD and batch_size < LARGE_BATCH_SIZE:
+        batch_size = LARGE_BATCH_SIZE
     progress_interval = max(batch_size, 500)
 
     scanned_by_path = {item.path: item for item in scanned_files}

@@ -354,6 +354,19 @@ export interface RuntimeDiagnostics {
   bridge_settings_import?: { ok: boolean; error?: string }
   settings_path?: string
   settings_file_exists?: boolean
+  gpu?: {
+    cuda: boolean
+    openvino: boolean
+    opencv_dnn: boolean
+    opencv_version: string | null
+    recommendation: string
+  }
+  system?: {
+    cpu_count: number | null
+    disk_free_gb: number | null
+    disk_total_gb: number | null
+  }
+  exiftool_version?: string | null
 }
 
 /** Collect runtime diagnostics: Python version, imports, settings, GPU support. */
