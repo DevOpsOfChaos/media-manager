@@ -1266,6 +1266,7 @@ export default function LibraryPage() {
       {/* Empty states */}
       {!loading && data && !loadingPages.has(page) && sortedFiles.length === 0 && (
         <EmptyState
+          icon={FolderSearch}
           title={filter ? t("No matches", "Keine Treffer") : t("No files found", "Keine Dateien gefunden")}
           description={filter ? t("Try a different filter.", "Anderen Filter versuchen.") : t("The directory is empty.", "Das Verzeichnis ist leer.")}
         />
@@ -1273,6 +1274,7 @@ export default function LibraryPage() {
 
       {!data && !loading && (
         <EmptyState
+          icon={FolderOpen}
           title={t("No directory selected", "Kein Verzeichnis ausgewählt")}
           description={t("Enter a root directory and click Browse.", "Stammverzeichnis eingeben und Durchsuchen klicken.")}
         />

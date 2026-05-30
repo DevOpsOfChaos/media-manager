@@ -245,7 +245,7 @@ function friendlyPeopleError(err: unknown): string {
           subtitle={t("Recognized people from your photo library.", "Erkannte Personen aus Ihrer Fotobibliothek.")}
         >
           <Input value={catalogPath} onChange={e => { setCatalogPath(e.target.value); localStorage.setItem("people_catalog_path", e.target.value) }} placeholder={t("catalog.json", "catalog.json")} className="text-xs w-48" />
-          <Button onClick={loadCatalog} size="sm" variant="outline" disabled={!catalogPath}>{t("Refresh", "Aktualisieren")}</Button>
+          <Button onClick={loadCatalog} size="sm" variant="outline" disabled={!catalogPath || _loading}>{t("Refresh", "Aktualisieren")}</Button>
           {unknownFaces.length > 0 && (
             <Button size="sm" variant="secondary" onClick={() => setShowFaceSwiper(true)}>
               <Zap className="w-3.5 h-3.5 mr-1" /> {t("Quick Review", "Schnellprüfung")}
@@ -324,9 +324,9 @@ function friendlyPeopleError(err: unknown): string {
             </Card>
           </div>
         ) : catalog ? (
-          <EmptyState title={t("No people yet", "Noch keine Personen")} description={t("Scan photos with a catalog to recognize people, or add them manually.", "Scannen Sie Fotos mit einem Katalog, um Personen zu erkennen, oder fügen Sie sie manuell hinzu.")} action={<Button variant="outline" size="sm" onClick={() => handleToggle(true)}><UserPlus className="h-3.5 w-3.5 mr-1" />{t("Scan now", "Jetzt scannen")}</Button>} />
+          <EmptyState icon={Users} title={t("No people yet", "Noch keine Personen")} description={t("Scan photos with a catalog to recognize people, or add them manually.", "Scannen Sie Fotos mit einem Katalog, um Personen zu erkennen, oder fügen Sie sie manuell hinzu.")} action={<Button variant="outline" size="sm" onClick={() => handleToggle(true)}><UserPlus className="h-3.5 w-3.5 mr-1" />{t("Scan now", "Jetzt scannen")}</Button>} />
         ) : (
-          <EmptyState title={t("No catalog loaded", "Kein Katalog geladen")} description={t("Lege Katalog-Pfad fest und starte Scan", "Set catalog path and start a scan")} action={<Button variant="outline" size="sm" onClick={() => document.querySelector<HTMLInputElement>("input[placeholder*='catalog']")?.focus()}><FolderOpen className="h-3.5 w-3.5 mr-1" />{t("Set catalog path", "Katalog-Pfad festlegen")}</Button>} />
+          <EmptyState icon={FolderOpen} title={t("No catalog loaded", "Kein Katalog geladen")} description={t("Lege Katalog-Pfad fest und starte Scan", "Set catalog path and start a scan")} action={<Button variant="outline" size="sm" onClick={() => document.querySelector<HTMLInputElement>("input[placeholder*='catalog']")?.focus()}><FolderOpen className="h-3.5 w-3.5 mr-1" />{t("Set catalog path", "Katalog-Pfad festlegen")}</Button>} />
         )}
 
         <Dialog open={showCreatePerson} onOpenChange={setShowCreatePerson}>

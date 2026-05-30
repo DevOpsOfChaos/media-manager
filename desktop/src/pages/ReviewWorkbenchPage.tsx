@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Check, EyeOff, Trash2, Loader2 } from "lucide-react"
+import { Check, EyeOff, Trash2, Loader2, FileSearch } from "lucide-react"
 import type { ReviewSourceKind } from "@/types"
 import { useReviewStore } from "@/stores/review-store"
 
@@ -116,6 +116,7 @@ export default function ReviewWorkbenchPage() {
           {/* No data */}
           {groups.length === 0 && (
             <EmptyState
+              icon={FileSearch}
               title={t("No review data", "Keine Prüfdaten")}
               description={t("Run a duplicate scan first. Results appear here for review.", "Führe erst einen Duplikatscan durch. Ergebnisse erscheinen hier zur Prüfung.")}
               action={<Button size="sm" variant="outline" onClick={() => navigate("/duplicates")}>{t("Go to Duplicates", "Zu Duplikaten")}</Button>}

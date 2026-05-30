@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
-import { CheckSquare, Square, Trash2, Info, ScanText, Wand2, Star } from "lucide-react"
+import { CheckSquare, Square, Trash2, Info, ScanText, Wand2, Star, CopyCheck, Image } from "lucide-react"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
 import { userFriendlyError } from "@/lib/error-utils"
@@ -488,8 +488,8 @@ export default function DuplicatesPage() {
                       </p>
                     )}
                     <div className="flex gap-2">
-                      <Button onClick={confirmDelete} variant="destructive" size="sm">
-                        {t(`Yes, delete ${selectedGroups.size} groups`, `Ja, ${selectedGroups.size} Gruppen löschen`)}
+                      <Button onClick={confirmDelete} disabled={deleteLoading} variant="destructive" size="sm">
+                        {deleteLoading ? t("Deleting...", "Lösche...") : t(`Yes, delete ${selectedGroups.size} groups`, `Ja, ${selectedGroups.size} Gruppen löschen`)}
                       </Button>
                       <Button onClick={() => setShowDeleteConfirm(false)} variant="ghost" size="sm">
                         {t("Cancel", "Abbrechen")}
@@ -639,7 +639,7 @@ function ExactResults({
       )}
 
       {preview.exact_groups.length === 0 ? (
-        <EmptyState title={t("No exact duplicates found", "Keine exakten Duplikate gefunden")} description={t("All scanned files have unique content.", "Alle gescannten Dateien haben einzigartigen Inhalt.")} action={<span className="text-xs text-muted-foreground">{t("Start a scan to find duplicates", "Starte einen Scan um Duplikate zu finden")}</span>} />
+        <EmptyState icon={CopyCheck} title={t("No exact duplicates found", "Keine exakten Duplikate gefunden")} description={t("All scanned files have unique content.", "Alle gescannten Dateien haben einzigartigen Inhalt.")} action={<span className="text-xs text-muted-foreground">{t("Start a scan to find duplicates", "Starte einen Scan um Duplikate zu finden")}</span>} />
       ) : (
         <>
           {preview.exact_groups && preview.exact_groups.length > 0 && (
@@ -773,7 +773,7 @@ function SimilarResults({
       </div>
 
       {preview.similar_groups.length === 0 ? (
-        <EmptyState title={t("No similar images found", "Keine ähnlichen Bilder gefunden")} description={t("No visually similar image pairs detected within the distance threshold.", "Keine visuell ähnlichen Bildpaare innerhalb der Distanzschwelle erkannt.")} action={<span className="text-xs text-muted-foreground">{t("Start a scan to find duplicates", "Starte einen Scan um Duplikate zu finden")}</span>} />
+        <EmptyState icon={Image} title={t("No similar images found", "Keine ähnlichen Bilder gefunden")} description={t("No visually similar image pairs detected within the distance threshold.", "Keine visuell ähnlichen Bildpaare innerhalb der Distanzschwelle erkannt.")} action={<span className="text-xs text-muted-foreground">{t("Start a scan to find duplicates", "Starte einen Scan um Duplikate zu finden")}</span>} />
       ) : (
         <GroupsCard
           title={t(`Similar groups (${filteredGroups.length}${filteredGroups.length !== preview.similar_groups.length ? ` of ${preview.similar_groups.length}` : ""})`, `Ähnliche Gruppen (${filteredGroups.length}${filteredGroups.length !== preview.similar_groups.length ? ` von ${preview.similar_groups.length}` : ""})`)}

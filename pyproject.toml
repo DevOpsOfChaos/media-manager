@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "media-manager"
 version = "0.6.0"
-description = "Core-first media manager with CLI foundation and Tauri + React desktop frontend — organize, deduplicate, and manage your photo library with face recognition and smart workflows."
+description = "Local-first media management tool — organize, deduplicate, rename, and manage photo/video libraries with face recognition, trip collections, and smart workflows. CLI-first with a Tauri + React desktop UI."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
   { name = "Manu", email = "mries@users.noreply.github.com" }
 ]
 license = { text = "MIT" }
-keywords = ["media", "photos", "videos", "organizer", "exiftool", "cli"]
+keywords = ["media", "photos", "videos", "organizer", "exiftool", "cli", "deduplication", "face-recognition", "renamer", "tauri", "react", "photo-management", "desktop-app"]
 classifiers = [
   "Development Status :: 2 - Pre-Alpha",
   "Intended Audience :: End Users/Desktop",

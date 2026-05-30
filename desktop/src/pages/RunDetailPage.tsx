@@ -238,7 +238,7 @@ export default function RunDetailPage() {
                     : t("All operations can be fully reversed.", "Alle Operationen können vollständig rückgängig gemacht werden.")}
                 </p>
                 <div className="flex gap-2 mt-2">
-                  <Button onClick={handleUndoApply} variant="default" size="sm">{t("Confirm Undo", "Rückgängig bestätigen")}</Button>
+                  <Button onClick={handleUndoApply} disabled={undoLoading} variant="default" size="sm">{undoLoading ? t("Undoing...", "Rückgängig...") : t("Confirm Undo", "Rückgängig bestätigen")}</Button>
                   <Button onClick={() => setUndoPreviewResult(null)} variant="ghost" size="sm">{t("Cancel", "Abbrechen")}</Button>
                 </div>
               </CardContent>

@@ -79,6 +79,8 @@ function App() {
     }
   }, [])
 
+  useEffect(() => { window.scrollTo(0, 0) }, [location.pathname])
+
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
       if (e.key === "?" && !e.ctrlKey && !e.metaKey && !e.altKey &&

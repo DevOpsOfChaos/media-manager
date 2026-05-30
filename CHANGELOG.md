@@ -5,6 +5,8 @@ All notable changes to Media Manager.
 ## [Unreleased]
 
 ### Added
+- Workflow runner page: run organize → duplicates in one sequence
+- Face timeline page: browse photos of a person over time
 - Quick-rename with batch-export support
 - Dark mode theme
 - Face recognition 2.0 with improved accuracy
@@ -27,6 +29,9 @@ All notable changes to Media Manager.
 - Run history with structured JSON artifacts
 - Doctor command for preflight validation
 - Bachelor XML export for donation
+- UI-polish: page-enter animations, smooth scroll navigation, card hover effects
+- Button loading states across all submit forms
+- Context-appropriate icons on empty state views
 
 ### Changed
 - Desktop UI redesigned from scratch (Tauri + React + TypeScript + shadcn/ui)

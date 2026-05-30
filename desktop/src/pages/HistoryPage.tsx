@@ -19,6 +19,7 @@ import {
   type HistoryRunEntry,
 } from "@/lib/tauri-bridge"
 import { EmptyState } from "@/components/shared/EmptyState"
+import { Clock, SearchX } from "lucide-react"
 
 
 export default function HistoryPage() {
@@ -121,6 +122,7 @@ export default function HistoryPage() {
 
               {data && data.runs.length === 0 && (
                 <EmptyState
+                  icon={Clock}
                   title={t("No runs found", "Keine Durchläufe gefunden")}
                   description={t("Run an organize, rename, or duplicates command first. Apply-mode runs will appear here with undo support.", "Führen Sie zuerst einen Organisieren-, Umbenennen- oder Duplikate-Befehl aus. Angewendete Durchläufe erscheinen hier mit Rückgängig-Option.")}
                 />
@@ -183,6 +185,7 @@ export default function HistoryPage() {
 
                   {filteredRuns.length === 0 ? (
                     <EmptyState
+                      icon={SearchX}
                       title={t("No matching runs", "Keine passenden Durchläufe")}
                       description={t("No runs match the current filters. Try a different command or mode.", "Keine Durchläufe entsprechen den aktuellen Filtern. Versuchen Sie einen anderen Befehl oder Modus.")}
                     />

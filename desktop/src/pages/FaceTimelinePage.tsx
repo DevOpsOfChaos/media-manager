@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { peopleCatalogList, type PersonEntry } from "@/lib/tauri-bridge"
 import { convertFileSrc } from "@tauri-apps/api/core"
-import { User, Calendar, Loader2, ArrowLeft } from "lucide-react"
+import { User, Calendar, Loader2, ArrowLeft, FolderOpen } from "lucide-react"
 
 export default function FaceTimelinePage() {
   const t = useT()
@@ -97,6 +97,7 @@ export default function FaceTimelinePage() {
 
       {!loading && people.length === 0 && (
         <EmptyState
+          icon={FolderOpen}
           title={t("No catalog loaded", "Kein Katalog geladen")}
           description={t("Load a people catalog to browse face timelines.", "Lade einen Personenkatalog, um Zeitleisten zu durchsuchen.")}
         />

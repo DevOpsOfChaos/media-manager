@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { PageHeader } from "@/components/layout/PageHeader"
 
 import { loadFavorite, saveFavorite, hasFavorite } from "@/lib/favorites-store"
-import { Plus, FolderOpen, Loader2, ImageOff, ChevronRight, Star } from "lucide-react"
+import { Plus, FolderOpen, Loader2, ImageOff, ChevronRight, Star, Map as MapIcon } from "lucide-react"
 
 interface TripEntry {
   name: string
@@ -205,7 +205,7 @@ export default function TripPage() {
           ))}
         </div>
       ) : !loadingTrips ? (
-        <EmptyState title={t("No trips yet", "Noch keine Reisen")} description={tripsRoot ? t("Click 'New Trip' to create your first trip collection.", "Klicken Sie 'Neue Reise', um Ihre erste Reisesammlung zu erstellen.") : t("Set your trips root directory above, then click Refresh.", "Legen Sie oben Ihr Reise-Stammverzeichnis fest und klicken Sie Aktualisieren.")} />
+        <EmptyState icon={MapIcon} title={t("No trips yet", "Noch keine Reisen")} description={tripsRoot ? t("Click 'New Trip' to create your first trip collection.", "Klicken Sie 'Neue Reise', um Ihre erste Reisesammlung zu erstellen.") : t("Set your trips root directory above, then click Refresh.", "Legen Sie oben Ihr Reise-Stammverzeichnis fest und klicken Sie Aktualisieren.")} />
       ) : null}
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
