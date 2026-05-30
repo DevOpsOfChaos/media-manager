@@ -153,6 +153,7 @@ export default function HistoryPage() {
             value={filterCommand}
             onChange={(e) => setFilterCommand(e.target.value)}
             className="text-xs rounded-md border border-border bg-background px-2 py-1.5 text-foreground"
+            aria-label={t("Filter by command", "Nach Befehl filtern")}
           >
             <option value="all">{t("All commands", "Alle Befehle")}</option>
             {availableCommands.map(cmd => (
@@ -163,6 +164,7 @@ export default function HistoryPage() {
             value={filterMode}
             onChange={(e) => setFilterMode(e.target.value)}
             className="text-xs rounded-md border border-border bg-background px-2 py-1.5 text-foreground"
+            aria-label={t("Filter by mode", "Nach Modus filtern")}
           >
             <option value="all">{t("All modes", "Alle Modi")}</option>
             <option value="apply">{t("Apply", "Anwenden")}</option>

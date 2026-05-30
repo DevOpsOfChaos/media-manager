@@ -20,7 +20,8 @@ if TYPE_CHECKING:
     from media_manager.core.progress_tracker import ProgressTracker
 from media_manager.core.metadata.models import DateCandidate, FileInspection
 from media_manager.core.path_filters import path_is_included_by_patterns
-from media_manager.core.scanner import ScanOptions, scan_media_sources
+from media_manager.core.scanner import ScanOptions
+from media_manager.core.scanner.discovery import _scan_summary_from_streaming
 from media_manager.core.scanner.models import ScannedFile
 
 from .models import OrganizeDryRun, OrganizePlanEntry, OrganizePlannerOptions
@@ -220,7 +221,7 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
         logger.warning("Cache load failed: %s", exc)
 
     if scan_summary is None or not scan_summary.files:
-        scan_summary = scan_media_sources(
+        scan_summary = _scan_summary_from_streaming(
             ScanOptions(
                 source_dirs=options.source_dirs,
                 recursive=options.recursive,
@@ -248,6 +249,8 @@ def build_organize_dry_run(options: OrganizePlannerOptions, progress_callback=No
         )
 
     batch_size = options.batch_size if options.batch_size > 0 else total
+    if total > 100_000 and batch_size < 5000:
+        batch_size = 5000
     progress_interval = max(batch_size, 500)
 
     scanned_by_path = {item.path: item for item in scanned_files}

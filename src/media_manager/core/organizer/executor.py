@@ -166,6 +166,21 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None,
         # Skip already-processed entries on resume
         if i < start_index:
             done += 1
+            if resume and i < start_index:
+                target_exists = entry.target_path and entry.target_path.exists()
+                source_exists = entry.source_path and entry.source_path.exists()
+                if not target_exists and not source_exists:
+                    result.entries.append(
+                        OrganizeExecutionEntry(
+                            plan_entry=entry, outcome="error",
+                            reason="Both source and target missing — manual recovery needed",
+                            member_results=_member_results_for_nonexecuted_entry(
+                                entry, outcome="error",
+                                reason="Both source and target missing — manual recovery needed",
+                            ),
+                        )
+                    )
+                    continue
             # Reconstruct a minimal skip result for result tracking
             if entry.status in ("skipped", "conflict", "error"):
                 result.entries.append(
@@ -247,7 +262,10 @@ def execute_organize_plan(plan: OrganizeDryRun, progress_callback=None,
                     shutil.move(str(source_path), str(target_path))
                     outcome = "moved"
                 elif entry.operation_mode == "link":
-                    os.link(str(source_path), str(target_path))
+                    try:
+                        os.link(str(source_path), str(target_path))
+                    except OSError:
+                        shutil.copy2(str(source_path), str(target_path))
                     outcome = "linked"
                 else:
                     shutil.copy2(str(source_path), str(target_path))

@@ -1,4 +1,4 @@
-.PHONY: install install-dev test test-quick lint typecheck clean build run-desktop
+.PHONY: install install-dev setup test test-quick lint typecheck format check check-all clean build run-desktop dev coverage
 
 # Install production dependencies
 install:
@@ -7,6 +7,10 @@ install:
 
 # Install with dev + desktop deps
 install-dev:
+	pip install -e ".[dev]"
+	cd desktop && npm ci
+
+setup:
 	pip install -e ".[dev]"
 	cd desktop && npm ci
 
@@ -26,6 +30,10 @@ lint:
 typecheck:
 	cd desktop && npx tsc --noEmit
 
+format:
+	ruff format src/ tests/
+	cd desktop && npx prettier --write "src/**/*.{ts,tsx}"
+
 # Clean build artifacts
 clean:
 	@echo "Cleaning..."
@@ -43,6 +51,16 @@ build:
 run-desktop:
 	cd desktop && npm run tauri dev
 
+dev:
+	cd desktop && npm run tauri dev
+
 # All checks
 check: lint typecheck test-quick
 	@echo "All checks passed!"
+
+check-all: lint typecheck test
+	@echo "All checks passed!"
+
+coverage:
+	pytest tests/ --cov=src/media_manager --cov-report=html
+	@echo "Coverage report: htmlcov/index.html"

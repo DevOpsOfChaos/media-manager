@@ -185,14 +185,12 @@ def cmd_browse() -> int:
 
     total_count = len(media_files)
 
-    # Paginate
-    if page_size > 0:
-        start = page * page_size
-        end = start + page_size
-        paged_files = media_files[start:end]
-    else:
-        paged_files = media_files
-        page_size = total_count
+    # Paginate — force upper bound to keep memory predictable for 160k+ libraries
+    if page_size <= 0 or page_size > 1000:
+        page_size = 1000
+    start = page * page_size
+    end = start + page_size
+    paged_files = media_files[start:end]
 
     _emit({
         "kind": "browse",

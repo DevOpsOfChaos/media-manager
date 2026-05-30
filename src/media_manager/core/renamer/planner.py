@@ -9,7 +9,8 @@ from media_manager.core.media_groups import build_media_groups, summarize_media_
 from media_manager.core.metadata.inspect import inspect_media_files_batch
 from media_manager.core.metadata.models import FileInspection
 from media_manager.core.path_filters import path_is_included_by_patterns
-from media_manager.core.scanner import ScanOptions, scan_media_sources
+from media_manager.core.scanner import ScanOptions
+from media_manager.core.scanner.discovery import _scan_summary_from_streaming
 from media_manager.core.scanner.models import ScannedFile
 
 from .models import RenameDryRun, RenameMemberTarget, RenamePlanEntry, RenamePlannerOptions
@@ -220,7 +221,7 @@ def build_rename_dry_run(options: RenamePlannerOptions, progress_callback=None, 
         pass
 
     if scan_summary is None or not scan_summary.files:
-        scan_summary = scan_media_sources(
+        scan_summary = _scan_summary_from_streaming(
             ScanOptions(
                 source_dirs=options.source_dirs,
                 recursive=options.recursive,

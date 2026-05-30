@@ -202,7 +202,7 @@ export default function RenamePage() {
             </CardContent>
           </Card>
 
-          {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-500 dark:text-red-400">{error}</p>}
 
           {loading && (
             <ProgressBlock phase={scanPhase} totalPhases={3} progress={simulatedProgress} log={scanLog} />
@@ -257,7 +257,7 @@ export default function RenamePage() {
             </Card>
           )}
 
-          {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-500 dark:text-red-400">{error}</p>}
 
           <Button onClick={runApply} disabled={loading || preview.planned_count === 0} className="w-full" size="lg" variant="default">
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}

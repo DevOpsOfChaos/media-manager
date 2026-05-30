@@ -1,6 +1,6 @@
 """Scanner module for the rebuilt core."""
 
-from .discovery import scan_media_sources
+from .discovery import scan_media_sources, scan_media_sources_streaming
 from .models import ScanOptions, ScanSummary, ScannedFile
 
 __all__ = [
@@ -8,4 +8,5 @@ __all__ = [
     "ScannedFile",
     "ScanSummary",
     "scan_media_sources",
+    "scan_media_sources_streaming",
 ]

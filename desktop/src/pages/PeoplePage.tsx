@@ -261,7 +261,8 @@ function friendlyPeopleError(err: unknown): string {
           <Switch checked={enabled} onCheckedChange={handleToggle} />
           <span className="text-sm text-muted-foreground">{t("Auto-scan", "Auto-Scan")}</span>
           <select value={qualityFilter} onChange={e => setQualityFilter(e.target.value as any)}
-            className="text-xs border rounded px-2 py-1 bg-background">
+            className="text-xs border rounded px-2 py-1 bg-background"
+            aria-label={t("Face quality filter", "Gesichtsqualität-Filter")}>
             <option value="all">{t("All faces", "Alle Gesichter")}</option>
             <option value="usable">{t("Usable only", "Nur brauchbare")} (&gt;30%)</option>
             <option value="high">{t("High quality", "Hohe Qualität")} (&gt;60%)</option>
@@ -274,7 +275,7 @@ function friendlyPeopleError(err: unknown): string {
           )}
         </div>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
 
         {cacheInfo && <p className="text-sm text-green-400">{cacheInfo}</p>}
 
@@ -480,6 +481,7 @@ function friendlyPeopleError(err: unknown): string {
                     value={reassignToId}
                     onChange={e => setReassignToId(e.target.value)}
                     className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
+                    aria-label={t("Reassign face to person", "Gesicht einer Person zuweisen")}
                   >
                     <option value="">{t("-- Create new person --", "-- Neue Person erstellen --")}</option>
                     {catalog?.people.filter(p => p.person_id !== selectedPerson?.person_id).map(p => (

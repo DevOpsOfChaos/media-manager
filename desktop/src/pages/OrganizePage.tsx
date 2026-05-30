@@ -222,7 +222,7 @@ export default function OrganizePage() {
             </CardContent>
           </Card>
 
-          {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-500 dark:text-red-400">{error}</p>}
 
           {loading && (
             <ProgressBlock phase={scanPhase} totalPhases={3} progress={simulatedProgress} log={scanLog} />
@@ -279,7 +279,7 @@ export default function OrganizePage() {
             </Card>
           )}
 
-          {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-500 dark:text-red-400">{error}</p>}
 
           <Button onClick={runApply} disabled={loading || !preview.outcome_report?.safe_to_apply} className="w-full" size="lg" variant="default">
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}

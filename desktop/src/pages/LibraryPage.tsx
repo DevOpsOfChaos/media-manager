@@ -151,6 +151,7 @@ const FileCard = memo(function FileCard({
             alt={f.name}
             className="w-full h-full object-cover absolute inset-0"
             loading="lazy"
+            decoding="async"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none"
               if ((e.target as HTMLImageElement).parentElement) {
@@ -720,7 +721,7 @@ export default function LibraryPage() {
         </Button>
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
 
       {data && (
         <WatchdogIndicator rootDir={rootDir} onRescan={browse} />
@@ -945,6 +946,7 @@ export default function LibraryPage() {
                 loadPageData(0)
               }}
               className="text-xs border rounded px-2 py-1 bg-background"
+              aria-label={t("Items per page", "Einträge pro Seite")}
             >
               {PAGE_SIZE_OPTIONS.map(s => (
                 <option key={s} value={s}>{s}</option>
@@ -960,7 +962,8 @@ export default function LibraryPage() {
             <input placeholder={t("Person name in path...", "Personenname im Pfad...")}
               className="text-xs border rounded px-2 py-1 w-48 bg-background"
               value={peopleSearch}
-              onChange={e => setPeopleSearch(e.target.value)} />
+              onChange={e => setPeopleSearch(e.target.value)}
+              aria-label={t("Person name filter", "Personennamen-Filter")} />
             {peopleResults.length > 0 && (
               <Badge variant="secondary" className="text-xs">{peopleResults.length} {t("matches", "Treffer")}</Badge>
             )}
@@ -968,25 +971,31 @@ export default function LibraryPage() {
           <input placeholder={t("Camera model...", "Kamera-Modell...")}
             className="text-xs border rounded px-2 py-1 w-32 bg-background"
             value={exifFilters.camera || ""}
-            onChange={e => setExifFilters(prev => ({...prev, camera: e.target.value || undefined}))} />
+            onChange={e => setExifFilters(prev => ({...prev, camera: e.target.value || undefined}))}
+            aria-label={t("Camera model filter", "Kamera-Modell-Filter")} />
           <input placeholder={t("Lens...", "Objektiv...")}
             className="text-xs border rounded px-2 py-1 w-32 bg-background"
             value={exifFilters.lens || ""}
-            onChange={e => setExifFilters(prev => ({...prev, lens: e.target.value || undefined}))} />
+            onChange={e => setExifFilters(prev => ({...prev, lens: e.target.value || undefined}))}
+            aria-label={t("Lens filter", "Objektiv-Filter")} />
           <input placeholder={t("ISO min", "ISO min")} type="number"
             className="text-xs border rounded px-2 py-1 w-20 bg-background"
-            onChange={e => setExifFilters(prev => ({...prev, isoMin: e.target.value ? Number(e.target.value) : undefined}))} />
+            onChange={e => setExifFilters(prev => ({...prev, isoMin: e.target.value ? Number(e.target.value) : undefined}))}
+            aria-label={t("ISO minimum", "ISO-Minimum")} />
           <input placeholder={t("ISO max", "ISO max")} type="number"
             className="text-xs border rounded px-2 py-1 w-20 bg-background"
-            onChange={e => setExifFilters(prev => ({...prev, isoMax: e.target.value ? Number(e.target.value) : undefined}))} />
+            onChange={e => setExifFilters(prev => ({...prev, isoMax: e.target.value ? Number(e.target.value) : undefined}))}
+            aria-label={t("ISO maximum", "ISO-Maximum")} />
           <input placeholder={t("Size min (KB)", "Größe min (KB)")} type="number"
             className="text-xs border rounded px-2 py-1 w-24 bg-background"
             value={sizeMin}
-            onChange={e => setSizeMin(e.target.value)} />
+            onChange={e => setSizeMin(e.target.value)}
+            aria-label={t("File size minimum", "Dateigröße-Minimum")} />
           <input placeholder={t("Size max (KB)", "Größe max (KB)")} type="number"
             className="text-xs border rounded px-2 py-1 w-24 bg-background"
             value={sizeMax}
-            onChange={e => setSizeMax(e.target.value)} />
+            onChange={e => setSizeMax(e.target.value)}
+            aria-label={t("File size maximum", "Dateigröße-Maximum")} />
           {(exifFilters.camera || exifFilters.lens || exifFilters.isoMin || exifFilters.isoMax) && (
             <Button variant="ghost" size="sm" className="text-xs"
               onClick={() => setExifFilters({})}>
@@ -1197,6 +1206,7 @@ export default function LibraryPage() {
             <input
               placeholder={t("Add tag to all...", "Tag für alle...")}
               className="text-xs border rounded px-2 py-1 w-32 bg-background"
+              aria-label={t("Add tag to selected files", "Tag zu ausgewählten Dateien hinzufügen")}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && e.currentTarget.value.trim()) {
                   const tag = e.currentTarget.value.trim().toLowerCase()

@@ -51,6 +51,7 @@ function App() {
   const t = useT()
   const [dryRun] = useState(() => localStorage.getItem("dry_run") === "true")
   const [isFirstLaunch, setIsFirstLaunch] = useState(false)
+  const [bridgeStatus, setBridgeStatus] = useState<"ok" | "error" | "checking">("checking")
 
   useEffect(() => {
     loadSettings()
@@ -79,6 +80,12 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    import("@/lib/tauri-bridge").then(({ runtimeDiagnostics }) => {
+      runtimeDiagnostics().then(() => setBridgeStatus("ok")).catch(() => setBridgeStatus("error"))
+    })
+  }, [])
+
   useEffect(() => { window.scrollTo(0, 0) }, [location.pathname])
 
   useEffect(() => {
@@ -105,6 +112,10 @@ function App() {
     <ProgressProvider>
       <TooltipProvider>
         <SidebarProvider>
+          <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded">
+            Skip to main content
+          </a>
+          <div id="announcements" className="sr-only" aria-live="polite" aria-atomic="true" />
           <AppSidebar />
           <SidebarInset>
             <ErrorBoundary>
@@ -114,7 +125,7 @@ function App() {
                      "\u26A0\uFE0F DRY-RUN-MODUS AKTIV \u2014 Keine Dateien werden ver\u00E4ndert. In der Sidebar deaktivieren.")}
                 </div>
               )}
-              <div key={location.pathname} className="page-enter">
+              <div key={location.pathname} className="page-enter" id="main-content">
                 <AppErrorBoundary>
                   <Outlet />
                 </AppErrorBoundary>
@@ -129,6 +140,11 @@ function App() {
         <KeyboardShortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       </TooltipProvider>
       <MiniProgressOverlay />
+      {bridgeStatus === "error" && (
+        <div className="fixed bottom-4 left-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 text-sm">
+          Python engine not reachable. Some features unavailable.
+        </div>
+      )}
       {isFirstLaunch && <WelcomeDialog open={isFirstLaunch} onClose={() => setIsFirstLaunch(false)} />}
       {showOnboardingTour && (
         <OnboardingTour onClose={() => setShowOnboardingTour(false)} />

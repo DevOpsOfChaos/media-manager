@@ -229,6 +229,41 @@ def _apply_duplicate_path_filters(paths: list[Path], config: DuplicateScanConfig
     return filtered
 
 
+def _dedup_filter(states: dict[Path, dict], key_fn, min_count: int = 2) -> dict:
+    """Return a subset of *states* where *key_fn*(state) appears >= *min_count* times."""
+    key_counts: dict[str, int] = {}
+    for state in states.values():
+        k = key_fn(state)
+        if k is not None:
+            key_counts[k] = key_counts.get(k, 0) + 1
+    return {path: state for path, state in states.items()
+            if key_counts.get(key_fn(state)) is not None and key_counts[key_fn(state)] >= min_count}
+
+
+def _byte_compare_clusters(
+    paths: list[Path],
+    config: DuplicateScanConfig,
+    result: DuplicateScanResult,
+) -> list[list[Path]]:
+    """Group *paths* whose (size, sample, hash) match into byte-identical clusters."""
+    clustered: list[list[Path]] = []
+    for path in paths:
+        placed = False
+        for cluster in clustered:
+            try:
+                if files_are_identical(path, cluster[0], chunk_size=config.hash_chunk_size):
+                    cluster.append(path)
+                    placed = True
+                    break
+            except OSError:
+                _record_stage_error(result, "compare")
+                placed = True
+                break
+        if not placed:
+            clustered.append([path])
+    return clustered
+
+
 def scan_exact_duplicates(
     config: DuplicateScanConfig,
     progress_callback: ProgressCallback | None = None,
@@ -253,107 +288,97 @@ def scan_exact_duplicates(
         _emit_progress(progress_callback, "No media files found.")
         return result
 
-    size_groups = _group_by_size(media_files, result)
-    candidate_size_groups = {
-        size: sorted(paths, key=_normalized_sort_key)
-        for size, paths in size_groups.items()
-        if len(paths) > 1
-    }
-    result.size_candidate_groups = len(candidate_size_groups)
-    result.size_candidate_files = sum(len(paths) for paths in candidate_size_groups.values())
+    # ── Unified state tracker: path → {stage data} ──
+    # Single dict avoids 4× path-list duplication across stages.
+    states: dict[Path, dict] = {}
+
+    # Stage 1/4 — size grouping
+    for path in media_files:
+        file_size = _safe_file_size(path)
+        if file_size is None:
+            _record_stage_error(result, "size")
+            continue
+        states[path] = {"size": file_size}
+
+    states = _dedup_filter(states, lambda s: str(s["size"]))
+    stage_size = len(states)
+    result.size_candidate_groups = len({s["size"] for s in states.values()} if states else set())
+    result.size_candidate_files = stage_size
     stage_one_message = (
-        f"Stage 1/4 — size grouping kept {result.size_candidate_files} candidate file(s) "
+        f"Stage 1/4 — size grouping kept {stage_size} candidate file(s) "
         f"in {result.size_candidate_groups} group(s)."
     )
     if result.size_group_errors > 0:
         stage_one_message += f" Skipped {result.size_group_errors} unreadable file(s) during size grouping."
     _emit_progress(progress_callback, stage_one_message)
 
-    if result.size_candidate_files == 0:
+    if not states:
         _emit_progress(progress_callback, "No exact duplicates found.")
         return result
 
-    sampled_groups: dict[tuple[int, str], list[Path]] = defaultdict(list)
+    # Stage 2/4 — sample fingerprinting
     sample_count = 0
-    total_samples = sum(len(paths) for paths in candidate_size_groups.values())
-    for file_size, paths in candidate_size_groups.items():
-        for path in paths:
-            try:
-                sample_digest = compute_sample_fingerprint(path, sample_size=config.sample_size)
-            except OSError:
-                _record_stage_error(result, "sample")
-                continue
+    total_samples = len(states)
+    for idx, (path, state) in enumerate(tuple(states.items())):
+        try:
+            state["sample"] = compute_sample_fingerprint(path, sample_size=config.sample_size)
             result.sampled_files += 1
-            sample_count += 1
-            sampled_groups[(file_size, sample_digest)].append(path)
-            if sample_count % 500 == 0 and total_samples > 0:
-                _emit_progress(progress_callback, f"Stage 2/4 — sampled {sample_count}/{total_samples} files ({sample_count*100//total_samples}%)")
-    _emit_progress(progress_callback, f"Stage 2/4 — sample fingerprinting complete: {sample_count} files in {len(sampled_groups)} groups")
+        except OSError:
+            _record_stage_error(result, "sample")
+            del states[path]
+        sample_count += 1
+        if sample_count % 500 == 0:
+            _emit_progress(progress_callback, f"Stage 2/4 — sampled {sample_count}/{total_samples} files ({sample_count*100//total_samples}%)")
 
-    sample_candidates = {
-        key: sorted(paths, key=_normalized_sort_key)
-        for key, paths in sampled_groups.items()
-        if len(paths) > 1
-    }
-    stage_two_message = f"Stage 2/4 — sample fingerprinting kept {sum(len(paths) for paths in sample_candidates.values())} file(s)."
+    states = _dedup_filter(states, lambda s: str((s["size"], s.get("sample"))))
+    sample_groups = len({(s["size"], s["sample"]) for s in states.values()}) if states else 0
+    _emit_progress(progress_callback, f"Stage 2/4 — sample fingerprinting complete: {len(states)} files in {sample_groups} groups")
+
+    stage_two_message = f"Stage 2/4 — sample fingerprinting kept {len(states)} file(s)."
     if result.sample_errors > 0:
         stage_two_message += f" Sample errors: {result.sample_errors}."
     _emit_progress(progress_callback, stage_two_message)
 
-    if not sample_candidates:
+    if not states:
         _emit_progress(progress_callback, "No exact duplicates found.")
         return result
 
-    hashed_groups: dict[tuple[int, str, str], list[Path]] = defaultdict(list)
+    # Stage 3/4 — full hashing
     hash_count = 0
-    total_hashes = sum(len(paths) for paths in sample_candidates.values())
-    for (file_size, sample_digest), paths in sample_candidates.items():
-        for path in paths:
-            try:
-                full_digest = compute_full_hash(path, chunk_size=config.hash_chunk_size)
-            except OSError:
-                _record_stage_error(result, "hash")
-                continue
+    total_hashes = len(states)
+    for idx, (path, state) in enumerate(tuple(states.items())):
+        try:
+            state["hash"] = compute_full_hash(path, chunk_size=config.hash_chunk_size)
             result.hashed_files += 1
-            hash_count += 1
-            hashed_groups[(file_size, sample_digest, full_digest)].append(path)
-            if hash_count % 500 == 0 and total_hashes > 0:
-                _emit_progress(progress_callback, f"Stage 3/4 — hashed {hash_count}/{total_hashes} files ({hash_count*100//total_hashes}%)")
-    _emit_progress(progress_callback, f"Stage 3/4 — full hashing complete: {hash_count} files")
+        except OSError:
+            _record_stage_error(result, "hash")
+            del states[path]
+        hash_count += 1
+        if hash_count % 500 == 0:
+            _emit_progress(progress_callback, f"Stage 3/4 — hashed {hash_count}/{total_hashes} files ({hash_count*100//total_hashes}%)")
 
-    full_hash_candidates = {
-        key: sorted(paths, key=_normalized_sort_key)
-        for key, paths in hashed_groups.items()
-        if len(paths) > 1
-    }
-    stage_three_message = f"Stage 3/4 — full hashing kept {sum(len(paths) for paths in full_hash_candidates.values())} file(s)."
+    states = _dedup_filter(states, lambda s: str((s["size"], s.get("sample"), s.get("hash"))))
+    _emit_progress(progress_callback, f"Stage 3/4 — full hashing complete: {len(states)} files")
+
+    stage_three_message = f"Stage 3/4 — full hashing kept {len(states)} file(s)."
     if result.hash_errors > 0:
         stage_three_message += f" Hash errors: {result.hash_errors}."
     _emit_progress(progress_callback, stage_three_message)
 
-    if not full_hash_candidates:
+    if not states:
         _emit_progress(progress_callback, "No exact duplicates found.")
         return result
 
-    exact_groups: list[ExactDuplicateGroup] = []
-    for (file_size, sample_digest, full_digest), paths in full_hash_candidates.items():
-        clustered_paths: list[list[Path]] = []
-        for path in paths:
-            placed = False
-            for cluster in clustered_paths:
-                try:
-                    if files_are_identical(path, cluster[0], chunk_size=config.hash_chunk_size):
-                        cluster.append(path)
-                        placed = True
-                        break
-                except OSError:
-                    _record_stage_error(result, "compare")
-                    placed = True
-                    break
-            if not placed:
-                clustered_paths.append([path])
+    # Stage 4/4 — byte comparison within hash groups
+    # Group surviving paths by full key
+    hash_groups: dict[tuple, list[Path]] = defaultdict(list)
+    for path, state in states.items():
+        key = (state["size"], state.get("sample"), state.get("hash"))
+        hash_groups[key].append(path)
 
-        for cluster in clustered_paths:
+    exact_groups: list[ExactDuplicateGroup] = []
+    for (file_size, sample_digest, full_digest), paths in hash_groups.items():
+        for cluster in _byte_compare_clusters(paths, config, result):
             if len(cluster) > 1:
                 exact_groups.append(_build_exact_group(cluster, file_size, sample_digest, full_digest))
 

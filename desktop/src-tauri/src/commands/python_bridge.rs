@@ -4,6 +4,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::OnceLock;
+use std::time::Duration;
 /// Hardened Python discovery, env setup, and subprocess execution for
 /// calling `python -m media_manager.<module>` from Tauri commands.
 #[derive(Debug)]
@@ -113,83 +114,111 @@ impl PythonBridge {
             args.push(sp.clone());
         }
 
-        let mut child = Command::new(&self.executable)
-            .args(&args)
-            .current_dir(&self.project_root)
-            .env_clear()
-            .envs(&env_vars)
-            .stdin(if stdin_json.is_some() {
-                Stdio::piped()
-            } else {
-                Stdio::null()
-            })
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| {
-                format!(
-                    "Failed to spawn Python ({}): {e}\n\
-                     Project root: {}\n\
-                     Hint: Set MEDIA_MANAGER_PYTHON to the correct python executable.",
-                    self.executable,
-                    self.project_root.display(),
-                )
-            })?;
+        let max_retries = 2;
+        let mut last_error = String::new();
+        for attempt in 0..=max_retries {
+            let mut child = Command::new(&self.executable)
+                .args(&args)
+                .current_dir(&self.project_root)
+                .env_clear()
+                .envs(&env_vars)
+                .stdin(if stdin_json.is_some() {
+                    Stdio::piped()
+                } else {
+                    Stdio::null()
+                })
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .map_err(|e| {
+                    format!(
+                        "Failed to spawn Python ({}): {e}\n\
+                         Project root: {}\n\
+                         Hint: Set MEDIA_MANAGER_PYTHON to the correct python executable.",
+                        self.executable,
+                        self.project_root.display(),
+                    )
+                })?;
 
-        if let Some(input) = stdin_json {
-            if let Some(mut stdin) = child.stdin.take() {
-                stdin
-                    .write_all(input.as_bytes())
-                    .map_err(|e| format!("Failed to write stdin: {e}"))?;
+            if let Some(input) = stdin_json {
+                if let Some(mut stdin) = child.stdin.take() {
+                    stdin
+                        .write_all(input.as_bytes())
+                        .map_err(|e| format!("Failed to write stdin: {e}"))?;
+                }
+            }
+
+            let output = child
+                .wait_with_output()
+                .map_err(|e| format!("Python process error: {e}"))?;
+
+            if !output.status.success() {
+                let stderr_text = String::from_utf8_lossy(&output.stderr)
+                    .trim()
+                    .to_string();
+                let detail = if stderr_text.is_empty() {
+                    format!("exit code {}", output.status.code().unwrap_or(-1))
+                } else {
+                    if let Ok(err_val) = serde_json::from_str::<Value>(&stderr_text) {
+                        err_val
+                            .get("error")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or(&stderr_text)
+                            .to_string()
+                    } else {
+                        stderr_text
+                    }
+                };
+                let err_msg = format!(
+                    "Python bridge error ({module} {action}): {detail}"
+                );
+                if attempt < max_retries {
+                    last_error = err_msg;
+                    std::thread::sleep(Duration::from_millis(500));
+                    continue;
+                }
+                return Err(err_msg);
+            }
+
+            let stdout_text = String::from_utf8_lossy(&output.stdout);
+            let trimmed = stdout_text.trim();
+            if trimmed.is_empty() {
+                let err_msg = format!(
+                    "Python bridge returned empty output ({module} {action})."
+                );
+                if attempt < max_retries {
+                    last_error = err_msg;
+                    std::thread::sleep(Duration::from_millis(500));
+                    continue;
+                }
+                return Err(err_msg);
+            }
+
+            let value = serde_json::from_str(trimmed).map_err(|e| {
+                let preview: String = trimmed
+                    .chars()
+                    .take(300)
+                    .collect();
+                format!(
+                    "Failed to parse Python bridge output as JSON ({module} {action}): {e}\n\
+                     Raw output (first 300 chars): {preview}"
+                )
+            });
+
+            match value {
+                Ok(v) => return Ok(v),
+                Err(err_msg) => {
+                    if attempt < max_retries {
+                        last_error = err_msg;
+                        std::thread::sleep(Duration::from_millis(500));
+                        continue;
+                    }
+                    return Err(err_msg);
+                }
             }
         }
 
-        let output = child
-            .wait_with_output()
-            .map_err(|e| format!("Python process error: {e}"))?;
-
-        if !output.status.success() {
-            let stderr_text = String::from_utf8_lossy(&output.stderr)
-                .trim()
-                .to_string();
-            let detail = if stderr_text.is_empty() {
-                format!("exit code {}", output.status.code().unwrap_or(-1))
-            } else {
-                if let Ok(err_val) = serde_json::from_str::<Value>(&stderr_text) {
-                    err_val
-                        .get("error")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or(&stderr_text)
-                        .to_string()
-                } else {
-                    stderr_text
-                }
-            };
-            return Err(format!(
-                "Python bridge error ({module} {action}): {detail}"
-            ));
-        }
-
-        let stdout_text = String::from_utf8_lossy(&output.stdout);
-        let trimmed = stdout_text.trim();
-        if trimmed.is_empty() {
-            return Err(format!(
-                "Python bridge returned empty output ({module} {action})."
-            ));
-        }
-
-        let value = serde_json::from_str(trimmed).map_err(|e| {
-            let preview: String = trimmed
-                .chars()
-                .take(300)
-                .collect();
-            format!(
-                "Failed to parse Python bridge output as JSON ({module} {action}): {e}\n\
-                 Raw output (first 300 chars): {preview}"
-            )
-        })?;
-
-        Ok(value)
+        Err(last_error)
     }
 }
 

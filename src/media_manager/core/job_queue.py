@@ -10,7 +10,7 @@ import hashlib
 
 JOB_STATES = ("pending", "running", "completed", "failed", "paused")
 
-@dataclass
+@dataclass(slots=True)
 class Job:
     job_id: str
     kind: str  # "organize", "duplicates", "people_scan", etc.

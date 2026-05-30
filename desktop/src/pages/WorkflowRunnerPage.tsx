@@ -256,7 +256,7 @@ export default function WorkflowRunnerPage() {
         {running ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t("Running workflow...", "Workflow läuft...")}</> : <><Play className="w-4 h-4 mr-2" /> {t("Run Full Workflow", "Vollständigen Workflow ausführen")}</>}
       </Button>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
 
       <Card className={allDone ? "border-green-500/30" : ""}>
         <CardHeader><CardTitle className="text-sm">{t("Progress", "Fortschritt")}</CardTitle></CardHeader>

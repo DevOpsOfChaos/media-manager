@@ -208,3 +208,39 @@ def scan_media_sources_streaming(
                                     continue
             except PermissionError:
                 continue
+
+
+def _scan_summary_from_streaming(options: ScanOptions) -> ScanSummary:
+    """Build a ScanSummary using the streaming scanner for reduced memory pressure.
+
+    Falls back to the full scan_media_sources when non-default options
+    (include_hidden, follow_symlinks, include/exclude patterns) are requested,
+    as the streaming scanner only handles the most common case.
+    """
+    if (
+        options.include_hidden
+        or options.follow_symlinks
+        or options.include_patterns
+        or options.exclude_patterns
+    ):
+        return scan_media_sources(options)
+
+    media_extensions = options.media_extensions or frozenset(MEDIA_EXTENSIONS)
+    source_dirs = _normalize_source_dirs(options.source_dirs)
+    summary = ScanSummary(source_dirs=source_dirs)
+    max_depth = 1000 if options.recursive else 0
+
+    for source_root in source_dirs:
+        if not source_root.exists() or not source_root.is_dir():
+            summary.missing_sources.append(source_root)
+            continue
+
+        for sf in scan_media_sources_streaming(
+            (source_root,),
+            extensions=media_extensions,
+            max_depth=max_depth,
+        ):
+            summary.files.append(sf)
+
+    summary.files.sort(key=lambda item: (str(item.source_root).lower(), str(item.relative_path).lower()))
+    return summary
