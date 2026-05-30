@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo, memo } from "react"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
+import { toast } from "@/lib/toast"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
-import { fileOpen, fileReveal, fileDelete, fileRename, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
+import { fileOpen, fileReveal, fileDelete, fileRename, fileExport, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
 
 import { FolderOpen, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive, Film, File } from "lucide-react"
 import {
@@ -278,6 +279,7 @@ export default function LibraryPage() {
   const [deleteDialog, setDeleteDialog] = useState<{ path: string; name: string } | null>(null)
   const [renameDialog, setRenameDialog] = useState<{ path: string; name: string } | null>(null)
   const [renameValue, setRenameValue] = useState("")
+  const [quickRename, setQuickRename] = useState<{ path: string; name: string } | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [slideshowOpen, setSlideshowOpen] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
@@ -1132,14 +1134,59 @@ export default function LibraryPage() {
                   const lon = String(exifData.gps_longitude).replace(/deg|'|"/g, "").trim()
                   window.open(`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=15`, "_blank")
                 }}>
-                  <MapPin className="h-3 w-3 mr-1" />
-                  {t("View on map", "Auf Karte zeigen")}
-                </Button>
-              </div>
+                <MapPin className="h-3 w-3 mr-1" />
+                {t("View on map", "Auf Karte zeigen")}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-3 pt-3 border-t">
+          <Button variant="outline" size="sm" onClick={() => {
+            if (selectedFile) setQuickRename({ path: selectedFile.path, name: selectedFile.name })
+          }}>
+            <Pencil className="h-3 w-3 mr-1" /> {t("Quick Rename", "Schnell umbenennen")}
+          </Button>
+          {quickRename && (
+            <div className="mt-2 flex gap-1">
+              <Input
+                value={quickRename.name}
+                onChange={e => setQuickRename(prev => prev ? {...prev, name: e.target.value} : null)}
+                className="text-xs h-7"
+                onKeyDown={async e => {
+                  if (e.key === "Enter" && quickRename) {
+                    await fileRename(quickRename.path, quickRename.name)
+                    setQuickRename(null)
+                    toast("success", t("Renamed", "Umbenannt"))
+                    const next = new Map(loadedPages)
+                    next.delete(page)
+                    setLoadedPages(next)
+                    loadedPagesRef.current = next
+                    loadPageData(page)
+                  }
+                }}
+                autoFocus
+              />
+              <Button size="sm" className="h-7" onClick={async () => {
+                if (quickRename) {
+                  await fileRename(quickRename.path, quickRename.name)
+                  setQuickRename(null)
+                  toast("success", t("Renamed", "Umbenannt"))
+                  const next = new Map(loadedPages)
+                  next.delete(page)
+                  setLoadedPages(next)
+                  loadedPagesRef.current = next
+                  loadPageData(page)
+                }
+              }}>{t("OK", "OK")}</Button>
+              <Button variant="ghost" size="sm" className="h-7" onClick={() => setQuickRename(null)}>
+                {t("Cancel", "Abbrechen")}
+              </Button>
             </div>
           )}
         </div>
-      )}
+      </div>
+    )}
 
       {/* Batch action bar */}
       {selectMode && selectedPaths.size > 0 && (
@@ -1196,6 +1243,18 @@ export default function LibraryPage() {
 
           <Button size="sm" variant="outline" onClick={() => setShowEmailShare(true)}>
             <Mail className="h-3 w-3 mr-1" /> {t("Share", "Teilen")}
+          </Button>
+
+          <Button size="sm" variant="outline" onClick={async () => {
+            toast("info", t(`Exporting ${selectedPaths.size} files...`, `Exportiere ${selectedPaths.size} Dateien...`))
+            const paths = Array.from(selectedPaths)
+            for (const path of paths) {
+              const outPath = path.replace(/\.[^.]+$/, "_export.jpg")
+              try { await fileExport(path, outPath, 2048, 85) } catch {}
+            }
+            toast("success", t("Export complete", "Export abgeschlossen"))
+          }}>
+            <Download className="h-3 w-3 mr-1" /> {t("Export selected", "Auswahl exportieren")}
           </Button>
 
           <Button size="sm" variant="outline" onClick={() => setSelectedPaths(new Set())}>

@@ -15,12 +15,12 @@ export function ProgressBlock({ phase, totalPhases, progress, log }: ProgressBlo
         <span className="text-sm">Processing...</span>
       </div>
       <div className="h-2 bg-muted rounded-full overflow-hidden">
-        <div className="h-full bg-blue-500 rounded-full transition-all duration-700"
+        <div className="h-full bg-blue-500 dark:bg-blue-400 rounded-full transition-all duration-700"
           style={{ width: `${Math.max(progress, 1)}%` }} />
       </div>
       <div className="flex gap-1">
         {Array.from({ length: totalPhases }).map((_, i) => (
-          <div key={i} className={`flex-1 h-1 rounded-full ${phase > i ? 'bg-blue-500' : 'bg-muted'}`} />
+          <div key={i} className={`flex-1 h-1 rounded-full ${phase > i ? 'bg-blue-500 dark:bg-blue-400' : 'bg-muted'}`} />
         ))}
       </div>
       <div className="flex justify-between text-xs text-muted-foreground">

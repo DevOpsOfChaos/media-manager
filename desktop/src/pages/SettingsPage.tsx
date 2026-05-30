@@ -112,7 +112,7 @@ export default function SettingsPage() {
         <div className="flex-1 max-w-5xl space-y-4">
 
           {showQuickSetup && (
-            <Card className="border-blue-200 bg-blue-50/30 mb-4">
+            <Card className="border-blue-200 dark:border-blue-800/40 bg-blue-50/30 dark:bg-blue-950/30 mb-4">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div>
@@ -456,7 +456,7 @@ function StatusRow({
     <div className="flex items-center gap-2">
       <span
         className={`inline-flex size-2 shrink-0 rounded-full ${
-          ok ? "bg-green-500" : "bg-destructive"
+          ok ? "bg-green-500 dark:bg-green-600" : "bg-destructive"
         }`}
       />
       <span className="font-medium">{label}</span>
@@ -490,7 +490,7 @@ function EnvHint({
     <div className="flex items-center gap-1.5">
       <span
         className={`inline-flex size-1.5 rounded-full ${
-          value ? "bg-green-500" : "bg-muted-foreground/30"
+          value ? "bg-green-500 dark:bg-green-600" : "bg-muted-foreground/30"
         }`}
       />
       <span className="truncate">

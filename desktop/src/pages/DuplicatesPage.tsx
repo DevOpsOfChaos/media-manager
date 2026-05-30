@@ -459,7 +459,7 @@ export default function DuplicatesPage() {
                   }}
                   className="text-xs"
                 >
-                  <Star className={`h-3 w-3 mr-1 ${isFavorite ? "fill-yellow-500 text-yellow-500" : ""}`} />
+                  <Star className={`h-3 w-3 mr-1 ${isFavorite ? "fill-yellow-500 text-yellow-500 dark:fill-yellow-400 dark:text-yellow-400" : ""}`} />
                   {isFavorite ? t("Favorite saved", "Favorit gespeichert") : t("Save as favorite", "Als Favorit speichern")}
                 </Button>
                 {exactPreview && exactPreview.exact_groups.length > 0 && (tab === "exact" || tab === "all") && (

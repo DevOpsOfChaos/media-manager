@@ -222,7 +222,7 @@ export default function OrganizePage() {
             </CardContent>
           </Card>
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
 
           {loading && (
             <ProgressBlock phase={scanPhase} totalPhases={3} progress={simulatedProgress} log={scanLog} />
@@ -252,9 +252,9 @@ export default function OrganizePage() {
         <main className="max-w-5xl mx-auto p-6 space-y-4">
           {/* Stats */}
           <div className="grid grid-cols-4 gap-2">
-            <Card className="text-center p-3"><p className="text-xl font-bold text-green-600">{preview.planned_count.toLocaleString()}</p><p className="text-xs text-muted-foreground">{t("Planned", "Geplant")}</p></Card>
-            <Card className="text-center p-3"><p className="text-xl font-bold text-amber-600">{preview.skipped_count.toLocaleString()}</p><p className="text-xs text-muted-foreground">{t("Skipped", "Überspr.")}</p></Card>
-            <Card className="text-center p-3"><p className="text-xl font-bold text-red-600">{preview.conflict_count.toLocaleString()}</p><p className="text-xs text-muted-foreground">{t("Conflicts", "Konflikte")}</p></Card>
+            <Card className="text-center p-3"><p className="text-xl font-bold text-green-600 dark:text-green-400">{preview.planned_count.toLocaleString()}</p><p className="text-xs text-muted-foreground">{t("Planned", "Geplant")}</p></Card>
+            <Card className="text-center p-3"><p className="text-xl font-bold text-amber-600 dark:text-amber-400">{preview.skipped_count.toLocaleString()}</p><p className="text-xs text-muted-foreground">{t("Skipped", "Überspr.")}</p></Card>
+            <Card className="text-center p-3"><p className="text-xl font-bold text-red-600 dark:text-red-400">{preview.conflict_count.toLocaleString()}</p><p className="text-xs text-muted-foreground">{t("Conflicts", "Konflikte")}</p></Card>
             <Card className="text-center p-3"><p className="text-xl font-bold">{((preview.scan_summary?.total_size_bytes || 0) / 1e9).toFixed(1)} GB</p><p className="text-xs text-muted-foreground">{t("Size", "Größe")}</p></Card>
           </div>
 
@@ -279,7 +279,7 @@ export default function OrganizePage() {
             </Card>
           )}
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
 
           <Button onClick={runApply} disabled={loading || !preview.outcome_report?.safe_to_apply} className="w-full" size="lg" variant="default">
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
@@ -297,8 +297,8 @@ export default function OrganizePage() {
         <PageHeader title={t("Complete!", "Fertig!")} />
         <main className="max-w-5xl mx-auto p-6 space-y-6 text-center">
           {/* Success */}
-          <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto">
-            <Check className="h-10 w-10 text-green-600" />
+          <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center mx-auto">
+            <Check className="h-10 w-10 text-green-600 dark:text-green-400" />
           </div>
           <div>
             <h2 className="text-xl font-bold">{t("Organization complete!", "Organisation abgeschlossen!")}</h2>
@@ -319,7 +319,7 @@ export default function OrganizePage() {
           {/* Donation */}
           <Card className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/10 border-amber-200">
             <CardContent className="p-4 space-y-3">
-              <Heart className="h-6 w-6 text-red-500 mx-auto" fill="currentColor" />
+              <Heart className="h-6 w-6 text-red-500 dark:text-red-400 mx-auto" fill="currentColor" />
               <p className="text-sm font-medium">{t("Enjoying Media Manager?", "Gefällt dir Media Manager?")}</p>
               <p className="text-xs text-muted-foreground">
                 {t("If this tool saves you time, consider supporting its development.", "Wenn dieses Tool dir Zeit spart, unterstütze die Entwicklung.")}

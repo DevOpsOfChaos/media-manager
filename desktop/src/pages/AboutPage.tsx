@@ -52,7 +52,7 @@ export default function AboutPage() {
       <Card className="border-primary/20 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Heart className="h-5 w-5 text-red-500" fill="currentColor" />
+            <Heart className="h-5 w-5 text-red-500 dark:text-red-400" fill="currentColor" />
             {t("Support the Project", "Unterstütze das Projekt")}
           </CardTitle>
           <CardDescription>
@@ -86,7 +86,7 @@ export default function AboutPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Star className="h-5 w-5 text-yellow-500" fill="currentColor" />
+            <Star className="h-5 w-5 text-yellow-500 dark:text-yellow-400" fill="currentColor" />
             {t("Star on GitHub", "GitHub-Star geben")}
           </CardTitle>
           <CardDescription>

@@ -191,7 +191,7 @@ export default function HistoryPage() {
                       {filteredRuns.map((run) => (
                         <div key={run.run_id} className="relative">
                           <div className={`absolute -left-[25px] w-3 h-3 rounded-full border-2 border-background ${
-                            run.valid ? (run.mode === "apply" ? "bg-green-500" : "bg-blue-500") : "bg-red-500"
+                            run.valid ? (run.mode === "apply" ? "bg-green-500 dark:bg-green-600" : "bg-blue-500 dark:bg-blue-400") : "bg-red-500 dark:bg-red-600"
                           }`} />
                           <Card className="cursor-pointer hover:border-primary/30 transition-colors"
                             onClick={() => navigate(`/history/${run.run_id}`)}
@@ -211,7 +211,7 @@ export default function HistoryPage() {
                                   <p className="text-xs text-muted-foreground">
                                     {run.created_at_utc ? new Date(run.created_at_utc).toLocaleDateString() : "—"}
                                   </p>
-                                  <Badge className={`text-xs ${run.valid ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"}`}>
+                                  <Badge className={`text-xs ${run.valid ? "bg-green-500/10 text-green-500 dark:bg-green-500/15 dark:text-green-400" : "bg-red-500/10 text-red-500 dark:bg-red-500/15 dark:text-red-400"}`}>
                                     {run.valid ? t("Valid", "Gültig") : t("Invalid", "Ungültig")}
                                   </Badge>
                                 </div>
@@ -260,7 +260,7 @@ function RunRow({
     >
       <span
         className={`inline-flex size-2 shrink-0 rounded-full ${
-          run.valid ? (run.exit_code === 0 ? "bg-green-500" : "bg-yellow-500") : "bg-destructive"
+          run.valid ? (run.exit_code === 0 ? "bg-green-500 dark:bg-green-600" : "bg-yellow-500 dark:bg-yellow-600") : "bg-destructive"
         }`}
       />
       <div className="flex-1 min-w-0">

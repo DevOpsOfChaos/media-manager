@@ -32,6 +32,7 @@ import {
   LayoutDashboard,
   Maximize2,
   Minimize2,
+  Star,
 } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { Badge } from "@/components/ui/badge"
@@ -78,6 +79,10 @@ export function AppSidebar() {
     return (localStorage.getItem("theme") as "light" | "dark" | "system") || "system"
   })
   const [dryRun, setDryRun] = useState(() => localStorage.getItem("dry_run") === "true")
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("sidebar_favorites") || "[]") }
+    catch { return [] }
+  })
 
   const [sidebarItems, setSidebarItems] = useState<SidebarItem[]>(() => {
     const saved = localStorage.getItem(savedConfigKey)
@@ -224,6 +229,20 @@ export function AppSidebar() {
                         >
                           <item.icon />
                           <span>{sidebarLabel(item.label)}</span>
+                          <button
+                            className="ml-auto h-5 w-5 flex items-center justify-center rounded hover:bg-muted/50 flex-shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const next = favorites.includes(item.path)
+                                ? favorites.filter(p => p !== item.path)
+                                : [...favorites, item.path]
+                              setFavorites(next)
+                              localStorage.setItem("sidebar_favorites", JSON.stringify(next))
+                            }}
+                            title={favorites.includes(item.path) ? t("Remove from favorites", "Von Favoriten entfernen") : t("Add to favorites", "Zu Favoriten hinzufügen")}
+                          >
+                            <Star className={`h-3 w-3 ${favorites.includes(item.path) ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground"}`} />
+                          </button>
                           {badgeCount != null && (
                             <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0 h-4">{badgeCount}</Badge>
                           )}

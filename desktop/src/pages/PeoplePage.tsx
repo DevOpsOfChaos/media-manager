@@ -470,7 +470,7 @@ function friendlyPeopleError(err: unknown): string {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-3 p-3 border rounded border-yellow-500/30 bg-yellow-500/5">
+                <div className="space-y-3 p-3 border rounded border-yellow-500/30 dark:border-yellow-500/40 bg-yellow-500/5 dark:bg-yellow-500/10">
                   <p className="text-sm font-medium">{t("Reassign this face", "Dieses Gesicht neu zuweisen")}</p>
                   <select
                     value={reassignToId}

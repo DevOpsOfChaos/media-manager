@@ -82,8 +82,8 @@ export default function ReviewWorkbenchPage() {
         {groups.length > 0 && (
           <div className="flex gap-2">
             <Badge variant="outline">{stats.total} {t("total", "gesamt")}</Badge>
-            <Badge className="bg-green-100 text-green-800">{stats.keep} {t("keep", "behalten")}</Badge>
-            <Badge className="bg-red-100 text-red-800">{stats.remove} {t("remove", "entfernen")}</Badge>
+            <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200">{stats.keep} {t("keep", "behalten")}</Badge>
+            <Badge className="bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200">{stats.remove} {t("remove", "entfernen")}</Badge>
             <Badge variant="outline">{stats.reviewed} {t("reviewed", "geprüft")}</Badge>
             {stats.remove > 0 && (
               <Button size="sm" variant="destructive" onClick={() => setApplyDialogOpen(true)}>
@@ -209,7 +209,7 @@ export default function ReviewWorkbenchPage() {
               </DialogHeader>
               <div className="space-y-1 text-sm">
                 <p>✅ {stats.keep} {t("files kept", "Dateien behalten")}</p>
-                <p className="text-red-500">🗑️ {stats.remove} {t("files to remove", "Dateien zum Entfernen")}</p>
+                <p className="text-red-500 dark:text-red-400">🗑️ {stats.remove} {t("files to remove", "Dateien zum Entfernen")}</p>
                 <p className="text-muted-foreground">👁️ {stats.ignore} {t("files ignored", "Dateien ignoriert")}</p>
               </div>
               <DialogFooter>

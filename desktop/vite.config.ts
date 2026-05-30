@@ -40,4 +40,15 @@ export default defineConfig(async () => ({
     },
     fs: { allow: [".."] },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-tooltip'],
+          'tauri-vendor': ['@tauri-apps/api/core', '@tauri-apps/api/event', '@tauri-apps/api/window'],
+        },
+      },
+    },
+  },
 }));

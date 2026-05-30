@@ -18,7 +18,7 @@ export function PickRejectBar({ flagState, onFlag, compact = false }: PickReject
       <Button
         variant={flagState === "pick" ? "default" : "outline"}
         size={compact ? "icon" : "sm"}
-        className={`${compact ? "h-6 w-6" : "h-7"} ${flagState === "pick" ? "bg-green-600 hover:bg-green-700" : "hover:bg-green-100 dark:hover:bg-green-900/20 hover:text-green-600"}`}
+        className={`${compact ? "h-6 w-6" : "h-7"} ${flagState === "pick" ? "bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800" : "hover:bg-green-100 dark:hover:bg-green-900/20 hover:text-green-600 dark:hover:text-green-400"}`}
         onClick={(e) => { e.stopPropagation(); onFlag(flagState === "pick" ? "none" : "pick") }}
         title={t("Pick (P)", "Auswählen (P)")}
       >
@@ -27,7 +27,7 @@ export function PickRejectBar({ flagState, onFlag, compact = false }: PickReject
       <Button
         variant={flagState === "reject" ? "default" : "outline"}
         size={compact ? "icon" : "sm"}
-        className={`${compact ? "h-6 w-6" : "h-7"} ${flagState === "reject" ? "bg-red-600 hover:bg-red-700" : "hover:bg-red-100 dark:hover:bg-red-900/20 hover:text-red-600"}`}
+        className={`${compact ? "h-6 w-6" : "h-7"} ${flagState === "reject" ? "bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800" : "hover:bg-red-100 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400"}`}
         onClick={(e) => { e.stopPropagation(); onFlag(flagState === "reject" ? "none" : "reject") }}
         title={t("Reject (X)", "Ablehnen (X)")}
       >

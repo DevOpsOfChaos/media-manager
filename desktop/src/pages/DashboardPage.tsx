@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { useT } from "@/lib/i18n"
 import {
@@ -24,6 +24,14 @@ export default function DashboardPage() {
 
   const [showTour, setShowTour] = useState(() => localStorage.getItem("onboarding_complete") !== "true")
 
+  const navItems = useMemo(() => [
+    { to: "/library", icon: FolderOpen, label: t("Library", "Bibliothek"), desc: t("Browse media", "Medien durchsuchen") },
+    { to: "/organize", icon: FolderSync, label: t("Organize", "Organisieren"), desc: t("Sort files", "Dateien sortieren") },
+    { to: "/duplicates", icon: Scan, label: t("Duplicates", "Duplikate"), desc: t("Free up space", "Speicher freigeben") },
+    { to: "/people", icon: Users, label: t("People", "Personen"), desc: t("Face recognition", "Gesichtserkennung") },
+    { to: "/trips", icon: MapPin, label: t("Trips", "Reisen"), desc: t("Trip collections", "Reise-Sammlungen") },
+  ], [t])
+
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       <PageHeader
@@ -33,13 +41,7 @@ export default function DashboardPage() {
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {[
-          { to: "/library", icon: FolderOpen, label: t("Library", "Bibliothek"), desc: t("Browse media", "Medien durchsuchen") },
-          { to: "/organize", icon: FolderSync, label: t("Organize", "Organisieren"), desc: t("Sort files", "Dateien sortieren") },
-          { to: "/duplicates", icon: Scan, label: t("Duplicates", "Duplikate"), desc: t("Free up space", "Speicher freigeben") },
-          { to: "/people", icon: Users, label: t("People", "Personen"), desc: t("Face recognition", "Gesichtserkennung") },
-          { to: "/trips", icon: MapPin, label: t("Trips", "Reisen"), desc: t("Trip collections", "Reise-Sammlungen") },
-        ].map(item => (
+        {navItems.map(item => (
           <Card key={item.to} className="hover:border-primary/50 cursor-pointer transition-colors"
             onClick={() => navigate(item.to)} role="button" tabIndex={0}
             onKeyDown={e => e.key === "Enter" && navigate(item.to)}>

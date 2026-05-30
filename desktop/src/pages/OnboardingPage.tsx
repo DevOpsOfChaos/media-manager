@@ -164,7 +164,7 @@ export default function OnboardingPage() {
                     : t("Click to choose folder...", "Klicke um Ordner zu wählen...", lang)}
                 </Button>
                 {selectedFolder && (
-                  <div className="mt-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <div className="mt-3 p-3 rounded-lg bg-green-500/10 dark:bg-green-500/15 border border-green-500/20 dark:border-green-400/20">
                     <p className="text-sm font-medium text-green-400 flex items-center gap-2">
                       <Check className="w-4 h-4" />
                       {t("Folder selected", "Ordner ausgewählt", lang)}
