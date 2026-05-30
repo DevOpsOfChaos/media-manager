@@ -1,12 +1,15 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useT } from "@/lib/i18n"
 import {
   Card,
   CardContent,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { FolderOpen, FolderSync, Scan, Users, MapPin } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { FolderOpen, FolderSync, Scan, Users, MapPin, Eye, X, Clock, Plus, Trash2 } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { CameraImport } from "@/components/shared/CameraImport"
 import { OnboardingTour } from "@/components/shared/OnboardingTour"
@@ -23,6 +26,22 @@ export default function DashboardPage() {
   const needsBackup = !lastBackup || (Date.now() - new Date(lastBackup).getTime()) > 7 * 24 * 60 * 60 * 1000
 
   const [showTour, setShowTour] = useState(() => localStorage.getItem("onboarding_complete") !== "true")
+
+  const [watchFolders, setWatchFolders] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("watch_folders") || "[]") }
+    catch { return [] }
+  })
+
+  const [scheduledTasks, setScheduledTasks] = useState<Array<{id: string; action: string; schedule: string}>>(() => {
+    try { return JSON.parse(localStorage.getItem("scheduled_tasks") || "[]") }
+    catch { return [] }
+  })
+  const [newTaskAction, setNewTaskAction] = useState("Organize")
+  const [newTaskSchedule, setNewTaskSchedule] = useState("On app start")
+
+  useEffect(() => {
+    localStorage.setItem("scheduled_tasks", JSON.stringify(scheduledTasks))
+  }, [scheduledTasks])
 
   const navItems = useMemo(() => [
     { to: "/library", icon: FolderOpen, label: t("Library", "Bibliothek"), desc: t("Browse media", "Medien durchsuchen") },
@@ -73,7 +92,86 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Tour button */}
+      {/* Watch folders */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Eye className="h-4 w-4" /> {t("Watch Folders", "Überwachte Ordner")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {watchFolders.length === 0 && (
+            <p className="text-xs text-muted-foreground">{t("No folders watched.", "Keine Ordner überwacht.")}</p>
+          )}
+          {watchFolders.map(f => (
+            <div key={f} className="flex items-center justify-between text-xs py-1">
+              <span className="truncate">{f}</span>
+              <Button variant="ghost" size="icon" className="h-5 w-5"
+                onClick={() => {
+                  const next = watchFolders.filter(w => w !== f)
+                  setWatchFolders(next)
+                  localStorage.setItem("watch_folders", JSON.stringify(next))
+                }}><X className="h-3 w-3" /></Button>
+            </div>
+          ))}
+          <div className="flex gap-1 mt-2">
+            <Input placeholder={t("Add folder...", "Ordner hinzufügen...")} className="text-xs h-7"
+              onKeyDown={e => {
+                if (e.key === "Enter" && e.currentTarget.value.trim()) {
+                  const next = [...watchFolders, e.currentTarget.value.trim()]
+                  setWatchFolders(next)
+                  localStorage.setItem("watch_folders", JSON.stringify(next))
+                  e.currentTarget.value = ""
+                }
+              }} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Scheduled Tasks */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-4 w-4" /> {t("Scheduled Tasks", "Geplante Aufgaben")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {scheduledTasks.length === 0 && (
+            <p className="text-xs text-muted-foreground">{t("No tasks scheduled.", "Keine Aufgaben geplant.")}</p>
+          )}
+          {scheduledTasks.map(task => (
+            <div key={task.id} className="flex items-center justify-between text-xs py-1">
+              <span>{task.action} &mdash; {task.schedule}</span>
+              <Button variant="ghost" size="icon" className="h-5 w-5"
+                onClick={() => {
+                  const next = scheduledTasks.filter(t => t.id !== task.id)
+                  setScheduledTasks(next)
+                }}><Trash2 className="h-3 w-3" /></Button>
+            </div>
+          ))}
+          <div className="flex gap-1 mt-2">
+            <select className="text-xs h-7 border rounded px-1 bg-background"
+              value={newTaskAction}
+              onChange={e => setNewTaskAction(e.target.value)}>
+              <option value="Organize">{t("Organize", "Organisieren")}</option>
+              <option value="Scan Duplicates">{t("Scan Duplicates", "Duplikate scannen")}</option>
+              <option value="Face Scan">{t("Face Scan", "Gesichter scannen")}</option>
+            </select>
+            <select className="text-xs h-7 border rounded px-1 bg-background"
+              value={newTaskSchedule}
+              onChange={e => setNewTaskSchedule(e.target.value)}>
+              <option value="Daily">{t("Daily", "Täglich")}</option>
+              <option value="Weekly">{t("Weekly", "Wöchentlich")}</option>
+              <option value="On app start">{t("On app start", "Bei App-Start")}</option>
+            </select>
+            <Button variant="outline" size="icon" className="h-7 w-7"
+              onClick={() => {
+                const next = [...scheduledTasks, { id: crypto.randomUUID(), action: newTaskAction, schedule: newTaskSchedule }]
+                setScheduledTasks(next)
+              }}><Plus className="h-3 w-3" /></Button>
+          </div>
+        </CardContent>
+      </Card>
       <div className="flex justify-center">
         <Button variant="outline" size="sm" onClick={() => setShowTour(true)}>
           {t("Start tour", "Tour starten")}

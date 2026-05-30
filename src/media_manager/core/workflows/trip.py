@@ -33,8 +33,8 @@ class TripWorkflowOptions:
     source_dirs: tuple[Path, ...]
     target_root: Path
     label: str
-    start_date: date
-    end_date: date
+    start_date: date | None = None
+    end_date: date | None = None
     recursive: bool = True
     include_hidden: bool = False
     follow_symlinks: bool = False

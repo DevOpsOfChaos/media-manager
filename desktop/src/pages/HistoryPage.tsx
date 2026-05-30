@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useT } from "@/lib/i18n"
 import { userFriendlyError } from "@/lib/error-utils"
+import { toast } from "@/lib/toast"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -15,11 +16,12 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import {
   historyList,
+  undoApply,
   type HistoryListPayload,
   type HistoryRunEntry,
 } from "@/lib/tauri-bridge"
 import { EmptyState } from "@/components/shared/EmptyState"
-import { Clock, SearchX } from "lucide-react"
+import { Clock, SearchX, RotateCcw, BarChart3 } from "lucide-react"
 
 
 export default function HistoryPage() {
@@ -32,6 +34,9 @@ export default function HistoryPage() {
   const [filterCommand, setFilterCommand] = useState<string>("all")
   const [filterMode, setFilterMode] = useState<string>("all")
   const [viewMode, setViewMode] = useState<"list" | "timeline">("list")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedRuns, setSelectedRuns] = useState<Set<string>>(new Set())
+  const [bulkUndoing, setBulkUndoing] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -50,10 +55,50 @@ export default function HistoryPage() {
     load()
   }, [load])
 
+  const handleBulkUndo = useCallback(async () => {
+    if (selectedRuns.size === 0) return
+    setBulkUndoing(true)
+    try {
+      for (const runId of selectedRuns) {
+        await undoApply(runId)
+      }
+      toast("success", t(`Undone ${selectedRuns.size} operations`, `${selectedRuns.size} Operationen rückgängig`))
+      setSelectedRuns(new Set())
+      await load()
+    } catch (err) {
+      toast("error", t("Bulk undo failed", "Massen-Rückgängig fehlgeschlagen"))
+    } finally {
+      setBulkUndoing(false)
+    }
+  }, [selectedRuns, t, load])
+
+  const toggleSelectRun = useCallback((runId: string) => {
+    setSelectedRuns(prev => {
+      const next = new Set(prev)
+      if (next.has(runId)) {
+        next.delete(runId)
+      } else {
+        next.add(runId)
+      }
+      return next
+    })
+  }, [])
+
   const availableCommands = useMemo(() => {
     if (!data?.runs) return []
     const cmds = new Set(data.runs.map(r => r.command).filter(Boolean))
     return Array.from(cmds).sort()
+  }, [data])
+
+  const stats = useMemo(() => {
+    if (!data?.runs) return null
+    return {
+      total: data.runs.length,
+      valid: data.runs.filter(r => r.valid).length,
+      invalid: data.runs.filter(r => !r.valid).length,
+      previews: data.runs.filter(r => r.mode === "preview").length,
+      applies: data.runs.filter(r => r.mode === "apply").length,
+    }
   }, [data])
 
   const filteredRuns = useMemo(() => {
@@ -69,12 +114,18 @@ export default function HistoryPage() {
           (r.status ?? "").toLowerCase().includes(q),
       )
     }
+    const sq = searchQuery.trim().toLowerCase()
+    if (sq) {
+      runs = runs.filter(r =>
+        JSON.stringify(r).toLowerCase().includes(sq)
+      )
+    }
     return runs.filter(r => {
       if (filterCommand !== "all" && r.command !== filterCommand) return false
       if (filterMode !== "all" && r.mode !== filterMode) return false
       return true
     })
-  }, [data, filter, filterCommand, filterMode])
+  }, [data, filter, searchQuery, filterCommand, filterMode])
 
   return (
     <>
@@ -130,21 +181,30 @@ export default function HistoryPage() {
 
               {data && data.runs.length > 0 && (
                 <>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>{data.run_count} {t("runs", "Durchläufe")}</span>
-                    <span>{data.valid_count} {t("valid", "gültig")}</span>
-                    {data.invalid_count > 0 && (
-                      <span className="text-destructive">
-                        {data.invalid_count} {t("invalid", "ungültig")}
-                      </span>
-                    )}
-                  </div>
+                  {stats && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                      <StatBadge icon={BarChart3} label={t("Total", "Gesamt")} value={stats.total} variant="default" />
+                      <StatBadge label={t("Valid", "Gültig")} value={stats.valid} variant="success" />
+                      <StatBadge label={t("Invalid", "Ungültig")} value={stats.invalid} variant={stats.invalid > 0 ? "destructive" : "default"} />
+                      <StatBadge label={t("Previews", "Vorschauen")} value={stats.previews} variant="secondary" />
+                      <StatBadge label={t("Applied", "Angewendet")} value={stats.applies} variant="default" />
+                      <StatBadge label={t("Filtered", "Gefiltert")} value={filteredRuns.length} variant="outline" />
+                    </div>
+                  )}
 
                   <Input
                     type="text"
                     placeholder={t("Filter by run ID, command, mode, or status...", "Nach Durchlauf-ID, Befehl, Modus oder Status filtern...")}
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+
+                  <Input
+                    type="text"
+                    placeholder={t("Deep search (JSON)...", "Tiefensuche (JSON)...")}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     className="h-8 text-sm"
                   />
 
@@ -180,6 +240,19 @@ export default function HistoryPage() {
               {t("Timeline", "Zeitleiste")}
             </button>
           </div>
+          {selectedRuns.size > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleBulkUndo}
+              disabled={bulkUndoing}
+            >
+              <RotateCcw className="w-3.5 h-3.5 mr-1" />
+              {bulkUndoing
+                ? t("Undoing...", "Rückgängig...")
+                : t(`Undo selected (${selectedRuns.size})`, `Auswahl rückgängig (${selectedRuns.size})`)}
+            </Button>
+          )}
           <span className="text-xs text-muted-foreground ml-auto">
             {filteredRuns.length} {t("of", "von")} {data?.runs?.length || 0} {t("runs", "Durchläufen")}
           </span>
@@ -233,6 +306,8 @@ export default function HistoryPage() {
                           key={run.run_id}
                           run={run}
                           onClick={() => navigate(`/history/${run.run_id}`)}
+                          selected={selectedRuns.has(run.run_id)}
+                          onToggleSelect={() => toggleSelectRun(run.run_id)}
                         />
                       ))}
                     </div>
@@ -250,9 +325,13 @@ export default function HistoryPage() {
 function RunRow({
   run,
   onClick,
+  selected,
+  onToggleSelect,
 }: {
   run: HistoryRunEntry
   onClick: () => void
+  selected?: boolean
+  onToggleSelect?: () => void
 }) {
   const t = useT()
   const modeLabel = run.mode === "apply" ? t("Applied", "Angewendet") : run.mode === "preview" ? t("Preview", "Vorschau") : "—"
@@ -263,6 +342,17 @@ function RunRow({
       onClick={onClick}
       className="flex w-full items-center gap-3 rounded-lg border p-3 text-left hover:bg-muted/50 transition-colors"
     >
+      <input
+        type="checkbox"
+        checked={selected ?? false}
+        onChange={(e) => {
+          e.stopPropagation()
+          onToggleSelect?.()
+        }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-4 h-4 shrink-0 rounded border-border cursor-pointer"
+        aria-label={t("Select run", "Durchlauf auswählen")}
+      />
       <span
         className={`inline-flex size-2 shrink-0 rounded-full ${
           run.valid ? (run.exit_code === 0 ? "bg-green-500 dark:bg-green-600" : "bg-yellow-500 dark:bg-yellow-600") : "bg-destructive"
@@ -289,5 +379,33 @@ function RunRow({
           : "—"}
       </div>
     </button>
+  )
+}
+
+function StatBadge({
+  icon: Icon,
+  label,
+  value,
+  variant,
+}: {
+  icon?: React.ComponentType<{ className?: string }>
+  label: string
+  value: number
+  variant?: "default" | "secondary" | "destructive" | "outline" | "success"
+}) {
+  const variantClass = {
+    default: "bg-primary/10 text-primary border-primary/20",
+    secondary: "bg-muted text-muted-foreground border-border",
+    destructive: "bg-destructive/10 text-destructive border-destructive/20",
+    outline: "bg-background text-muted-foreground border-border",
+    success: "bg-green-500/10 text-green-500 dark:bg-green-500/15 dark:text-green-400 border-green-500/20",
+  }[variant ?? "default"]
+
+  return (
+    <div className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 ${variantClass}`}>
+      {Icon && <Icon className="w-3 h-3 shrink-0 opacity-70" />}
+      <span className="text-xs font-medium">{value}</span>
+      <span className="text-[10px] opacity-70">{label}</span>
+    </div>
   )
 }

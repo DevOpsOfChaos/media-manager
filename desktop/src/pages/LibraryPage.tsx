@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fileOpen, fileReveal, fileDelete, fileRename, fileExport, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
 
-import { FolderOpen, FolderSync, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive, Film, File } from "lucide-react"
+import { FolderOpen, FolderSync, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive, Film, Music, File } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,7 +66,11 @@ function isVideoFile(suffix: string): boolean {
 }
 
 function isImageFile(suffix: string): boolean {
-  return !isVideoFile(suffix)
+  return !isVideoFile(suffix) && !isAudioFile(suffix)
+}
+
+function isAudioFile(suffix: string): boolean {
+  return [".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma"].includes(suffix)
 }
 
 type FileItem = LibraryBrowsePaginatedResult["files"][0]
@@ -81,6 +85,7 @@ const FileCard = memo(function FileCard({
   tags,
   isActionLoading,
   selectMode,
+  exifData,
   onOpen,
   onReveal,
   onSetLabel,
@@ -101,6 +106,7 @@ const FileCard = memo(function FileCard({
   tags: string[]
   isActionLoading: boolean
   selectMode: boolean
+  exifData: Record<string, string | number> | null
   onOpen: (path: string, name: string) => void
   onReveal: (path: string) => void
   onSetLabel: (path: string, color: string) => void
@@ -147,22 +153,33 @@ const FileCard = memo(function FileCard({
         )}
         <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50" />
         {isImageFile(f.suffix) ? (
-          <img
-            src={convertFileSrc(f.path)}
-            alt={f.name}
-            className="w-full h-full object-cover absolute inset-0"
-            loading="lazy"
-            decoding="async"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none"
-              if ((e.target as HTMLImageElement).parentElement) {
-                (e.target as HTMLImageElement).parentElement!.classList.add("fallback-icon")
-              }
-            }}
-          />
+          <div className="relative group w-full h-full absolute inset-0">
+            <img
+              src={convertFileSrc(f.path)}
+              alt={f.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none"
+                if ((e.target as HTMLImageElement).parentElement) {
+                  (e.target as HTMLImageElement).parentElement!.classList.add("fallback-icon")
+                }
+              }}
+            />
+            {exifData && (exifData.iso || exifData.aperture || exifData.shutter_speed || exifData.focal_length) && (
+              <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                ISO {exifData.iso} · f/{exifData.aperture} · {exifData.shutter_speed}s · {exifData.focal_length}mm
+              </div>
+            )}
+          </div>
         ) : isVideoFile(f.suffix) ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <Film className="w-8 h-8 text-muted-foreground/40" />
+          </div>
+        ) : isAudioFile(f.suffix) ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Music className="w-8 h-8 text-muted-foreground/40" />
           </div>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -1078,6 +1095,7 @@ export default function LibraryPage() {
               tags={fileTags[f.path] || []}
               isActionLoading={actionLoading === f.path}
               selectMode={selectMode}
+              exifData={selectedFile?.path === f.path ? exifData : null}
               onOpen={handleOpen}
               onReveal={handleReveal}
               onSetLabel={handleSetLabel}
@@ -1116,6 +1134,22 @@ export default function LibraryPage() {
             <span className="text-muted-foreground">{t("Path", "Pfad")}</span>
             <span className="truncate text-xs" title={selectedFile.path}>{selectedFile.relative}</span>
           </div>
+          {selectedFile && selectedFile.suffix && ['.cr2', '.cr3', '.nef', '.arw', '.dng'].includes(selectedFile.suffix) && (
+            <Badge variant="secondary" className="text-xs">RAW</Badge>
+          )}
+          {selectedFile && isVideoFile(selectedFile.suffix) && (
+            <div className="mt-3">
+              <video
+                src={convertFileSrc(selectedFile.path)}
+                controls
+                className="w-full max-h-64 rounded"
+                preload="metadata"
+              />
+            </div>
+          )}
+          {selectedFile && isAudioFile(selectedFile.suffix) && (
+            <audio src={convertFileSrc(selectedFile.path)} controls className="w-full mt-2" />
+          )}
           {exifData && (exifData.image_width as number) > 6000 && (
             <p className="text-xs text-amber-500 mt-1">
               {t("High resolution image \u2014 may take longer to load", "Hochaufl\u00f6sendes Bild \u2014 Laden kann l\u00e4nger dauern")}

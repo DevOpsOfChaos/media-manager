@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { RotateCcw } from "lucide-react"
+import { RotateCcw, Download, ArrowRight } from "lucide-react"
 import { useT } from "@/lib/i18n"
+import { toast } from "@/lib/toast"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -14,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { historyGet, undoPreview, undoApply, type HistoryDetail } from "@/lib/tauri-bridge"
 import type { UndoExecutionResult } from "@/types"
+import { convertFileSrc } from "@tauri-apps/api/core"
 
 export default function RunDetailPage() {
   const t = useT()
@@ -74,6 +76,20 @@ export default function RunDetailPage() {
     }
   }, [runId])
 
+  const handleExportRun = useCallback(() => {
+    if (!detail) return
+    const blob = new Blob([JSON.stringify(detail, null, 2)], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `run-${detail.run_id}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast("success", t("Run exported as JSON", "Durchlauf als JSON exportiert"))
+  }, [detail, t])
+
   useEffect(() => {
     if (!undoPreviewResult || undoResult) return
     const handler = (e: KeyboardEvent) => {
@@ -111,6 +127,12 @@ export default function RunDetailPage() {
                 </span>
               ) : t("Refresh", "Aktualisieren")}
             </Button>
+            {detail && (
+              <Button variant="outline" size="sm" onClick={handleExportRun}>
+                <Download className="w-3.5 h-3.5 mr-1" />
+                {t("Export JSON", "JSON exportieren")}
+              </Button>
+            )}
           </div>
 
           {error && (
@@ -237,6 +259,42 @@ export default function RunDetailPage() {
                     ? t(`${undoPreviewResult.planned_count - undoPreviewResult.reversible_entry_count} operations cannot be undone (files may no longer exist at their original location).`, `${undoPreviewResult.planned_count - undoPreviewResult.reversible_entry_count} Operationen können nicht rückgängig gemacht werden (Dateien existieren möglicherweise nicht mehr am ursprünglichen Ort).`)
                     : t("All operations can be fully reversed.", "Alle Operationen können vollständig rückgängig gemacht werden.")}
                 </p>
+                {undoPreviewResult.entries.length > 0 && (
+                  <div className="mt-3 max-h-72 overflow-y-auto border rounded-md divide-y">
+                    {undoPreviewResult.entries.map((entry, i) => (
+                      <div key={i} className="flex items-center gap-3 p-2 text-xs">
+                        {entry.source_path && /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff|heic|heif|avif)$/i.test(entry.source_path) && (
+                          <img src={convertFileSrc(entry.source_path) || ""} alt="" className="w-10 h-10 rounded object-cover bg-muted shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono truncate text-muted-foreground">{entry.source_path?.split(/[\\/]/).pop() || entry.source_path}</span>
+                            {entry.target_path && (
+                              <>
+                                <ArrowRight className="w-3 h-3 shrink-0 text-muted-foreground" />
+                                <span className="font-mono truncate text-muted-foreground">{entry.target_path?.split(/[\\/]/).pop() || entry.target_path}</span>
+                              </>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <Badge variant="secondary" className="text-[10px] px-1 py-0">{entry.action}</Badge>
+                            <span className="text-[10px] text-muted-foreground">{entry.outcome}</span>
+                          </div>
+                          <div className="flex gap-3 mt-0.5">
+                            <span className="text-[10px] text-muted-foreground truncate" title={entry.source_path}>
+                              {t("Before", "Vorher")}: {entry.source_path}
+                            </span>
+                            {entry.target_path && (
+                              <span className="text-[10px] text-muted-foreground truncate" title={entry.target_path}>
+                                {t("After", "Nachher")}: {entry.target_path}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="flex gap-2 mt-2">
                   <Button onClick={handleUndoApply} disabled={undoLoading} variant="default" size="sm">{undoLoading ? t("Undoing...", "Rückgängig...") : t("Confirm Undo", "Rückgängig bestätigen")}</Button>
                   <Button onClick={() => setUndoPreviewResult(null)} variant="ghost" size="sm">{t("Cancel", "Abbrechen")}</Button>
@@ -251,6 +309,33 @@ export default function RunDetailPage() {
                 <p>{t("Undone:", "Rückgängig:")} {undoResult.undone_count}</p>
                 <p>{t("Skipped:", "Übersprungen:")} {undoResult.skipped_count}</p>
                 {undoResult.error_count > 0 && <p className="text-red-400">{t("Errors:", "Fehler:")} {undoResult.error_count}</p>}
+                {undoResult.entries.length > 0 && (
+                  <div className="mt-3 max-h-72 overflow-y-auto border rounded-md divide-y">
+                    {undoResult.entries.map((entry, i) => (
+                      <div key={i} className="flex items-center gap-3 p-2 text-xs">
+                        {entry.source_path && /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff|heic|heif|avif)$/i.test(entry.source_path) && (
+                          <img src={convertFileSrc(entry.source_path) || ""} alt="" className="w-10 h-10 rounded object-cover bg-muted shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono truncate">{entry.source_path?.split(/[\\/]/).pop() || entry.source_path}</span>
+                            {entry.target_path && (
+                              <>
+                                <ArrowRight className="w-3 h-3 shrink-0" />
+                                <span className="font-mono truncate">{entry.target_path?.split(/[\\/]/).pop() || entry.target_path}</span>
+                              </>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <Badge variant="secondary" className="text-[10px] px-1 py-0">{entry.action}</Badge>
+                            <span className={`text-[10px] ${entry.outcome === "error" ? "text-destructive" : "text-muted-foreground"}`}>{entry.outcome}</span>
+                            {entry.reason && <span className="text-[10px] text-muted-foreground">— {entry.reason}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
