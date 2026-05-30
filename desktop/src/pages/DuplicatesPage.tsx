@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
-import { CheckSquare, Square, Trash2, Info, ScanText, Wand2, Star, CopyCheck, Image } from "lucide-react"
+import { CheckSquare, Square, Trash2, Info, ScanText, Wand2, Star, CopyCheck, Image, Zap } from "lucide-react"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
 import { userFriendlyError } from "@/lib/error-utils"
@@ -97,6 +97,7 @@ export default function DuplicatesPage() {
   const [deleteResult, setDeleteResult] = useState<{ executed_rows: number; error_rows: number } | null>(null)
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [liveGroups, setLiveGroups] = useState<any[]>([])
 
   const DUP_PHASES = [
     { nameEn: "Phase 1/4 — Scanning source folders...", nameDe: "Phase 1/4 — Quellordner werden gescannt...", endAt: 15, increment: 1.5 },
@@ -125,6 +126,18 @@ export default function DuplicatesPage() {
     }
   }, [])
 
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    const setup = async () => {
+      const { listen } = await import("@tauri-apps/api/event")
+      unlisten = await listen<any>("early-duplicate", (event) => {
+        setLiveGroups((prev) => [...prev, event.payload])
+      })
+    }
+    setup()
+    return () => { unlisten?.() }
+  }, [])
+
   const handleScanAll = async () => {
     if (!sourceDir.trim()) {
       setError(t("Please select a source directory.", "Bitte wählen Sie ein Quellverzeichnis aus."))
@@ -135,6 +148,7 @@ export default function DuplicatesPage() {
     setExactPreview(null)
     setSimilarPreview(null)
     setExpandedGroups(new Set())
+    setLiveGroups([])
     startDupProgress()
     startSimilarProgress()
     startProgress(t("Scanning for duplicates...", "Suche nach Duplikaten..."), 2)
@@ -179,6 +193,7 @@ export default function DuplicatesPage() {
     setExactPreview(null)
     setSimilarPreview(null)
     setExpandedGroups(new Set())
+    setLiveGroups([])
     startDupProgress()
     if (tab === "similar") startSimilarProgress()
     startProgress(t("Scanning for duplicates...", "Suche nach Duplikaten..."), 2)
@@ -527,6 +542,28 @@ export default function DuplicatesPage() {
           )}
           {loading && tab !== "similar" && (
             <ProgressBlock phase={scanPhase} totalPhases={4} progress={simulatedProgress} log={scanLog} />
+          )}
+
+          {loading && liveGroups.length > 0 && (
+            <Card className="border-green-200 bg-green-50/30">
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-green-600" />
+                  {t("Live Results", "Live-Ergebnisse")} ({liveGroups.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="max-h-64 overflow-y-auto space-y-1">
+                {liveGroups.map((g, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <Badge variant="secondary">{g.files?.length || 0} {t("dupes", "Dup.")}</Badge>
+                    <span className="text-muted-foreground">{formatBytes(g.file_size || 0)}</span>
+                    <span className="text-muted-foreground truncate max-w-[300px]">
+                      {g.files?.[0]?.split(/[\\/]/).pop() || ""}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           )}
 
           {/* Exact duplicates results */}

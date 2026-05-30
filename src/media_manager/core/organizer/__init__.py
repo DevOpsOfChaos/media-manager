@@ -11,7 +11,7 @@ from .models import (
     OrganizePlannerOptions,
 )
 from .patterns import DEFAULT_ORGANIZE_PATTERN, render_organize_directory
-from .planner import build_organize_dry_run
+from .planner import build_organize_dry_run, build_organize_dry_run_date_batched
 
 __all__ = [
     "DEFAULT_ORGANIZE_PATTERN",
@@ -23,6 +23,7 @@ __all__ = [
     "OrganizePlanEntry",
     "OrganizePlannerOptions",
     "build_organize_dry_run",
+    "build_organize_dry_run_date_batched",
     "execute_organize_plan",
     "render_organize_directory",
 ]

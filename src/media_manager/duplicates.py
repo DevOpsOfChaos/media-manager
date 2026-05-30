@@ -5,6 +5,7 @@ import logging
 from collections import Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 from media_manager.constants import SAMPLE_SIZE, HASH_CHUNK_SIZE
@@ -13,6 +14,7 @@ from .core.path_filters import path_is_included_by_patterns
 from .core.perf_timer import timer
 from .media_formats import media_kind_for_extension, normalize_extensions
 from .sorter import iter_media_files
+from .exiftool import read_exiftool_metadata_batch
 
 _logger = logging.getLogger(__name__)
 
@@ -191,6 +193,51 @@ def _group_by_size(
     return grouped
 
 
+def _group_by_date(
+    paths: list[Path],
+    result: DuplicateScanResult | None = None,
+    progress_callback: ProgressCallback | None = None,
+) -> dict[str, list[Path]]:
+    date_groups: dict[str, list[Path]] = defaultdict(list)
+    batch_size = 2000
+    total = len(paths)
+    processed = 0
+
+    for i in range(0, total, batch_size):
+        batch = paths[i:i + batch_size]
+        metadata_map = read_exiftool_metadata_batch(batch, timeout_seconds=60)
+
+        for path in batch:
+            meta = metadata_map.get(path, {})
+            if meta:
+                date_val = (
+                    meta.get("DateTimeOriginal")
+                    or meta.get("CreateDate")
+                    or ""
+                )
+                if date_val and isinstance(date_val, str):
+                    date_key = str(date_val)[:10]
+                    if date_key:
+                        date_groups[date_key].append(path)
+                        processed += 1
+                        continue
+
+            try:
+                mtime = path.stat().st_mtime
+                date_key = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
+            except OSError:
+                date_key = "unknown"
+            date_groups[date_key].append(path)
+            processed += 1
+
+        if progress_callback and processed % 2000 == 0:
+            progress_callback(
+                f"Date grouping: {processed}/{total} files ({processed * 100 // max(total, 1)}%)"
+            )
+
+    return {k: v for k, v in date_groups.items() if len(v) > 1}
+
+
 def _build_exact_group(paths: list[Path], file_size: int, sample_digest: str, full_digest: str) -> ExactDuplicateGroup:
     ordered_paths = sorted(paths, key=_normalized_sort_key)
     first_name = ordered_paths[0].name
@@ -273,14 +320,17 @@ def _byte_compare_clusters(
 def scan_exact_duplicates(
     config: DuplicateScanConfig,
     progress_callback: ProgressCallback | None = None,
+    early_group_callback: Callable[[ExactDuplicateGroup], None] | None = None,
 ) -> DuplicateScanResult:
     with timer("scan_exact_duplicates", _logger):
-        return _scan_exact_duplicates_impl(config, progress_callback)
+        return _scan_exact_duplicates_impl(config, progress_callback, early_group_callback=early_group_callback)
 
 
 def _scan_exact_duplicates_impl(
     config: DuplicateScanConfig,
     progress_callback: ProgressCallback | None = None,
+    *,
+    early_group_callback: Callable[[ExactDuplicateGroup], None] | None = None,
 ) -> DuplicateScanResult:
     result = DuplicateScanResult()
 
@@ -394,7 +444,10 @@ def _scan_exact_duplicates_impl(
     for (file_size, sample_digest, full_digest), paths in hash_groups.items():
         for cluster in _byte_compare_clusters(paths, config, result):
             if len(cluster) > 1:
-                exact_groups.append(_build_exact_group(cluster, file_size, sample_digest, full_digest))
+                group = _build_exact_group(cluster, file_size, sample_digest, full_digest)
+                exact_groups.append(group)
+                if early_group_callback is not None:
+                    early_group_callback(group)
 
     exact_groups.sort(key=lambda group: (-len(group.files), -group.file_size, _normalized_sort_key(group.files[0])))
     result.exact_groups = exact_groups
@@ -404,6 +457,176 @@ def _scan_exact_duplicates_impl(
     if result.compare_errors > 0:
         stage_four_message += f" Compare errors: {result.compare_errors}."
     _emit_progress(progress_callback, stage_four_message)
+
+    if result.exact_groups:
+        _emit_progress(
+            progress_callback,
+            f"Finished. Exact groups: {len(result.exact_groups)} | duplicate files: {result.exact_duplicate_files} | extra duplicates: {result.exact_duplicates} | errors: {result.errors}",
+        )
+    else:
+        _emit_progress(progress_callback, f"No exact duplicates found. Errors: {result.errors}")
+    return result
+
+
+def scan_exact_duplicates_fast(
+    config: DuplicateScanConfig,
+    progress_callback: ProgressCallback | None = None,
+    early_group_callback: Callable[[ExactDuplicateGroup], None] | None = None,
+) -> DuplicateScanResult:
+    with timer("scan_exact_duplicates_fast", _logger):
+        return _scan_exact_duplicates_fast_impl(config, progress_callback, early_group_callback=early_group_callback)
+
+
+def _scan_exact_duplicates_fast_impl(
+    config: DuplicateScanConfig,
+    progress_callback: ProgressCallback | None = None,
+    *,
+    early_group_callback: Callable[[ExactDuplicateGroup], None] | None = None,
+) -> DuplicateScanResult:
+    result = DuplicateScanResult()
+
+    _emit_progress(progress_callback, "Scanning source folders for media files ...")
+    media_extensions = None if config.media_extensions is None else normalize_extensions(config.media_extensions)
+    media_files = _apply_duplicate_path_filters(
+        iter_media_files(config.source_dirs, media_extensions=media_extensions),
+        config,
+        result,
+    )
+    result.scanned_files = len(media_files)
+    _apply_scan_kind_summary(result, media_files)
+    _emit_progress(
+        progress_callback,
+        f"Found {result.scanned_files} media file(s): images={result.image_file_count}, raw={result.raw_image_file_count}, videos={result.video_file_count}, audio={result.audio_file_count}.",
+    )
+
+    if result.scanned_files == 0:
+        _emit_progress(progress_callback, "No media files found.")
+        return result
+
+    # Stage 1/3 — Size-grouping
+    _emit_progress(progress_callback, f"Stage 1/3 — Size grouping ({result.scanned_files} files)...")
+    size_groups = _group_by_size(media_files, result)
+    candidates: dict[int, list[Path]] = {size: paths for size, paths in size_groups.items() if len(paths) > 1}
+
+    result.size_candidate_groups = len(candidates)
+    result.size_candidate_files = sum(len(v) for v in candidates.values())
+    _emit_progress(
+        progress_callback,
+        f"Stage 1/3 — size grouping kept {result.size_candidate_files} candidate file(s) in {result.size_candidate_groups} group(s).",
+    )
+
+    if not candidates:
+        _emit_progress(progress_callback, "No exact duplicates found.")
+        return result
+
+    # Stage 2/3 — Date-group each size group
+    _emit_progress(progress_callback, f"Stage 2/3 — Date grouping within {len(candidates)} size groups...")
+    final_candidates: dict[str, list[Path]] = {}
+    candidate_count = 0
+    processed_groups = 0
+    total_size_groups = len(candidates)
+
+    for size, paths in candidates.items():
+        processed_groups += 1
+        date_groups = _group_by_date(paths, result)
+        for date_key, date_paths in date_groups.items():
+            if len(date_paths) > 1:
+                key = f"{size}:{date_key}"
+                final_candidates[key] = date_paths
+                candidate_count += len(date_paths)
+
+        if progress_callback and processed_groups % 50 == 0:
+            progress_callback(
+                f"Stage 2/3 — Processed {processed_groups}/{total_size_groups} size groups, {candidate_count} candidates so far"
+            )
+
+    _emit_progress(
+        progress_callback,
+        f"Stage 2/3 complete — {candidate_count} candidate files in {len(final_candidates)} date+size groups",
+    )
+
+    if not final_candidates:
+        _emit_progress(progress_callback, "No exact duplicates found.")
+        return result
+
+    # Stage 3/3 — Sample fingerprint + hash + byte-compare on date-filtered candidates
+    _emit_progress(progress_callback, f"Stage 3/3 — Sample fingerprint on {candidate_count} candidates...")
+
+    states: dict[Path, dict] = {}
+    for paths in final_candidates.values():
+        for path in paths:
+            file_size = _safe_file_size(path)
+            if file_size is None:
+                _record_stage_error(result, "size")
+                continue
+            states[path] = {"size": file_size}
+
+    sample_count = 0
+    total_samples = len(states)
+    for idx, (path, state) in enumerate(tuple(states.items())):
+        try:
+            state["sample"] = compute_sample_fingerprint(path, sample_size=config.sample_size)
+            result.sampled_files += 1
+        except OSError:
+            _record_stage_error(result, "sample")
+            del states[path]
+        sample_count += 1
+        if sample_count % 500 == 0:
+            pct = sample_count * 100 // max(total_samples, 1)
+            _emit_progress(progress_callback, f"Stage 3/3 — sampled {sample_count}/{total_samples} files ({pct}%)")
+
+    states = _dedup_filter(states, lambda s: str((s["size"], s.get("sample"))))
+    sample_groups = len({(s["size"], s["sample"]) for s in states.values()}) if states else 0
+    _emit_progress(progress_callback, f"Stage 3/3 — sample fingerprinting kept {len(states)} files in {sample_groups} groups")
+
+    if not states:
+        _emit_progress(progress_callback, "No exact duplicates found.")
+        return result
+
+    hash_count = 0
+    total_hashes = len(states)
+    for idx, (path, state) in enumerate(tuple(states.items())):
+        try:
+            state["hash"] = compute_full_hash(path, chunk_size=config.hash_chunk_size)
+            result.hashed_files += 1
+        except OSError:
+            _record_stage_error(result, "hash")
+            del states[path]
+        hash_count += 1
+        if hash_count % 500 == 0:
+            pct = hash_count * 100 // max(total_hashes, 1)
+            _emit_progress(progress_callback, f"Stage 3/3 — hashed {hash_count}/{total_hashes} files ({pct}%)")
+
+    states = _dedup_filter(states, lambda s: str((s["size"], s.get("sample"), s.get("hash"))))
+    _emit_progress(progress_callback, f"Stage 3/3 — full hashing kept {len(states)} files")
+
+    if not states:
+        _emit_progress(progress_callback, "No exact duplicates found.")
+        return result
+
+    hash_groups: dict[tuple, list[Path]] = defaultdict(list)
+    for path, state in states.items():
+        key = (state["size"], state.get("sample"), state.get("hash"))
+        hash_groups[key].append(path)
+
+    exact_groups: list[ExactDuplicateGroup] = []
+    for (file_size, sample_digest, full_digest), paths in hash_groups.items():
+        for cluster in _byte_compare_clusters(paths, config, result):
+            if len(cluster) > 1:
+                group = _build_exact_group(cluster, file_size, sample_digest, full_digest)
+                exact_groups.append(group)
+                if early_group_callback is not None:
+                    early_group_callback(group)
+
+    exact_groups.sort(key=lambda group: (-len(group.files), -group.file_size, _normalized_sort_key(group.files[0])))
+    result.exact_groups = exact_groups
+    result.exact_duplicate_files = sum(len(group.files) for group in exact_groups)
+    result.exact_duplicates = sum(len(group.files) - 1 for group in exact_groups)
+
+    stage_message = f"Stage 3/3 — byte comparison confirmed {len(result.exact_groups)} exact group(s)."
+    if result.compare_errors > 0:
+        stage_message += f" Compare errors: {result.compare_errors}."
+    _emit_progress(progress_callback, stage_message)
 
     if result.exact_groups:
         _emit_progress(

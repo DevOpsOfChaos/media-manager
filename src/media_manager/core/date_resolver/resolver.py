@@ -22,6 +22,20 @@ _REALISTIC_YEAR_MAX = datetime.now().year + 1
 logger = logging.getLogger(__name__)
 
 
+def _compute_confidence(source_kind: str, source_label: str) -> tuple[float, str]:
+    if source_kind == "metadata":
+        if "DateTimeOriginal" in source_label:
+            return 1.0, "exif_original"
+        return 0.9, "exif_other"
+    if source_kind == "filename":
+        return 0.5, "filename"
+    if source_kind == "file_system":
+        if source_label == "creation_date":
+            return 0.35, "creation_date"
+        return 0.3, "mtime"
+    return 0.0, "unknown"
+
+
 @lru_cache(maxsize=65536)
 def _cached_stat(path_key: str) -> os.stat_result | None:
     try:
@@ -164,6 +178,8 @@ def _resolve_capture_datetime_impl(
             source_kind="metadata",
             source_label=selected_candidate.source_tag,
             confidence="high",
+            confidence_score=_compute_confidence("metadata", selected_candidate.source_tag)[0],
+            source_quality=_compute_confidence("metadata", selected_candidate.source_tag)[1],
             timezone_status=describe_timezone_status(parsed),
             reason=reason,
             candidates_checked=len(inspection.date_candidates),
@@ -189,6 +205,8 @@ def _resolve_capture_datetime_impl(
             source_kind="file_system",
             source_label="mtime",
             confidence="low",
+            confidence_score=_compute_confidence("file_system", "mtime")[0],
+            source_quality=_compute_confidence("file_system", "mtime")[1],
             timezone_status=describe_timezone_status(modified_at),
             reason=reason,
             candidates_checked=len(inspection.date_candidates),
@@ -220,18 +238,20 @@ def _resolve_capture_datetime_impl(
                     path=file_path,
                     resolved_datetime=created,
                     resolved_value=format_resolution_value(created),
-                    source_kind="file_system",
-                    source_label="creation_date",
-                    confidence="medium",
-                    timezone_status=describe_timezone_status(created),
-                    reason=reason,
-                    candidates_checked=len(inspection.date_candidates),
-                    parseable_candidate_count=0,
-                    unparseable_candidate_count=total_skipped,
-                    metadata_conflict=False,
-                    decision_policy="creation_date_fallback",
-                    metadata=inspection.metadata,
-                )
+                source_kind="file_system",
+                source_label="creation_date",
+                confidence="medium",
+                confidence_score=_compute_confidence("file_system", "creation_date")[0],
+                source_quality=_compute_confidence("file_system", "creation_date")[1],
+                timezone_status=describe_timezone_status(created),
+                reason=reason,
+                candidates_checked=len(inspection.date_candidates),
+                parseable_candidate_count=0,
+                unparseable_candidate_count=total_skipped,
+                metadata_conflict=False,
+                decision_policy="creation_date_fallback",
+                metadata=inspection.metadata,
+            )
         except OSError:
             pass
 
@@ -253,18 +273,20 @@ def _resolve_capture_datetime_impl(
                 path=file_path,
                 resolved_datetime=modified_at,
                 resolved_value=format_resolution_value(modified_at),
-                source_kind="file_system",
-                source_label="mtime",
-                confidence="low",
-                timezone_status=describe_timezone_status(modified_at),
-                reason=reason,
-                candidates_checked=len(inspection.date_candidates),
-                parseable_candidate_count=0,
-                unparseable_candidate_count=total_skipped,
-                metadata_conflict=False,
-                decision_policy="mtime_fallback",
-                metadata=inspection.metadata,
-            )
+            source_kind="file_system",
+            source_label="mtime",
+            confidence="low",
+            confidence_score=_compute_confidence("file_system", "mtime")[0],
+            source_quality=_compute_confidence("file_system", "mtime")[1],
+            timezone_status=describe_timezone_status(modified_at),
+            reason=reason,
+            candidates_checked=len(inspection.date_candidates),
+            parseable_candidate_count=0,
+            unparseable_candidate_count=total_skipped,
+            metadata_conflict=False,
+            decision_policy="mtime_fallback",
+            metadata=inspection.metadata,
+        )
         reason = f"Fell back to a recognized filename pattern: {filename_match.matched_text}."
         if inspection.date_candidates:
             count = len(inspection.date_candidates)
@@ -277,18 +299,20 @@ def _resolve_capture_datetime_impl(
             path=file_path,
             resolved_datetime=filename_match.parsed_datetime,
             resolved_value=format_resolution_value(filename_match.parsed_datetime),
-            source_kind="filename",
-            source_label=filename_match.pattern_name,
-            confidence="medium",
-            timezone_status=describe_timezone_status(filename_match.parsed_datetime),
-            reason=reason,
-            candidates_checked=len(inspection.date_candidates),
-            parseable_candidate_count=0,
-            unparseable_candidate_count=total_skipped,
-            metadata_conflict=False,
-            decision_policy="filename_fallback",
-            metadata=inspection.metadata,
-        )
+        source_kind="filename",
+        source_label=filename_match.pattern_name,
+        confidence="medium",
+        confidence_score=_compute_confidence("filename", filename_match.pattern_name)[0],
+        source_quality=_compute_confidence("filename", filename_match.pattern_name)[1],
+        timezone_status=describe_timezone_status(filename_match.parsed_datetime),
+        reason=reason,
+        candidates_checked=len(inspection.date_candidates),
+        parseable_candidate_count=0,
+        unparseable_candidate_count=total_skipped,
+        metadata_conflict=False,
+        decision_policy="filename_fallback",
+        metadata=inspection.metadata,
+    )
 
     final_mtime = _get_mtime(inspection) or file_path.stat().st_mtime
     modified_at = datetime.fromtimestamp(final_mtime)
@@ -304,15 +328,17 @@ def _resolve_capture_datetime_impl(
         path=file_path,
         resolved_datetime=modified_at,
         resolved_value=format_resolution_value(modified_at),
-        source_kind="file_system",
-        source_label="mtime",
-        confidence="low",
-        timezone_status=describe_timezone_status(modified_at),
-        reason=reason,
-        candidates_checked=len(inspection.date_candidates),
-        parseable_candidate_count=0,
-        unparseable_candidate_count=total_skipped,
-        metadata_conflict=False,
-        decision_policy="mtime_fallback",
-        metadata=inspection.metadata,
-    )
+    source_kind="file_system",
+    source_label="mtime",
+    confidence="low",
+    confidence_score=_compute_confidence("file_system", "mtime")[0],
+    source_quality=_compute_confidence("file_system", "mtime")[1],
+    timezone_status=describe_timezone_status(modified_at),
+    reason=reason,
+    candidates_checked=len(inspection.date_candidates),
+    parseable_candidate_count=0,
+    unparseable_candidate_count=total_skipped,
+    metadata_conflict=False,
+    decision_policy="mtime_fallback",
+    metadata=inspection.metadata,
+)

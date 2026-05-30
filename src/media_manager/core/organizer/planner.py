@@ -4,7 +4,10 @@ import json
 import logging
 import os
 import stat as _stat
+import sys
 import time
+from collections import defaultdict
+from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -17,7 +20,7 @@ from media_manager.core.date_resolver import resolve_capture_datetime
 from media_manager.core.file_identity import files_have_identical_content
 from media_manager.core.media_groups import build_media_groups
 from media_manager.core.metadata.inspect import inspect_media_files_batch
-from media_manager.constants import LARGE_BATCH_SIZE, LARGE_LIBRARY_THRESHOLD
+from media_manager.constants import LARGE_BATCH_SIZE, LARGE_LIBRARY_THRESHOLD, DATE_TAG_PRIORITY
 
 if TYPE_CHECKING:
     from media_manager.core.progress_tracker import ProgressTracker
@@ -633,6 +636,526 @@ def _build_organize_dry_run_impl(options: OrganizePlannerOptions, progress_callb
 
     if getattr(options, 'stream_results', False):
         return _stream_plan_entries(dry_run)
+
+    return dry_run
+
+
+def build_organize_dry_run_date_batched(
+    options: OrganizePlannerOptions,
+    progress_callback=None,
+    cancel_event=None,
+    progress: "ProgressTracker | None" = None,
+    on_entry: Callable[[OrganizePlanEntry], None] | None = None,
+) -> OrganizeDryRun:
+    """Build organize plan in date-based batches for better progress + early results."""
+    with timer("build_organize_dry_run_date_batched", logger):
+        return _build_organize_dry_run_date_batched_impl(
+            options, progress_callback, cancel_event, progress, on_entry,
+        )
+
+
+def _progress_msg(progress_callback, message: str) -> None:
+    if progress_callback is not None:
+        progress_callback(message)
+
+
+def _extract_date_key_from_meta(meta: dict[str, object]) -> str:
+    for tag in DATE_TAG_PRIORITY:
+        value = meta.get(tag)
+        if isinstance(value, str) and value.strip():
+            raw = value.strip()
+            for fmt in ("%Y:%m:%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S",
+                        "%Y:%m:%d", "%Y-%m-%d", "%Y%m%d"):
+                try:
+                    from datetime import datetime as _dt
+                    parsed = _dt.strptime(raw[:19] if len(raw) >= 19 else raw, fmt)
+                    if 1800 <= parsed.year <= _dt.now().year + 1:
+                        return parsed.strftime("%Y-%m")
+                except (ValueError, IndexError):
+                    continue
+            return raw[:7] if len(raw) >= 7 else "unknown"
+    return "unknown"
+
+
+def _build_organize_dry_run_date_batched_impl(
+    options: OrganizePlannerOptions,
+    progress_callback=None,
+    cancel_event=None,
+    progress: "ProgressTracker | None" = None,
+    on_entry: Callable[[OrganizePlanEntry], None] | None = None,
+) -> OrganizeDryRun:
+
+    if progress:
+        progress.enter_phase("scanning", "Discovering media files...")
+    source_roots = [str(d) for d in options.source_dirs]
+    scan_summary = None
+    try:
+        from media_manager.core.media_cache import MediaCache
+        cache = MediaCache.get()
+        cache._ensure_schema()
+        row = cache._conn().execute("SELECT value FROM cache_meta WHERE key='last_sync'").fetchone()
+        last_sync = float(row[0]) if row else 0
+        if time.time() - last_sync > 30:
+            cache.sync(source_roots)
+            cache._conn().execute(
+                "INSERT OR REPLACE INTO cache_meta(key,value) VALUES('last_sync',?)",
+                (str(time.time()),)
+            )
+            cache._conn().commit()
+        scan_summary = cache.build_scan_summary(source_roots)
+    except (OSError, json.JSONDecodeError, KeyError) as exc:
+        logger.warning("Cache load failed: %s", exc)
+
+    if scan_summary is None or not scan_summary.files:
+        scan_summary = _scan_summary_from_streaming(
+            ScanOptions(
+                source_dirs=options.source_dirs,
+                recursive=options.recursive,
+                include_hidden=options.include_hidden,
+                follow_symlinks=options.follow_symlinks,
+                include_patterns=options.include_patterns,
+                exclude_patterns=options.exclude_patterns,
+            )
+        )
+
+    if options.conflict_policy not in {"conflict", "skip", "rename"}:
+        raise ValueError("Organize conflict policy must be one of: conflict, skip, rename.")
+
+    dry_run = OrganizeDryRun(options=options, scan_summary=scan_summary)
+
+    scanned_files = list(scan_summary.files)
+    total = len(scanned_files)
+
+    if options.include_associated_files:
+        scanned_files = _augment_files_with_associated_sidecars(
+            scanned_files,
+            exclude_patterns=options.exclude_patterns,
+        )
+
+    # ── Phase: quick date extraction ──
+    if progress:
+        progress.enter_phase("extracting_dates", f"Quick date extraction from {total:,} files...")
+    _progress_msg(progress_callback, f"Quick date extraction from {total:,} files...")
+
+    cached_dates: dict[str, tuple[str, str]] = {}
+    try:
+        from media_manager.core.media_cache import MediaCache
+        cache = MediaCache.get()
+        source_roots = [str(d) for d in options.source_dirs]
+        cached_dates = {os.path.normcase(k): (v.split("|", 1)[0], v.split("|", 1)[1] if "|" in v else "metadata")
+                       for k, v in cache.get_resolved_dates(source_roots).items()}
+    except (OSError, ValueError) as exc:
+        logger.debug("Date resolution fallback: %s", exc)
+
+    # Build date key mapping for all files
+    file_date_keys: dict[Path, str] = {}
+    uncached: list[Path] = []
+
+    for sf in scanned_files:
+        norm = os.path.normcase(str(sf.path))
+        if norm in cached_dates:
+            date_str = cached_dates[norm][0]
+            from datetime import datetime as _dt
+            for fmt in ("%Y:%m:%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S",
+                        "%Y:%m:%d", "%Y-%m-%d", "%Y%m%d"):
+                try:
+                    raw = date_str[:19] if len(date_str) >= 19 else date_str
+                    parsed = _dt.strptime(raw, fmt)
+                    file_date_keys[sf.path] = parsed.strftime("%Y-%m")
+                    break
+                except (ValueError, IndexError):
+                    continue
+            else:
+                file_date_keys[sf.path] = date_str[:7] if len(date_str) >= 7 else "unknown"
+        else:
+            uncached.append(sf.path)
+
+    # Batch ExifTool for uncached files
+    if uncached:
+        batch_size = 5000
+        from media_manager.exiftool import read_exiftool_metadata_batch
+        for i in range(0, len(uncached), batch_size):
+            if cancel_event and cancel_event.is_set():
+                break
+            batch = uncached[i:i + batch_size]
+            meta_map = read_exiftool_metadata_batch(batch)
+            for fp in batch:
+                meta = meta_map.get(fp, {})
+                file_date_keys[fp] = _extract_date_key_from_meta(meta)
+
+    # ── Emit scan summary early (before entries stream) ──
+    if on_entry is not None:
+        print(json.dumps({
+            "type": "scan_summary",
+            "data": {
+                "source_dirs": [str(p) for p in scan_summary.source_dirs],
+                "missing_sources": [str(p) for p in scan_summary.missing_sources],
+                "source_count": scan_summary.source_count,
+                "media_file_count": scan_summary.media_file_count,
+                "total_size_bytes": scan_summary.total_size_bytes,
+            },
+        }), flush=True)
+
+    # ── Phase: date grouping ──
+    _progress_msg(progress_callback, f"Grouping {total:,} files by capture date...")
+
+    date_groups: dict[str, list[ScannedFile]] = defaultdict(list)
+    for sf in scanned_files:
+        dk = file_date_keys.get(sf.path, "unknown")
+        date_groups[dk].append(sf)
+
+    if progress:
+        progress.enter_phase("building_plan", f"Building organize plan from {total:,} files in {len(date_groups):,} date groups...")
+
+    # ── Smart-date merging: identify same-date + same-size candidates ──
+    same_date_size_notes: set[Path] = set()
+    for date_key, group_files in date_groups.items():
+        size_groups: dict[int, list[Path]] = defaultdict(list)
+        for f in group_files:
+            size_groups[f.size_bytes].append(f.path)
+        for size, size_files in size_groups.items():
+            if len(size_files) > 1:
+                for i, fp in enumerate(size_files):
+                    if i > 0:
+                        same_date_size_notes.add(fp)
+
+    scanned_by_path = {item.path: item for item in scanned_files}
+    total_groups = len(date_groups)
+    idx = 0
+    new_date_entries: list[tuple[str, str, str, str | None]] = []
+
+    for group_idx, (date_key, group_files) in enumerate(sorted(date_groups.items())):
+        if cancel_event and cancel_event.is_set():
+            break
+
+        date_label = date_key if date_key != "unknown" else "Unknown date"
+        _progress_msg(progress_callback, f"Processing {date_label} ({group_idx + 1}/{total_groups})...")
+        if progress:
+            progress.tick_count(group_idx, total_groups, f"Processing {date_label} ({group_idx + 1}/{total_groups})...")
+
+        if options.include_associated_files:
+            groups = build_media_groups(group_files)
+            group_main_paths = [group.main_path for group in groups]
+
+            inspections: dict[Path, FileInspection] = {}
+            group_uncached: list[Path] = []
+            for fp in group_main_paths:
+                norm = os.path.normcase(str(fp))
+                if norm in cached_dates:
+                    date_str, source = cached_dates[norm]
+                    candidate = DateCandidate(source_tag=source, value=date_str, priority_index=0)
+                    inspections[fp] = FileInspection(
+                        path=fp, selected_value=date_str, selected_source=source,
+                        date_candidates=[candidate], metadata_available=True, exiftool_available=True,
+                    )
+                else:
+                    group_uncached.append(fp)
+
+            if group_uncached:
+                import concurrent.futures
+                parallel_batch_size = max(LARGE_BATCH_SIZE, 2000)
+                parallel_batches = []
+                for bs in range(0, len(group_uncached), parallel_batch_size):
+                    parallel_batches.append(group_uncached[bs:bs + parallel_batch_size])
+                from media_manager.core.parallel_utils import get_optimal_workers
+                max_workers = min(get_optimal_workers(), len(parallel_batches))
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = {}
+                    for bi, batch_paths in enumerate(parallel_batches):
+                        if cancel_event and cancel_event.is_set():
+                            break
+                        future = executor.submit(
+                            inspect_media_files_batch,
+                            batch_paths,
+                            exiftool_path=options.exiftool_path,
+                        )
+                        futures[future] = batch_paths
+
+                    for future in concurrent.futures.as_completed(futures):
+                        if cancel_event and cancel_event.is_set():
+                            break
+                        try:
+                            batch_inspections = future.result()
+                            inspections.update(batch_inspections)
+                            batch_paths = futures[future]
+                            for fp in batch_paths:
+                                insp = batch_inspections.get(fp)
+                                if insp and insp.selected_value and insp.selected_source:
+                                    new_date_entries.append((
+                                        str(fp), f"{insp.selected_value}|{insp.selected_source}",
+                                        insp.selected_source, None,
+                                    ))
+                        except Exception as exc:
+                            logger.warning("Batch inspection failed: %s", exc)
+
+            if new_date_entries:
+                try:
+                    cache.set_dates_batch(new_date_entries)
+                except (OSError, KeyError) as exc:
+                    logger.debug("Metadata parse failed: %s", exc)
+                new_date_entries.clear()
+
+            for group in groups:
+                if cancel_event and cancel_event.is_set():
+                    break
+                scanned_file = scanned_by_path[group.main_path]
+                inspection = inspections.get(scanned_file.path)
+                try:
+                    resolution = resolve_capture_datetime(
+                        scanned_file.path, inspection=inspection,
+                        exiftool_path=options.exiftool_path,
+                        date_source=options.date_source,
+                    )
+                    target_relative_dir = render_organize_directory(options.pattern, resolution, source_root=scanned_file.source_root)
+                    group_target_paths = _build_group_target_paths(
+                        target_relative_dir,
+                        options.target_root,
+                        source_paths=[member.path for member in group.members],
+                    )
+                    original_target_path = group_target_paths[scanned_file.path]
+                    if all(_normalized_path_key(sp) == _normalized_path_key(tp) for sp, tp in group_target_paths.items()):
+                        status = "skipped"
+                        reason = "source already matches the planned target path"
+                        target_path = original_target_path
+                    else:
+                        if options.conflict_policy == "rename":
+                            new_group: dict[Path, Path] = {}
+                            for sp, tp in group_target_paths.items():
+                                if tp.exists():
+                                    new_group[sp] = _generate_unique_target_path(tp, sp, preview=True)
+                                else:
+                                    new_group[sp] = tp
+                            group_target_paths = new_group
+                        target_path = group_target_paths[scanned_file.path]
+                        status, reason = _evaluate_group_plan_state(group_target_paths, conflict_policy=options.conflict_policy)
+                        if target_path != original_target_path:
+                            reason = "planned (renamed to avoid conflict)"
+                except Exception as exc:
+                    entry = OrganizePlanEntry(
+                        scanned_file=scanned_file,
+                        resolution=None,
+                        operation_mode=options.operation_mode,
+                        status="error",
+                        reason=str(exc),
+                        target_relative_dir=None,
+                        target_path=None,
+                        media_group=group,
+                        group_target_paths={},
+                    )
+                    dry_run.entries.append(entry)
+                    if on_entry:
+                        on_entry(entry)
+                    idx += 1
+                    continue
+
+                if scanned_file.path in same_date_size_notes:
+                    reason += "; Same date & size as other file — possible duplicate"
+
+                entry = OrganizePlanEntry(
+                    scanned_file=scanned_file,
+                    resolution=resolution,
+                    operation_mode=options.operation_mode,
+                    status=status,
+                    reason=reason,
+                    target_relative_dir=target_relative_dir,
+                    target_path=target_path,
+                    media_group=group,
+                    group_target_paths=group_target_paths,
+                )
+                dry_run.entries.append(entry)
+                if on_entry:
+                    on_entry(entry)
+                idx += 1
+        else:
+            file_list = list(group_files)
+            file_paths = [item.path for item in file_list]
+
+            inspections: dict[Path, FileInspection] = {}
+            group_uncached: list[Path] = []
+            for fp in file_paths:
+                norm = os.path.normcase(str(fp))
+                if norm in cached_dates:
+                    date_str, source = cached_dates[norm]
+                    candidate = DateCandidate(source_tag=source, value=date_str, priority_index=0)
+                    inspections[fp] = FileInspection(
+                        path=fp, selected_value=date_str, selected_source=source,
+                        date_candidates=[candidate], metadata_available=True, exiftool_available=True,
+                    )
+                else:
+                    group_uncached.append(fp)
+
+            if group_uncached:
+                import concurrent.futures
+                parallel_batch_size = max(LARGE_BATCH_SIZE, 2000)
+                parallel_batches = []
+                for bs in range(0, len(group_uncached), parallel_batch_size):
+                    parallel_batches.append(group_uncached[bs:bs + parallel_batch_size])
+                from media_manager.core.parallel_utils import get_optimal_workers
+                max_workers = min(get_optimal_workers(), len(parallel_batches))
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = {}
+                    for bi, batch_paths in enumerate(parallel_batches):
+                        if cancel_event and cancel_event.is_set():
+                            break
+                        future = executor.submit(
+                            inspect_media_files_batch,
+                            batch_paths,
+                            exiftool_path=options.exiftool_path,
+                        )
+                        futures[future] = batch_paths
+
+                    for future in concurrent.futures.as_completed(futures):
+                        if cancel_event and cancel_event.is_set():
+                            break
+                        try:
+                            batch_inspections = future.result()
+                            inspections.update(batch_inspections)
+                            batch_paths = futures[future]
+                            for fp in batch_paths:
+                                insp = batch_inspections.get(fp)
+                                if insp and insp.selected_value and insp.selected_source:
+                                    new_date_entries.append((
+                                        str(fp), f"{insp.selected_value}|{insp.selected_source}",
+                                        insp.selected_source, None,
+                                    ))
+                        except Exception as exc:
+                            logger.warning("Batch inspection failed: %s", exc)
+
+            if new_date_entries:
+                try:
+                    cache.set_dates_batch(new_date_entries)
+                except (OSError, KeyError) as exc:
+                    logger.debug("Metadata parse failed: %s", exc)
+                new_date_entries.clear()
+
+            _target_is_empty = not any(options.target_root.iterdir()) if options.target_root.exists() else True
+
+            for scanned_file in file_list:
+                if cancel_event and cancel_event.is_set():
+                    break
+                inspection = inspections.get(scanned_file.path)
+                try:
+                    resolution = resolve_capture_datetime(
+                        scanned_file.path, inspection=inspection,
+                        exiftool_path=options.exiftool_path,
+                        date_source=options.date_source,
+                    )
+                    target_relative_dir = render_organize_directory(
+                        options.pattern, resolution, source_root=scanned_file.source_root,
+                    )
+                    original_target_path = options.target_root / target_relative_dir / scanned_file.path.name
+                    if _normalized_path_key(scanned_file.path) == _normalized_path_key(original_target_path):
+                        status = "skipped"
+                        reason = "source already matches the planned target path"
+                        target_path = original_target_path
+                        group_target_paths = {scanned_file.path: original_target_path}
+                    else:
+                        if _target_is_empty:
+                            target_path = original_target_path
+                        elif options.conflict_policy == "rename":
+                            target_path = _generate_unique_target_path(original_target_path, scanned_file.path, preview=True)
+                        else:
+                            target_path = original_target_path
+                        group_target_paths = {scanned_file.path: target_path}
+                        status, reason = _evaluate_group_plan_state(
+                            group_target_paths, conflict_policy=options.conflict_policy,
+                        )
+                        if target_path != original_target_path:
+                            reason = "planned (renamed to avoid conflict)"
+                except Exception as exc:
+                    entry = OrganizePlanEntry(
+                        scanned_file=scanned_file, resolution=None, operation_mode=options.operation_mode,
+                        status="error", reason=str(exc), target_relative_dir=None, target_path=None,
+                        media_group=None, group_target_paths={},
+                    )
+                    dry_run.entries.append(entry)
+                    if on_entry:
+                        on_entry(entry)
+                    idx += 1
+                    continue
+
+                if scanned_file.path in same_date_size_notes:
+                    reason += "; Same date & size as other file — possible duplicate"
+
+                entry = OrganizePlanEntry(
+                    scanned_file=scanned_file, resolution=resolution,
+                    operation_mode=options.operation_mode, status=status, reason=reason,
+                    target_relative_dir=target_relative_dir, target_path=target_path,
+                    media_group=None, group_target_paths=group_target_paths,
+                )
+                dry_run.entries.append(entry)
+                if on_entry:
+                    on_entry(entry)
+                idx += 1
+
+    if progress_callback and idx != total:
+        progress_callback(f"Completed {idx:,} entries")
+    if progress:
+        progress.tick_count(total, total, f"Completed {idx:,} entries")
+
+    # ── Phase: resolving collisions ──
+    if progress:
+        progress.enter_phase("resolving_conflicts", "Checking for path collisions...")
+
+    if options.conflict_policy == "rename":
+        assigned: set[str] = set()
+        for entry in dry_run.entries:
+            if entry.status != "planned":
+                continue
+            new_group: dict[Path, Path] = {}
+            rename_occurred = False
+            for sp, tp in entry.group_target_paths.items():
+                tp_key = _normalized_path_key(tp)
+                if tp_key in assigned:
+                    pure_stem = tp.stem
+                    suffix = tp.suffix
+                    target_dir = tp.parent
+                    i = 1
+                    while True:
+                        output_stem = f"{pure_stem}_{i}"
+                        candidate = target_dir / f"{output_stem}{suffix}"
+                        candidate_key = _normalized_path_key(candidate)
+                        if candidate_key not in assigned and not candidate.exists():
+                            new_group[sp] = candidate
+                            assigned.add(candidate_key)
+                            break
+                        i += 1
+                    rename_occurred = True
+                    if sp == entry.source_path:
+                        entry.target_path = candidate
+                else:
+                    assigned.add(tp_key)
+                    new_group[sp] = tp
+            if rename_occurred:
+                entry.group_target_paths = new_group
+                entry.reason = "planned (renamed to avoid conflict)"
+    else:
+        collisions: dict[str, list[OrganizePlanEntry]] = {}
+        for entry in dry_run.entries:
+            if entry.status != "planned":
+                continue
+            for target_path in entry.group_target_paths.values():
+                collisions.setdefault(_normalized_path_key(target_path), []).append(entry)
+
+        for entries in collisions.values():
+            seen_ids: set[int] = set()
+            unique_count = len({id(item) for item in entries})
+            if unique_count < 2:
+                continue
+            for entry in entries:
+                key = id(entry)
+                if key in seen_ids:
+                    continue
+                seen_ids.add(key)
+                entry.status = "conflict"
+                entry.reason = "multiple source files would resolve to the same target path"
+
+    dry_run.entries.sort(key=lambda item: _normalized_path_key(item.source_path))
+
+    if progress:
+        progress.done(f"Plan complete — {dry_run.planned_count:,} files ready")
 
     return dry_run
 

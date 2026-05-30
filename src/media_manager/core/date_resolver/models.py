@@ -28,3 +28,5 @@ class DateResolution:
     metadata_conflict: bool = False
     decision_policy: str = ""
     metadata: dict[str, str] | None = None
+    confidence_score: float = 0.0
+    source_quality: str = "unknown"

@@ -49,6 +49,7 @@ def test_step1_copy_mode():
             "include_patterns": [],
             "exclude_patterns": [],
             "batch_size": 0,
+            "date_batched": False,
         }
 
         exit_code, output = _run_preview(payload)
@@ -79,6 +80,7 @@ def test_step2_link_mode():
             "target_root": str(target),
             "pattern": "{year}/{year_month_day}",
             "operation_mode": "link",
+            "date_batched": False,
         }
 
         exit_code, output = _run_preview(payload)

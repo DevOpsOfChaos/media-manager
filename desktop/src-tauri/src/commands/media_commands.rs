@@ -101,14 +101,38 @@ pub async fn duplicates_scan(app: tauri::AppHandle, config: Value) -> Result<Val
     emit_progress(&app, "operation:started", "Duplicate Scan", None);
     let json = serde_json::to_string(&config)
         .map_err(|e| format!("Failed to serialize duplicates config: {e}"))?;
-    let result = bridge()?.run_module(
+    let (stdout_text, _stderr_text) = bridge()?.run_module_raw(
         "bridge_duplicates_preview",
         "",
         &[],
         Some(&json),
-    );
-    emit_completion(&app, "Duplicate Scan", &result);
-    result
+    )?;
+
+    let mut final_line = String::new();
+
+    for line in stdout_text.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Ok(val) = serde_json::from_str::<Value>(line) {
+            if val.get("files").is_some() && val.get("file_size").is_some() {
+                let _ = app.emit("early-duplicate", val);
+            } else {
+                final_line = line.to_string();
+            }
+        }
+    }
+
+    if final_line.is_empty() {
+        return Err("No final result in bridge output".into());
+    }
+
+    let result: Value = serde_json::from_str(&final_line)
+        .map_err(|e| format!("Failed to parse final result: {e}\nRaw: {}", final_line))?;
+
+    emit_completion(&app, "Duplicate Scan", &Ok(result.clone()));
+    Ok(result)
 }
 
 #[tauri::command]

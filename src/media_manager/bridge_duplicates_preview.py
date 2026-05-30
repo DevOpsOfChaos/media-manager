@@ -20,10 +20,12 @@ from pathlib import Path
 
 from media_manager.duplicates import (
     DuplicateScanConfig,
+    ExactDuplicateGroup,
     scan_exact_duplicates,
+    scan_exact_duplicates_fast,
 )
 
-from media_manager.bridge_base import emit as _emit, fail as _fail
+from media_manager.bridge_base import fail as _fail
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,12 @@ logger = logging.getLogger(__name__)
 def _progress_to_stderr(message: str) -> None:
     """Write progress message as JSON to stderr for the Rust bridge to forward."""
     print(json.dumps({"progress": message}), file=sys.stderr, flush=True)
+
+
+def _emit_early_group(group: ExactDuplicateGroup) -> None:
+    """Write a confirmed duplicate group as compact JSON on stdout immediately."""
+    entry = _serialize_group(group)
+    print(json.dumps(entry, ensure_ascii=False), flush=True)
 
 
 def _serialize_group(group) -> dict:
@@ -69,7 +77,11 @@ def cmd_preview() -> int:
 
     try:
         logger.info("Starting duplicate scan preview: %d source dirs", len(config.source_dirs))
-        result = scan_exact_duplicates(config, progress_callback=_progress_to_stderr)
+        use_fast = payload.get("fast", True)
+        if use_fast:
+            result = scan_exact_duplicates_fast(config, progress_callback=_progress_to_stderr, early_group_callback=_emit_early_group)
+        else:
+            result = scan_exact_duplicates(config, progress_callback=_progress_to_stderr, early_group_callback=_emit_early_group)
     except Exception as exc:
         logger.exception("Duplicate scan preview failed")
         return _fail(f"Duplicate scan failed: {exc}")
@@ -89,7 +101,7 @@ def cmd_preview() -> int:
         "extension_summary": result.extension_summary,
         "media_kind_summary": result.media_kind_summary,
     }
-    _emit(output)
+    print(json.dumps(output, ensure_ascii=False), flush=True)
     return 0
 
 

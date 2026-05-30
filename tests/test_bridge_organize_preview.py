@@ -69,6 +69,7 @@ def test_preview_returns_dry_run_marker(monkeypatch, tmp_path: Path) -> None:
         "target_root": str(target),
         "pattern": "{year}/{year_month_day}",
         "operation_mode": "copy",
+        "date_batched": False,
     }
 
     old_stdin = sys.stdin
@@ -109,6 +110,7 @@ def test_preview_includes_outcome_report(monkeypatch, tmp_path: Path) -> None:
         "target_root": str(target),
         "pattern": "{year}/{year_month_day}",
         "operation_mode": "copy",
+        "date_batched": False,
     }
 
     old_stdin = sys.stdin
@@ -150,6 +152,7 @@ def test_preview_never_modifies_files(monkeypatch, tmp_path: Path) -> None:
         "target_root": str(target),
         "pattern": "{year}/{year_month_day}",
         "operation_mode": "copy",
+        "date_batched": False,
     }
 
     old_stdin = sys.stdin
@@ -189,6 +192,7 @@ def test_preview_entries_have_expected_fields(monkeypatch, tmp_path: Path) -> No
         "target_root": str(target),
         "pattern": "{year}/{year_month_day}",
         "operation_mode": "copy",
+        "date_batched": False,
     }
 
     old_stdin = sys.stdin
@@ -233,6 +237,7 @@ def test_preview_handles_nonexistent_source(monkeypatch, tmp_path: Path) -> None
         "target_root": str(target),
         "pattern": "{year}/{year_month_day}",
         "operation_mode": "copy",
+        "date_batched": False,
     }
 
     old_stdin = sys.stdin
@@ -268,6 +273,7 @@ def test_main_returns_exit_code(monkeypatch, tmp_path: Path) -> None:
         "target_root": str(target),
         "pattern": "{year}/{year_month_day}",
         "operation_mode": "copy",
+        "date_batched": False,
     }
 
     old_stdin = sys.stdin

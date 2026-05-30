@@ -73,6 +73,116 @@ impl PythonBridge {
         }
     }
 
+    /// Run a Python bridge module — spawns Python, waits for completion, returns (stdout, stderr) as raw strings.
+    pub fn run_module_raw(
+        &self,
+        module: &str,
+        action: &str,
+        extra_args: &[&str],
+        stdin_json: Option<&str>,
+    ) -> Result<(String, String), String> {
+        let full_module = format!("media_manager.{module}");
+        let src_dir = self.project_root.join("src");
+
+        let mut env_vars: HashMap<String, String> =
+            std::env::vars().collect();
+
+        let separator = if cfg!(windows) { ";" } else { ":" };
+        let existing = env_vars.get("PYTHONPATH").cloned().unwrap_or_default();
+        let new_pythonpath = if existing.is_empty() {
+            src_dir.to_string_lossy().to_string()
+        } else {
+            format!("{}{separator}{existing}", src_dir.display())
+        };
+        env_vars.insert("PYTHONPATH".into(), new_pythonpath);
+
+        if let Some(ref sp) = self.settings_path {
+            env_vars.insert("MEDIA_MANAGER_SETTINGS_PATH".into(), sp.clone());
+        }
+
+        let mut args: Vec<String> = vec![
+            "-m".into(),
+            full_module,
+            action.into(),
+        ];
+        for a in extra_args {
+            args.push(a.to_string());
+        }
+
+        if let Some(ref sp) = self.settings_path {
+            args.push("--settings-path".into());
+            args.push(sp.clone());
+        }
+
+        let mut child = Command::new(&self.executable)
+            .args(&args)
+            .current_dir(&self.project_root)
+            .env_clear()
+            .envs(&env_vars)
+            .stdin(if stdin_json.is_some() {
+                Stdio::piped()
+            } else {
+                Stdio::null()
+            })
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| {
+                format!(
+                    "Failed to spawn Python ({}): {e}\n\
+                     Project root: {}\n\
+                     Hint: Set MEDIA_MANAGER_PYTHON to the correct python executable.",
+                    self.executable,
+                    self.project_root.display(),
+                )
+            })?;
+
+        if let Some(input) = stdin_json {
+            if let Some(mut stdin) = child.stdin.take() {
+                stdin
+                    .write_all(input.as_bytes())
+                    .map_err(|e| format!("Failed to write stdin: {e}"))?;
+            }
+        }
+
+        let output = child
+            .wait_with_output()
+            .map_err(|e| format!("Python process error: {e}"))?;
+
+        if !output.status.success() {
+            let stderr_text = String::from_utf8_lossy(&output.stderr)
+                .trim()
+                .to_string();
+            let detail = if stderr_text.is_empty() {
+                format!("exit code {}", output.status.code().unwrap_or(-1))
+            } else {
+                if let Ok(err_val) = serde_json::from_str::<Value>(&stderr_text) {
+                    err_val
+                        .get("error")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(&stderr_text)
+                        .to_string()
+                } else {
+                    stderr_text
+                }
+            };
+            return Err(format!(
+                "Python bridge error ({module} {action}): {detail}"
+            ));
+        }
+
+        let stdout_text = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr_text = String::from_utf8_lossy(&output.stderr).to_string();
+
+        if stdout_text.trim().is_empty() {
+            return Err(format!(
+                "Python bridge returned empty output ({module} {action})."
+            ));
+        }
+
+        Ok((stdout_text, stderr_text))
+    }
+
     /// Run a Python bridge module — spawns Python, waits for completion, returns parsed stdout JSON.
     pub fn run_module(
         &self,

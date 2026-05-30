@@ -19,13 +19,21 @@ import sys
 from pathlib import Path
 
 from media_manager.core.job_queue import JobQueue
-from media_manager.core.organizer import OrganizePlannerOptions, build_organize_dry_run
+from media_manager.core.organizer import OrganizePlannerOptions, build_organize_dry_run, build_organize_dry_run_date_batched
 from media_manager.core.outcome_report import build_plan_outcome_report
 from media_manager.core.review_report import build_review_export
 
 from media_manager.bridge_base import emit as _emit, fail as _fail
 
 logger = logging.getLogger(__name__)
+
+
+def _progress_to_stderr(message: str) -> None:
+    print(json.dumps({"progress": message}), file=sys.stderr, flush=True)
+
+
+def _emit_entry_json_line(entry) -> None:
+    print(json.dumps({"type": "entry", "data": _serialize_entry(entry)}), flush=True)
 
 
 def _serialize_entry(entry) -> dict:
@@ -122,9 +130,18 @@ def cmd_preview() -> int:
         logger.error("Organize preview: invalid options: %s", exc)
         return _fail(f"Invalid options: {exc}")
 
+    date_batched = payload.get("date_batched", True)
+
     # Build dry-run — this NEVER modifies files
     try:
-        dry_run = build_organize_dry_run(options)
+        if date_batched:
+            dry_run = build_organize_dry_run_date_batched(
+                options,
+                progress_callback=_progress_to_stderr,
+                on_entry=_emit_entry_json_line,
+            )
+        else:
+            dry_run = build_organize_dry_run(options)
     except Exception as exc:
         logger.exception("Organize preview: plan build failed")
         return _fail(f"Preview failed: {exc}")
@@ -199,8 +216,9 @@ def cmd_preview() -> int:
         "confidence_summary": dry_run.confidence_summary,
         "group_kind_summary": dry_run.group_kind_summary,
         "outcome_report": outcome_report,
-        "entries": [_serialize_entry(e) for e in dry_run.entries],
+        "entries": [] if date_batched else [_serialize_entry(e) for e in dry_run.entries],
     }
+
     _emit(result)
     return 0
 
