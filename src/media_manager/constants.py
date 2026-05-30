@@ -32,6 +32,9 @@ DEBOUNCE_DELAY = 300
 DATE_TAG_PRIORITY = [
     # Primary EXIF date tags (camera capture date)
     "DateTimeOriginal",
+    "SubSecDateTimeOriginal",  # RAW files (CR2, NEF, ARW)
+    "EXIF:DateTimeOriginal",  # Sometimes with prefix even without -G0:1
+    "MakerNotes:DateTimeOriginal",  # Camera-specific maker notes
     "CreateDate",
     "DateCreated",
     "DigitalCreationDate",

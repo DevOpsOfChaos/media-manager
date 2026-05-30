@@ -17,7 +17,7 @@ def test_extract_date_candidates_deduplicates_same_priority_values() -> None:
 
     assert [(item.source_tag, item.value, item.priority_index) for item in candidates] == [
         ("DateTimeOriginal", "2024:08:10 11:12:13", 0),
-        ("QuickTime:CreateDate", "2025:01:01 00:00:00", 1),
+        ("QuickTime:CreateDate", "2025:01:01 00:00:00", 4),
     ]
 
 

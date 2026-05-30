@@ -161,7 +161,7 @@ class PersistentExifTool:
         if not self.start():
             return None
         raw = self._send_and_read(
-            f"-json\n-G0:1\n-s\n-time:all\n--\n{file_path}\n-execute\n"
+            f"-json\n-time:all\n--\n{file_path}\n-execute\n"
         )
         if raw is None:
             return None
@@ -174,7 +174,7 @@ class PersistentExifTool:
     def read_metadata_batch(self, file_paths: list[Path]) -> dict[Path, dict[str, object]]:
         if not self.start():
             return {}
-        cmd_parts = ["-json", "-G0:1", "-s", "-time:all", "--"]
+        cmd_parts = ["-json", "-time:all", "--"]
         cmd_parts.extend(str(p) for p in file_paths)
         cmd_parts.append("-execute\n")
         raw = self._send_and_read("\n".join(cmd_parts))

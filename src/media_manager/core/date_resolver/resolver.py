@@ -63,7 +63,10 @@ def _year_is_realistic(value: datetime) -> bool:
 
 FILENAME_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("whatsapp_datetime", re.compile(r"WhatsApp (?:Image|Video) (\d{4}-\d{2}-\d{2}) at (\d{2}\.\d{2}\.\d{2})", re.IGNORECASE)),
+    ("whatsapp_export", re.compile(r"IMG-(\d{4})(\d{2})(\d{2})-WA", re.IGNORECASE)),
     ("pixel_datetime_ms", re.compile(r"PXL[_-]?(\d{8})[_-](\d{6})\d{3}", re.IGNORECASE)),
+    ("pixel_date", re.compile(r"PXL[_-]?(\d{4})(\d{2})(\d{2})(?![_-]?\d)", re.IGNORECASE)),
+    ("screenshot_date", re.compile(r"Screenshot[_-]?(\d{4})(\d{2})(\d{2})(?![_-]?\d)", re.IGNORECASE)),
     ("compact_datetime", re.compile(r"(?<!\d)(\d{8}[ _-]\d{6})(?!\d)")),
     ("iso_datetime", re.compile(r"(?<!\d)(\d{4}-\d{2}-\d{2}[ _T]\d{2}[-:.]\d{2}[-:.]\d{2})(?!\d)")),
     ("named_camera_datetime", re.compile(r"(?:IMG|VID|PXL|MVIMG|Screenshot)[-_]?(\d{8})[-_](\d{6})", re.IGNORECASE)),
@@ -96,6 +99,8 @@ def find_filename_datetime(file_path: Path) -> FilenameDateMatch | None:
             matched_text = f"{match.group(1)}_{match.group(2)}"
         elif pattern_name == "whatsapp_datetime":
             matched_text = f"{match.group(1)} {match.group(2)}"
+        elif pattern_name in {"whatsapp_export", "pixel_date", "screenshot_date"}:
+            matched_text = f"{match.group(1)}{match.group(2)}{match.group(3)}"
         else:
             matched_text = match.group(1)
         parsed = _parse_filename_match(pattern_name, matched_text)
