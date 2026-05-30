@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import type { GuiSettings } from "@/types"
 import { settingsRead, settingsWrite, settingsReset } from "@/lib/tauri-bridge"
+import { trackError } from "@/lib/error-tracker"
 
 export const STORAGE_KEYS = {
   libraryRoot: "library_root",
@@ -44,6 +45,9 @@ export const defaultSettings: GuiSettings = {
     height: 900,
     maximized: false,
   },
+  face_recognition_tolerance: 0.6,
+  face_recognition_backend: "opencv",
+  face_recognition_gpu: false,
 }
 
 interface SettingsState {

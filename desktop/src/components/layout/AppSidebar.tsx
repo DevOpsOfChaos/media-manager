@@ -118,10 +118,22 @@ export function AppSidebar() {
     return pair ? t(pair[0], pair[1]) : label
   }
 
+  const sidebarShortcut = (label: string): string => {
+    const map: Record<string, string> = {
+      "Dashboard": "Ctrl+1",
+      "Library": "Ctrl+2",
+      "Organize": "Ctrl+3",
+      "Duplicates": "Ctrl+4",
+      "People": "Ctrl+5",
+      "Settings": "Ctrl+,",
+    }
+    return map[label] || ""
+  }
+
   const sidebarTooltip = (label: string) => {
     const map: Record<string, [string, string]> = {
       "Dashboard": ["Overview and quick actions", "Übersicht und Schnellaktionen"],
-      "Library": ["Browse and manage your media library", "Medienbibliothek durchsuchen und verwalten"],
+      "Library": ["Browse your media library", "Medienbibliothek durchsuchen"],
       "Organize": ["Auto-organize files into folders", "Dateien automatisch in Ordner organisieren"],
       "Duplicates": ["Find and remove duplicate files", "Doppelte Dateien finden und entfernen"],
       "Rename": ["Batch rename media files", "Mediendateien stapelweise umbenennen"],
@@ -135,7 +147,11 @@ export function AppSidebar() {
       "Settings": ["Configure app preferences", "App-Einstellungen konfigurieren"],
     }
     const pair = map[label]
-    return pair ? t(pair[0], pair[1]) : ""
+    if (!pair) return ""
+    const sc = sidebarShortcut(label)
+    const en = pair[0] + (sc ? ` (${sc})` : "")
+    const de = pair[1] + (sc ? ` (${sc})` : "")
+    return t(en, de)
   }
 
   const [showCustomize, setShowCustomize] = useState(false)

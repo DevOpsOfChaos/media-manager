@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
 import { trackError } from "@/lib/error-tracker"
+import { toast } from "@/lib/toast"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -18,8 +19,8 @@ import {
   runtimeDiagnostics,
   type RuntimeDiagnostics,
 } from "@/lib/tauri-bridge"
-import type { Language, Theme } from "@/types"
-import { FolderSearch, X } from "lucide-react"
+import type { Language, Theme, Density } from "@/types"
+import { FolderSearch, X, Check, RotateCcw } from "lucide-react"
 
 
 export default function SettingsPage() {
@@ -46,10 +47,41 @@ export default function SettingsPage() {
     () => localStorage.getItem("default_source_dir") || ""
   )
   const [showQuickSetup, setShowQuickSetup] = useState(() => !localStorage.getItem("quick_setup_done"))
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [justSaved, setJustSaved] = useState(false)
 
   useEffect(() => {
     load()
   }, [load])
+
+  const validate = (key: string, value: string) => {
+    if (key === "face_recognition_tolerance") {
+      const num = Number(value)
+      if (isNaN(num) || num < 0.1 || num > 1.0) {
+        setErrors(prev => ({ ...prev, face_recognition_tolerance: t("Must be between 0.1 and 1.0", "Muss zwischen 0.1 und 1.0 liegen") }))
+      } else {
+        setErrors(prev => {
+          const next = { ...prev }
+          delete next.face_recognition_tolerance
+          return next
+        })
+      }
+    }
+  }
+
+  const handleSave = useCallback(async () => {
+    await save()
+    setJustSaved(true)
+    toast("success", t("Settings saved", "Einstellungen gespeichert"))
+    setTimeout(() => setJustSaved(false), 2000)
+  }, [save, t])
+
+  const handleReset = useCallback(() => {
+    if (confirm(t("Reset all settings to defaults?", "Alle Einstellungen zurücksetzen?"))) {
+      reset()
+      toast("info", t("Settings reset", "Einstellungen zurückgesetzt"))
+    }
+  }, [reset, t])
 
   const runDiag = useCallback(async () => {
     setDiagLoading(true)
@@ -91,7 +123,6 @@ export default function SettingsPage() {
       }
       setDiscoveredFolders(existing)
     } catch {
-      // fallback: suggest common paths
       const home = typeof process !== "undefined" ? (process.env.HOME || process.env.USERPROFILE || "C:\\Users") : "C:\\Users"
       const isWin = home.includes("\\")
       setDiscoveredFolders(isWin
@@ -107,29 +138,13 @@ export default function SettingsPage() {
     localStorage.setItem("default_source_dir", folder)
   }
 
+  const hasErrors = Object.keys(errors).length > 0
+
   return (
     <>
       <PageHeader title={t("Settings", "Einstellungen")} />
       <main className="flex flex-1 gap-4 p-6">
         <div className="flex-1 max-w-5xl space-y-4">
-
-          {showQuickSetup && (
-            <Card className="border-blue-200 dark:border-blue-800/40 bg-blue-50/30 dark:bg-blue-950/30 mb-4">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-medium text-sm">{t("Quick Setup", "Schnell einrichten")}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {t("Set your default source directory and language to get started quickly.", "Lege dein Standard-Quellverzeichnis und die Sprache fest f\u00FCr einen schnellen Start.")}
-                    </p>
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setShowQuickSetup(false); localStorage.setItem("quick_setup_done", "true") }}>
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {error && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -142,11 +157,26 @@ export default function SettingsPage() {
             </div>
           )}
 
+          <div className="flex items-center gap-3">
+            <Button variant="default" size="sm" onClick={handleSave} disabled={loading || hasErrors}>
+              {justSaved ? <Check className="h-4 w-4 mr-1" /> : null}
+              {justSaved ? t("Saved!", "Gespeichert!") : loading ? t("Saving...", "Speichere...") : t("Save Settings", "Einstellungen speichern")}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleReset} disabled={loading}>
+              <RotateCcw className="h-3 w-3 mr-1" /> {t("Reset to defaults", "Auf Standard zurücksetzen")}
+            </Button>
+            {dirty && (
+              <span className="text-xs text-muted-foreground">
+                {t("Unsaved changes", "Ungespeicherte Änderungen")}
+              </span>
+            )}
+          </div>
+
           <Card>
             <CardHeader>
               <CardTitle>{t("General", "Allgemein")}</CardTitle>
               <CardDescription>
-                {t("Language, theme, and startup preferences.", "Sprache, Design und Starteinstellungen.")}
+                {t("Language, theme, density, and startup preferences.", "Sprache, Design, Dichte und Starteinstellungen.")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -175,6 +205,21 @@ export default function SettingsPage() {
                 >
                   <option value="modern-dark">{t("Dark", "Dunkel")}</option>
                   <option value="modern-light">{t("Light", "Hell")}</option>
+                  <option value="system">{t("System", "System")}</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("Density", "Dichte")}</label>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                  value={settings.density}
+                  onChange={(e) =>
+                    updateSettings({ density: e.target.value as Density })
+                  }
+                >
+                  <option value="comfortable">{t("Comfortable", "Komfortabel")}</option>
+                  <option value="compact">{t("Compact", "Kompakt")}</option>
                 </select>
               </div>
 
@@ -195,17 +240,11 @@ export default function SettingsPage() {
                   <option value="history">{t("History", "Verlauf")}</option>
                 </select>
               </div>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("Behavior", "Verhalten")}</CardTitle>
-              <CardDescription>
-                {t("Confirmation dialogs, onboarding, and power-user features.", "Bestätigungsdialoge, Onboarding und Power-User-Funktionen.")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              <Separator />
+
+              <p className="text-xs font-medium text-muted-foreground">{t("Behavior", "Verhalten")}</p>
+
               <label className="flex items-center gap-3">
                 <input
                   type="checkbox"
@@ -244,25 +283,39 @@ export default function SettingsPage() {
                 <span className="text-sm">{t("Show onboarding for new users", "Onboarding für neue Benutzer anzeigen")}</span>
               </label>
 
-              <div className="pt-2 border-t">
-                <Button variant="outline" size="sm" onClick={() => {
-                  localStorage.removeItem("onboarding_complete")
-                  window.location.reload()
-                }}>
-                  {t("Restart onboarding tour", "Onboarding-Tour neu starten")}
-                </Button>
-              </div>
+              <Button variant="outline" size="sm" onClick={() => {
+                localStorage.removeItem("onboarding_complete")
+                window.location.reload()
+              }}>
+                {t("Restart onboarding tour", "Onboarding-Tour neu starten")}
+              </Button>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>{t("Media Folders", "Medienordner")}</CardTitle>
+              <CardTitle>{t("Library", "Bibliothek")}</CardTitle>
               <CardDescription>
-                {t("Default source directory and auto-discovery of media folders.", "Standard-Quellverzeichnis und automatische Erkennung von Medienordnern.")}
+                {t("Default source directory, media folder discovery, and cache settings.", "Standard-Quellverzeichnis, Erkennung von Medienordnern und Cache-Einstellungen.")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {showQuickSetup && (
+                <div className="rounded-lg border border-blue-200 dark:border-blue-800/40 bg-blue-50/30 dark:bg-blue-950/30 p-3 mb-2">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-medium text-sm">{t("Quick Setup", "Schnell einrichten")}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t("Set your default source directory and language to get started quickly.", "Lege dein Standard-Quellverzeichnis und die Sprache fest für einen schnellen Start.")}
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => { setShowQuickSetup(false); localStorage.setItem("quick_setup_done", "true") }}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">{t("Default source directory", "Standard-Quellverzeichnis")}</label>
                 <Input
@@ -272,10 +325,12 @@ export default function SettingsPage() {
                   onChange={(e) => { setDefaultSourceDir(e.target.value); localStorage.setItem("default_source_dir", e.target.value) }}
                 />
               </div>
+
               <Button variant="outline" size="sm" onClick={handleScanMediaFolders} disabled={scanningFolders}>
                 <FolderSearch className="h-4 w-4 mr-2" />
                 {scanningFolders ? t("Scanning...", "Suche...") : t("Scan for media folders", "Nach Medienordnern suchen")}
               </Button>
+
               {discoveredFolders.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground">{t("Discovered folders:", "Gefundene Ordner:")}</p>
@@ -296,22 +351,87 @@ export default function SettingsPage() {
                   </div>
                 </div>
               )}
+
+              <Separator />
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("Cache", "Cache")}</label>
+                <p className="text-xs text-muted-foreground">
+                  {t("Clear cached thumbnails and temporary files to free up disk space.", "Zwischengespeicherte Miniaturansichten und temporäre Dateien löschen, um Speicherplatz freizugeben.")}
+                </p>
+                <Button variant="outline" size="sm" onClick={async () => {
+                  try {
+                    await invoke("clear_cache").catch(() => {})
+                    toast("success", t("Cache cleared", "Cache geleert"))
+                  } catch {
+                    toast("error", t("Failed to clear cache", "Cache konnte nicht geleert werden"))
+                  }
+                }}>
+                  {t("Clear cache", "Cache leeren")}
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
-          <div className="flex items-center gap-3">
-            <Button variant="default" size="sm" onClick={save} disabled={loading || !dirty}>
-              {loading ? t("Saving...", "Speichere...") : t("Save", "Speichern")}
-            </Button>
-            <Button variant="outline" size="sm" onClick={reset} disabled={loading}>
-              {t("Reset to defaults", "Auf Standard zurücksetzen")}
-            </Button>
-            {dirty && (
-              <span className="text-xs text-muted-foreground">
-                {t("Unsaved changes", "Ungespeicherte Änderungen")}
-              </span>
-            )}
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("Face Recognition", "Gesichtserkennung")}</CardTitle>
+              <CardDescription>
+                {t("Configure face recognition tolerance, backend, and GPU acceleration.", "Toleranz, Backend und GPU-Beschleunigung für die Gesichtserkennung konfigurieren.")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("Tolerance", "Toleranz")}</label>
+                <Input
+                  type="number"
+                  min="0.1"
+                  max="1.0"
+                  step="0.05"
+                  value={settings.face_recognition_tolerance}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    validate("face_recognition_tolerance", val)
+                    updateSettings({ face_recognition_tolerance: Number(val) })
+                  }}
+                  className={errors.face_recognition_tolerance ? "border-destructive" : ""}
+                />
+                {errors.face_recognition_tolerance && (
+                  <p className="text-xs text-destructive">{errors.face_recognition_tolerance}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {t("Lower values = stricter matching (0.1), higher values = more matches (1.0).", "Niedrigere Werte = strengerer Abgleich (0.1), höhere Werte = mehr Treffer (1.0).")}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("Backend", "Backend")}</label>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                  value={settings.face_recognition_backend}
+                  onChange={(e) =>
+                    updateSettings({ face_recognition_backend: e.target.value })
+                  }
+                >
+                  <option value="opencv">OpenCV</option>
+                  <option value="dlib">dlib</option>
+                  <option value="insightface">InsightFace</option>
+                </select>
+              </div>
+
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-input"
+                  checked={settings.face_recognition_gpu}
+                  onChange={(e) =>
+                    updateSettings({ face_recognition_gpu: e.target.checked })
+                  }
+                />
+                <span className="text-sm">{t("Enable GPU acceleration (requires CUDA)", "GPU-Beschleunigung aktivieren (benötigt CUDA)")}</span>
+              </label>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
@@ -321,7 +441,7 @@ export default function SettingsPage() {
                   className="text-left"
                   aria-expanded={diagOpen}
                 >
-                  <CardTitle>{t("Runtime Diagnostics", "Laufzeitdiagnose")}</CardTitle>
+                  <CardTitle>{t("Diagnostics", "Diagnose")}</CardTitle>
                   <CardDescription>
                     {t("Python bridge health and environment information.", "Python-Bridge-Status und Umgebungsinformationen.")}
                   </CardDescription>
@@ -393,12 +513,12 @@ export default function SettingsPage() {
                     <InfoRow label={t("Python executable", "Python-Programm")} value={diag.python_exe} />
                     <InfoRow
                       label={t("Python version", "Python-Version")}
-                      value={diag.python_version ?? "—"}
+                      value={diag.python_version ?? "\u2014"}
                     />
                     <InfoRow label={t("Project root", "Projektstamm")} value={diag.project_root} />
                     <InfoRow
                       label={t("PYTHONPATH", "PYTHONPATH")}
-                      value={diag.pythonpath_prepended || "—"}
+                      value={diag.pythonpath_prepended || "\u2014"}
                     />
                     {diag.settings_path_override && (
                       <InfoRow
@@ -436,9 +556,9 @@ export default function SettingsPage() {
                     <p className="text-xs font-medium text-muted-foreground">
                       {t("System", "System")}
                     </p>
-                    <InfoRow label={t("Python version", "Python-Version")} value={diag.python_version ?? "—"} />
-                    <InfoRow label={t("ExifTool version", "ExifTool-Version")} value={diag.exiftool_version ?? "—"} />
-                    <InfoRow label={t("CPU count", "CPU-Anzahl")} value={diag.system?.cpu_count != null ? String(diag.system.cpu_count) : "—"} />
+                    <InfoRow label={t("Python version", "Python-Version")} value={diag.python_version ?? "\u2014"} />
+                    <InfoRow label={t("ExifTool version", "ExifTool-Version")} value={diag.exiftool_version ?? "\u2014"} />
+                    <InfoRow label={t("CPU count", "CPU-Anzahl")} value={diag.system?.cpu_count != null ? String(diag.system.cpu_count) : "\u2014"} />
                     {diag.system?.disk_free_gb != null && (
                       <InfoRow
                         label={t("Disk free", "Speicher frei")}
@@ -455,7 +575,6 @@ export default function SettingsPage() {
                       ok={diag.gpu?.cuda}
                       detail={diag.gpu?.recommendation ?? undefined}
                     />
-
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">
@@ -522,7 +641,7 @@ function EnvHint({
         }`}
       />
       <span className="truncate">
-        {label}={value ? t("set", "gesetzt") : t("—", "—")}
+        {label}={value ? t("set", "gesetzt") : t("\u2014", "\u2014")}
       </span>
     </div>
   )

@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 from media_manager.bridge_base import emit as _emit, fail as _fail
+from media_manager.core.platform_utils import open_file as _open_file, reveal_in_explorer as _reveal_in_explorer
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ def cmd_open() -> int:
 
     try:
         logger.info("File open: %s", path)
-        os.startfile(str(path))
+        _open_file(path)
         _emit({"status": "opened", "path": str(path)})
         return 0
     except OSError as exc:
@@ -51,12 +52,7 @@ def cmd_reveal() -> int:
 
     try:
         logger.info("File reveal: %s", path)
-        if sys.platform == "win32":
-            subprocess.run(["explorer", "/select,", str(path)], check=False)
-        elif sys.platform == "darwin":
-            subprocess.run(["open", "-R", str(path)], check=False)
-        else:
-            subprocess.run(["xdg-open", str(path.parent)], check=False)
+        _reveal_in_explorer(path)
         _emit({"status": "revealed", "path": str(path)})
         return 0
     except OSError as exc:

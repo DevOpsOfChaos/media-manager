@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo, memo } from "react"
+import { useNavigate } from "react-router-dom"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
 import { toast } from "@/lib/toast"
@@ -12,7 +13,7 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fileOpen, fileReveal, fileDelete, fileRename, fileExport, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
 
-import { FolderOpen, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive, Film, File } from "lucide-react"
+import { FolderOpen, FolderSync, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive, Film, File } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -305,6 +306,7 @@ export default function LibraryPage() {
     try { return JSON.parse(localStorage.getItem("library_file_tags") || "{}") }
     catch { return {} }
   })
+  const [batchTagInput, setBatchTagInput] = useState("")
   const [tagFilter, setTagFilter] = useState<string[]>([])
 
   const [fileFlags, setFileFlags] = useState<Record<string, "pick" | "reject">>(() => {
@@ -318,6 +320,8 @@ export default function LibraryPage() {
 
   const [elapsed, setElapsed] = useState(0)
   const elapsedRef = useRef<NodeJS.Timeout | null>(null)
+
+  const navigate = useNavigate()
 
   const [exifData, setExifData] = useState<Record<string, string | number> | null>(null)
 
@@ -462,11 +466,21 @@ export default function LibraryPage() {
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+
+      if (e.key === "Escape") {
+        setSelectedFile(null)
+        setQuickRename(null)
+        return
+      }
+
       if (!selectedFile) return
+
       switch (e.key) {
         case "p": setFlag(selectedFile.path, "pick"); break
         case "x": setFlag(selectedFile.path, "reject"); break
         case "u": setFlag(selectedFile.path, "none"); break
+        case "Delete": setDeleteDialog({ path: selectedFile.path, name: selectedFile.name }); break
+        case "F2": setQuickRename({ path: selectedFile.path, name: selectedFile.name }); break
       }
     }
     window.addEventListener("keydown", handle)
@@ -1202,32 +1216,46 @@ export default function LibraryPage() {
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-background border shadow-lg rounded-lg px-4 py-2 flex items-center gap-3 z-40">
           <span className="text-sm font-medium">{selectedPaths.size} {t("selected", "ausgewählt")}</span>
 
-          <div className="flex items-center gap-1">
-            <input
-              placeholder={t("Add tag to all...", "Tag für alle...")}
-              className="text-xs border rounded px-2 py-1 w-32 bg-background"
-              aria-label={t("Add tag to selected files", "Tag zu ausgewählten Dateien hinzufügen")}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && e.currentTarget.value.trim()) {
-                  const tag = e.currentTarget.value.trim().toLowerCase()
-                  const newFileTags = { ...fileTags }
-                  selectedPaths.forEach(path => {
-                    const existing = newFileTags[path] || []
-                    if (!existing.includes(tag)) {
-                      newFileTags[path] = [...existing, tag]
-                    }
-                  })
-                  setFileTags(newFileTags)
-                  localStorage.setItem("library_file_tags", JSON.stringify(newFileTags))
-                  const tagSet = new Set<string>()
-                  Object.values(newFileTags).forEach(ts => ts.forEach(t => tagSet.add(t)))
-                  setAllTags(Array.from(tagSet).sort())
-                  localStorage.setItem("library_tags", JSON.stringify(Array.from(tagSet).sort()))
-                  e.currentTarget.value = ""
-                }
-              }}
-            />
-          </div>
+          <Button variant="destructive" size="sm" onClick={async () => {
+            if (!confirm(t(`Delete ${selectedPaths.size} files?`, `${selectedPaths.size} Dateien löschen?`))) return
+            for (const path of selectedPaths) {
+              try { await fileDelete(path) } catch (e) { console.error(e) }
+            }
+            toast("success", t(`Deleted ${selectedPaths.size} files`, `${selectedPaths.size} Dateien gelöscht`))
+            setSelectedPaths(new Set())
+            loadPageData(page)
+          }}>
+            <Trash2 className="h-3 w-3 mr-1" /> {t("Delete selected", "Auswahl löschen")}
+          </Button>
+
+          <Input value={batchTagInput} onChange={e => setBatchTagInput(e.target.value)}
+            placeholder={t("Add tag to selected...", "Tag zu Auswahl hinzufügen...")}
+            className="text-xs w-40"
+            onKeyDown={e => {
+              if (e.key === "Enter" && batchTagInput.trim()) {
+                const tag = batchTagInput.trim().toLowerCase()
+                const newTags = {...fileTags}
+                selectedPaths.forEach(p => {
+                  if (!newTags[p]) newTags[p] = []
+                  if (!newTags[p].includes(tag)) newTags[p] = [...newTags[p], tag]
+                })
+                setFileTags(newTags)
+                localStorage.setItem("library_file_tags", JSON.stringify(newTags))
+                const tagSet = new Set<string>()
+                Object.values(newTags).forEach(ts => ts.forEach(t => tagSet.add(t)))
+                setAllTags(Array.from(tagSet).sort())
+                localStorage.setItem("library_tags", JSON.stringify(Array.from(tagSet).sort()))
+                setBatchTagInput("")
+                toast("success", t("Tag added", "Tag hinzugefügt"))
+              }
+            }} />
+
+          <StarRating value={0} size="sm" onChange={(v) => {
+            const newRatings = {...ratings}
+            selectedPaths.forEach(p => { newRatings[p] = v })
+            setRatings(newRatings)
+            localStorage.setItem("library_ratings", JSON.stringify(newRatings))
+          }} />
 
           <Button size="sm" variant="outline" onClick={() => {
             const newFlags = { ...fileFlags }
@@ -1265,6 +1293,12 @@ export default function LibraryPage() {
             toast("success", t("Export complete", "Export abgeschlossen"))
           }}>
             <Download className="h-3 w-3 mr-1" /> {t("Export selected", "Auswahl exportieren")}
+          </Button>
+
+          <Button variant="outline" size="sm" onClick={() => {
+            navigate("/organize", { state: { preselectedFiles: Array.from(selectedPaths) } })
+          }}>
+            <FolderSync className="h-3 w-3 mr-1" /> {t("Organize selected", "Auswahl organisieren")}
           </Button>
 
           <Button size="sm" variant="outline" onClick={() => setSelectedPaths(new Set())}>

@@ -9,6 +9,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from media_manager.core.platform_utils import open_file as _open_file, reveal_in_explorer as _reveal_in_explorer
+
 
 def _emit_json(payload: dict) -> None:
     print(json.dumps(payload, indent=2, ensure_ascii=False))
@@ -33,7 +35,7 @@ def cmd_open(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        os.startfile(str(path))
+        _open_file(path)
         payload = {"status": "opened", "path": str(path)}
     except OSError as exc:
         payload = _error_json(f"Could not open file: {exc}")
@@ -61,12 +63,7 @@ def cmd_reveal(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        if sys.platform == "win32":
-            subprocess.run(["explorer", "/select,", str(path)], check=False)
-        elif sys.platform == "darwin":
-            subprocess.run(["open", "-R", str(path)], check=False)
-        else:
-            subprocess.run(["xdg-open", str(path.parent)], check=False)
+        _reveal_in_explorer(path)
         payload = {"status": "revealed", "path": str(path)}
     except OSError as exc:
         payload = _error_json(f"Could not reveal file: {exc}")

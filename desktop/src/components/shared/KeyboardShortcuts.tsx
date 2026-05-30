@@ -4,14 +4,22 @@ import { useT } from "@/lib/i18n"
 const SHORTCUTS = [
   { keys: ["Ctrl", "K"], desc_en: "Command palette", desc_de: "Befehlspalette" },
   { keys: ["?"], desc_en: "Show shortcuts", desc_de: "Shortcuts anzeigen" },
-  { keys: ["Ctrl", "O"], desc_en: "Browse library", desc_de: "Bibliothek durchsuchen" },
-  { keys: ["Ctrl", "P"], desc_en: "Organize files", desc_de: "Dateien organisieren" },
-  { keys: ["Ctrl", "D"], desc_en: "Find duplicates", desc_de: "Duplikate finden" },
+  { keys: ["Ctrl", "1"], desc_en: "Dashboard", desc_de: "Dashboard" },
+  { keys: ["Ctrl", "2"], desc_en: "Library", desc_de: "Bibliothek" },
+  { keys: ["Ctrl", "3"], desc_en: "Organize", desc_de: "Organisieren" },
+  { keys: ["Ctrl", "4"], desc_en: "Duplicates", desc_de: "Duplikate" },
+  { keys: ["Ctrl", "5"], desc_en: "People", desc_de: "Personen" },
+  { keys: ["Ctrl", ","], desc_en: "Settings", desc_de: "Einstellungen" },
+  { keys: ["Ctrl", "B"], desc_en: "Toggle sidebar", desc_de: "Sidebar umschalten" },
+  { keys: ["F11"], desc_en: "Toggle fullscreen", desc_de: "Vollbild umschalten" },
   { keys: ["Escape"], desc_en: "Close dialog / Go back", desc_de: "Dialog schließen" },
   { keys: ["←", "→"], desc_en: "Navigate pages", desc_de: "Seiten navigieren" },
   { keys: ["Enter"], desc_en: "Open selected file", desc_de: "Ausgewählte Datei öffnen" },
-  { keys: ["Delete"], desc_en: "Delete selected", desc_de: "Auswahl löschen" },
+  { keys: ["P"], desc_en: "Pick (Library)", desc_de: "Auswählen (Bibliothek)" },
+  { keys: ["X"], desc_en: "Reject (Library)", desc_de: "Ablehnen (Bibliothek)" },
+  { keys: ["U"], desc_en: "Unflag (Library)", desc_de: "Markierung entfernen (Bibliothek)" },
   { keys: ["F2"], desc_en: "Rename selected", desc_de: "Auswahl umbenennen" },
+  { keys: ["Delete"], desc_en: "Delete selected", desc_de: "Auswahl löschen" },
 ]
 
 export function KeyboardShortcuts({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {

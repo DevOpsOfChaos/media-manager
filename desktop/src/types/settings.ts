@@ -27,4 +27,7 @@ export interface GuiSettings {
   enable_command_palette: boolean
   recent_paths: RecentPaths
   window: WindowSettings
+  face_recognition_tolerance: number
+  face_recognition_backend: string
+  face_recognition_gpu: boolean
 }

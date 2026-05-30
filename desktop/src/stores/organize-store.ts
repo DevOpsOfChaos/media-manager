@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import type { OrganizePlannerOptions, OrganizeDryRun, OrganizeExecutionResult } from "@/types"
 import { STORAGE_KEYS } from "@/stores/settings-store"
+import { trackError } from "@/lib/error-tracker"
 
 export type OrganizeStep = "sources" | "config" | "preview" | "result"
 

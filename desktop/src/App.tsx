@@ -90,8 +90,21 @@ function App() {
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
-      if (e.key === "?" && !e.ctrlKey && !e.metaKey && !e.altKey &&
-          !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+
+      if (e.ctrlKey) {
+        switch (e.key) {
+          case "1": e.preventDefault(); navigate("/"); break
+          case "2": e.preventDefault(); navigate("/library"); break
+          case "3": e.preventDefault(); navigate("/organize"); break
+          case "4": e.preventDefault(); navigate("/duplicates"); break
+          case "5": e.preventDefault(); navigate("/people"); break
+          case ",": e.preventDefault(); navigate("/settings"); break
+        }
+        return
+      }
+
+      if (e.key === "?") {
         e.preventDefault()
         setShortcutsOpen(true)
       }
@@ -106,7 +119,7 @@ function App() {
     }
     window.addEventListener("keydown", handle)
     return () => window.removeEventListener("keydown", handle)
-  }, [])
+  }, [navigate])
 
   return (
     <ProgressProvider>
