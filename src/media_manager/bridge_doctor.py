@@ -21,6 +21,7 @@ from media_manager.core.doctor import DoctorOptions, build_doctor_report
 
 
 def cmd_check() -> int:
+    """Run doctor preflight checks from stdin JSON options, emit diagnostic report."""
     logger.info("Doctor check: starting")
     raw = sys.stdin.read()
     if not raw.strip():

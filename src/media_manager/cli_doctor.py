@@ -12,6 +12,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager doctor",
         description="Validate workflow inputs and report common CLI configuration problems without changing files.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager doctor --command organize --source ~/Photos --target ~/Organized\n"
+            "  media-manager doctor --command duplicates --source ~/Photos\n"
+            "  media-manager doctor --command general --source ~/Photos --json\n"
+        ),
     )
     parser.add_argument(
         "--command",

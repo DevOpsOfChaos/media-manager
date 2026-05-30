@@ -9,7 +9,7 @@ def test_watch_nonexistent(tmp_path: Path, capsys) -> None:
     result = main(["--source", str(tmp_path / "nope")])
     captured = capsys.readouterr()
     assert result == 1
-    assert "does not exist" in captured.err
+    assert "source directory not found" in captured.err
 
 
 def test_watch_parser_required_source() -> None:

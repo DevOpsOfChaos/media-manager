@@ -25,6 +25,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager cleanup",
         description="Build or execute a guided cleanup workflow across scan, duplicates, organize, and rename.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager cleanup --source ~/Photos --target ~/Clean\n"
+            "  media-manager cleanup --source ~/Photos --target ~/Clean --duplicate-policy newest\n"
+            "  media-manager cleanup --source ~/Photos --target ~/Clean --apply-organize\n"
+            "  media-manager cleanup --source ~/Photos --target ~/Clean --apply-rename\n"
+            "  media-manager cleanup --source ~/Photos --target ~/Clean --json > report.json\n"
+        ),
     )
     parser.add_argument(
         "--source",

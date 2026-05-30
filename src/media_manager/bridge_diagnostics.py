@@ -62,6 +62,7 @@ def _check_import(module_name: str) -> dict:
 
 
 def cmd_diagnostics() -> int:
+    """Collect runtime diagnostics: Python version, imports, settings, GPU support."""
     logger.info("Diagnostics: starting")
     py_version = sys.version
 

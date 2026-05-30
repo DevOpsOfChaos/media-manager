@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def cmd_preview() -> int:
+    """Preview undo operations from a journal file without executing them."""
     raw = sys.stdin.read()
     try:
         payload = json.loads(raw)
@@ -77,6 +78,7 @@ def cmd_preview() -> int:
 
 
 def cmd_apply() -> int:
+    """Execute undo operations from a journal file, reversing prior changes."""
     raw = sys.stdin.read()
     try:
         payload = json.loads(raw)

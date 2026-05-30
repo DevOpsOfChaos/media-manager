@@ -28,6 +28,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager organize",
         description="Build or execute an organize plan from one or more source folders.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager organize --source ~/Photos --target ~/Organized\n"
+            "  media-manager organize --source ~/Photos --target ~/Organized --move --apply\n"
+            "  media-manager organize --source ~/Photos --target ~/Organized --pattern \"{year}/{month}/{day}\"\n"
+            "  media-manager organize --source ~/Photos --target ~/Organized --show-files --json\n"
+        ),
     )
     parser.add_argument(
         "--source",

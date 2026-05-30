@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import logging
 import os
 import sys
@@ -78,6 +79,12 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--version", "-V",
+        action="version",
+        version=f"media-manager v{importlib.metadata.version('media-manager')}",
+        help="Show the version and exit.",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         default=False,
@@ -113,11 +120,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    if "--version" in sys.argv or "-V" in sys.argv:
-        from . import __version__
-        print(f"media-manager v{__version__}")
-        return 0
-
     _setup_logging()
     argv = list(sys.argv[1:] if argv is None else argv)
     parser = build_parser()

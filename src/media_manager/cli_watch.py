@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import time
@@ -18,6 +19,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager watch",
         description="Watch a directory for changes and auto-organize new files.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager watch --source ~/Photos\n"
+            "  media-manager watch --source ~/Photos --target ~/Organized\n"
+            "  media-manager watch --source ~/Photos --target ~/Organized --move --interval 10\n"
+        ),
     )
     parser.add_argument(
         "--source",
@@ -57,6 +64,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Include hidden files and hidden folders.",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print machine-readable JSON output for each change event.",
+    )
     return parser
 
 
@@ -83,9 +95,14 @@ def main(argv: list[str] | None = None) -> int:
 
     source = Path(args.source)
     if not source.exists():
-        print(f"Error: {source} does not exist", file=sys.stderr)
+        msg = f"Error: source directory not found: {source}. Use --source to specify a valid directory."
+        if args.json:
+            print(json.dumps({"status": "error", "message": msg}))
+        else:
+            print(msg, file=sys.stderr)
         return 1
 
+    use_json = args.json or os.environ.get("MEDIA_MANAGER_JSON") == "1"
     use_quiet = os.environ.get("MEDIA_MANAGER_QUIET") == "1"
 
     if not use_quiet:
@@ -111,7 +128,13 @@ def main(argv: list[str] | None = None) -> int:
                     known_mtimes[path_str] = mtime
 
             if new_files or changed_files:
-                if not use_quiet:
+                if use_json:
+                    print(json.dumps({
+                        "timestamp": time.strftime("%H:%M:%S"),
+                        "new_files": new_files,
+                        "changed_files": changed_files,
+                    }))
+                elif not use_quiet:
                     for f in new_files:
                         rel = Path(f).relative_to(source)
                         print(f"  NEW: {rel}")
@@ -135,13 +158,22 @@ def main(argv: list[str] | None = None) -> int:
                     )
                     if plan.planned_count > 0:
                         exec_result = execute_organize_plan(plan)
-                        if not use_quiet:
+                        if use_json:
+                            print(json.dumps({
+                                "timestamp": time.strftime("%H:%M:%S"),
+                                "organized": exec_result.executed_count,
+                                "copied": exec_result.copied_count,
+                                "moved": exec_result.moved_count,
+                            }))
+                        elif not use_quiet:
                             print(f"    Organized {exec_result.executed_count} files")
                     elif not use_quiet:
                         print("    No files to organize")
 
             time.sleep(args.interval)
     except KeyboardInterrupt:
-        if not use_quiet:
+        if use_json:
+            print(json.dumps({"status": "stopped", "reason": "KeyboardInterrupt"}))
+        elif not use_quiet:
             print("\nStopped watching.")
         return 0

@@ -408,9 +408,13 @@ function friendlyPeopleError(err: unknown): string {
           <Button variant="ghost" size="sm" onClick={() => { setEditName(selectedPerson.name); setEditingName(true) }} aria-label={t("Edit name", "Name bearbeiten")}><Pencil className="w-3.5 h-3.5" /></Button>
         )}
       </PageHeader>
-      {selectedPerson.source_paths.length > 0 && ageCache[selectedPerson.source_paths[0]]?.bracket && ageCache[selectedPerson.source_paths[0]]?.bracket !== "unknown" && (
-        <Badge variant="outline" className="text-xs mb-2">{t("Est. age:", "Geschätztes Alter:")} {ageCache[selectedPerson.source_paths[0]].bracket}</Badge>
-      )}
+      {selectedPerson.source_paths.length > 0 && (() => {
+        const ageEntry = ageCache[selectedPerson.source_paths[0]]
+        if (!ageEntry?.bracket || ageEntry.bracket === "unknown") return null
+        return (
+          <Badge variant="outline" className="text-xs mb-2">{t("Est. age:", "Geschätztes Alter:")} {ageEntry.bracket}</Badge>
+        )
+      })()}
 
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
         {selectedPerson.source_paths.filter(path => !ignoredFaces.includes(`${path}::0`)).map((path, i) => (

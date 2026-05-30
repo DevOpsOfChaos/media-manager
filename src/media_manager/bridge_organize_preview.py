@@ -66,6 +66,7 @@ def _serialize_entry(entry) -> dict:
 
 
 def cmd_preview() -> int:
+    """Build an organize dry-run plan from stdin JSON options (never modifies files)."""
     raw = sys.stdin.read()
     if not raw.strip():
         return _fail("Empty stdin. Expected JSON OrganizePlannerOptions.")

@@ -19,6 +19,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager rename",
         description="Build or execute a rename plan for one or more source folders.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager rename --source ~/Photos\n"
+            "  media-manager rename --source ~/Photos --template \"{date:%Y-%m-%d_%H-%M-%S}_{stem}\"\n"
+            "  media-manager rename --source ~/Photos --apply\n"
+            "  media-manager rename --source ~/Photos --show-files --json\n"
+        ),
     )
     parser.add_argument(
         "--source",

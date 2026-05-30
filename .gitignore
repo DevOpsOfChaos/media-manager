@@ -46,6 +46,12 @@ reports/
 # Added by code-review-graph
 .code-review-graph/
 
+# Node
+node_modules/
+
+# Rust / Tauri
+target/
+
 # Claude Code
 .claude/
 .mcp.json

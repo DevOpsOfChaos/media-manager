@@ -51,6 +51,7 @@ def _resolve_settings_path(cli_path: str | None = None) -> Path:
 
 
 def cmd_read(settings_path: Path) -> int:
+    """Read GUI settings from a JSON file and emit the result."""
     logger.info("Settings read: %s", settings_path)
     try:
         settings = load_gui_settings(settings_path)
@@ -62,6 +63,7 @@ def cmd_read(settings_path: Path) -> int:
 
 
 def cmd_write(settings_path: Path) -> int:
+    """Write GUI settings from stdin JSON to a settings file."""
     try:
         raw = sys.stdin.read()
         payload = json.loads(raw)
@@ -81,6 +83,7 @@ def cmd_write(settings_path: Path) -> int:
 
 
 def cmd_reset(settings_path: Path) -> int:
+    """Reset GUI settings to factory defaults."""
     defaults = default_gui_settings()
     try:
         logger.info("Settings reset: %s", settings_path)

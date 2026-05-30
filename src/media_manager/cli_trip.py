@@ -12,6 +12,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager trip",
         description="Build or execute a trip collection workflow from a capture-date range.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager trip --source ~/Photos --target ~/Trips/Italy --label Italy_2025 --start 2025-06-01 --end 2025-06-15\n"
+            "  media-manager trip --source ~/Photos --target ~/Trips/Italy --label Italy_2025 --start 2025-06-01 --end 2025-06-15 --copy --apply\n"
+            "  media-manager trip --source ~/Photos --target ~/Trips/Italy --label Italy_2025 --start 2025-06-01 --end 2025-06-15 --show-files --json\n"
+        ),
     )
     parser.add_argument(
         "--source",

@@ -571,12 +571,12 @@ export default function LibraryPage() {
 
   const crossDupes = useMemo(() => {
     if (!compareData || !data) return new Set<string>()
-    const compareNames = new Set(compareData.files.map((f: any) => f.name))
-    const compareSizes = new Map(compareData.files.map((f: any) => [f.name, f.size]))
+    const compareNames = new Set(compareData.files.map((f) => f.name))
+    const compareSizes = new Map(compareData.files.map((f) => [f.name, f.size]))
     return new Set(
       currentFiles
-        .filter((f: any) => compareNames.has(f.name) && compareSizes.get(f.name) === f.size)
-        .map((f: any) => f.path)
+        .filter((f) => compareNames.has(f.name) && compareSizes.get(f.name) === f.size)
+        .map((f) => f.path)
     )
   }, [compareData, data, currentFiles])
 

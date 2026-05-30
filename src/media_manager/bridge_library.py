@@ -94,6 +94,7 @@ def _scan_directory(root: Path, max_depth: int, date_from: str | None, date_to: 
 
 
 def cmd_browse() -> int:
+    """Browse a directory tree for media files from stdin JSON options."""
     logger.info("Browse: starting")
     raw = sys.stdin.read()
     try:

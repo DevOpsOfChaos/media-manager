@@ -17,6 +17,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager runs",
         description="List, inspect, and validate structured run artifact directories.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager runs list\n"
+            "  media-manager runs list --run-dir ~/runs --limit 10 --json\n"
+            "  media-manager runs show abc12345\n"
+            "  media-manager runs show abc12345 --artifact report\n"
+            "  media-manager runs validate --run-dir ~/runs\n"
+        ),
     )
     parser.add_argument(
         "--run-dir",

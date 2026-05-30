@@ -7,11 +7,19 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+from .core.cli_progress import cli_progress, cli_progress_done
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager stats",
         description="Print library statistics for a directory tree.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager stats --source ~/Photos\n"
+            "  media-manager stats --source ~/Photos --top 10 --json\n"
+            "  media-manager stats --source ~/Photos --non-recursive\n"
+        ),
     )
     parser.add_argument(
         "--source",
@@ -59,7 +67,11 @@ def main(argv: list[str] | None = None) -> int:
 
     source = Path(args.source)
     if not source.exists():
-        print(f"Error: {source} does not exist", file=sys.stderr)
+        print(
+            f"Error: source directory not found: {source}. "
+            f"Use --source to specify a valid directory.",
+            file=sys.stderr,
+        )
         return 1
 
     use_json = args.json or os.environ.get("MEDIA_MANAGER_JSON") == "1"
@@ -71,20 +83,29 @@ def main(argv: list[str] | None = None) -> int:
     error_count = 0
 
     iterator = source.glob("*") if args.non_recursive else source.rglob("*")
-    for f in iterator:
-        if not args.include_hidden and (
+    file_list = [
+        f for f in iterator
+        if f.is_file()
+        and (args.include_hidden or not (
             any(part.startswith(".") for part in f.parts)
             or f.name.startswith(".")
-        ):
-            continue
-        if f.is_file():
-            ext = f.suffix.lower() if f.suffix else "(no extension)"
-            stats[ext] += 1
-            try:
-                total_size += f.stat().st_size
-            except OSError:
-                error_count += 1
-            file_count += 1
+        ))
+    ]
+    total_to_scan = len(file_list)
+
+    for idx, f in enumerate(file_list):
+        ext = f.suffix.lower() if f.suffix else "(no extension)"
+        stats[ext] += 1
+        try:
+            total_size += f.stat().st_size
+        except OSError:
+            error_count += 1
+        file_count += 1
+        if not use_json and not use_quiet and idx % 50 == 0:
+            cli_progress(idx + 1, total_to_scan, "Scanning")
+
+    if not use_json and not use_quiet:
+        cli_progress_done(f"Scanned {file_count:,} files")
 
     payload = {
         "source": str(source),

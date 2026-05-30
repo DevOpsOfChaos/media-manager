@@ -59,7 +59,18 @@ from .similar_review import build_similar_review_report
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="media-manager duplicates")
+    parser = argparse.ArgumentParser(
+        prog="media-manager duplicates",
+        description="Find and manage exact and similar duplicate media files.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager duplicates --source ~/Photos\n"
+            "  media-manager duplicates --source ~/Photos --show-groups\n"
+            "  media-manager duplicates --source ~/Photos --policy newest --mode delete --apply --yes\n"
+            "  media-manager duplicates --source ~/Photos --similar-images --similar-threshold 8\n"
+            "  media-manager duplicates --source ~/Photos --json > report.json\n"
+        ),
+    )
     parser.add_argument(
         "--source",
         dest="sources",
@@ -310,13 +321,17 @@ def _print_similar_review(report) -> None:
 
 def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     if not args.sources:
-        parser.error("--source is required unless --list-supported-formats is used.")
+        parser.error(
+            "Error: --source is required unless --list-supported-formats is used. "
+            "Example: media-manager duplicates --source ~/Photos"
+        )
 
     invalid_sources = [path for path in args.sources if not path.is_dir()]
     if invalid_sources:
         parser.error(
             "The following source directories do not exist or are not directories: "
             + ", ".join(str(path) for path in invalid_sources)
+            + ". Use --source to specify valid directories."
         )
 
     if args.target is not None and args.mode == "delete":

@@ -46,6 +46,7 @@ def _parse_options(payload: dict) -> TripWorkflowOptions:
 
 
 def cmd_preview() -> int:
+    """Preview trip collection plan from stdin JSON options without moving files."""
     raw = sys.stdin.read()
     if not raw.strip():
         return _fail("Empty stdin.")
@@ -85,6 +86,7 @@ def cmd_preview() -> int:
 
 
 def cmd_apply() -> int:
+    """Execute trip collection plan from stdin JSON options (copies/links files)."""
     raw = sys.stdin.read()
     try:
         payload = json.loads(raw)

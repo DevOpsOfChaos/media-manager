@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 def cmd_apply() -> int:
+    """Execute duplicate removal from stdin JSON config (scans + applies decisions)."""
     raw = sys.stdin.read()
     if not raw.strip():
         return _fail("Empty stdin. Expected JSON with scan config and decisions.")

@@ -44,6 +44,7 @@ def _resolve_runs_path(cli_path: str | None = None) -> Path:
 
 
 def cmd_list(runs_path: Path, limit: int) -> int:
+    """List run history artifacts from a runs directory."""
     logger.info("History list: %s (limit=%d)", runs_path, limit)
     if not runs_path.exists():
         _emit({"root_dir": str(runs_path), "run_count": 0, "valid_count": 0, "invalid_count": 0, "runs": []})
@@ -55,6 +56,7 @@ def cmd_list(runs_path: Path, limit: int) -> int:
 
 
 def cmd_get(runs_path: Path, run_id: str) -> int:
+    """Retrieve detailed history for a single run by ID."""
     logger.info("History get: %s/%s", runs_path, run_id)
     record = find_run_artifact(runs_path, run_id)
     if record is None:

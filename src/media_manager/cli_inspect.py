@@ -14,6 +14,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager inspect",
         description="Inspect capture-date candidates for media files or folders.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager inspect photo.jpg\n"
+            "  media-manager inspect ~/Photos --limit 5\n"
+            "  media-manager inspect ~/Photos --json > report.json\n"
+            "  media-manager inspect ~/Photos --exiftool /usr/local/bin/exiftool\n"
+        ),
     )
     parser.add_argument(
         "paths",

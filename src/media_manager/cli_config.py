@@ -16,6 +16,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager config",
         description="Manage media-manager configuration.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager config --show\n"
+            "  media-manager config --set exiftool_path --value /usr/local/bin/exiftool\n"
+            "  media-manager config --get exiftool_path\n"
+            "  media-manager config --unset exiftool_path\n"
+            "  media-manager config --reset\n"
+        ),
     )
     parser.add_argument(
         "--show",
@@ -85,7 +93,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.set_key:
         if args.set_value is None:
-            print("Error: --value is required with --set", file=sys.stderr)
+            print(
+                "Error: --value is required with --set. "
+                "Example: media-manager config --set exiftool_path --value /usr/local/bin/exiftool",
+                file=sys.stderr,
+            )
             return 1
         config = _read_config()
         config[args.set_key] = args.set_value

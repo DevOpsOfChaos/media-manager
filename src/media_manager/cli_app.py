@@ -24,6 +24,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager app",
         description="Print GUI-facing app metadata and compact UI state from reports.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager app manifest\n"
+            "  media-manager app ui-state --command organize --report-json report.json\n"
+            "  media-manager app plan-snapshot --command duplicates --report-json report.json\n"
+            "  media-manager app profiles list --profile-dir ~/profiles\n"
+            "  media-manager app profiles init --out profile.json --command organize --title \"Family Photos\"\n"
+        ),
     )
     subparsers = parser.add_subparsers(dest="app_command")
 

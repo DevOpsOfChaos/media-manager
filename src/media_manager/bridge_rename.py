@@ -43,6 +43,7 @@ def _parse_options(payload: dict) -> RenamePlannerOptions:
 
 
 def cmd_preview() -> int:
+    """Preview rename plan from stdin JSON options without renaming files."""
     raw = sys.stdin.read()
     if not raw.strip():
         return _fail("Empty stdin.")
@@ -82,6 +83,7 @@ def cmd_preview() -> int:
 
 
 def cmd_apply() -> int:
+    """Execute rename plan from stdin JSON options, applying file renames."""
     raw = sys.stdin.read()
     try:
         payload = json.loads(raw)

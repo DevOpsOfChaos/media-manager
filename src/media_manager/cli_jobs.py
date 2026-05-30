@@ -28,6 +28,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager jobs",
         description="Manage job queue.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager jobs\n"
+            "  media-manager jobs --state running\n"
+            "  media-manager jobs --kind organize --json\n"
+        ),
     )
     parser.add_argument("--state", choices=("pending", "running", "completed", "failed", "paused"))
     parser.add_argument("--kind")

@@ -78,6 +78,7 @@ def _build_journal_entries(execution_result) -> list[dict]:
 
 
 def cmd_apply() -> int:
+    """Execute an organize plan from stdin JSON options (copies/moves/link files)."""
     raw = sys.stdin.read()
     if not raw.strip():
         return _fail("Empty stdin. Expected JSON OrganizePlannerOptions.")

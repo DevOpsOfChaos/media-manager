@@ -113,6 +113,7 @@ def _build_result_payload(result: PeopleScanResult | None, files_to_scan: list[P
 
 
 def cmd_scan() -> int:
+    """Scan source directories for faces using the people recognition backend."""
     logger.info("People scan: starting")
     raw = sys.stdin.read()
     if not raw.strip():
@@ -205,6 +206,7 @@ def cmd_scan() -> int:
 
 
 def cmd_status() -> int:
+    """Report scan cache status for given source directories."""
     raw = sys.stdin.read()
     try:
         payload = json.loads(raw)
@@ -229,6 +231,7 @@ def cmd_status() -> int:
 
 
 def cmd_reset() -> int:
+    """Clear the scan cache for given source directories."""
     raw = sys.stdin.read()
     try:
         payload = json.loads(raw)
@@ -244,6 +247,7 @@ def cmd_reset() -> int:
 
 
 def cmd_catalog_info() -> int:
+    """Return summary info about a people catalog (person count, names)."""
     raw = sys.stdin.read()
     try:
         payload = json.loads(raw)

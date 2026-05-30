@@ -28,7 +28,7 @@ def cmd_export(args: argparse.Namespace) -> int:
         if args.json:
             _emit_json(payload)
         else:
-            print(f"Error: Source not found: {source}", file=sys.stderr)
+            print(f"Error: source file not found: {source}. Use --source to specify a valid image file.", file=sys.stderr)
         return 1
 
     try:

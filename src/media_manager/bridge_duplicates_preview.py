@@ -47,6 +47,7 @@ def _serialize_group(group) -> dict:
 
 
 def cmd_preview() -> int:
+    """Scan exact duplicates from stdin JSON config, emit preview result."""
     raw = sys.stdin.read()
     if not raw.strip():
         return _fail("Empty stdin. Expected JSON DuplicateScanConfig.")

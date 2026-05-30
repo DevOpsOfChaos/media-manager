@@ -40,6 +40,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager people",
         description="Local people detection and named-person catalog tools.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager people scan --source ~/Photos --catalog catalog.json\n"
+            "  media-manager people backend\n"
+            "  media-manager people catalog-init --catalog catalog.json\n"
+            "  media-manager people person-add --catalog catalog.json --name \"Alice\"\n"
+            "  media-manager people review-export --report-json report.json --out workflow.json\n"
+            "  media-manager people review-bundle --report-json report.json --bundle-dir ./bundle\n"
+        ),
     )
     subparsers = parser.add_subparsers(dest="people_command")
 

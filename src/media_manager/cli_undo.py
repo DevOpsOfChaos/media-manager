@@ -11,6 +11,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager undo",
         description="Preview or execute rollback actions from a structured execution journal.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager undo --journal journal.json\n"
+            "  media-manager undo --journal journal.json --show-files\n"
+            "  media-manager undo --journal journal.json --apply\n"
+            "  media-manager undo --journal journal.json --json\n"
+        ),
     )
     parser.add_argument("--journal", type=Path, required=True, help="Execution journal JSON file.")
     parser.add_argument("--apply", action="store_true", help="Execute the recorded undo actions.")

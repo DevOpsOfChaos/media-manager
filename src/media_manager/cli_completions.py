@@ -162,6 +162,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="media-manager completions",
         description="Generate shell completion scripts for media-manager.",
+        epilog=(
+            "Examples:\n"
+            "  media-manager completions bash > /etc/bash_completion.d/media-manager\n"
+            "  media-manager completions zsh > ~/.zsh/completions/_media-manager\n"
+            "  media-manager completions fish > ~/.config/fish/completions/media-manager.fish\n"
+            "  media-manager completions powershell\n"
+        ),
     )
     parser.add_argument(
         "shell",

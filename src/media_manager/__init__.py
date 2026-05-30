@@ -1,4 +1,6 @@
 """Top-level package for media-manager."""
 
+import importlib.metadata
+
 __all__ = ["__version__"]
-__version__ = "0.6.0"
+__version__ = importlib.metadata.version("media-manager")
