@@ -6,12 +6,14 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
+import { WelcomeDialog } from "@/components/shared/WelcomeDialog"
 import { OnboardingTour } from "@/components/shared/OnboardingTour"
 import { ProgressOverlay } from "@/components/shared/ProgressOverlay"
 import { MiniProgressOverlay } from "@/components/shared/MiniProgressOverlay"
 import { CommandPalette } from "@/components/shared/CommandPalette"
 import { ProgressProvider } from "@/lib/progress-context"
 import { NotificationSystem } from "@/components/shared/NotificationSystem"
+import { ToastContainer } from "@/components/shared/ToastContainer"
 import { KeyboardShortcuts } from "@/components/shared/KeyboardShortcuts"
 
 class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -48,6 +50,7 @@ function App() {
   const [showOnboardingTour, setShowOnboardingTour] = useState(false)
   const t = useT()
   const [dryRun] = useState(() => localStorage.getItem("dry_run") === "true")
+  const [isFirstLaunch, setIsFirstLaunch] = useState(false)
 
   useEffect(() => {
     loadSettings()
@@ -67,6 +70,14 @@ function App() {
       setShowOnboardingTour(true)
     }
   }, [settingsLoaded, settings?.show_onboarding, location.pathname])
+
+  useEffect(() => {
+    const hasLaunched = localStorage.getItem("has_launched_before")
+    if (!hasLaunched) {
+      setIsFirstLaunch(true)
+      localStorage.setItem("has_launched_before", "true")
+    }
+  }, [])
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
@@ -112,9 +123,11 @@ function App() {
         <ProgressOverlay />
         <CommandPalette />
         <NotificationSystem />
+        <ToastContainer />
         <KeyboardShortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       </TooltipProvider>
       <MiniProgressOverlay />
+      {isFirstLaunch && <WelcomeDialog open={isFirstLaunch} onClose={() => setIsFirstLaunch(false)} />}
       {showOnboardingTour && (
         <OnboardingTour onClose={() => setShowOnboardingTour(false)} />
       )}

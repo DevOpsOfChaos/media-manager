@@ -7,11 +7,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
-import { peopleCatalogList, peoplePersonRename, peoplePersonCreate, peoplePersonReassign, peoplePersonMerge, peopleScan, peopleScanStatus, peopleFaceIgnore, peopleFaceAge, type PersonEntry, type CatalogListResponse } from "@/lib/tauri-bridge"
+import { peopleCatalogList, peoplePersonRename, peoplePersonCreate, peoplePersonReassign, peoplePersonMerge, peopleScan, peopleScanStatus, peopleFaceIgnore, peopleFaceAge, peopleFaceFeedback, type PersonEntry, type CatalogListResponse } from "@/lib/tauri-bridge"
 import { useProgress } from "@/lib/progress-context"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
- import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff, GitMerge, MoreHorizontal, EyeOff, Zap } from "lucide-react"
+import { toast } from "@/lib/toast"
+ import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff, GitMerge, MoreHorizontal, EyeOff, Zap, FolderOpen } from "lucide-react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { FaceReviewSwiper } from "@/components/shared/FaceReviewSwiper"
 
@@ -81,6 +82,12 @@ function friendlyPeopleError(err: unknown): string {
   // Face swipe review
   const [showFaceSwiper, setShowFaceSwiper] = useState(false)
 
+  // Quality filter
+  const [qualityFilter, setQualityFilter] = useState<"all" | "usable" | "high">("all")
+
+  // Training feedback stats
+  const [trainingStats, setTrainingStats] = useState({ confirmations: 0, rejections: 0, total: 0 })
+
   const unknownFaces = (() => {
     if (!catalog) return []
     const unknown = catalog.people.find(p => p.person_id === "unknown" || p.person_id.startsWith("unknown"))
@@ -89,6 +96,8 @@ function friendlyPeopleError(err: unknown): string {
   })()
 
   // Age estimation cache
+  const [cacheInfo, setCacheInfo] = useState<string | null>(null)
+
   const [ageCache, setAgeCache] = useState<Record<string, { bracket: string; confidence: number }>>({})
   const fetchAge = useCallback(async (facePath: string) => {
     if (ageCache[facePath]) return
@@ -99,17 +108,29 @@ function friendlyPeopleError(err: unknown): string {
   }, [ageCache])
 
   // Ignored faces
-  const [ignoredFaces, setIgnoredFaces] = useState<Set<string>>(new Set())
+  const [ignoredFaces, setIgnoredFaces] = useState<string[]>([])
   const loadIgnoredFaces = useCallback(async () => {
     if (!catalogPath) return
     try {
       const catalogDir = catalogPath.substring(0, catalogPath.lastIndexOf("/") !== -1 ? catalogPath.lastIndexOf("/") : catalogPath.lastIndexOf("\\"))
       if (!catalogDir) return
       const result = await peopleFaceIgnore({ action: "list", face_id: "", catalog_dir: catalogDir })
-      if (result.ignored_faces) setIgnoredFaces(new Set(result.ignored_faces))
+      if (result.ignored_faces) setIgnoredFaces(result.ignored_faces)
     } catch { /* ignore */ }
   }, [catalogPath])
   useEffect(() => { loadIgnoredFaces() }, [loadIgnoredFaces])
+
+  const toggleIgnore = async (faceId: string) => {
+    if (!catalogPath) return
+    const catalogDir = catalogPath.substring(0, Math.max(catalogPath.lastIndexOf("/"), catalogPath.lastIndexOf("\\")))
+    if (!catalogDir) return
+    const action = ignoredFaces.includes(faceId) ? "remove" : "add"
+    try {
+      await peopleFaceIgnore({ action, face_id: faceId, catalog_dir: catalogDir })
+      if (action === "add") setIgnoredFaces(prev => [...prev, faceId])
+      else setIgnoredFaces(prev => prev.filter(f => f !== faceId))
+    } catch { /* ignore */ }
+  }
 
   const loadCatalog = useCallback(async () => {
     if (!catalogPath) return
@@ -155,6 +176,7 @@ function friendlyPeopleError(err: unknown): string {
       updateProgress(100)
       setScanResult(result)
       setLastScanTime(new Date().toLocaleTimeString())
+      setCacheInfo(t("Scan cached \u2014 next scan will be instant for unchanged files", "Scan gecached \u2014 n\u00E4chster Scan ist sofort f\u00FCr unver\u00E4nderte Dateien"))
       const status = await peopleScanStatus({ source_dirs: [sourceDir] })
       setScanStatus(status)
     } catch (e) { setError(friendlyPeopleError(e)) }
@@ -165,6 +187,7 @@ function friendlyPeopleError(err: unknown): string {
     if (!selectedPerson || !editName.trim()) return
     try {
       await peoplePersonRename({ catalog_path: catalogPath, person_id: selectedPerson.person_id, name: editName.trim() })
+      toast("success", t("Person renamed", "Person umbenannt"))
       setEditingName(false)
       loadCatalog()
     } catch (e) { setError(friendlyPeopleError(e)) }
@@ -174,6 +197,7 @@ function friendlyPeopleError(err: unknown): string {
     if (!createName.trim()) return
     try {
       await peoplePersonCreate({ catalog_path: catalogPath, name: createName.trim() })
+      toast("success", t("Person created", "Person erstellt"))
       setShowCreatePerson(false)
       setCreateName("")
       loadCatalog()
@@ -191,6 +215,7 @@ function friendlyPeopleError(err: unknown): string {
         to_person_id: reassignToId || undefined,
         to_person_name: reassignToId ? undefined : newPersonName || undefined,
       })
+      sendFeedback("confirm_match", reassignToId || "", `${modalImage}::0`)
       setShowReassign(false)
       setModalImage(null)
       setReassignToId("")
@@ -199,15 +224,16 @@ function friendlyPeopleError(err: unknown): string {
     } catch (e) { setError(friendlyPeopleError(e)) }
   }
 
-  const handleIgnoreFace = async (facePath: string) => {
+  const sendFeedback = async (type: "confirm_match" | "reject_match", personId: string, faceId: string) => {
     if (!catalogPath) return
     const catalogDir = catalogPath.substring(0, Math.max(catalogPath.lastIndexOf("/"), catalogPath.lastIndexOf("\\")))
     if (!catalogDir) return
-    const faceId = `${facePath}::0`
     try {
-      await peopleFaceIgnore({ action: "add", face_id: faceId, catalog_dir: catalogDir })
-      setIgnoredFaces(prev => { const next = new Set(prev); next.add(faceId); return next })
-    } catch (e) { console.error(e) }
+      const result = await peopleFaceFeedback({ type, person_id: personId, face_id: faceId, catalog_dir: catalogDir })
+      if (result.stats) {
+        setTrainingStats({ confirmations: result.stats.confirmations, rejections: result.stats.rejections, total: result.stats.total_feedback })
+      }
+    } catch { /* ignore */ }
   }
 
   // ── Person Grid View ──
@@ -234,10 +260,23 @@ function friendlyPeopleError(err: unknown): string {
         <div className="flex items-center gap-2">
           <Switch checked={enabled} onCheckedChange={handleToggle} />
           <span className="text-sm text-muted-foreground">{t("Auto-scan", "Auto-Scan")}</span>
+          <select value={qualityFilter} onChange={e => setQualityFilter(e.target.value as any)}
+            className="text-xs border rounded px-2 py-1 bg-background">
+            <option value="all">{t("All faces", "Alle Gesichter")}</option>
+            <option value="usable">{t("Usable only", "Nur brauchbare")} (&gt;30%)</option>
+            <option value="high">{t("High quality", "Hohe Qualität")} (&gt;60%)</option>
+          </select>
           {catalog && <Badge variant="secondary" className="ml-auto">{catalog.person_count} {t("people", "Personen")}</Badge>}
+          {trainingStats.total > 0 && (
+            <Badge variant="outline" className="text-xs ml-1">
+              {trainingStats.confirmations}/{trainingStats.rejections}/{trainingStats.total}
+            </Badge>
+          )}
         </div>
 
         {error && <p className="text-sm text-red-400">{error}</p>}
+
+        {cacheInfo && <p className="text-sm text-green-400">{cacheInfo}</p>}
 
         {catalog && catalog.people.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -285,9 +324,9 @@ function friendlyPeopleError(err: unknown): string {
             </Card>
           </div>
         ) : catalog ? (
-          <EmptyState title={t("No people yet", "Noch keine Personen")} description={t("Scan photos with a catalog to recognize people, or add them manually.", "Scannen Sie Fotos mit einem Katalog, um Personen zu erkennen, oder fügen Sie sie manuell hinzu.")} />
+          <EmptyState title={t("No people yet", "Noch keine Personen")} description={t("Scan photos with a catalog to recognize people, or add them manually.", "Scannen Sie Fotos mit einem Katalog, um Personen zu erkennen, oder fügen Sie sie manuell hinzu.")} action={<Button variant="outline" size="sm" onClick={() => handleToggle(true)}><UserPlus className="h-3.5 w-3.5 mr-1" />{t("Scan now", "Jetzt scannen")}</Button>} />
         ) : (
-          <EmptyState title={t("No catalog loaded", "Kein Katalog geladen")} description={t("Enter a catalog path above and click Refresh to see recognized people.", "Geben Sie oben einen Katalogpfad ein und klicken Sie Aktualisieren, um erkannte Personen zu sehen.")} />
+          <EmptyState title={t("No catalog loaded", "Kein Katalog geladen")} description={t("Lege Katalog-Pfad fest und starte Scan", "Set catalog path and start a scan")} action={<Button variant="outline" size="sm" onClick={() => document.querySelector<HTMLInputElement>("input[placeholder*='catalog']")?.focus()}><FolderOpen className="h-3.5 w-3.5 mr-1" />{t("Set catalog path", "Katalog-Pfad festlegen")}</Button>} />
         )}
 
         <Dialog open={showCreatePerson} onOpenChange={setShowCreatePerson}>
@@ -374,20 +413,27 @@ function friendlyPeopleError(err: unknown): string {
       )}
 
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-        {selectedPerson.source_paths.filter(path => !ignoredFaces.has(`${path}::0`)).map((path, i) => (
+        {selectedPerson.source_paths.filter(path => !ignoredFaces.includes(`${path}::0`)).map((path, i) => (
           <div
             key={i}
-            className="cursor-pointer rounded overflow-hidden hover:ring-2 hover:ring-primary transition-all"
+            className="cursor-pointer rounded overflow-hidden hover:ring-2 hover:ring-primary transition-all relative group"
             role="button"
             tabIndex={0}
             onClick={() => { setModalImage(path); setModalPersonId(selectedPerson.person_id); fetchAge(path) }}
             onKeyDown={(e) => e.key === 'Enter' && (setModalImage(path), setModalPersonId(selectedPerson.person_id), fetchAge(path))}
           >
             <FaceThumb path={path} size={150} alt={selectedPerson.name} />
+            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+              <Button variant="ghost" size="sm" className="h-6 px-1 text-[10px]" onClick={() => toggleIgnore(`${path}::0`)}>
+                {ignoredFaces.includes(`${path}::0`) ?
+                  t("Un-ignore", "Nicht mehr ignorieren") :
+                  t("Ignore", "Ignorieren")}
+              </Button>
+            </div>
           </div>
         ))}
-        {selectedPerson.source_paths.filter(path => ignoredFaces.has(`${path}::0`)).length > 0 && (
-          <p className="col-span-full text-xs text-muted-foreground">{t("Hidden:", "Ausgeblendet:")} {selectedPerson.source_paths.filter(path => ignoredFaces.has(`${path}::0`)).length} {t("ignored faces", "ignorierte Gesichter")}</p>
+        {selectedPerson.source_paths.filter(path => ignoredFaces.includes(`${path}::0`)).length > 0 && (
+          <p className="col-span-full text-xs text-muted-foreground">{t("Hidden:", "Ausgeblendet:")} {selectedPerson.source_paths.filter(path => ignoredFaces.includes(`${path}::0`)).length} {t("ignored faces", "ignorierte Gesichter")}</p>
         )}
         {selectedPerson.source_paths.length === 0 && (
           <div className="col-span-full py-12 text-center text-muted-foreground">
@@ -412,9 +458,11 @@ function friendlyPeopleError(err: unknown): string {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => modalImage && handleIgnoreFace(modalImage)} title={t("Ignore this face", "Dieses Gesicht ignorieren")}>
+                    <Button variant="ghost" size="sm" onClick={() => modalImage && toggleIgnore(`${modalImage}::0`)} title={t("Ignore this face", "Dieses Gesicht ignorieren")}>
                       <EyeOff className="w-3.5 h-3.5 mr-1" />
-                      {t("Ignore", "Ignorieren")}
+                      {ignoredFaces.includes(`${modalImage}::0`) ?
+                        t("Un-ignore", "Nicht mehr ignorieren") :
+                        t("Ignore", "Ignorieren")}
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => setShowReassign(true)}>
                       {t("Not this person?", "Nicht diese Person?")}

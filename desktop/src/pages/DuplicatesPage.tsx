@@ -3,6 +3,7 @@ import { CheckSquare, Square, Trash2, Info, ScanText, Wand2, Star } from "lucide
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
 import { userFriendlyError } from "@/lib/error-utils"
+import { toast } from "@/lib/toast"
 import { useSimulatedProgress } from "@/lib/use-simulated-progress"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
@@ -137,6 +138,7 @@ export default function DuplicatesPage() {
       ])
       updateProgress(2)
       completeDupProgress(`Complete! ${exact.exact_groups?.length || 0} exact + ${similar.similar_groups?.length || 0} similar groups found.`)
+      toast("info", t(`Found ${(exact.exact_groups?.length || 0) + (similar.similar_groups?.length || 0)} duplicate groups`, `${(exact.exact_groups?.length || 0) + (similar.similar_groups?.length || 0)} Duplikatgruppen gefunden`))
       setExactPreview(exact)
       setSimilarPreview(similar)
       setTab("all")
@@ -175,10 +177,12 @@ export default function DuplicatesPage() {
       if (tab === "exact") {
         const result = await duplicateScan(config)
         completeDupProgress(`Complete! ${result.exact_groups?.length || 0} groups found.`)
+        toast("info", t(`Found ${result.exact_groups?.length || 0} exact duplicate groups`, `${result.exact_groups?.length || 0} exakte Duplikatgruppen gefunden`))
         setExactPreview(result)
       } else if (tab === "similar") {
         const result = await similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages, max_pairs: maxPairs })
         completeDupProgress(`Complete! ${result.similar_groups?.length || 0} groups found.`)
+        toast("info", t(`Found ${result.similar_groups?.length || 0} similar image groups`, `${result.similar_groups?.length || 0} ähnliche Bildgruppen gefunden`))
         setSimilarPreview(result)
       } else {
         const [exact, similar] = await Promise.all([
@@ -186,6 +190,7 @@ export default function DuplicatesPage() {
           similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages, max_pairs: maxPairs }),
         ])
         completeDupProgress(`Complete! ${exact.exact_groups?.length || 0} exact + ${similar.similar_groups?.length || 0} similar groups found.`)
+        toast("info", t(`Found ${(exact.exact_groups?.length || 0) + (similar.similar_groups?.length || 0)} duplicate groups`, `${(exact.exact_groups?.length || 0) + (similar.similar_groups?.length || 0)} Duplikatgruppen gefunden`))
         setExactPreview(exact)
         setSimilarPreview(similar)
       }
@@ -634,7 +639,7 @@ function ExactResults({
       )}
 
       {preview.exact_groups.length === 0 ? (
-        <EmptyState title={t("No exact duplicates found", "Keine exakten Duplikate gefunden")} description={t("All scanned files have unique content.", "Alle gescannten Dateien haben einzigartigen Inhalt.")} />
+        <EmptyState title={t("No exact duplicates found", "Keine exakten Duplikate gefunden")} description={t("All scanned files have unique content.", "Alle gescannten Dateien haben einzigartigen Inhalt.")} action={<span className="text-xs text-muted-foreground">{t("Start a scan to find duplicates", "Starte einen Scan um Duplikate zu finden")}</span>} />
       ) : (
         <>
           {preview.exact_groups && preview.exact_groups.length > 0 && (
@@ -768,7 +773,7 @@ function SimilarResults({
       </div>
 
       {preview.similar_groups.length === 0 ? (
-        <EmptyState title={t("No similar images found", "Keine ähnlichen Bilder gefunden")} description={t("No visually similar image pairs detected within the distance threshold.", "Keine visuell ähnlichen Bildpaare innerhalb der Distanzschwelle erkannt.")} />
+        <EmptyState title={t("No similar images found", "Keine ähnlichen Bilder gefunden")} description={t("No visually similar image pairs detected within the distance threshold.", "Keine visuell ähnlichen Bildpaare innerhalb der Distanzschwelle erkannt.")} action={<span className="text-xs text-muted-foreground">{t("Start a scan to find duplicates", "Starte einen Scan um Duplikate zu finden")}</span>} />
       ) : (
         <GroupsCard
           title={t(`Similar groups (${filteredGroups.length}${filteredGroups.length !== preview.similar_groups.length ? ` of ${preview.similar_groups.length}` : ""})`, `Ähnliche Gruppen (${filteredGroups.length}${filteredGroups.length !== preview.similar_groups.length ? ` von ${preview.similar_groups.length}` : ""})`)}

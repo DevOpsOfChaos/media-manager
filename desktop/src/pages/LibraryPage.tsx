@@ -339,6 +339,10 @@ export default function LibraryPage() {
   const [compareDir, setCompareDir] = useState("")
   const [compareData, setCompareData] = useState<LibraryBrowsePaginatedResult | null>(null)
   const [comparing, setComparing] = useState(false)
+  const [peopleSearch, setPeopleSearch] = useState("")
+  const [peopleResults, setPeopleResults] = useState<string[]>([])
+
+  const scrollRef = useRef(0)
 
   const runCompare = async () => {
     if (!compareDir) return
@@ -436,10 +440,20 @@ export default function LibraryPage() {
   }, [page])
 
   useEffect(() => {
+    window.scrollTo(0, scrollRef.current)
+  }, [page])
+
+  useEffect(() => {
     const check = () => setIsNarrow(window.innerWidth < 768)
     check()
     window.addEventListener("resize", check)
     return () => window.removeEventListener("resize", check)
+  }, [])
+
+  useEffect(() => {
+    const handleScroll = () => { scrollRef.current = window.scrollY }
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
   useEffect(() => {
@@ -540,6 +554,18 @@ export default function LibraryPage() {
 
   const currentFiles = loadedPages.get(page) || []
   const totalPages = data?.total_pages || 1
+
+  useEffect(() => {
+    if (!peopleSearch.trim() || !currentFiles.length) {
+      setPeopleResults([])
+      return
+    }
+    const search = peopleSearch.toLowerCase()
+    const matches = currentFiles
+      .filter(f => f.relative?.toLowerCase().includes(search) || f.name?.toLowerCase().includes(search))
+      .map(f => f.path)
+    setPeopleResults(matches)
+  }, [peopleSearch, currentFiles])
 
   const crossDupes = useMemo(() => {
     if (!compareData || !data) return new Set<string>()
@@ -928,6 +954,15 @@ export default function LibraryPage() {
 
       {showAdvancedFilters && data && (
         <div className="flex flex-wrap gap-2 p-2 border rounded bg-muted/20">
+          <div className="flex items-center gap-2 w-full">
+            <input placeholder={t("Person name in path...", "Personenname im Pfad...")}
+              className="text-xs border rounded px-2 py-1 w-48 bg-background"
+              value={peopleSearch}
+              onChange={e => setPeopleSearch(e.target.value)} />
+            {peopleResults.length > 0 && (
+              <Badge variant="secondary" className="text-xs">{peopleResults.length} {t("matches", "Treffer")}</Badge>
+            )}
+          </div>
           <input placeholder={t("Camera model...", "Kamera-Modell...")}
             className="text-xs border rounded px-2 py-1 w-32 bg-background"
             value={exifFilters.camera || ""}

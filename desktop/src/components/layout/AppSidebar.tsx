@@ -220,6 +220,7 @@ export function AppSidebar() {
                         <SidebarMenuButton
                           isActive={isActive}
                           onClick={() => navigate(item.path)}
+                          className={isActive ? "bg-primary/10 text-primary hover:bg-primary/20" : ""}
                         >
                           <item.icon />
                           <span>{sidebarLabel(item.label)}</span>

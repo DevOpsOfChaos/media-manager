@@ -18,7 +18,7 @@ import {
   type RuntimeDiagnostics,
 } from "@/lib/tauri-bridge"
 import type { Language, Theme } from "@/types"
-import { FolderSearch } from "lucide-react"
+import { FolderSearch, X } from "lucide-react"
 
 
 export default function SettingsPage() {
@@ -44,6 +44,7 @@ export default function SettingsPage() {
   const [defaultSourceDir, setDefaultSourceDir] = useState(
     () => localStorage.getItem("default_source_dir") || ""
   )
+  const [showQuickSetup, setShowQuickSetup] = useState(() => !localStorage.getItem("quick_setup_done"))
 
   useEffect(() => {
     load()
@@ -109,6 +110,24 @@ export default function SettingsPage() {
       <PageHeader title={t("Settings", "Einstellungen")} />
       <main className="flex flex-1 gap-4 p-6">
         <div className="flex-1 max-w-5xl space-y-4">
+
+          {showQuickSetup && (
+            <Card className="border-blue-200 bg-blue-50/30 mb-4">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-sm">{t("Quick Setup", "Schnell einrichten")}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t("Set your default source directory and language to get started quickly.", "Lege dein Standard-Quellverzeichnis und die Sprache fest f\u00FCr einen schnellen Start.")}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setShowQuickSetup(false); localStorage.setItem("quick_setup_done", "true") }}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {error && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
