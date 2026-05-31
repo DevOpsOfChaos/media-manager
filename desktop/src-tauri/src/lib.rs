@@ -89,6 +89,10 @@ pub fn run() {
             media_commands::doctor_check,
             // Library
             media_commands::library_browse,
+            // Stats & Search
+            media_commands::library_stats,
+            media_commands::size_report,
+            media_commands::media_search,
             // File Operations
             media_commands::file_open,
             media_commands::file_reveal,
@@ -100,15 +104,29 @@ pub fn run() {
             media_commands::file_contact_sheet,
             media_commands::file_web_gallery,
             media_commands::file_watermark,
+            media_commands::file_batch_delete,
+            media_commands::file_batch_copy,
+            media_commands::file_thumbnail,
+            media_commands::file_thumbnails_batch,
+            media_commands::file_watch_events,
             media_commands::read_thumbnails_batch,
             // Window
             media_commands::resize_window,
             media_commands::get_window_size,
             // Background
             media_commands::background_scan,
+            // Enrich
+            media_commands::enrich_file,
+            media_commands::enrich_batch,
             // Autostart
             autostart::get_autostart_status,
             autostart::set_autostart,
+            // Groups
+            media_commands::groups_by_date,
+            media_commands::groups_by_camera,
+            media_commands::groups_by_location,
+            media_commands::groups_by_people,
+            media_commands::groups_timeline,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

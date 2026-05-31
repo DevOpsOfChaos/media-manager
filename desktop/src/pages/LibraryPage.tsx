@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
-import { fileOpen, fileReveal, fileDelete, fileRename, fileExport, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
+import { fileOpen, fileReveal, fileDelete, fileRename, fileExport, enrichFile, type EnrichedFile, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
 
 import { FolderOpen, FolderSync, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive, Film, Music, File } from "lucide-react"
 import {
@@ -106,7 +106,7 @@ const FileCard = memo(function FileCard({
   tags: string[]
   isActionLoading: boolean
   selectMode: boolean
-  exifData: Record<string, string | number> | null
+  exifData: EnrichedFile | null
   onOpen: (path: string, name: string) => void
   onReveal: (path: string) => void
   onSetLabel: (path: string, color: string) => void
@@ -167,9 +167,9 @@ const FileCard = memo(function FileCard({
                 }
               }}
             />
-            {exifData && (exifData.iso || exifData.aperture || exifData.shutter_speed || exifData.focal_length) && (
+            {exifData?.exif && (exifData.exif.iso || exifData.exif.aperture || exifData.exif.shutter || exifData.exif.focal_length) && (
               <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                ISO {exifData.iso} · f/{exifData.aperture} · {exifData.shutter_speed}s · {exifData.focal_length}mm
+                ISO {exifData.exif.iso} · f/{exifData.exif.aperture} · {exifData.exif.shutter}s · {exifData.exif.focal_length}mm
               </div>
             )}
           </div>
@@ -340,7 +340,7 @@ export default function LibraryPage() {
 
   const navigate = useNavigate()
 
-  const [exifData, setExifData] = useState<Record<string, string | number> | null>(null)
+  const [enrichedData, setEnrichedData] = useState<EnrichedFile | null>(null)
 
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [exifFilters, setExifFilters] = useState<{
@@ -380,7 +380,14 @@ export default function LibraryPage() {
   }
 
   useEffect(() => {
-    setExifData(null)
+    if (!selectedFile) { setEnrichedData(null); return }
+    let cancelled = false
+    enrichFile(selectedFile.path).then(data => {
+      if (!cancelled) setEnrichedData(data)
+    }).catch(() => {
+      if (!cancelled) setEnrichedData(null)
+    })
+    return () => { cancelled = true }
   }, [selectedFile])
 
   const setFlag = useCallback((path: string, state: FlagState) => {
@@ -1097,7 +1104,7 @@ export default function LibraryPage() {
               tags={fileTags[f.path] || []}
               isActionLoading={actionLoading === f.path}
               selectMode={selectMode}
-              exifData={selectedFile?.path === f.path ? exifData : null}
+              exifData={selectedFile?.path === f.path ? enrichedData : null}
               onOpen={handleOpen}
               onReveal={handleReveal}
               onSetLabel={handleSetLabel}
@@ -1152,10 +1159,50 @@ export default function LibraryPage() {
           {selectedFile && isAudioFile(selectedFile.suffix) && (
             <audio src={convertFileSrc(selectedFile.path)} controls className="w-full mt-2" />
           )}
-          {exifData && (exifData.image_width as number) > 6000 && (
+          {enrichedData?.exif?.megapixels != null && (enrichedData.exif.megapixels as number) > 6 && (
             <p className="text-xs text-amber-500 mt-1">
               {t("High resolution image \u2014 may take longer to load", "Hochaufl\u00f6sendes Bild \u2014 Laden kann l\u00e4nger dauern")}
             </p>
+          )}
+          {enrichedData?.exif && Object.keys(enrichedData.exif).length > 0 && (
+            <div className="mt-3 pt-3 border-t">
+              <span className="text-xs font-semibold">{t("EXIF", "EXIF")}</span>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-1">
+                {enrichedData.exif.camera && <><span className="text-muted-foreground">{t("Camera", "Kamera")}</span><span className="truncate">{String(enrichedData.exif.camera)}</span></>}
+                {enrichedData.exif.lens && <><span className="text-muted-foreground">{t("Lens", "Objektiv")}</span><span className="truncate">{String(enrichedData.exif.lens)}</span></>}
+                {enrichedData.exif.iso != null && <><span className="text-muted-foreground">ISO</span><span>{String(enrichedData.exif.iso)}</span></>}
+                {enrichedData.exif.aperture && <><span className="text-muted-foreground">{t("Aperture", "Blende")}</span><span>f/{String(enrichedData.exif.aperture)}</span></>}
+                {enrichedData.exif.shutter && <><span className="text-muted-foreground">{t("Shutter", "Verschluss")}</span><span>{String(enrichedData.exif.shutter)}s</span></>}
+                {enrichedData.exif.focal_length && <><span className="text-muted-foreground">{t("Focal", "Brennweite")}</span><span>{String(enrichedData.exif.focal_length)}mm</span></>}
+                {enrichedData.exif.date_taken && <><span className="text-muted-foreground">{t("Date", "Datum")}</span><span className="truncate">{String(enrichedData.exif.date_taken)}</span></>}
+                {enrichedData.exif.megapixels != null && <><span className="text-muted-foreground">MP</span><span>{String(enrichedData.exif.megapixels)}</span></>}
+              </div>
+            </div>
+          )}
+          {enrichedData?.faces && enrichedData.faces.length > 0 && (
+            <div className="mt-3 pt-3 border-t">
+              <span className="text-xs font-semibold">{t("People", "Personen")}</span>
+              <div className="mt-1 space-y-1">
+                {enrichedData.faces.map((face, i) => (
+                  <Badge key={i} variant="secondary" className="text-xs">{face.name}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          {enrichedData?.colors && enrichedData.colors.length > 0 && (
+            <div className="mt-3 pt-3 border-t">
+              <span className="text-xs font-semibold">{t("Colors", "Farben")}</span>
+              <div className="mt-1 flex gap-1">
+                {enrichedData.colors.map((c, i) => (
+                  <span key={i} className="inline-block h-4 w-4 rounded-full border" style={{ backgroundColor: c }} title={c} />
+                ))}
+              </div>
+            </div>
+          )}
+          {enrichedData?.has_duplicates && (
+            <div className="mt-3 pt-3 border-t">
+              <span className="text-xs text-yellow-500 font-semibold">{t("Has duplicates", "Hat Duplikate")}</span>
+            </div>
           )}
           <div className="flex items-center justify-between mt-3 pt-3 border-t">
             <span className="text-xs text-muted-foreground">{t("Flag", "Markierung")}</span>
@@ -1174,23 +1221,23 @@ export default function LibraryPage() {
               />
             </div>
           </div>
-          {exifData?.gps_latitude != null && exifData.gps_longitude != null && (
+          {enrichedData?.gps?.lat != null && enrichedData.gps.lon != null && (
             <div className="mt-3 pt-3 border-t">
               <span className="text-xs text-muted-foreground">{t("GPS", "GPS")}</span>
               <div className="mt-1 text-xs text-muted-foreground">
-                {String(exifData.gps_latitude)}, {String(exifData.gps_longitude)}
+                {String(enrichedData.gps.lat)}, {String(enrichedData.gps.lon)}
               </div>
               <div className="mt-2 rounded overflow-hidden border">
                 <img
-                  src={`https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(String(exifData.gps_latitude))},${encodeURIComponent(String(exifData.gps_longitude))}&zoom=12&size=400x200&markers=${encodeURIComponent(String(exifData.gps_latitude))},${encodeURIComponent(String(exifData.gps_longitude))},red-pushpin`}
+                  src={`https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(String(enrichedData.gps.lat))},${encodeURIComponent(String(enrichedData.gps.lon))}&zoom=12&size=400x200&markers=${encodeURIComponent(String(enrichedData.gps.lat))},${encodeURIComponent(String(enrichedData.gps.lon))},red-pushpin`}
                   alt={t("Map location", "Kartenposition")}
                   className="w-full h-32 object-cover"
                 />
               </div>
               <div className="mt-2">
                 <Button variant="outline" size="sm" onClick={() => {
-                  const lat = String(exifData.gps_latitude).replace(/deg|'|"/g, "").trim()
-                  const lon = String(exifData.gps_longitude).replace(/deg|'|"/g, "").trim()
+                  const lat = String(enrichedData.gps!.lat).replace(/deg|'|"/g, "").trim()
+                  const lon = String(enrichedData.gps!.lon).replace(/deg|'|"/g, "").trim()
                   window.open(`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=15`, "_blank")
                 }}>
                 <MapPin className="h-3 w-3 mr-1" />

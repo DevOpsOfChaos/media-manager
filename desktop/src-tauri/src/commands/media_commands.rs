@@ -512,6 +512,41 @@ pub async fn file_watermark(options: Value) -> Result<Value, String> {
 }
 
 #[tauri::command]
+pub async fn file_batch_delete(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_file_ops", "batch_delete", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn file_batch_copy(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_file_ops", "batch_copy", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn file_thumbnail(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_file_ops", "thumbnail", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn file_thumbnails_batch(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_file_ops", "thumbnails_batch", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn file_watch_events(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_file_ops", "watch_events", &[], Some(&json))
+}
+
+#[tauri::command]
 pub async fn read_thumbnails_batch(paths: Vec<String>) -> Result<Vec<String>, String> {
     use std::fs;
     use std::io::Read;
@@ -561,6 +596,56 @@ pub async fn get_window_size(app: tauri::AppHandle) -> Result<(u32, u32), String
     Ok((size.width, size.height))
 }
 
+// ── Enrich ──
+
+#[tauri::command]
+pub async fn enrich_file(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_enrich", "enrich", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn enrich_batch(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_enrich", "enrich-batch", &[], Some(&json))
+}
+
+// ── Stats ──
+
+#[tauri::command]
+pub async fn library_stats(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Library Statistics", None);
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    let result = bridge()?.run_module("bridge_stats", "stats", &[], Some(&json));
+    emit_completion(&app, "Library Statistics", &result);
+    result
+}
+
+#[tauri::command]
+pub async fn size_report(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Size Report", None);
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    let result = bridge()?.run_module("bridge_stats", "size-report", &[], Some(&json));
+    emit_completion(&app, "Size Report", &result);
+    result
+}
+
+// ── Search ──
+
+#[tauri::command]
+pub async fn media_search(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Media Search", None);
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    let result = bridge()?.run_module("bridge_search", "search", &[], Some(&json));
+    emit_completion(&app, "Media Search", &result);
+    result
+}
+
 // ── Background Scan ──
 
 #[tauri::command]
@@ -568,4 +653,41 @@ pub async fn background_scan(config: Value) -> Result<Value, String> {
     let json = serde_json::to_string(&config)
         .map_err(|e| format!("Failed to serialize: {e}"))?;
     bridge()?.run_module("bridge_background", "check", &[], Some(&json))
+}
+
+// ── Groups ──
+
+#[tauri::command]
+pub async fn groups_by_date(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_groups", "group-by-date", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn groups_by_camera(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_groups", "group-by-camera", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn groups_by_location(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_groups", "group-by-location", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn groups_by_people(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_groups", "group-by-people", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn groups_timeline(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_groups", "timeline", &[], Some(&json))
 }

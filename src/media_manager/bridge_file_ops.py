@@ -6,11 +6,12 @@ import argparse as _ap
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-from media_manager.bridge_base import emit as _emit, fail as _fail
+from media_manager.bridge_base import emit as _emit, fail as _fail, read_stdin_json
 from media_manager.core.platform_utils import open_file as _open_file, reveal_in_explorer as _reveal_in_explorer
 
 logger = logging.getLogger(__name__)
@@ -521,6 +522,124 @@ def cmd_watermark() -> int:
         return _fail(f"Watermark failed: {exc}")
 
 
+def cmd_batch_delete() -> int:
+    """Delete multiple files to trash."""
+    payload = read_stdin_json()
+    paths = payload.get("paths", [])
+
+    results = []
+    for path in paths[:100]:
+        try:
+            import send2trash
+            send2trash.send2trash(str(path))
+            results.append({"path": path, "status": "deleted"})
+        except Exception as e:
+            results.append({"path": path, "status": "error", "error": str(e)})
+
+    _emit({"results": results, "total": len(paths), "deleted": sum(1 for r in results if r["status"] == "deleted")})
+    return 0
+
+
+def cmd_batch_copy() -> int:
+    """Copy multiple files to a target directory."""
+    payload = read_stdin_json()
+    paths = payload.get("paths", [])
+    target_dir = Path(payload["target_dir"])
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+    results = []
+    for path in paths[:100]:
+        try:
+            shutil.copy2(path, target_dir / Path(path).name)
+            results.append({"path": path, "status": "copied"})
+        except Exception as e:
+            results.append({"path": path, "status": "error", "error": str(e)})
+
+    _emit({"results": results})
+    return 0
+
+
+def cmd_thumbnail() -> int:
+    """Generate a thumbnail for a file."""
+    payload = read_stdin_json()
+    path = Path(payload["path"])
+    size = payload.get("size", 256)
+
+    try:
+        from PIL import Image
+        img = Image.open(path)
+        img.thumbnail((size, size), Image.LANCZOS)
+
+        import io, base64
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=70)
+        b64 = base64.b64encode(buf.getvalue()).decode()
+
+        _emit({
+            "path": str(path),
+            "thumbnail": f"data:image/jpeg;base64,{b64}",
+            "width": img.width,
+            "height": img.height,
+        })
+    except Exception as e:
+        return _fail(f"Thumbnail failed: {e}")
+    return 0
+
+
+def cmd_thumbnails_batch() -> int:
+    """Generate thumbnails for multiple files."""
+    payload = read_stdin_json()
+    paths = payload.get("paths", [])[:50]
+
+    thumbnails = []
+    for path in paths:
+        try:
+            from PIL import Image
+            img = Image.open(path)
+            img.thumbnail((128, 128), Image.LANCZOS)
+            import io, base64
+            buf = io.BytesIO()
+            img.save(buf, "JPEG", quality=50)
+            b64 = base64.b64encode(buf.getvalue()).decode()
+            thumbnails.append(f"data:image/jpeg;base64,{b64}")
+        except Exception:
+            thumbnails.append("")
+
+    _emit({"thumbnails": thumbnails})
+    return 0
+
+
+def cmd_watch_events() -> int:
+    """Watch a directory for file changes."""
+    payload = read_stdin_json()
+    watch_dir = Path(payload["watch_dir"])
+
+    known_files = {}
+    for f in watch_dir.rglob("*"):
+        if f.is_file():
+            known_files[str(f)] = f.stat().st_mtime
+
+    events = {"added": [], "modified": [], "deleted": []}
+
+    current_files = {}
+    for f in watch_dir.rglob("*"):
+        if f.is_file():
+            current_files[str(f)] = f.stat().st_mtime
+
+    for path in current_files:
+        if path not in known_files:
+            events["added"].append(path)
+        elif current_files[path] != known_files[path]:
+            events["modified"].append(path)
+
+    for path in known_files:
+        if path not in current_files:
+            events["deleted"].append(path)
+
+    _emit({"events": events, "total_events": sum(len(v) for v in events.values())})
+    return 0
+
+
 _ACTIONS = {
     "open": cmd_open,
     "reveal": cmd_reveal,
@@ -533,6 +652,11 @@ _ACTIONS = {
     "contact_sheet": cmd_contact_sheet,
     "web_gallery": cmd_web_gallery,
     "watermark": cmd_watermark,
+    "batch_delete": cmd_batch_delete,
+    "batch_copy": cmd_batch_copy,
+    "thumbnail": cmd_thumbnail,
+    "thumbnails_batch": cmd_thumbnails_batch,
+    "watch_events": cmd_watch_events,
 }
 
 

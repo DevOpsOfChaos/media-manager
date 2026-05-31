@@ -692,6 +692,41 @@ export async function getWindowSize(): Promise<[number, number]> {
   return invoke("get_window_size")
 }
 
+// ── Enrich ──
+
+export interface EnrichedExif {
+  camera?: string
+  lens?: string
+  iso?: number
+  aperture?: string
+  shutter?: string
+  focal_length?: string
+  date_taken?: string
+  orientation?: string
+  software?: string
+  megapixels?: number
+}
+
+export interface EnrichedFile {
+  path: string
+  file: { size: number; modified: string; extension: string }
+  exif?: EnrichedExif
+  gps?: { lat: string; lon: string; alt?: string } | null
+  faces?: Array<{ person_id: string; name: string; box?: { x: number; y: number; w: number; h: number } }>
+  colors?: string[] | null
+  has_duplicates?: boolean
+}
+
+/** Fetch all enriched metadata (EXIF, GPS, faces, colors, duplicates) for a single file. */
+export async function enrichFile(path: string): Promise<EnrichedFile> {
+  return invoke("enrich_file", { options: { path } })
+}
+
+/** Fetch enriched metadata for a batch of files (max 100). */
+export async function enrichBatch(paths: string[]): Promise<{ files: EnrichedFile[]; total_requested: number; returned: number }> {
+  return invoke("enrich_batch", { options: { paths } })
+}
+
 // ── Autostart ──
 
 /** Check whether the app is configured to auto-start with Windows. */
@@ -702,6 +737,47 @@ export async function getAutostartStatus(): Promise<boolean> {
 /** Enable or disable auto-start with Windows. */
 export async function setAutostart(options: { enable: boolean }): Promise<void> {
   return invoke("set_autostart", { enable: options.enable })
+}
+
+// ── Statistics ──
+
+export interface LibraryStats {
+  total_files: number
+  total_size_bytes: number
+  by_extension: Record<string, number>
+  by_camera: Record<string, number>
+  by_year: Record<string, number>
+  by_month: Record<string, number>
+  oldest_file: { path: string; name: string } | null
+  newest_file: { path: string; name: string } | null
+}
+
+export interface SizeReport {
+  largest_files: Array<{ path: string; name: string; size_bytes: number }>
+  total_size_bytes: number
+  file_count: number
+  duplicate_space_wasted_bytes: number
+}
+
+export interface SearchResult {
+  query: string
+  results: Array<{ path: string; name: string; score: number; size_bytes?: number; camera?: string | null; date?: string | null }>
+  total_matches: number
+}
+
+/** Compute comprehensive library statistics for a source directory. */
+export async function libraryStats(options: { source_dir: string; sample_limit?: number }): Promise<LibraryStats> {
+  return invoke("library_stats", { options })
+}
+
+/** Generate a size report showing largest files and duplicate space waste. */
+export async function sizeReport(options: { source_dir: string; top_n?: number }): Promise<SizeReport> {
+  return invoke("size_report", { options })
+}
+
+/** Full-text search across filenames, paths, camera model, and dates. */
+export async function mediaSearch(options: { source_dir: string; query: string; fields?: string[]; max_results?: number }): Promise<SearchResult> {
+  return invoke("media_search", { options })
 }
 
 // ── Background Scan ──
