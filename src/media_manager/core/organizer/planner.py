@@ -10,7 +10,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from media_manager.core.perf_timer import timer
 
@@ -645,7 +645,7 @@ def build_organize_dry_run_date_batched(
     progress_callback=None,
     cancel_event=None,
     progress: "ProgressTracker | None" = None,
-    on_entry: Callable[[OrganizePlanEntry], None] | None = None,
+    on_entry: Callable[[Any], None] | None = None,
 ) -> OrganizeDryRun:
     """Build organize plan in date-based batches for better progress + early results."""
     with timer("build_organize_dry_run_date_batched", logger):
@@ -682,7 +682,7 @@ def _build_organize_dry_run_date_batched_impl(
     progress_callback=None,
     cancel_event=None,
     progress: "ProgressTracker | None" = None,
-    on_entry: Callable[[OrganizePlanEntry], None] | None = None,
+    on_entry: Callable[[Any], None] | None = None,
 ) -> OrganizeDryRun:
 
     if progress:
@@ -832,6 +832,8 @@ def _build_organize_dry_run_date_batched_impl(
         _progress_msg(progress_callback, f"Processing {date_label} ({group_idx + 1}/{total_groups})...")
         if progress:
             progress.tick_count(group_idx, total_groups, f"Processing {date_label} ({group_idx + 1}/{total_groups})...")
+
+        group_start_count = len(dry_run.entries)
 
         if options.include_associated_files:
             groups = build_media_groups(group_files)
@@ -1089,6 +1091,16 @@ def _build_organize_dry_run_date_batched_impl(
                 if on_entry:
                     on_entry(entry)
                 idx += 1
+
+        batch_planned = len(dry_run.entries) - group_start_count
+        if on_entry:
+            on_entry({
+                "batch": date_key,
+                "batch_planned": batch_planned,
+                "total_planned_so_far": len(dry_run.entries),
+            })
+        # Clear intermediate data to reduce memory
+        group_files.clear()
 
     if progress_callback and idx != total:
         progress_callback(f"Completed {idx:,} entries")

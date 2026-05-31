@@ -69,14 +69,38 @@ pub async fn organize_preview(app: tauri::AppHandle, options: Value) -> Result<V
     emit_progress(&app, "operation:started", "Organize Preview", None);
     let json = serde_json::to_string(&options)
         .map_err(|e| format!("Failed to serialize organize options: {e}"))?;
-    let result = bridge()?.run_module(
+    let (stdout_text, _stderr_text) = bridge()?.run_module_raw(
         "bridge_organize_preview",
         "",
         &[],
         Some(&json),
-    );
-    emit_completion(&app, "Organize Preview", &result);
-    result
+    )?;
+
+    let mut final_line = String::new();
+
+    for line in stdout_text.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Ok(entry) = serde_json::from_str::<Value>(line) {
+            if entry.get("batch").is_some() {
+                let _ = app.emit("organize-batch", &entry);
+            } else {
+                final_line = line.to_string();
+            }
+        }
+    }
+
+    if final_line.is_empty() {
+        return Err("No final result in bridge output".into());
+    }
+
+    let result: Value = serde_json::from_str(&final_line)
+        .map_err(|e| format!("Failed to parse final result: {e}\nRaw: {}", final_line))?;
+
+    emit_completion(&app, "Organize Preview", &Ok(result.clone()));
+    Ok(result)
 }
 
 #[tauri::command]

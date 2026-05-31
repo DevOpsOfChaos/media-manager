@@ -33,7 +33,10 @@ def _progress_to_stderr(message: str) -> None:
 
 
 def _emit_entry_json_line(entry) -> None:
-    print(json.dumps({"type": "entry", "data": _serialize_entry(entry)}), flush=True)
+    if isinstance(entry, dict):
+        print(json.dumps(entry), flush=True)
+    else:
+        print(json.dumps({"type": "entry", "data": _serialize_entry(entry)}), flush=True)
 
 
 def _serialize_entry(entry) -> dict:

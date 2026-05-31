@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { CheckSquare, Square, Trash2, Info, ScanText, Wand2, Star, CopyCheck, Image, Zap } from "lucide-react"
 import { convertFileSrc } from "@tauri-apps/api/core"
+import { useNavigate } from "react-router-dom"
 import { useT } from "@/lib/i18n"
 import { userFriendlyError } from "@/lib/error-utils"
 import { toast } from "@/lib/toast"
@@ -80,6 +81,7 @@ const FileThumbnail = React.memo(function FileThumbnail({ path, size = 80 }: { p
 
 export default function DuplicatesPage() {
   const t = useT()
+  const navigate = useNavigate()
   const { startProgress, updateProgress, finishProgress } = useProgress()
   const [sourceDir, setSourceDir] = useState(() => localStorage.getItem("default_source_dir") || "")
   const [tab, setTab] = useState<Tab>("exact")
@@ -98,6 +100,8 @@ export default function DuplicatesPage() {
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [liveGroups, setLiveGroups] = useState<any[]>([])
+  const [useFastMode, setUseFastMode] = useState(true)
+  const [selectedLiveGroup, setSelectedLiveGroup] = useState<number | null>(null)
 
   const DUP_PHASES = [
     { nameEn: "Phase 1/4 — Scanning source folders...", nameDe: "Phase 1/4 — Quellordner werden gescannt...", endAt: 15, increment: 1.5 },
@@ -138,6 +142,12 @@ export default function DuplicatesPage() {
     return () => { unlisten?.() }
   }, [])
 
+  useEffect(() => {
+    if (liveGroups.length === 1 && selectedLiveGroup === null) {
+      setSelectedLiveGroup(0)
+    }
+  }, [liveGroups.length])
+
   const handleScanAll = async () => {
     if (!sourceDir.trim()) {
       setError(t("Please select a source directory.", "Bitte wählen Sie ein Quellverzeichnis aus."))
@@ -149,11 +159,12 @@ export default function DuplicatesPage() {
     setSimilarPreview(null)
     setExpandedGroups(new Set())
     setLiveGroups([])
+    setSelectedLiveGroup(null)
     startDupProgress()
     startSimilarProgress()
     startProgress(t("Scanning for duplicates...", "Suche nach Duplikaten..."), 2)
     try {
-      const config = { source_dirs: [sourceDir.trim()], include_patterns: [], exclude_patterns: [] }
+      const config = { source_dirs: [sourceDir.trim()], include_patterns: [], exclude_patterns: [], use_date_prefilter: useFastMode, fast: useFastMode }
       const [exact, similar] = await Promise.all([
         duplicateScan(config),
         similarImagesScan({ ...config, hash_size: 8, max_distance: maxDistance, max_images: maxImages, max_pairs: maxPairs }),
@@ -194,11 +205,12 @@ export default function DuplicatesPage() {
     setSimilarPreview(null)
     setExpandedGroups(new Set())
     setLiveGroups([])
+    setSelectedLiveGroup(null)
     startDupProgress()
     if (tab === "similar") startSimilarProgress()
     startProgress(t("Scanning for duplicates...", "Suche nach Duplikaten..."), 2)
     try {
-      const config = { source_dirs: [sourceDir.trim()], include_patterns: [], exclude_patterns: [] }
+      const config = { source_dirs: [sourceDir.trim()], include_patterns: [], exclude_patterns: [], use_date_prefilter: useFastMode, fast: useFastMode }
       if (tab === "exact") {
         const result = await duplicateScan(config)
         completeDupProgress(`Complete! ${result.exact_groups?.length || 0} groups found.`)
@@ -393,6 +405,9 @@ export default function DuplicatesPage() {
                   onClick={() => { setTab("exact"); setFilterPath(""); setExpandedGroups(new Set()) }}
                 >
                   {t("Exact duplicates", "Exakte Duplikate")}
+                  {liveGroups.length > 0 && (
+                    <Badge className="ml-1 h-4 px-1 text-[9px] bg-green-500">{liveGroups.length}</Badge>
+                  )}
                 </Button>
                 <Button
                   variant={tab === "similar" ? "default" : "outline"}
@@ -475,6 +490,16 @@ export default function DuplicatesPage() {
                 <Button onClick={tab === "all" ? handleScanAll : handleScan} disabled={loading} size="sm">
                   {loading ? t("Scanning...", "Scanne...") : tab === "exact" ? t("Scan for exact duplicates", "Nach exakten Duplikaten scannen") : tab === "similar" ? t("Scan for similar images", "Nach ähnlichen Bildern scannen") : t("Scan All", "Alle scannen")}
                 </Button>
+                <label className="flex items-center gap-1.5 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={useFastMode}
+                    onChange={(e) => setUseFastMode(e.target.checked)}
+                    className="w-3.5 h-3.5"
+                  />
+                  <Zap className="h-3 w-3" />
+                  {t("Fast mode", "Schneller Modus")}
+                </label>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -487,6 +512,12 @@ export default function DuplicatesPage() {
                   <Star className={`h-3 w-3 mr-1 ${isFavorite ? "fill-yellow-500 text-yellow-500 dark:fill-yellow-400 dark:text-yellow-400" : ""}`} />
                   {isFavorite ? t("Favorite saved", "Favorit gespeichert") : t("Save as favorite", "Als Favorit speichern")}
                 </Button>
+              </div>
+              {!useFastMode && (
+                <p className="text-xs text-amber-500">
+                  {t("Date pre-filter disabled — scan may be slow for large libraries", "Datums-Vorfilter deaktiviert — Scan kann bei großen Bibliotheken langsam sein")}
+                </p>
+              )}
                 {exactPreview && exactPreview.exact_groups.length > 0 && (tab === "exact" || tab === "all") && (
                   <Button onClick={handleDeleteSelected} disabled={deleteLoading} variant="destructive" size="sm">
                     {deleteLoading ? t("Deleting...", "Lösche...") : t(`Delete ${selectedGroups.size} Groups`, `${selectedGroups.size} Gruppen löschen`)}
@@ -531,7 +562,6 @@ export default function DuplicatesPage() {
               </CardContent>
             </Card>
           )}
-        </div>
             </CardContent>
           </Card>
 
@@ -550,18 +580,41 @@ export default function DuplicatesPage() {
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Zap className="h-4 w-4 text-green-600" />
                   {t("Live Results", "Live-Ergebnisse")} ({liveGroups.length})
+                  <Button variant="outline" size="sm" onClick={() => {
+                    navigate("/review", { state: { earlyGroups: liveGroups } })
+                  }}>
+                    {t("Review now", "Jetzt prüfen")} ({liveGroups.length})
+                  </Button>
                 </CardTitle>
               </CardHeader>
               <CardContent className="max-h-64 overflow-y-auto space-y-1">
                 {liveGroups.map((g, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs">
-                    <Badge variant="secondary">{g.files?.length || 0} {t("dupes", "Dup.")}</Badge>
-                    <span className="text-muted-foreground">{formatBytes(g.file_size || 0)}</span>
-                    <span className="text-muted-foreground truncate max-w-[300px]">
-                      {g.files?.[0]?.split(/[\\/]/).pop() || ""}
-                    </span>
-                  </div>
+                  <Card key={i} className={`cursor-pointer hover:border-primary/30 p-2 flex items-center gap-3 animate-in slide-in-from-top duration-300 ${selectedLiveGroup === i ? 'ring-2 ring-primary' : ''}`}
+                    onClick={() => {
+                      setSelectedLiveGroup(i)
+                    }}>
+                    <div className="w-10 h-10 rounded bg-muted overflow-hidden shrink-0">
+                      {g.files?.[0] && (
+                        <img src={convertFileSrc(g.files[0])} className="w-full h-full object-cover" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium">{g.files?.length || 0} {t("duplicates", "Duplikate")}</p>
+                      <p className="text-[10px] text-muted-foreground">{formatBytes(g.file_size || 0)}</p>
+                    </div>
+                    <Badge variant="secondary" className="text-[9px]">{t("New", "Neu")}</Badge>
+                  </Card>
                 ))}
+                {selectedLiveGroup !== null && liveGroups[selectedLiveGroup] && (
+                  <div className="border-t pt-2 mt-2">
+                    {liveGroups[selectedLiveGroup].files?.map((file: string, fi: number) => (
+                      <div key={fi} className="flex items-center gap-2 text-xs py-1">
+                        <FileThumbnail path={file} size={48} />
+                        <span className="truncate font-mono flex-1">{file}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

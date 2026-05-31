@@ -18,6 +18,8 @@ from .exiftool import read_exiftool_metadata_batch
 
 _logger = logging.getLogger(__name__)
 
+MAX_DATE_GROUPS = 10000
+
 ProgressCallback = Callable[[str], None]
 
 
@@ -29,6 +31,8 @@ class DuplicateScanConfig:
     include_patterns: tuple[str, ...] = ()
     exclude_patterns: tuple[str, ...] = ()
     media_extensions: frozenset[str] | None = None
+    use_date_prefilter: bool = True
+    date_prefilter_threshold: int = 50
 
 
 @dataclass(slots=True)
@@ -197,31 +201,75 @@ def _group_by_date(
     paths: list[Path],
     result: DuplicateScanResult | None = None,
     progress_callback: ProgressCallback | None = None,
+    date_prefilter_threshold: int = 50,
 ) -> dict[str, list[Path]]:
     date_groups: dict[str, list[Path]] = defaultdict(list)
-    batch_size = 2000
+    batch_size = max(2000, min(len(paths) // 20, 10000))
     total = len(paths)
     processed = 0
+    large_group_noted = False
 
-    for i in range(0, total, batch_size):
-        batch = paths[i:i + batch_size]
-        metadata_map = read_exiftool_metadata_batch(batch, timeout_seconds=60)
+    sample_mtimes: set[int] = set()
+    sample_size = min(total, 100)
+    for path in paths[:sample_size]:
+        try:
+            sample_mtimes.add(int(path.stat().st_mtime))
+        except OSError:
+            pass
+    mtimes_uniform = len(sample_mtimes) <= 1
 
-        for path in batch:
-            meta = metadata_map.get(path, {})
-            if meta:
-                date_val = (
-                    meta.get("DateTimeOriginal")
-                    or meta.get("CreateDate")
-                    or ""
+    use_exiftool = not mtimes_uniform
+    persistent = None
+    persistent_failed = not use_exiftool
+
+    if use_exiftool:
+        for i in range(0, total, batch_size):
+            batch = paths[i:i + batch_size]
+
+            metadata_map: dict[Path, dict[str, object]] = {}
+            if not persistent_failed:
+                try:
+                    from .core.exiftool_persistent import get_persistent_exiftool
+                    persistent = get_persistent_exiftool()
+                    if persistent.is_alive or persistent.start():
+                        metadata_map = persistent.read_metadata_batch(batch)
+                    else:
+                        persistent_failed = True
+                except Exception:
+                    persistent_failed = True
+
+            if persistent_failed:
+                metadata_map = read_exiftool_metadata_batch(batch, timeout_seconds=60)
+
+            for path in batch:
+                meta = metadata_map.get(path, {})
+                if meta:
+                    date_val = (
+                        meta.get("DateTimeOriginal")
+                        or meta.get("CreateDate")
+                        or ""
+                    )
+                    if date_val and isinstance(date_val, str):
+                        date_key = str(date_val)[:10]
+                        if date_key:
+                            date_groups[date_key].append(path)
+                            processed += 1
+                            continue
+
+                try:
+                    mtime = path.stat().st_mtime
+                    date_key = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
+                except OSError:
+                    date_key = "unknown"
+                date_groups[date_key].append(path)
+                processed += 1
+
+            if progress_callback and processed % 2000 == 0:
+                progress_callback(
+                    f"Date grouping: {processed}/{total} files ({processed * 100 // max(total, 1)}%)"
                 )
-                if date_val and isinstance(date_val, str):
-                    date_key = str(date_val)[:10]
-                    if date_key:
-                        date_groups[date_key].append(path)
-                        processed += 1
-                        continue
-
+    else:
+        for path in paths:
             try:
                 mtime = path.stat().st_mtime
                 date_key = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
@@ -229,13 +277,33 @@ def _group_by_date(
                 date_key = "unknown"
             date_groups[date_key].append(path)
             processed += 1
+            if progress_callback and processed % 2000 == 0:
+                progress_callback(
+                    f"Date grouping: {processed}/{total} files ({processed * 100 // max(total, 1)}%)"
+                )
 
-        if progress_callback and processed % 2000 == 0:
-            progress_callback(
-                f"Date grouping: {processed}/{total} files ({processed * 100 // max(total, 1)}%)"
+    filtered: dict[str, list[Path]] = {}
+    for dk, plist in date_groups.items():
+        if len(plist) > 1:
+            filtered[dk] = plist
+        if len(plist) > date_prefilter_threshold and not large_group_noted:
+            large_group_noted = True
+            _logger.warning(
+                "Date group %s has %d files (threshold=%d) — possible burst/event, date pre-filter may be less effective",
+                dk, len(plist), date_prefilter_threshold,
             )
 
-    return {k: v for k, v in date_groups.items() if len(v) > 1}
+    if len(filtered) > MAX_DATE_GROUPS:
+        sorted_groups = sorted(filtered.values(), key=len)
+        overflow: list[Path] = []
+        for group in sorted_groups[:len(sorted_groups) - MAX_DATE_GROUPS + 1]:
+            overflow.extend(group)
+        overflow_keys = {id(v) for v in sorted_groups[:len(sorted_groups) - MAX_DATE_GROUPS + 1]}
+        filtered = {k: v for k, v in filtered.items() if id(v) not in overflow_keys}
+        if overflow:
+            filtered["__overflow__"] = overflow
+
+    return filtered
 
 
 def _build_exact_group(paths: list[Path], file_size: int, sample_digest: str, full_digest: str) -> ExactDuplicateGroup:
@@ -519,35 +587,41 @@ def _scan_exact_duplicates_fast_impl(
         _emit_progress(progress_callback, "No exact duplicates found.")
         return result
 
-    # Stage 2/3 — Date-group each size group
-    _emit_progress(progress_callback, f"Stage 2/3 — Date grouping within {len(candidates)} size groups...")
-    final_candidates: dict[str, list[Path]] = {}
+    # Stage 2/3 — Date-group each size group (if enabled)
     candidate_count = 0
-    processed_groups = 0
-    total_size_groups = len(candidates)
+    if config.use_date_prefilter:
+        _emit_progress(progress_callback, f"Stage 2/3 — Date grouping within {len(candidates)} size groups...")
+        final_candidates: dict[str, list[Path]] = {}
+        candidate_count = 0
+        processed_groups = 0
+        total_size_groups = len(candidates)
 
-    for size, paths in candidates.items():
-        processed_groups += 1
-        date_groups = _group_by_date(paths, result)
-        for date_key, date_paths in date_groups.items():
-            if len(date_paths) > 1:
-                key = f"{size}:{date_key}"
-                final_candidates[key] = date_paths
-                candidate_count += len(date_paths)
+        for size, paths in candidates.items():
+            processed_groups += 1
+            date_groups = _group_by_date(paths, result, date_prefilter_threshold=config.date_prefilter_threshold)
+            for date_key, date_paths in date_groups.items():
+                if len(date_paths) > 1:
+                    key = f"{size}:{date_key}"
+                    final_candidates[key] = date_paths
+                    candidate_count += len(date_paths)
 
-        if progress_callback and processed_groups % 50 == 0:
-            progress_callback(
-                f"Stage 2/3 — Processed {processed_groups}/{total_size_groups} size groups, {candidate_count} candidates so far"
-            )
+            if progress_callback and processed_groups % 50 == 0:
+                progress_callback(
+                    f"Stage 2/3 — Processed {processed_groups}/{total_size_groups} size groups, {candidate_count} candidates so far"
+                )
 
-    _emit_progress(
-        progress_callback,
-        f"Stage 2/3 complete — {candidate_count} candidate files in {len(final_candidates)} date+size groups",
-    )
+        _emit_progress(
+            progress_callback,
+            f"Stage 2/3 complete — {candidate_count} candidate files in {len(final_candidates)} date+size groups",
+        )
 
-    if not final_candidates:
-        _emit_progress(progress_callback, "No exact duplicates found.")
-        return result
+        if not final_candidates:
+            _emit_progress(progress_callback, "No exact duplicates found.")
+            return result
+    else:
+        _emit_progress(progress_callback, "Stage 2/3 — Date pre-filter disabled, using size-only candidates")
+        final_candidates = {str(size): paths for size, paths in candidates.items()}
+        candidate_count = sum(len(v) for v in final_candidates.values())
 
     # Stage 3/3 — Sample fingerprint + hash + byte-compare on date-filtered candidates
     _emit_progress(progress_callback, f"Stage 3/3 — Sample fingerprint on {candidate_count} candidates...")

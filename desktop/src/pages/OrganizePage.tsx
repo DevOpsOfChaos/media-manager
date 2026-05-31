@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useT } from "@/lib/i18n"
 import { useSimulatedProgress } from "@/lib/use-simulated-progress"
@@ -47,6 +47,19 @@ export default function OrganizePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [customPattern, setCustomPattern] = useState(false)
+  const [batchProgress, setBatchProgress] = useState<{ batch: string; batch_planned: number; total_planned_so_far: number } | null>(null)
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    const setup = async () => {
+      const { listen } = await import("@tauri-apps/api/event")
+      unlisten = await listen<any>("organize-batch", (event) => {
+        setBatchProgress(event.payload)
+      })
+    }
+    setup()
+    return () => { unlisten?.() }
+  }, [])
 
   const ORG_PHASES = [
     { nameEn: "Phase 1/3 — Loading settings", nameDe: "Phase 1/3 — Einstellungen laden", endAt: 30, increment: 1 },
@@ -72,7 +85,7 @@ export default function OrganizePage() {
       setError(t("Source and target required", "Quelle und Ziel erforderlich"))
       return
     }
-    setLoading(true); setError(null); setPreview(null)
+    setLoading(true); setError(null); setPreview(null); setBatchProgress(null)
     startOrgProgress()
     startProgress(t("Building preview...", "Erstelle Vorschau..."), 100)
     try {
@@ -225,7 +238,16 @@ export default function OrganizePage() {
           {error && <p role="alert" className="text-sm text-red-500 dark:text-red-400">{error}</p>}
 
           {loading && (
-            <ProgressBlock phase={scanPhase} totalPhases={3} progress={simulatedProgress} log={scanLog} />
+            <>
+              <ProgressBlock phase={scanPhase} totalPhases={3} progress={simulatedProgress} log={scanLog} />
+              {batchProgress && (
+                <div className="text-xs text-muted-foreground mt-2">
+                  <span>{t("Processing", "Verarbeite")}: {batchProgress.batch}</span>
+                  <span className="ml-2">{batchProgress.batch_planned} {t("files", "Dateien")}</span>
+                  <span className="ml-2">{batchProgress.total_planned_so_far.toLocaleString()} {t("total so far", "bisher gesamt")}</span>
+                </div>
+              )}
+            </>
           )}
 
           <Button onClick={runPreview} disabled={loading} className="w-full" size="lg">

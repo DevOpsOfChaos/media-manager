@@ -73,6 +73,8 @@ def cmd_preview() -> int:
         source_dirs=[Path(p) for p in source_dirs_raw],
         include_patterns=tuple(payload.get("include_patterns", ())),
         exclude_patterns=tuple(payload.get("exclude_patterns", ())),
+        use_date_prefilter=payload.get("use_date_prefilter", True),
+        date_prefilter_threshold=payload.get("date_prefilter_threshold", 50),
     )
 
     try:
