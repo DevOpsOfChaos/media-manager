@@ -127,6 +127,14 @@ pub fn run() {
             media_commands::groups_by_location,
             media_commands::groups_by_people,
             media_commands::groups_timeline,
+            // File Health
+            media_commands::health_check_file,
+            media_commands::health_scan_directory,
+            // Smart Albums
+            media_commands::smart_albums_suggest,
+            // Magic Bytes
+            media_commands::magic_detect,
+            media_commands::magic_scan_media,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

@@ -112,6 +112,109 @@ def inspect_media_file(file_path: Path, exiftool_path: Path | None = None) -> Fi
     )
 
 
+def extract_deep_metadata(file_path: Path) -> dict:
+    """Extract ALL metadata layers: EXIF, IPTC, XMP, MakerNotes."""
+    meta, success, _, _ = read_exiftool_metadata(file_path, include_time_tags=True)
+    if not success or not meta:
+        return {"error": "No metadata found"}
+
+    try:
+        w = float(str(meta.get("ImageWidth", 0)))
+        h = float(str(meta.get("ImageHeight", 0)))
+        mp = round(w * h / 1e6, 1)
+    except (ValueError, TypeError):
+        mp = 0
+
+    return {
+        "camera": {
+            "make": meta.get("Make"),
+            "model": meta.get("Model"),
+            "serial": meta.get("SerialNumber") or meta.get("CameraSerialNumber"),
+            "firmware": meta.get("FirmwareVersion"),
+            "lens": meta.get("LensModel") or meta.get("LensID"),
+            "lens_serial": meta.get("LensSerialNumber"),
+        },
+        "shot": {
+            "datetime": meta.get("DateTimeOriginal"),
+            "iso": meta.get("ISO"),
+            "aperture": meta.get("FNumber") or meta.get("ApertureValue"),
+            "shutter": meta.get("ShutterSpeedValue") or meta.get("ExposureTime"),
+            "focal_length": meta.get("FocalLength") or meta.get("FocalLengthIn35mmFormat"),
+            "exposure_program": meta.get("ExposureProgram"),
+            "metering_mode": meta.get("MeteringMode"),
+            "flash": meta.get("Flash"),
+            "white_balance": meta.get("WhiteBalance"),
+            "orientation": meta.get("Orientation"),
+        },
+        "gps": {
+            "latitude": meta.get("GPSLatitude"),
+            "longitude": meta.get("GPSLongitude"),
+            "altitude": meta.get("GPSAltitude"),
+            "direction": meta.get("GPSImgDirection"),
+            "speed": meta.get("GPSSpeed"),
+            "datetime": meta.get("GPSDateTime"),
+        },
+        "image": {
+            "width": meta.get("ImageWidth"),
+            "height": meta.get("ImageHeight"),
+            "megapixels": mp,
+            "bit_depth": meta.get("BitDepth"),
+            "color_space": meta.get("ColorSpace"),
+            "compression": meta.get("Compression"),
+        },
+        "copyright": {
+            "artist": meta.get("Artist") or meta.get("Creator"),
+            "copyright": meta.get("Copyright"),
+            "rights": meta.get("Rights"),
+            "credit": meta.get("Credit"),
+            "source": meta.get("Source"),
+        },
+        "software": {
+            "creator": meta.get("CreatorTool") or meta.get("Software"),
+            "editor": meta.get("ProcessingSoftware"),
+            "host": meta.get("HostComputer"),
+        },
+        "file": {
+            "size": file_path.stat().st_size,
+            "created": datetime.fromtimestamp(file_path.stat().st_ctime).isoformat(),
+            "modified": datetime.fromtimestamp(file_path.stat().st_mtime).isoformat(),
+        },
+        "raw_tags_count": len(meta),
+    }
+
+
+def compute_metadata_score(meta: dict) -> dict:
+    """Score how complete the metadata is (0-100)."""
+    score = 0
+    max_score = 0
+
+    checks = {
+        "camera_make": bool(meta.get("camera", {}).get("make")),
+        "camera_model": bool(meta.get("camera", {}).get("model")),
+        "datetime": bool(meta.get("shot", {}).get("datetime")),
+        "iso": bool(meta.get("shot", {}).get("iso")),
+        "aperture": bool(meta.get("shot", {}).get("aperture")),
+        "shutter": bool(meta.get("shot", {}).get("shutter")),
+        "focal_length": bool(meta.get("shot", {}).get("focal_length")),
+        "gps": bool(meta.get("gps", {}).get("latitude")),
+        "copyright": bool(meta.get("copyright", {}).get("artist")),
+        "lens": bool(meta.get("camera", {}).get("lens")),
+    }
+
+    for key, has in checks.items():
+        max_score += 1
+        if has:
+            score += 1
+
+    pct = score * 100 // max(max_score, 1)
+    return {
+        "score": pct,
+        "grade": "A" if pct >= 80 else "B" if pct >= 60 else "C" if pct >= 40 else "D",
+        "missing": [k for k, v in checks.items() if not v],
+        "complete": [k for k, v in checks.items() if v],
+    }
+
+
 def inspect_media_files_batch(
     file_paths: list[Path],
     exiftool_path: Path | None = None,

@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
-import { fileOpen, fileReveal, fileDelete, fileRename, fileExport, enrichFile, type EnrichedFile, type LibraryBrowsePaginatedResult } from "@/lib/tauri-bridge"
+import { fileOpen, fileReveal, fileDelete, fileRename, fileExport, enrichFile, magicDetect, type EnrichedFile, type LibraryBrowsePaginatedResult, type MagicDetectResult } from "@/lib/tauri-bridge"
 
 import { FolderOpen, FolderSync, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive, Film, Music, File } from "lucide-react"
 import {
@@ -342,6 +342,8 @@ export default function LibraryPage() {
 
   const [enrichedData, setEnrichedData] = useState<EnrichedFile | null>(null)
 
+  const [magicResult, setMagicResult] = useState<MagicDetectResult | null>(null)
+
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [exifFilters, setExifFilters] = useState<{
     camera?: string
@@ -386,6 +388,17 @@ export default function LibraryPage() {
       if (!cancelled) setEnrichedData(data)
     }).catch(() => {
       if (!cancelled) setEnrichedData(null)
+    })
+    return () => { cancelled = true }
+  }, [selectedFile])
+
+  useEffect(() => {
+    if (!selectedFile) { setMagicResult(null); return }
+    let cancelled = false
+    magicDetect(selectedFile.path).then(data => {
+      if (!cancelled) setMagicResult(data)
+    }).catch(() => {
+      if (!cancelled) setMagicResult(null)
     })
     return () => { cancelled = true }
   }, [selectedFile])
@@ -1137,7 +1150,14 @@ export default function LibraryPage() {
             <span className="text-muted-foreground">{t("Name", "Name")}</span>
             <span className="truncate">{selectedFile.name}</span>
             <span className="text-muted-foreground">{t("Type", "Typ")}</span>
-            <span className="truncate">{selectedFile.category || selectedFile.suffix}</span>
+            <span className="flex items-center gap-1 truncate">
+              {selectedFile.category || selectedFile.suffix}
+              {magicResult?.mismatch && (
+                <Badge variant="destructive" className="text-xs">
+                  {t("Extension mismatch!", "Erweiterung stimmt nicht!")}
+                </Badge>
+              )}
+            </span>
             <span className="text-muted-foreground">{t("Size", "Größe")}</span>
             <span>{formatSize(selectedFile.size)}</span>
             <span className="text-muted-foreground">{t("Path", "Pfad")}</span>

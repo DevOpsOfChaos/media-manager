@@ -691,3 +691,51 @@ pub async fn groups_timeline(options: Value) -> Result<Value, String> {
         .map_err(|e| format!("Failed to serialize: {e}"))?;
     bridge()?.run_module("bridge_groups", "timeline", &[], Some(&json))
 }
+
+// ── File Health ──
+
+#[tauri::command]
+pub async fn health_check_file(path: Value) -> Result<Value, String> {
+    let payload = serde_json::json!({"path": path});
+    let json = serde_json::to_string(&payload)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_health", "", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn health_scan_directory(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Health Scan", None);
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    let result = bridge()?.run_module("bridge_health", "scan-directory", &[], Some(&json));
+    emit_completion(&app, "Health Scan", &result);
+    result
+}
+
+// ── Smart Albums ──
+
+#[tauri::command]
+pub async fn smart_albums_suggest(app: tauri::AppHandle, options: Value) -> Result<Value, String> {
+    emit_progress(&app, "operation:started", "Smart Album Suggestions", None);
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    let result = bridge()?.run_module("bridge_smart_albums", "", &[], Some(&json));
+    emit_completion(&app, "Smart Album Suggestions", &result);
+    result
+}
+
+// ── Magic Bytes ──
+
+#[tauri::command]
+pub async fn magic_detect(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_magic", "detect", &[], Some(&json))
+}
+
+#[tauri::command]
+pub async fn magic_scan_media(options: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&options)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_magic", "scan_media", &[], Some(&json))
+}

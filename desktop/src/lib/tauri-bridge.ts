@@ -555,6 +555,38 @@ export async function libraryBrowsePaginated(options: {
   return invoke("library_browse", { options })
 }
 
+// ── Magic Bytes ──
+
+export interface MagicDetectResult {
+  path: string
+  mime_type: string
+  category: "photo" | "video" | "audio" | "raw" | "unknown"
+  description: string
+  confidence: number
+  detected_by: string
+  extension?: string
+  mismatch?: boolean
+  warning?: string
+}
+
+/** Detect file type by reading magic bytes (ignores extension). */
+export async function magicDetect(path: string): Promise<MagicDetectResult> {
+  return invoke("magic_detect", { options: { path } })
+}
+
+export interface MagicScanResult {
+  real_media: Array<{ path: string; name: string; type: string }>
+  fake_media: Array<{ path: string; name: string; reason: string }>
+  total_scanned: number
+  real_count: number
+  fake_count: number
+}
+
+/** Scan directory for real media files (by content, not extension). */
+export async function magicScanMedia(sourceDir: string, maxFiles?: number): Promise<MagicScanResult> {
+  return invoke("magic_scan_media", { options: { source_dir: sourceDir, max_files: maxFiles ?? 1000 } })
+}
+
 // ── File Operations ──
 
 /** Open a file with the system default application. */
@@ -798,4 +830,54 @@ export interface BackgroundScanResult {
 /** Run an incremental background scan for new or modified files. */
 export async function backgroundScan(options: { source_dirs: string[] }): Promise<BackgroundScanResult> {
   return invoke("background_scan", { config: options })
+}
+
+// ── File Health ──
+
+export interface FileHealthResult {
+  path: string
+  healthy: boolean
+  issues: string[]
+  warnings: string[]
+  detected_type?: string
+}
+
+export interface DirectoryHealthScanResult {
+  total_scanned: number
+  healthy_count: number
+  unhealthy_count: number
+  health_score: number
+  issues: FileHealthResult[]
+}
+
+/** Check the health of a single media file (magic bytes, truncation, min size). */
+export async function healthCheckFile(path: string): Promise<FileHealthResult> {
+  return invoke("health_check_file", { path })
+}
+
+/** Scan a directory and report file health issues for all media files. */
+export async function healthScanDirectory(options: {
+  source_dir: string
+  max_files?: number
+}): Promise<DirectoryHealthScanResult> {
+  return invoke("health_scan_directory", { options })
+}
+
+// ── Smart Albums ──
+
+export interface SmartAlbumSuggestion {
+  type: string
+  name: string
+  start?: string
+  end?: string
+  camera?: string
+  file_count: number
+  confidence: number
+}
+
+/** Analyze file metadata and suggest smart album groupings (date clusters, camera). */
+export async function smartAlbumsSuggest(options: {
+  files_meta: Array<Record<string, unknown>>
+}): Promise<SmartAlbumSuggestion[]> {
+  return invoke("smart_albums_suggest", { options })
 }
