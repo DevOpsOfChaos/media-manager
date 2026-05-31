@@ -145,7 +145,7 @@ export default function ReviewWorkbenchPage() {
                         <img
                           src={convertFileSrc(c.path)}
                           className="w-full h-full object-cover"
-                          loading="lazy"
+                          width="48" height="48" loading="lazy" decoding="async"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = "none"
                             if ((e.target as HTMLImageElement).parentElement) {

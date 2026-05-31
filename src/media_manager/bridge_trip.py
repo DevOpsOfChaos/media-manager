@@ -78,6 +78,7 @@ def cmd_preview() -> int:
                 "source_path": str(e.source_path),
                 "target_path": str(e.target_path) if e.target_path else None,
                 "status": e.status,
+                "size_bytes": e.scanned_file.size_bytes,
             }
             for e in plan.entries[:200]
         ],

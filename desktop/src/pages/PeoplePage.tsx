@@ -1,9 +1,9 @@
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from "react"
 import { useT } from "@/lib/i18n"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
@@ -12,10 +12,11 @@ import { useProgress } from "@/lib/progress-context"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { toast } from "@/lib/toast"
- import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff, GitMerge, MoreHorizontal, EyeOff, Zap, FolderOpen } from "lucide-react"
+ import { Users, User, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff, GitMerge, MoreHorizontal, EyeOff, Zap, FolderOpen, Loader2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { FaceReviewSwiper } from "@/components/shared/FaceReviewSwiper"
 import { useFirstRunHint } from "@/lib/use-first-run-hint"
+
+const FaceReviewSwiper = lazy(() => import("@/components/shared/FaceReviewSwiper").then(m => ({ default: m.FaceReviewSwiper })))
 
 
 
@@ -86,6 +87,11 @@ function friendlyPeopleError(err: unknown): string {
 
   // Quality filter
   const [qualityFilter, setQualityFilter] = useState<"all" | "usable" | "high">("all")
+
+  // People search / sort / hide empty
+  const [peopleSearch, setPeopleSearch] = useState("")
+  const [peopleSort, setPeopleSort] = useState<"name" | "faces" | "recent">("name")
+  const [hideEmpty, setHideEmpty] = useState(true)
 
   // Training feedback stats
   const [trainingStats, setTrainingStats] = useState({ confirmations: 0, rejections: 0, total: 0 })
@@ -238,6 +244,17 @@ function friendlyPeopleError(err: unknown): string {
     } catch { /* ignore */ }
   }
 
+  // ── Filtering / sorting ──
+  const filteredPeople = catalog?.people.filter(p =>
+    !peopleSearch || p.name.toLowerCase().includes(peopleSearch.toLowerCase())
+  ) ?? []
+  const sortedPeople = [...filteredPeople].sort((a, b) => {
+    if (peopleSort === "name") return a.name.localeCompare(b.name)
+    if (peopleSort === "faces") return b.face_count - a.face_count
+    return 0
+  })
+  const displayPeople = hideEmpty ? sortedPeople.filter(p => p.face_count > 0) : sortedPeople
+
   // ── Person Grid View ──
   if (!selectedPerson) {
     return (
@@ -269,6 +286,26 @@ function friendlyPeopleError(err: unknown): string {
         <div className="flex items-center gap-2">
           <Switch checked={enabled} onCheckedChange={handleToggle} />
           <span className="text-sm text-muted-foreground">{t("Auto-scan", "Auto-Scan")}</span>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <Input
+            value={peopleSearch}
+            onChange={e => setPeopleSearch(e.target.value)}
+            placeholder={t("Search people...", "Personen suchen...")}
+            className="text-xs max-w-[200px]"
+          />
+          <select value={peopleSort} onChange={e => setPeopleSort(e.target.value as any)}
+            className="text-xs border rounded px-2 py-1 bg-background"
+            aria-label={t("Sort people", "Personen sortieren")}>
+            <option value="name">{t("Name", "Name")}</option>
+            <option value="faces">{t("Most faces", "Meiste Gesichter")}</option>
+            <option value="recent">{t("Recent", "Kürzlich")}</option>
+          </select>
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+            <input type="checkbox" checked={hideEmpty} onChange={e => setHideEmpty(e.target.checked)} className="w-3.5 h-3.5 rounded" />
+            {t("Hide empty", "Leere ausblenden")}
+          </label>
           <select value={qualityFilter} onChange={e => setQualityFilter(e.target.value as any)}
             className="text-xs border rounded px-2 py-1 bg-background"
             aria-label={t("Face quality filter", "Gesichtsqualität-Filter")}>
@@ -288,29 +325,31 @@ function friendlyPeopleError(err: unknown): string {
 
         {cacheInfo && <p className="text-sm text-green-400">{cacheInfo}</p>}
 
-        {catalog && catalog.people.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {catalog.people.map(person => (
+        {catalog && displayPeople.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {displayPeople.map(person => (
               <Card
                 key={person.person_id}
-                className="cursor-pointer hover:border-primary/50 transition-colors overflow-hidden relative group"
+                className="overflow-hidden hover:border-primary/30 cursor-pointer transition-all hover:shadow-sm relative group"
                 role="button"
                 tabIndex={0}
                 aria-label={person.name}
                 onClick={() => setSelectedPerson(person)}
                 onKeyDown={(e) => e.key === 'Enter' && setSelectedPerson(person)}
               >
-                <div className="aspect-square bg-muted">
-                  {person.source_paths[0] ? (
-                    <FaceThumb path={person.source_paths[0]} size={200} alt={person.name} />
+                <div className="aspect-square bg-muted relative">
+                  {person.source_paths?.[0] ? (
+                    <img src={convertFileSrc(person.source_paths[0])} className="w-full h-full object-cover" loading="lazy" alt={person.name} />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center"><Users className="w-10 h-10 text-muted-foreground/40" /></div>
+                    <div className="w-full h-full flex items-center justify-center">
+                      <User className="w-12 h-12 text-muted-foreground/30" />
+                    </div>
                   )}
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                    <p className="text-white text-xs font-medium truncate">{person.name}</p>
+                    <p className="text-white/70 text-[10px]">{person.face_count} {t("faces", "Gesichter")}</p>
+                  </div>
                 </div>
-                <CardContent className="p-3">
-                  <p className="text-sm font-medium truncate">{person.name}</p>
-                  <p className="text-xs text-muted-foreground">{person.face_count} {t("faces", "Gesichter")}</p>
-                </CardContent>
                 <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -353,11 +392,13 @@ function friendlyPeopleError(err: unknown): string {
         </Dialog>
 
         {showFaceSwiper && (
+          <Suspense fallback={<div className="fixed inset-0 z-50 bg-background/80 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
           <FaceReviewSwiper
             faces={unknownFaces}
             catalogPath={catalogPath}
             onClose={() => { setShowFaceSwiper(false); loadCatalog() }}
           />
+          </Suspense>
         )}
 
         {mergeDialog && (
@@ -426,7 +467,7 @@ function friendlyPeopleError(err: unknown): string {
         )
       })()}
 
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1">
         {selectedPerson.source_paths.filter(path => !ignoredFaces.includes(`${path}::0`)).map((path, i) => (
           <div
             key={i}

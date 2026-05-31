@@ -264,7 +264,7 @@ export default function RunDetailPage() {
                     {undoPreviewResult.entries.map((entry, i) => (
                       <div key={i} className="flex items-center gap-3 p-2 text-xs">
                         {entry.source_path && /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff|heic|heif|avif)$/i.test(entry.source_path) && (
-                          <img src={convertFileSrc(entry.source_path) || ""} alt="" className="w-10 h-10 rounded object-cover bg-muted shrink-0" />
+                          <img src={convertFileSrc(entry.source_path) || ""} alt="" className="w-10 h-10 rounded object-cover bg-muted shrink-0" width="40" height="40" decoding="async" />
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -314,7 +314,7 @@ export default function RunDetailPage() {
                     {undoResult.entries.map((entry, i) => (
                       <div key={i} className="flex items-center gap-3 p-2 text-xs">
                         {entry.source_path && /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff|heic|heif|avif)$/i.test(entry.source_path) && (
-                          <img src={convertFileSrc(entry.source_path) || ""} alt="" className="w-10 h-10 rounded object-cover bg-muted shrink-0" />
+                          <img src={convertFileSrc(entry.source_path) || ""} alt="" className="w-10 h-10 rounded object-cover bg-muted shrink-0" width="40" height="40" decoding="async" />
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">

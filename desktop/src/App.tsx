@@ -1,4 +1,4 @@
-import { useEffect, useState, Component, type ReactNode } from "react"
+import { useEffect, useState, Component, type ReactNode, lazy, Suspense } from "react"
 import { useNavigate, useLocation, Outlet } from "react-router-dom"
 import { useSettingsStore } from "@/stores/settings-store"
 import { useT } from "@/lib/i18n"
@@ -10,8 +10,9 @@ import { WelcomeDialog } from "@/components/shared/WelcomeDialog"
 import { OnboardingTour } from "@/components/shared/OnboardingTour"
 import { ProgressOverlay } from "@/components/shared/ProgressOverlay"
 import { MiniProgressOverlay } from "@/components/shared/MiniProgressOverlay"
-import { CommandPalette } from "@/components/shared/CommandPalette"
 import { ProgressProvider } from "@/lib/progress-context"
+
+const CommandPalette = lazy(() => import("@/components/shared/CommandPalette").then(m => ({ default: m.CommandPalette })))
 import { NotificationSystem } from "@/components/shared/NotificationSystem"
 import { ToastContainer } from "@/components/shared/ToastContainer"
 import { KeyboardShortcuts } from "@/components/shared/KeyboardShortcuts"
@@ -150,7 +151,9 @@ function App() {
           </SidebarInset>
         </SidebarProvider>
         <ProgressOverlay />
+        <Suspense fallback={null}>
         <CommandPalette />
+        </Suspense>
         <NotificationSystem />
         <ToastContainer />
         <KeyboardShortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />

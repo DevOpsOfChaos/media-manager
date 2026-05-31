@@ -117,6 +117,7 @@ export function FaceReviewSwiper({ faces, catalogPath, onClose }: FaceReviewSwip
           src={convertFileSrc(currentFace.imagePath) || ""}
           className="max-w-lg max-h-[70vh] object-contain rounded-lg shadow-2xl"
           alt={t("Face to review", "Zu prüfendes Gesicht")}
+          decoding="async"
         />
       </div>
 

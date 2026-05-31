@@ -434,7 +434,7 @@ export interface TripPreviewResponse {
   planned_count: number
   matched_count: number
   skipped_count: number
-  entries: Array<{ source_path: string; target_path: string | null; status: string }>
+  entries: Array<{ source_path: string; target_path: string | null; status: string; size_bytes: number }>
 }
 
 export interface TripApplyResponse {

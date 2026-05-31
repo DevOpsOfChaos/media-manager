@@ -41,6 +41,9 @@ export default defineConfig(async () => ({
     fs: { allow: [".."] },
   },
   build: {
+    target: 'esnext',
+    modulePreload: { polyfill: false },
+    reportCompressedSize: false,
     minify: 'terser',
     terserOptions: {
       compress: {

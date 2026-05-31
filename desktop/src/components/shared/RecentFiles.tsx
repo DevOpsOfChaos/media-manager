@@ -31,7 +31,7 @@ export function RecentFiles() {
             <div key={i} className="shrink-0 w-16 text-center cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => window.open(convertFileSrc(f.path) || "", "_blank")}>
               <div className="w-16 h-16 rounded bg-muted overflow-hidden mb-1">
-                <img src={convertFileSrc(f.path) || ""} className="w-full h-full object-cover" alt={f.name} loading="lazy" />
+                <img src={convertFileSrc(f.path) || ""} className="w-full h-full object-cover" alt={f.name} width="64" height="64" loading="lazy" decoding="async" />
               </div>
               <p className="text-[9px] truncate">{f.name}</p>
             </div>

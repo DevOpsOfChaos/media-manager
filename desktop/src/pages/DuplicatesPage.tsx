@@ -695,7 +695,7 @@ export default function DuplicatesPage() {
                     }}>
                     <div className="w-10 h-10 rounded bg-muted overflow-hidden shrink-0">
                       {g.files?.[0] && (
-                        <img src={convertFileSrc(g.files[0])} className="w-full h-full object-cover" />
+                        <img src={convertFileSrc(g.files[0])} className="w-full h-full object-cover" width="40" height="40" loading="lazy" decoding="async" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">

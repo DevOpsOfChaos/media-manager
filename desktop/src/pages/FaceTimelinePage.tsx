@@ -83,7 +83,7 @@ export default function FaceTimelinePage() {
           <div className="space-y-3">
             {[...selectedPerson.source_paths].sort().reverse().map((path, i) => (
               <Card key={i} className="flex items-center gap-3 p-3">
-                <img src={convertFileSrc(path) || ""} className="h-16 w-16 rounded object-cover bg-muted" alt="" />
+                <img src={convertFileSrc(path) || ""} className="h-16 w-16 rounded object-cover bg-muted" alt="" width="64" height="64" decoding="async" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm truncate">{path.split("/").pop() || path.split("\\").pop()}</p>
                   <p className="text-xs text-muted-foreground truncate">{path}</p>

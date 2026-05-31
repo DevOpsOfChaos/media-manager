@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo, memo } from "react"
+import { useState, useCallback, useEffect, useRef, useMemo, memo, lazy, Suspense } from "react"
 import { useNavigate } from "react-router-dom"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
@@ -29,8 +29,9 @@ import {
 import { StarRating } from "@/components/shared/StarRating"
 import { TagInput } from "@/components/shared/TagInput"
 import { TagCloud } from "@/components/shared/TagCloud"
-import { Slideshow } from "@/components/shared/Slideshow"
 import { SplitView } from "@/components/shared/SplitView"
+
+const Slideshow = lazy(() => import("@/components/shared/Slideshow").then(m => ({ default: m.Slideshow })))
 import { LABEL_COLORS } from "@/components/shared/ColorLabel"
 
 const LABEL_CLASS_MAP: Record<string, string> = {
@@ -1341,6 +1342,7 @@ export default function LibraryPage() {
                   src={`https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(String(enrichedData.gps.lat))},${encodeURIComponent(String(enrichedData.gps.lon))}&zoom=12&size=400x200&markers=${encodeURIComponent(String(enrichedData.gps.lat))},${encodeURIComponent(String(enrichedData.gps.lon))},red-pushpin`}
                   alt={t("Map location", "Kartenposition")}
                   className="w-full h-32 object-cover"
+                  width="400" height="200" loading="lazy" decoding="async"
                 />
               </div>
               <div className="mt-2">
@@ -1591,10 +1593,12 @@ export default function LibraryPage() {
 
       {/* Slideshow */}
       {slideshowOpen && (
+        <Suspense fallback={<div className="fixed inset-0 z-50 bg-background flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
         <Slideshow
           files={slideshowFiles}
           onClose={() => setSlideshowOpen(false)}
         />
+        </Suspense>
       )}
 
       {/* Split View */}
