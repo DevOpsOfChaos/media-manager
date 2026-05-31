@@ -10,8 +10,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { FolderOpen, Play, Check, ChevronRight, ChevronLeft, Loader2, Heart, Coffee, RotateCcw } from "lucide-react"
+import { FolderOpen, Play, Check, ChevronRight, ChevronLeft, Loader2, Heart, Coffee, RotateCcw, Zap } from "lucide-react"
 import { ProgressBlock } from "@/components/shared/ProgressBlock"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 const STEPS = ["settings", "preview", "execute"] as const
 type Step = typeof STEPS[number]
@@ -55,6 +56,8 @@ export default function RenamePage() {
   const [result, setResult] = useState<RenameApplyResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [skipPreview, setSkipPreview] = useState(false)
+  const [confirmDirect, setConfirmDirect] = useState(false)
 
   const RENAME_PHASES = [
     { nameEn: "Phase 1/3 — Loading settings", nameDe: "Phase 1/3 — Einstellungen laden", endAt: 30, increment: 1 },
@@ -118,6 +121,23 @@ export default function RenamePage() {
     setPreview(null)
     setResult(null)
     setError(null)
+  }
+
+  const handleDirectExecute = async () => {
+    setLoading(true); setError(null)
+    startProgress(t("Applying directly...", "Führe direkt aus..."), 100)
+    try {
+      const r = await renameApply({ source_dir: sourceDir, pattern, recursive })
+      updateProgress(100)
+      setResult(r)
+      setStep("execute")
+      localStorage.setItem("default_source_dir", sourceDir)
+    } catch (e) {
+      setError(userFriendlyError(e))
+    } finally {
+      setTimeout(() => finishProgress(), 500)
+      setLoading(false)
+    }
   }
 
   // ── STEP 1: Settings ──
@@ -208,10 +228,44 @@ export default function RenamePage() {
             <ProgressBlock phase={scanPhase} totalPhases={3} progress={simulatedProgress} log={scanLog} />
           )}
 
-          <Button onClick={runPreview} disabled={loading} className="w-full" size="lg">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />}
-            {t("Preview Rename", "Vorschau Umbenennung")}
+          <label className="flex items-center gap-2 text-xs cursor-pointer border rounded p-2 bg-muted/30">
+            <input type="checkbox" checked={skipPreview} onChange={e => setSkipPreview(e.target.checked)} />
+            <div>
+              <span className="font-medium">{t("Skip preview — apply directly", "Vorschau überspringen — direkt ausführen")}</span>
+              <p className="text-muted-foreground">{t("Use with caution. No confirmation before execution.", "Mit Vorsicht nutzen. Keine Bestätigung vor Ausführung.")}</p>
+            </div>
+          </label>
+
+          <Button onClick={async () => {
+            if (skipPreview) {
+              setConfirmDirect(true)
+              return
+            }
+            runPreview()
+          }} disabled={loading} className="w-full" size="lg">
+            {skipPreview ? (
+              loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <><Zap className="h-4 w-4 mr-2" /> {t("Apply Now", "Jetzt ausführen")}</>
+            ) : (
+              loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <><Play className="h-4 w-4 mr-2" /> {t("Preview Rename", "Vorschau Umbenennung")}</>
+            )}
           </Button>
+
+          <Dialog open={confirmDirect} onOpenChange={setConfirmDirect}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t("Direct execution", "Direkte Ausführung")}</DialogTitle>
+                <DialogDescription>
+                  {t("This will immediately apply changes without preview. Are you sure?", "Dies wird Änderungen sofort ohne Vorschau ausführen. Bist du sicher?")}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setConfirmDirect(false)}>{t("Cancel", "Abbrechen")}</Button>
+                <Button variant="destructive" onClick={() => { setConfirmDirect(false); handleDirectExecute() }}>
+                  {t("Execute now", "Jetzt ausführen")}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </main>
       </>
     )

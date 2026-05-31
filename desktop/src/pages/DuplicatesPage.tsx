@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input"
 import { ErrorBanner } from "@/components/shared/ErrorBanner"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { ProgressBlock } from "@/components/shared/ProgressBlock"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 import { loadFavorite, saveFavorite, hasFavorite } from "@/lib/favorites-store"
 import { duplicateScan, similarImagesScan, duplicatesApply } from "@/lib/tauri-bridge"
@@ -99,6 +100,9 @@ export default function DuplicatesPage() {
   const [deleteResult, setDeleteResult] = useState<{ executed_rows: number; error_rows: number } | null>(null)
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [directClean, setDirectClean] = useState(false)
+  const [confirmDirect, setConfirmDirect] = useState(false)
+  const [directCleanLoading, setDirectCleanLoading] = useState(false)
   const [liveGroups, setLiveGroups] = useState<any[]>([])
   const [useFastMode, setUseFastMode] = useState(true)
   const [selectedLiveGroup, setSelectedLiveGroup] = useState<number | null>(null)
@@ -342,6 +346,49 @@ export default function DuplicatesPage() {
     return () => window.removeEventListener("keydown", handler)
   }, [showDeleteConfirm, confirmDelete])
 
+  const handleDirectClean = useCallback(async () => {
+    if (!sourceDir.trim()) {
+      setError(t("Please select a source directory.", "Bitte wählen Sie ein Quellverzeichnis aus."))
+      return
+    }
+    setDirectCleanLoading(true); setError(null); setDeleteResult(null)
+    startDupProgress()
+    startProgress(t("Scanning and cleaning duplicates...", "Scanne und bereinige Duplikate..."), 2)
+    try {
+      const config = { source_dirs: [sourceDir.trim()], include_patterns: [], exclude_patterns: [], use_date_prefilter: useFastMode, fast: useFastMode }
+      const scanResult = await duplicateScan(config)
+      updateProgress(1)
+      const groups = scanResult.exact_groups || []
+      const decisions: Record<string, string> = {}
+      for (const g of groups) {
+        if (g.files.length > 1) {
+          decisions[`${g.file_size}:${g.full_digest}`] = g.files[0]
+        }
+      }
+      if (Object.keys(decisions).length === 0) {
+        completeDupProgress(t("No duplicates to clean.", "Keine Duplikate zu bereinigen."))
+        toast("info", t("No exact duplicates found.", "Keine exakten Duplikate gefunden."))
+        setExactPreview(scanResult)
+        setDirectCleanLoading(false)
+        setTimeout(() => finishProgress(), 500)
+        return
+      }
+      startProgress(t("Deleting duplicates...", "Lösche Duplikate..."), Object.keys(decisions).length)
+      const result = await duplicatesApply({ source_dirs: [sourceDir], decisions, mode: "delete" })
+      updateProgress(Object.keys(decisions).length)
+      completeDupProgress(`Complete! ${result.executed_rows} groups cleaned.`)
+      setDeleteResult(result as { executed_rows: number; error_rows: number })
+      setExactPreview(null)
+      setSimilarPreview(null)
+      setTab("exact")
+    } catch (e: unknown) {
+      setError(userFriendlyError(e))
+    } finally {
+      setTimeout(() => finishProgress(), 500)
+      setDirectCleanLoading(false)
+    }
+  }, [sourceDir, useFastMode, startDupProgress, completeDupProgress, startProgress, updateProgress, finishProgress, t])
+
   const exactFiltered = useMemo(() => {
     if (!exactPreview) return []
     if (!filterPath.trim()) return exactPreview.exact_groups
@@ -486,9 +533,22 @@ export default function DuplicatesPage() {
                 </div>
               )}
 
+              <label className="flex items-center gap-2 text-xs cursor-pointer border rounded p-2 bg-red-50 dark:bg-red-950/20 border-red-200">
+                <input type="checkbox" checked={directClean} onChange={e => setDirectClean(e.target.checked)} />
+                <div>
+                  <span className="font-medium text-red-600">{t("Direct Clean — delete duplicates without review", "Direkt bereinigen — Duplikate ohne Prüfung löschen")}</span>
+                  <p className="text-red-500">{t("DANGEROUS: All duplicates will be deleted immediately. Keep one copy per group.", "GEFÄHRLICH: Alle Duplikate werden sofort gelöscht. Eine Kopie pro Gruppe bleibt.")}</p>
+                </div>
+              </label>
+
               <div className="flex items-center gap-3">
-                <Button onClick={tab === "all" ? handleScanAll : handleScan} disabled={loading} size="sm">
-                  {loading ? t("Scanning...", "Scanne...") : tab === "exact" ? t("Scan for exact duplicates", "Nach exakten Duplikaten scannen") : tab === "similar" ? t("Scan for similar images", "Nach ähnlichen Bildern scannen") : t("Scan All", "Alle scannen")}
+                <Button onClick={() => {
+                  if (directClean) { setConfirmDirect(true); return }
+                  if (tab === "all") handleScanAll(); else handleScan()
+                }} disabled={loading || directCleanLoading} size="sm">
+                  {directClean ?
+                    (directCleanLoading ? t("Cleaning...", "Bereinige...") : <><Zap className="h-3.5 w-3.5 mr-1" /> {t("Direct Clean", "Direkt bereinigen")}</>)
+                    : loading ? t("Scanning...", "Scanne...") : tab === "exact" ? t("Scan for exact duplicates", "Nach exakten Duplikaten scannen") : tab === "similar" ? t("Scan for similar images", "Nach ähnlichen Bildern scannen") : t("Scan All", "Alle scannen")}
                 </Button>
                 <label className="flex items-center gap-1.5 text-xs">
                   <input
@@ -564,6 +624,23 @@ export default function DuplicatesPage() {
           )}
             </CardContent>
           </Card>
+
+          <Dialog open={confirmDirect} onOpenChange={setConfirmDirect}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t("Direct Clean — dangerous operation", "Direkt bereinigen — gefährliche Operation")}</DialogTitle>
+                <DialogDescription>
+                  {t("This will scan for exact duplicates and immediately DELETE all duplicate copies, keeping only one per group. This action CANNOT be undone. Are you sure?", "Dies wird nach exakten Duplikaten scannen und sofort ALLE Duplikate LÖSCHEN, wobei nur eine Kopie pro Gruppe übrig bleibt. Diese Aktion kann NICHT rückgängig gemacht werden. Bist du sicher?")}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setConfirmDirect(false)}>{t("Cancel", "Abbrechen")}</Button>
+                <Button variant="destructive" onClick={() => { setConfirmDirect(false); handleDirectClean() }}>
+                  {t("Scan & Delete now", "Jetzt scannen & löschen")}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {error && <ErrorBanner message={error} />}
 
