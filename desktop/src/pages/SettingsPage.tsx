@@ -18,9 +18,12 @@ import { useSettingsStore } from "@/stores/settings-store"
 import {
   runtimeDiagnostics,
   type RuntimeDiagnostics,
+  getAutostartStatus,
+  setAutostart,
 } from "@/lib/tauri-bridge"
 import type { Language, Theme, Density } from "@/types"
 import { FolderSearch, X, Check, RotateCcw } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
 
 
 export default function SettingsPage() {
@@ -49,10 +52,17 @@ export default function SettingsPage() {
   const [showQuickSetup, setShowQuickSetup] = useState(() => !localStorage.getItem("quick_setup_done"))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [justSaved, setJustSaved] = useState(false)
+  const [autoStart, setAutoStart] = useState(false)
 
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    getAutostartStatus()
+      .then(setAutoStart)
+      .catch(() => setAutoStart(false))
+  }, [])
 
   const validate = (key: string, value: string) => {
     if (key === "face_recognition_tolerance") {
@@ -289,6 +299,17 @@ export default function SettingsPage() {
               }}>
                 {t("Restart onboarding tour", "Onboarding-Tour neu starten")}
               </Button>
+
+              <label className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-medium">{t("Start with Windows", "Mit Windows starten")}</span>
+                  <p className="text-xs text-muted-foreground">{t("Automatically scan for new images on startup", "Beim Start automatisch nach neuen Bildern scannen")}</p>
+                </div>
+                <Switch checked={autoStart} onCheckedChange={async (v) => {
+                  setAutoStart(v)
+                  await setAutostart({ enable: v })
+                }} />
+              </label>
             </CardContent>
           </Card>
 

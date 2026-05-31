@@ -1,9 +1,11 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useSettingsStore } from "@/stores/settings-store"
+import { setAutostart } from "@/lib/tauri-bridge"
 import { open } from "@tauri-apps/plugin-dialog"
 import { FolderOpen, Image, ArrowRight, Check, ChevronRight, ChevronLeft, Globe, Heart } from "lucide-react"
 
@@ -18,6 +20,7 @@ export default function OnboardingPage() {
   const [lang, setLang] = useState<Lang>(() => (useSettingsStore.getState().settings.language as Lang) || "en")
   const [selectedFolder, setSelectedFolder] = useState("")
   const [folderError, setFolderError] = useState("")
+  const [onboardingAutoStart, setOnboardingAutoStart] = useState(false)
   const navigate = useNavigate()
   const { updateSettings, save } = useSettingsStore()
 
@@ -37,6 +40,9 @@ export default function OnboardingPage() {
   const handleFinish = async () => {
     updateSettings({ show_onboarding: false, language: lang })
     await save()
+    if (onboardingAutoStart) {
+      try { await setAutostart({ enable: true }) } catch {}
+    }
     navigate("/")
   }
 
@@ -231,6 +237,15 @@ export default function OnboardingPage() {
                   </li>
                 ))}
               </ul>
+
+              {/* Auto-start option */}
+              <label className="flex items-center justify-between p-3 border rounded cursor-pointer">
+                <div>
+                  <span className="font-medium">{t("Auto-start with Windows", "Mit Windows starten", lang)}</span>
+                  <p className="text-xs text-muted-foreground">{t("Media Manager starts with your computer and checks for new images", "Media Manager startet mit deinem Computer und prüft auf neue Bilder", lang)}</p>
+                </div>
+                <Switch checked={onboardingAutoStart} onCheckedChange={setOnboardingAutoStart} />
+              </label>
               
               {/* Donate button */}
               <div className="p-4 rounded-lg bg-primary/5 border border-primary/10 text-center">

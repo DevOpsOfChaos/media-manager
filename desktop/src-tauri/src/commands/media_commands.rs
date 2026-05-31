@@ -550,3 +550,12 @@ pub async fn get_window_size(app: tauri::AppHandle) -> Result<(u32, u32), String
     let size = window.outer_size().map_err(|e| format!("Failed to get size: {e}"))?;
     Ok((size.width, size.height))
 }
+
+// ── Background Scan ──
+
+#[tauri::command]
+pub async fn background_scan(config: Value) -> Result<Value, String> {
+    let json = serde_json::to_string(&config)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    bridge()?.run_module("bridge_background", "check", &[], Some(&json))
+}

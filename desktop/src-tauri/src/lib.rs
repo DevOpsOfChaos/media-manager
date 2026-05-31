@@ -1,6 +1,8 @@
 mod commands;
 
 use commands::media_commands;
+use commands::autostart;
+use tauri::Manager;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::panic;
@@ -32,6 +34,14 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            if std::env::args().any(|arg| arg == "--background") {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.eval("window.history.replaceState(null, '', '/?background=true'); localStorage.setItem('background_launched', 'true')");
+                }
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             // Settings
             media_commands::settings_read,
@@ -94,6 +104,11 @@ pub fn run() {
             // Window
             media_commands::resize_window,
             media_commands::get_window_size,
+            // Background
+            media_commands::background_scan,
+            // Autostart
+            autostart::get_autostart_status,
+            autostart::set_autostart,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

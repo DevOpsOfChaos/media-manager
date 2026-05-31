@@ -691,3 +691,35 @@ export async function resizeWindow(width: number, height: number): Promise<void>
 export async function getWindowSize(): Promise<[number, number]> {
   return invoke("get_window_size")
 }
+
+// ── Autostart ──
+
+/** Check whether the app is configured to auto-start with Windows. */
+export async function getAutostartStatus(): Promise<boolean> {
+  return invoke("get_autostart_status")
+}
+
+/** Enable or disable auto-start with Windows. */
+export async function setAutostart(options: { enable: boolean }): Promise<void> {
+  return invoke("set_autostart", { enable: options.enable })
+}
+
+// ── Background Scan ──
+
+export interface BackgroundScanResult {
+  status: string
+  new_files: string[]
+  modified_files: string[]
+  deleted_files: string[]
+  total_scanned: number
+  total_new: number
+  total_modified: number
+  total_deleted: number
+  scan_duration_seconds: number
+  message?: string
+}
+
+/** Run an incremental background scan for new or modified files. */
+export async function backgroundScan(options: { source_dirs: string[] }): Promise<BackgroundScanResult> {
+  return invoke("background_scan", { config: options })
+}

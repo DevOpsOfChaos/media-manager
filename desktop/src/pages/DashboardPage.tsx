@@ -9,10 +9,12 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { FolderOpen, FolderSync, Scan, Users, MapPin, Eye, X, Clock, Plus, Trash2 } from "lucide-react"
+import { FolderOpen, FolderSync, Scan, Users, MapPin, Eye, X, Clock, Plus, Trash2, Zap } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { CameraImport } from "@/components/shared/CameraImport"
 import { OnboardingTour } from "@/components/shared/OnboardingTour"
+import { backgroundScan } from "@/lib/tauri-bridge"
+import { sendNotification, isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification"
 
 export default function DashboardPage() {
   const t = useT()
@@ -26,6 +28,61 @@ export default function DashboardPage() {
   const needsBackup = !lastBackup || (Date.now() - new Date(lastBackup).getTime()) > 7 * 24 * 60 * 60 * 1000
 
   const [showTour, setShowTour] = useState(() => localStorage.getItem("onboarding_complete") !== "true")
+
+  const [bgMode, setBgMode] = useState(() => {
+    if (localStorage.getItem("background_launched") === "true") return true
+    const params = new URLSearchParams(window.location.search)
+    return params.get("background") === "true"
+  })
+  const [startupReport, setStartupReport] = useState<any>(null)
+
+  useEffect(() => {
+    if (bgMode) {
+      localStorage.removeItem("background_launched")
+      runBackgroundCheck()
+    }
+  }, [])
+
+  const runBackgroundCheck = async () => {
+    try {
+      const sources = JSON.parse(localStorage.getItem("watch_folders") || "[]")
+      if (sources.length === 0) {
+        const defSource = localStorage.getItem("default_source_dir")
+        if (defSource) sources.push(defSource)
+      }
+      if (sources.length === 0) return
+
+      const scanResult = await backgroundScan({ source_dirs: sources })
+
+      if (scanResult.total_new > 0) {
+        try {
+          const permitted = await isPermissionGranted()
+          if (permitted) {
+            await sendNotification({
+              title: "Media Manager",
+              body: t(`${scanResult.total_new} new files found`, `${scanResult.total_new} neue Dateien gefunden`),
+            })
+          } else {
+            const result = await requestPermission()
+            if (result === "granted") {
+              await sendNotification({
+                title: "Media Manager",
+                body: t(`${scanResult.total_new} new files found`, `${scanResult.total_new} neue Dateien gefunden`),
+              })
+            }
+          }
+        } catch {}
+      }
+
+      setStartupReport({
+        time: new Date().toISOString(),
+        new_files: scanResult.total_new,
+        modified: scanResult.total_modified,
+        total: scanResult.total_scanned,
+        scan_duration: scanResult.scan_duration_seconds,
+      })
+    } catch (e) { console.error("Background check failed:", e) }
+  }
 
   const [watchFolders, setWatchFolders] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("watch_folders") || "[]") }
@@ -88,6 +145,30 @@ export default function DashboardPage() {
               localStorage.setItem("last_backup_date", new Date().toISOString())
               setLastBackup(new Date().toISOString())
             }}>{t("Done", "Erledigt")}</Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Startup Report */}
+      {bgMode && startupReport && (
+        <Card className="border-green-200 bg-green-50/30 mb-4">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Zap className="h-4 w-4 text-green-500" />
+              {t("Startup Scan Complete", "Startup-Scan abgeschlossen")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-xs">
+            <p>{t(`Scanned ${startupReport.total} files in ${startupReport.scan_duration}s`, `${startupReport.total} Dateien in ${startupReport.scan_duration}s gescannt`)}</p>
+            <p className="text-green-600">{t(`${startupReport.new_files} new files found`, `${startupReport.new_files} neue Dateien gefunden`)}</p>
+            <div className="flex gap-2 mt-2">
+              <Button size="sm" onClick={() => navigate("/duplicates")}>
+                {t("Check for duplicates", "Auf Duplikate prüfen")}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setBgMode(false)}>
+                {t("Dismiss", "Schließen")}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

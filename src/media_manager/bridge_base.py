@@ -7,9 +7,19 @@ import sys
 from pathlib import Path
 
 
-def emit(payload: dict) -> None:
-    """Write JSON payload to stdout."""
+def read_stdin_json() -> dict:
+    """Read and parse JSON from stdin. Returns empty dict on empty input."""
+    import sys as _sys
+    raw = _sys.stdin.read()
+    if not raw.strip():
+        return {}
+    return json.loads(raw)
+
+
+def emit(payload: dict) -> int:
+    """Write JSON payload to stdout and return 0."""
     print(json.dumps(payload, indent=2, ensure_ascii=False))
+    return 0
 
 
 def fail(message: str, exit_code: int = 1) -> int:
