@@ -30,7 +30,6 @@ def fail(message: str, exit_code: int = 1) -> int:
 
 def emit_progress_json(current: int, total: int, stage: str = "", label: str = "") -> None:
     """Write a progress JSON line to stderr for the Rust host to forward."""
-    import time
     elapsed = 0.0
     pct = round(current / max(total, 1) * 100, 1)
     eta = 0.0

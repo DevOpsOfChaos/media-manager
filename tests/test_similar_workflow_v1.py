@@ -5,27 +5,27 @@ from pathlib import Path
 
 from PIL import Image
 
-from src.media_manager.core.similar_assets import (
+from media_manager.core.similar_assets import (
     build_similar_group_id,
     build_similar_image_assets,
 )
-from src.media_manager.core.similar_cleanup_plan import build_similar_cleanup_plan
-from src.media_manager.core.similar_decisions import (
+from media_manager.core.similar_cleanup_plan import build_similar_cleanup_plan
+from media_manager.core.similar_decisions import (
     build_similar_decision_template,
     build_similar_group_signature,
     load_similar_decision_file,
     write_similar_decision_template,
 )
-from src.media_manager.core.similar_session_store import (
+from media_manager.core.similar_session_store import (
     normalize_similar_decisions,
     restore_similar_session,
     save_similar_session_snapshot,
 )
-from src.media_manager.core.similar_workflow import (
+from media_manager.core.similar_workflow import (
     build_similar_workflow_bundle,
     execute_similar_workflow_bundle,
 )
-from src.media_manager.similar_images import (
+from media_manager.similar_images import (
     SimilarImageGroup,
     SimilarImageMember,
 )

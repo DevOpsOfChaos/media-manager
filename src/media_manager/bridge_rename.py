@@ -7,7 +7,7 @@ import logging
 import sys
 from pathlib import Path
 
-from media_manager.bridge_base import emit as _emit, fail as _fail, emit_progress_json
+from media_manager.bridge_base import emit as _emit, fail as _fail
 from media_manager.core.progress_tracker import SimpleProgressTracker
 from media_manager.core.renamer import (
     RenamePlannerOptions,

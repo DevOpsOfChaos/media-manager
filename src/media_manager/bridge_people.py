@@ -17,14 +17,16 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from media_manager.bridge_base import emit as _emit, fail as _fail, get_app_dir as _get_app_dir, validate_app_path as _validate_app_path, emit_progress_json
-from media_manager.core.progress_tracker import SimpleProgressTracker
 
 logger = logging.getLogger(__name__)
 
 CACHE_VERSION = 1
+
+if TYPE_CHECKING:
+    from media_manager.core.people_recognition import PeopleScanResult
 
 
 def _progress_to_stderr(message: str) -> None:
@@ -339,6 +341,8 @@ def cmd_person_rename() -> int:
     try:
         from media_manager.core.people_recognition import load_people_catalog, rename_person_in_catalog, write_people_catalog
         catalog = load_people_catalog(catalog_path, load_embeddings=False)
+        rename_person_in_catalog(catalog, person_id=person_id, name=new_name)
+        write_people_catalog(catalog_path, catalog)
     except (OSError, json.JSONDecodeError, ValueError, KeyError) as exc:
         logger.exception("Person rename failed: %s -> %s", person_id, new_name)
         return _fail(f"Rename failed: {exc}")
@@ -611,9 +615,9 @@ def cmd_face_feedback() -> int:
 
     try:
         lines = feedback_path.read_text().splitlines()
-        total = len([l for l in lines if l.strip()])
-        confirms = len([l for l in lines if '"confirm_match"' in l])
-        rejects = len([l for l in lines if '"reject_match"' in l])
+        total = len([line for line in lines if line.strip()])
+        confirms = len([line for line in lines if '"confirm_match"' in line])
+        rejects = len([line for line in lines if '"reject_match"' in line])
     except (OSError, json.JSONDecodeError):
         total = confirms = rejects = 0
 

@@ -570,7 +570,8 @@ def cmd_thumbnail() -> int:
         img = Image.open(path)
         img.thumbnail((size, size), Image.LANCZOS)
 
-        import io, base64
+        import io
+        import base64
         buf = io.BytesIO()
         img.save(buf, "JPEG", quality=70)
         b64 = base64.b64encode(buf.getvalue()).decode()
@@ -597,7 +598,8 @@ def cmd_thumbnails_batch() -> int:
             from PIL import Image
             img = Image.open(path)
             img.thumbnail((128, 128), Image.LANCZOS)
-            import io, base64
+            import io
+            import base64
             buf = io.BytesIO()
             img.save(buf, "JPEG", quality=50)
             b64 = base64.b64encode(buf.getvalue()).decode()

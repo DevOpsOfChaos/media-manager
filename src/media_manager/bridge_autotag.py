@@ -10,7 +10,7 @@ import logging
 import sys
 from pathlib import Path
 
-from media_manager.bridge_base import emit as _emit, fail as _fail, read_stdin_json
+from media_manager.bridge_base import emit as _emit, read_stdin_json
 from media_manager.core.auto_tagger import extract_deep_metadata, generate_tags
 
 logger = logging.getLogger(__name__)

@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import stat as _stat
-import sys
 import time
 from collections import defaultdict
 from collections.abc import Callable
@@ -420,8 +419,6 @@ def _build_organize_dry_run_impl(options: OrganizePlannerOptions, progress_callb
                 progress.tick_count(idx, total, f"Resolving dates... {idx:,}/{total:,}")
 
         del new_date_entries, scanned_by_path, inspections
-        if 'group_uncached' in dir():
-            del group_uncached
     else:
         file_list = list(scan_summary.files)
         total = len(file_list)
@@ -515,8 +512,7 @@ def _build_organize_dry_run_impl(options: OrganizePlannerOptions, progress_callb
             chunk_end = min(chunk_start + effective_chunk, total)
             chunk_files = file_list[chunk_start:chunk_end]
 
-            for i, scanned_file in enumerate(chunk_files):
-                global_i = chunk_start + i
+            for scanned_file in chunk_files:
                 if cancel_event and cancel_event.is_set():
                     break
                 inspection = inspections.get(scanned_file.path)

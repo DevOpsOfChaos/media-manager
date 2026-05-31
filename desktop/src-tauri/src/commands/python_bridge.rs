@@ -75,6 +75,7 @@ impl PythonBridge {
     }
 
     /// Run a Python bridge module — spawns Python, waits for completion, returns (stdout, stderr) as raw strings.
+    #[allow(dead_code)]
     pub fn run_module_raw(
         &self,
         module: &str,

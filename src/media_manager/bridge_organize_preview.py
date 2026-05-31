@@ -25,6 +25,7 @@ from pathlib import Path
 from media_manager.core.job_queue import JobQueue
 from media_manager.core.organizer import OrganizePlannerOptions, build_organize_dry_run, build_organize_dry_run_date_batched
 from media_manager.core.outcome_report import build_plan_outcome_report
+from media_manager.core.progress_tracker import SimpleProgressTracker
 from media_manager.core.review_report import build_review_export
 
 from media_manager.bridge_base import emit as _emit, fail as _fail

@@ -27,7 +27,6 @@ from media_manager.duplicates import (
 
 from media_manager.bridge_base import fail as _fail
 from media_manager.core.progress_tracker import SimpleProgressTracker
-import time
 
 logger = logging.getLogger(__name__)
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from media_manager.core.magic_bytes import SIGNATURES, RIFF_SUBTYPES, detect_file_type, is_media_file, is_image_file
+from media_manager.core.magic_bytes import detect_file_type, is_media_file, is_image_file
 
 
 _sig_bytes: dict[str, bytes] = {

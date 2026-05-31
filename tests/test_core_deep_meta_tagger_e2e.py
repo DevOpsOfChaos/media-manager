@@ -3,36 +3,19 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
 
 def _build_minimal_jpeg() -> bytes:
-    """Build a minimal valid JPEG with EXIF containing DateTimeOriginal."""
-    soi = b'\xff\xd8'
-    app1 = bytearray()
-    app1 += b'\xff\xe1'                 # APP1 marker
-    # EXIF header
-    exif_header = b'Exif\x00\x00'
-    tiff_header = b'MM\x00*\x00\x00\x00\x08'
-    # IFD0 with one entry
-    ifd_count = b'\x00\x01'             # 1 entry
-    # Tag 0x9003 DateTimeOriginal (ASCII, tag=0x9003, type=2=ASCII, count=19, data="2024:07:15 14:30:00\0")
-    tag_entry = (
-        b'\x90\x03'      # tag
-        b'\x00\x02'      # type ASCII
-        b'\x00\x00\x00\x14'  # count = 20
-        b'\x00\x00\x00\x1a'  # offset to value (26)
-    )
-    ifd0 = ifd_count + tag_entry + b'\x00\x00\x00\x00'  # next IFD offset = 0
-    # Value data
-    value_data = b'2024:07:15 14:30:00\x00'
-    exif_data = exif_header + tiff_header + ifd0 + value_data
-    # APP1 length (2 bytes for length field itself not included, so length = len(exif_data) + 2)
-    length = len(exif_data) + 2
-    app1[2:2] = length.to_bytes(2, 'big')
-    app1 += exif_data
+    """Build a valid JPEG with EXIF containing DateTimeOriginal."""
+    from io import BytesIO
 
-    eoi = b'\xff\xd9'
-    return soi + bytes(app1) + eoi
+    image = Image.new("RGB", (16, 16), color=(64, 96, 128))
+    exif = Image.Exif()
+    exif[36867] = "2024:07:15 14:30:00"  # DateTimeOriginal
+    buf = BytesIO()
+    image.save(buf, format="JPEG", exif=exif)
+    return buf.getvalue()
 
 
 class TestDeepMetaTaggerE2E:

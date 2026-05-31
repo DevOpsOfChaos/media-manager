@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import argparse as _ap
-import json
 import logging
 import sys
 from collections import Counter
 from pathlib import Path
 
-from media_manager.bridge_base import emit as _emit, fail as _fail, read_stdin_json
+from media_manager.bridge_base import emit as _emit, read_stdin_json
 from media_manager.sorter import iter_media_files
 from media_manager.exiftool import read_exiftool_metadata_batch
 

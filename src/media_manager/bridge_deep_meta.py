@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import argparse as _ap
-import json
 import logging
 import sys
 from pathlib import Path
 
-from media_manager.bridge_base import emit as _emit, fail as _fail, read_stdin_json
+from media_manager.bridge_base import emit as _emit, read_stdin_json
 from media_manager.core.metadata.inspect import extract_deep_metadata, compute_metadata_score
 
 logger = logging.getLogger(__name__)

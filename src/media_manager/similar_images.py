@@ -17,7 +17,6 @@ except Exception:  # pragma: no cover - runtime fallback
 ProgressCallback = Callable[[str], None]
 IMAGE_EXTENSIONS = list_supported_similar_image_extensions()
 
-import weakref
 
 _phash_cache: dict[str, int] = {}
 _MAX_PHASH_CACHE_SIZE = 200_000
