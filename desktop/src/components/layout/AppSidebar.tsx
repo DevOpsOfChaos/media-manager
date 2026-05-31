@@ -133,7 +133,7 @@ export function AppSidebar() {
   const sidebarTooltip = (label: string) => {
     const map: Record<string, [string, string]> = {
       "Dashboard": ["Overview and quick actions", "Übersicht und Schnellaktionen"],
-      "Library": ["Library: Browse, filter, rate, and manage your organized media files.", "Bibliothek: Durchsuchen, filtern, bewerten und verwalten deiner organisierten Mediendateien."],
+      "Library": ["Browse, filter and manage your media.", "Medien durchsuchen, filtern und verwalten."],
       "Organize": ["Organize: Sort files into dated folders by EXIF date with a 3-step wizard.", "Organisieren: Dateien per EXIF-Datum in Ordner sortieren — 3-Schritte-Assistent."],
       "Duplicates": ["Duplicates: Find exact and similar duplicate files to free up space.", "Duplikate: Exakte und ähnliche Duplikate finden um Speicherplatz freizugeben."],
       "People": ["Face recognition — scan photos and group by person.", "Gesichtserkennung — Fotos scannen und nach Person gruppieren."],
@@ -152,6 +152,8 @@ export function AppSidebar() {
   }
 
   const [showCustomize, setShowCustomize] = useState(false)
+
+  const obviousLabels = new Set(["Settings", "About"])
 
   const visibleItems = sidebarItems.filter(item => item.visible)
 
@@ -231,8 +233,36 @@ export function AppSidebar() {
                   : item.label === "People" ? peopleCount
                   : item.label === "History" ? historyCount
                   : null
-                return (
+                  const isObvious = obviousLabels.has(item.label)
+                  return (
                   <SidebarMenuItem key={item.label}>
+                    {isObvious ? (
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        onClick={() => navigate(item.path)}
+                        className={isActive ? "border-l-2 border-primary bg-primary/5 text-primary hover:bg-primary/10" : ""}
+                      >
+                        <item.icon />
+                        <span>{sidebarLabel(item.label)}</span>
+                        <button
+                          className="ml-auto h-5 w-5 flex items-center justify-center rounded hover:bg-muted/50 flex-shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const next = favorites.includes(item.path)
+                              ? favorites.filter(p => p !== item.path)
+                              : [...favorites, item.path]
+                            setFavorites(next)
+                            localStorage.setItem("sidebar_favorites", JSON.stringify(next))
+                          }}
+                          title={favorites.includes(item.path) ? t("Remove from favorites", "Von Favoriten entfernen") : t("Add to favorites", "Zu Favoriten hinzufügen")}
+                        >
+                          <Star className={`h-3 w-3 ${favorites.includes(item.path) ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground"}`} />
+                        </button>
+                        {badgeCount != null && (
+                          <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0 h-4">{badgeCount}</Badge>
+                        )}
+                      </SidebarMenuButton>
+                    ) : (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <SidebarMenuButton
@@ -261,11 +291,12 @@ export function AppSidebar() {
                           )}
                         </SidebarMenuButton>
                       </TooltipTrigger>
-                      <TooltipContent side="right">
+                      <TooltipContent side="right" align="start" className="max-w-[220px]">
                         <p className="font-medium">{sidebarLabel(item.label)}</p>
                         <p className="text-xs text-muted-foreground">{sidebarTooltip(item.label)}</p>
                       </TooltipContent>
                     </Tooltip>
+                    )}
                   </SidebarMenuItem>
                 )
               })}

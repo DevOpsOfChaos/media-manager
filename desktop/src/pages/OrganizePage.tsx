@@ -160,7 +160,7 @@ export default function OrganizePage() {
       <>
         <PageHeader title={t("Organize Files", "Dateien organisieren")} />
         {showHint && (
-          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 mb-4 mx-6 mt-2 text-sm">
+          <div data-hint className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 mb-4 mx-6 mt-2 text-sm">
             <p>{t("Welcome! Select source & target folders, pick a pattern, and preview before applying.", "Willkommen! Wähle Quell- und Zielordner, ein Muster, und sieh dir die Vorschau vor dem Ausführen an.")}</p>
             <button onClick={dismissHint}
               className="text-xs text-blue-500 dark:text-blue-400 mt-1 hover:underline">{t("Got it", "Verstanden")}</button>
@@ -179,8 +179,8 @@ export default function OrganizePage() {
                 <TooltipTrigger asChild>
                   <CardTitle>{t("1. Source", "1. Quelle")}</CardTitle>
                 </TooltipTrigger>
-                <TooltipContent>
-                  {t("Where are your unorganized photos? This folder will NOT be modified.", "Wo sind deine unsortierten Fotos? Dieser Ordner wird NICHT verändert.")}
+                <TooltipContent side="bottom" className="max-w-[240px]">
+                  {t("Unorganized photos folder — will NOT be modified.", "Unsortierte Fotos — wird NICHT verändert.")}
                 </TooltipContent>
               </Tooltip>
             </CardHeader>
@@ -198,8 +198,8 @@ export default function OrganizePage() {
                 <TooltipTrigger asChild>
                   <CardTitle>{t("2. Target", "2. Ziel")}</CardTitle>
                 </TooltipTrigger>
-                <TooltipContent>
-                  {t("Where should organized photos go? A new folder structure will be created here.", "Wohin sollen die organisierten Fotos? Hier wird eine neue Ordnerstruktur erstellt.")}
+                <TooltipContent side="bottom" className="max-w-[240px]">
+                  {t("Destination folder for organized photos.", "Zielordner für organisierte Fotos.")}
                 </TooltipContent>
               </Tooltip>
             </CardHeader>
@@ -217,8 +217,8 @@ export default function OrganizePage() {
                 <TooltipTrigger asChild>
                   <CardTitle>{t("3. Pattern", "3. Muster")}</CardTitle>
                 </TooltipTrigger>
-                <TooltipContent>
-                  {t("How should files be named? Use {year}, {month}, {day} for automatic date-based organization.", "Wie sollen Dateien benannt werden? Nutze {year}, {month}, {day} für automatische datumsbasierte Organisation.")}
+                <TooltipContent side="bottom" className="max-w-[240px]">
+                  {t("File naming pattern — use {year}, {month}, {day}.", "Dateinamensmuster — nutze {year}, {month}, {day}.")}
                 </TooltipContent>
               </Tooltip>
               <CardDescription>{t("How should files be organized?", "Wie sollen Dateien organisiert werden?")}</CardDescription>
@@ -271,7 +271,7 @@ export default function OrganizePage() {
                         {mode === "copy" ? t("Copy", "Kopieren") : mode === "link" ? t("Hardlinks", "Hardlinks") : t("Move", "Verschieben")}
                       </label>
                     </TooltipTrigger>
-                    <TooltipContent>
+                    <TooltipContent side="bottom" className="max-w-[240px]">
                       {mode === "copy" ? t("Copy: keep originals. Uses extra space.", "Kopieren: Originale bleiben. Braucht Extra-Speicher.")
                         : mode === "link" ? t("Hardlinks: instant, no extra space.", "Hardlinks: sofort, kein Extra-Speicher.")
                         : t("Move: clean up source.", "Verschieben: Quelle aufräumen.")}
@@ -289,8 +289,8 @@ export default function OrganizePage() {
                   <TooltipTrigger asChild>
                     <label className="text-xs font-medium cursor-help">{t("Date source", "Datumsquelle")}</label>
                   </TooltipTrigger>
-                  <TooltipContent>
-                    {t("Which date should be used for organizing? EXIF is most accurate (camera date).", "Welches Datum soll zur Organisation genutzt werden? EXIF ist am genauesten (Kameradatum).")}
+                  <TooltipContent side="bottom" className="max-w-[240px]">
+                    {t("Date used for folder sorting. EXIF is most accurate.", "Datum für Ordnersortierung. EXIF ist am genauesten.")}
                   </TooltipContent>
                 </Tooltip>
                 <select value={(options as any).date_source || "auto"}

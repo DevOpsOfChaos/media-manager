@@ -167,7 +167,7 @@ export default function TripPage() {
         </Button>
       </PageHeader>
       {showHint && (
-        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 text-sm">
+        <div data-hint className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 text-sm">
           <p>{t("Create trip collections from your organized photos using date ranges. Each trip gets its own folder with hardlinks.", "Erstelle Reisesammlungen aus deinen organisierten Fotos mit Datumsbereichen. Jede Reise bekommt einen eigenen Ordner mit Hardlinks.")}</p>
           <button onClick={dismissHint}
             className="text-xs text-blue-500 dark:text-blue-400 mt-1 hover:underline">{t("Got it", "Verstanden")}</button>

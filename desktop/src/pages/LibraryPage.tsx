@@ -771,7 +771,7 @@ export default function LibraryPage() {
         subtitle={t("Browse your media files with actions.", "Medien durchsuchen mit Aktionen.")}
       />
       {showHint && (
-        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 mb-4 mx-6 text-sm">
+        <div data-hint className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 mb-4 mx-6 text-sm">
           <p>{t("Browse, filter, rate, and manage your organized media files. Search, sort, and tag to keep your library tidy.", "Durchstöbere, filtere, bewerte und verwalte deine organisierten Mediendateien. Suche, sortiere und tagge, um deine Bibliothek sauber zu halten.")}</p>
           <button onClick={dismissHint}
             className="text-xs text-blue-500 dark:text-blue-400 mt-1 hover:underline">{t("Got it", "Verstanden")}</button>

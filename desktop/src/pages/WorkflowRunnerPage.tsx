@@ -210,7 +210,7 @@ export default function WorkflowRunnerPage() {
         subtitle={t("Run organize → duplicates → leftovers in sequence.", "Führen Sie Organisieren → Duplikate → Überreste in Folge aus.")}
       />
       {showHint && (
-        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 mb-4 text-sm">
+        <div data-hint className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 mb-4 text-sm">
           <p>{t("Run the full pipeline: organize files, find duplicates, and consolidate leftovers — all in one go.", "Führe die gesamte Pipeline aus: Dateien organisieren, Duplikate finden und Überreste konsolidieren — alles in einem Durchgang.")}</p>
           <button onClick={dismissHint}
             className="text-xs text-blue-500 dark:text-blue-400 mt-1 hover:underline">{t("Got it", "Verstanden")}</button>

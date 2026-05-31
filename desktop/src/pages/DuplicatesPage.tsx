@@ -420,7 +420,7 @@ export default function DuplicatesPage() {
     <>
       <PageHeader title={t("Duplicates", "Duplikate")} />
       {showHint && (
-        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 mb-4 mx-6 text-sm">
+        <div data-hint className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 mb-4 mx-6 text-sm">
           <p>{t("Select a source folder and scan for exact or similar duplicates to free up disk space.", "Wähle einen Quellordner und scanne nach exakten oder ähnlichen Duplikaten, um Speicherplatz freizugeben.")}</p>
           <button onClick={dismissHint}
             className="text-xs text-blue-500 dark:text-blue-400 mt-1 hover:underline">{t("Got it", "Verstanden")}</button>

@@ -51,6 +51,7 @@ function App() {
   const t = useT()
   const [dryRun] = useState(() => localStorage.getItem("dry_run") === "true")
   const [isFirstLaunch, setIsFirstLaunch] = useState(false)
+  const [isTouchDevice, setIsTouchDevice] = useState(false)
   const [bridgeStatus, setBridgeStatus] = useState<"ok" | "error" | "checking">("checking")
 
   useEffect(() => {
@@ -85,6 +86,8 @@ function App() {
       runtimeDiagnostics().then(() => setBridgeStatus("ok")).catch(() => setBridgeStatus("error"))
     })
   }, [])
+
+  useEffect(() => { setIsTouchDevice("ontouchstart" in window) }, [])
 
   useEffect(() => { window.scrollTo(0, 0) }, [location.pathname])
 
@@ -123,7 +126,7 @@ function App() {
 
   return (
     <ProgressProvider>
-      <TooltipProvider>
+      <TooltipProvider delayDuration={isTouchDevice ? 999999 : 600} skipDelayDuration={200}>
         <SidebarProvider>
           <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded">
             Skip to main content
