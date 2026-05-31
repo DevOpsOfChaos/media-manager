@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useT } from "@/lib/i18n"
-import { userFriendlyError } from "@/lib/error-utils"
+import { userFriendlyError, type FriendlyError } from "@/lib/error-utils"
 import { toast } from "@/lib/toast"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
@@ -28,7 +28,7 @@ export default function HistoryPage() {
   const t = useT()
   const [data, setData] = useState<HistoryListPayload | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<FriendlyError | null>(null)
   const [filter, setFilter] = useState("")
   const navigate = useNavigate()
   const [filterCommand, setFilterCommand] = useState<string>("all")
@@ -149,7 +149,7 @@ export default function HistoryPage() {
 
           {error && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive space-y-2">
-              <p>{error}</p>
+              <p>{error.message}</p>
               <Button variant="outline" size="sm" onClick={load}>
                 {t("Retry", "Wiederholen")}
               </Button>

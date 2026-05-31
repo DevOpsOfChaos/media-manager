@@ -3,7 +3,8 @@ import { CheckSquare, Square, Trash2, Info, ScanText, Wand2, Star, CopyCheck, Im
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { useNavigate } from "react-router-dom"
 import { useT } from "@/lib/i18n"
-import { userFriendlyError } from "@/lib/error-utils"
+import { userFriendlyError, type FriendlyError } from "@/lib/error-utils"
+import { useFirstRunHint } from "@/lib/use-first-run-hint"
 import { toast } from "@/lib/toast"
 import { useSimulatedProgress } from "@/lib/use-simulated-progress"
 import { useRealProgress } from "@/lib/use-real-progress"
@@ -90,7 +91,7 @@ export default function DuplicatesPage() {
   const [exactPreview, setExactPreview] = useState<DuplicatesPreviewResponse | null>(null)
   const [similarPreview, setSimilarPreview] = useState<SimilarImagesPreviewResponse | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<FriendlyError | null>(null)
   const [filterPath, setFilterPath] = useState("")
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [maxDistance, setMaxDistance] = useState(6)
@@ -107,6 +108,7 @@ export default function DuplicatesPage() {
   const [liveGroups, setLiveGroups] = useState<any[]>([])
   const [useFastMode, setUseFastMode] = useState(true)
   const [selectedLiveGroup, setSelectedLiveGroup] = useState<number | null>(null)
+  const [showHint, dismissHint] = useFirstRunHint("duplicates")
 
   const DUP_PHASES = [
     { nameEn: "Phase 1/4 — Scanning source folders...", nameDe: "Phase 1/4 — Quellordner werden gescannt...", endAt: 15, increment: 1.5 },
@@ -156,7 +158,7 @@ export default function DuplicatesPage() {
 
   const handleScanAll = async () => {
     if (!sourceDir.trim()) {
-      setError(t("Please select a source directory.", "Bitte wählen Sie ein Quellverzeichnis aus."))
+      setError({ message: t("Please select a source directory.", "Bitte wählen Sie ein Quellverzeichnis aus."), suggestion: null })
       return
     }
     setLoading(true)
@@ -202,7 +204,7 @@ export default function DuplicatesPage() {
 
   const handleScan = useCallback(async () => {
     if (!sourceDir.trim()) {
-      setError(t("Please select a source directory.", "Bitte wählen Sie ein Quellverzeichnis aus."))
+      setError({ message: t("Please select a source directory.", "Bitte wählen Sie ein Quellverzeichnis aus."), suggestion: null })
       return
     }
     setLoading(true)
@@ -350,7 +352,7 @@ export default function DuplicatesPage() {
 
   const handleDirectClean = useCallback(async () => {
     if (!sourceDir.trim()) {
-      setError(t("Please select a source directory.", "Bitte wählen Sie ein Quellverzeichnis aus."))
+      setError({ message: t("Please select a source directory.", "Bitte wählen Sie ein Quellverzeichnis aus."), suggestion: null })
       return
     }
     setDirectCleanLoading(true); setError(null); setDeleteResult(null)
@@ -417,6 +419,13 @@ export default function DuplicatesPage() {
   return (
     <>
       <PageHeader title={t("Duplicates", "Duplikate")} />
+      {showHint && (
+        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 mb-4 mx-6 text-sm">
+          <p>{t("Select a source folder and scan for exact or similar duplicates to free up disk space.", "Wähle einen Quellordner und scanne nach exakten oder ähnlichen Duplikaten, um Speicherplatz freizugeben.")}</p>
+          <button onClick={dismissHint}
+            className="text-xs text-blue-500 dark:text-blue-400 mt-1 hover:underline">{t("Got it", "Verstanden")}</button>
+        </div>
+      )}
       <main className="flex flex-1 gap-4 p-6">
         <div className="flex-1 max-w-5xl space-y-4">
 
@@ -644,7 +653,7 @@ export default function DuplicatesPage() {
             </DialogContent>
           </Dialog>
 
-          {error && <ErrorBanner message={error} />}
+          {error && <ErrorBanner message={error.message} suggestion={error.suggestion} />}
 
           {loading && tab !== "similar" && (
             <ProgressBlock

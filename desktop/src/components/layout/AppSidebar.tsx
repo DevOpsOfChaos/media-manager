@@ -133,14 +133,11 @@ export function AppSidebar() {
   const sidebarTooltip = (label: string) => {
     const map: Record<string, [string, string]> = {
       "Dashboard": ["Overview and quick actions", "Übersicht und Schnellaktionen"],
-      "Library": ["Browse your media library", "Medienbibliothek durchsuchen"],
-      "Organize": ["Auto-organize files into folders", "Dateien automatisch in Ordner organisieren"],
-      "Duplicates": ["Find and remove duplicate files", "Doppelte Dateien finden und entfernen"],
-      "Rename": ["Batch rename media files", "Mediendateien stapelweise umbenennen"],
-      "Trip": ["Organize photos by trip / location", "Fotos nach Reise / Ort organisieren"],
-      "Workflow": ["Create and run processing workflows", "Verarbeitungsworkflows erstellen und ausführen"],
-      "Review": ["Review flagged items before applying changes", "Markierte Elemente vor der Anwendung von Änderungen überprüfen"],
-      "People": ["Manage detected faces and people", "Erkannte Gesichter und Personen verwalten"],
+      "Library": ["Library: Browse, filter, rate, and manage your organized media files.", "Bibliothek: Durchsuchen, filtern, bewerten und verwalten deiner organisierten Mediendateien."],
+      "Organize": ["Organize: Sort files into dated folders by EXIF date with a 3-step wizard.", "Organisieren: Dateien per EXIF-Datum in Ordner sortieren — 3-Schritte-Assistent."],
+      "Duplicates": ["Duplicates: Find exact and similar duplicate files to free up space.", "Duplikate: Exakte und ähnliche Duplikate finden um Speicherplatz freizugeben."],
+      "People": ["Face recognition — scan photos and group by person.", "Gesichtserkennung — Fotos scannen und nach Person gruppieren."],
+      "Rename": ["Rename: Batch rename files using date patterns from EXIF metadata.", "Umbenennen: Dateien per Datumsmuster aus EXIF-Metadaten stapelweise umbenennen."],
       "Face Timeline": ["Browse all photos of a person chronologically", "Alle Fotos einer Person chronologisch durchsuchen"],
       "History": ["View recent activity and undo actions", "Letzte Aktivitäten anzeigen und Aktionen rückgängig machen"],
       "About": ["About Media Manager", "Über Media Manager"],
@@ -241,7 +238,7 @@ export function AppSidebar() {
                         <SidebarMenuButton
                           isActive={isActive}
                           onClick={() => navigate(item.path)}
-                          className={isActive ? "bg-primary/10 text-primary hover:bg-primary/20" : ""}
+                          className={isActive ? "border-l-2 border-primary bg-primary/5 text-primary hover:bg-primary/10" : ""}
                         >
                           <item.icon />
                           <span>{sidebarLabel(item.label)}</span>

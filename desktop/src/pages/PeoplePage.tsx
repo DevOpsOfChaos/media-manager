@@ -15,6 +15,7 @@ import { toast } from "@/lib/toast"
  import { Users, Pencil, UserPlus, ArrowLeft, X, Check, ImageOff, GitMerge, MoreHorizontal, EyeOff, Zap, FolderOpen } from "lucide-react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { FaceReviewSwiper } from "@/components/shared/FaceReviewSwiper"
+import { useFirstRunHint } from "@/lib/use-first-run-hint"
 
 
 
@@ -57,6 +58,7 @@ function friendlyPeopleError(err: unknown): string {
   const [_lastScanTime, setLastScanTime] = useState<string | null>(null)
   const [_scanStatus, setScanStatus] = useState<any>(null)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [showHint, dismissHint] = useFirstRunHint("people")
 
   // Detail view
   const [selectedPerson, setSelectedPerson] = useState<PersonEntry | null>(null)
@@ -252,6 +254,13 @@ function friendlyPeopleError(err: unknown): string {
             </Button>
           )}
         </PageHeader>
+        {showHint && (
+          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 mb-4 mx-6 text-sm">
+            <p>{t("Scan your photos for faces, review results, and group them by person.", "Scanne deine Fotos nach Gesichtern, überprüfe die Ergebnisse und gruppiere sie nach Person.")}</p>
+            <button onClick={dismissHint}
+              className="text-xs text-blue-500 dark:text-blue-400 mt-1 hover:underline">{t("Got it", "Verstanden")}</button>
+          </div>
+        )}
         <main className="flex flex-1 gap-4 p-6">
           <div className="flex-1 max-w-5xl mx-auto space-y-6">
 

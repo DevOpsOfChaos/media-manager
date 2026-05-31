@@ -5,7 +5,7 @@ export function HealthIndicator({ score, issues }: { score: number; issues: numb
   return (
     <Tooltip>
       <TooltipTrigger>
-        <div className={`flex items-center gap-1 text-xs ${score >= 90 ? 'text-green-500' : score >= 70 ? 'text-amber-500' : 'text-red-500'}`}>
+        <div className={`flex items-center gap-1 text-xs ${score >= 90 ? 'text-green-500 dark:text-green-400' : score >= 70 ? 'text-amber-500 dark:text-amber-400' : 'text-red-500 dark:text-red-400'}`}>
           <Activity className="h-3 w-3" />
           {issues > 0 && <span>{issues}</span>}
         </div>

@@ -10,6 +10,7 @@ import { useProgress } from "@/lib/progress-context"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { useFirstRunHint } from "@/lib/use-first-run-hint"
 
 import { loadFavorite, saveFavorite, hasFavorite } from "@/lib/favorites-store"
 import { Plus, FolderOpen, Loader2, ImageOff, ChevronRight, Star, Map as MapIcon } from "lucide-react"
@@ -83,6 +84,7 @@ export default function TripPage() {
   const [createError, setCreateError] = useState<string | null>(null)
 
   const [isFavorite, setIsFavorite] = useState(() => hasFavorite("trip"))
+  const [showHint, dismissHint] = useFirstRunHint("trip")
 
   useEffect(() => {
     const fav = loadFavorite("trip")
@@ -164,6 +166,13 @@ export default function TripPage() {
           <Plus className="w-4 h-4 mr-1" /> {t("New Trip", "Neue Reise")}
         </Button>
       </PageHeader>
+      {showHint && (
+        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 text-sm">
+          <p>{t("Create trip collections from your organized photos using date ranges. Each trip gets its own folder with hardlinks.", "Erstelle Reisesammlungen aus deinen organisierten Fotos mit Datumsbereichen. Jede Reise bekommt einen eigenen Ordner mit Hardlinks.")}</p>
+          <button onClick={dismissHint}
+            className="text-xs text-blue-500 dark:text-blue-400 mt-1 hover:underline">{t("Got it", "Verstanden")}</button>
+        </div>
+      )}
 
       <div className="flex items-center gap-2">
         <Input value={tripsRoot} onChange={e => { setTripsRoot(e.target.value); localStorage.setItem("trips_root", e.target.value) }} placeholder={t("Trips root directory (e.g. C:\\Trips)", "Reise-Stammverzeichnis (z.B. C:\\Reisen)")} className="text-xs w-64" />

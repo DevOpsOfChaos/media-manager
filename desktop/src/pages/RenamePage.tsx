@@ -4,14 +4,17 @@ import { useT } from "@/lib/i18n"
 import { useSimulatedProgress } from "@/lib/use-simulated-progress"
 import { useProgress } from "@/lib/progress-context"
 import { renamePreview, renameApply, type RenamePreviewResponse, type RenameApplyResponse } from "@/lib/tauri-bridge"
-import { userFriendlyError } from "@/lib/error-utils"
+import { userFriendlyError, type FriendlyError } from "@/lib/error-utils"
+import { useFirstRunHint } from "@/lib/use-first-run-hint"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { FolderOpen, Play, Check, ChevronRight, ChevronLeft, Loader2, Heart, Coffee, RotateCcw, Zap } from "lucide-react"
+import { FolderOpen, Play, Check, ChevronRight, ChevronLeft, Loader2, Heart, Coffee, RotateCcw, Zap, ArrowRight } from "lucide-react"
 import { ProgressBlock } from "@/components/shared/ProgressBlock"
+import { ErrorBanner } from "@/components/shared/ErrorBanner"
+import { StepIndicator } from "@/components/shared/StepIndicator"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useRealProgress } from "@/lib/use-real-progress"
 
@@ -56,9 +59,10 @@ export default function RenamePage() {
   const [preview, setPreview] = useState<RenamePreviewResponse | null>(null)
   const [result, setResult] = useState<RenameApplyResponse | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<FriendlyError | null>(null)
   const [skipPreview, setSkipPreview] = useState(false)
   const [confirmDirect, setConfirmDirect] = useState(false)
+  const [showHint, dismissHint] = useFirstRunHint("rename")
 
   const RENAME_PHASES = [
     { nameEn: "Phase 1/3 — Loading settings", nameDe: "Phase 1/3 — Einstellungen laden", endAt: 30, increment: 1 },
@@ -80,7 +84,7 @@ export default function RenamePage() {
 
   const runPreview = async () => {
     if (!sourceDir) {
-      setError(t("Source directory required", "Quellverzeichnis erforderlich"))
+      setError({ message: t("Source directory required", "Quellverzeichnis erforderlich"), suggestion: null })
       return
     }
     setLoading(true); setError(null); setPreview(null)
@@ -147,7 +151,19 @@ export default function RenamePage() {
     return (
       <>
         <PageHeader title={t("Rename Files", "Dateien umbenennen")} />
+        {showHint && (
+          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 mb-4 mx-6 text-sm">
+            <p>{t("Choose a source folder, a rename pattern, and preview the changes before applying.", "Wähle einen Quellordner, ein Umbenennungsmuster und sieh dir die Änderungen in der Vorschau an bevor du sie ausführst.")}</p>
+            <button onClick={dismissHint}
+              className="text-xs text-blue-500 dark:text-blue-400 mt-1 hover:underline">{t("Got it", "Verstanden")}</button>
+          </div>
+        )}
         <main className="max-w-5xl mx-auto p-6 space-y-6">
+          <StepIndicator steps={[
+            { id: 'settings', label: t('Settings', 'Einstellungen'), active: true },
+            { id: 'preview', label: t('Preview', 'Vorschau') },
+            { id: 'execute', label: t('Execute', 'Ausführen') },
+          ]} />
           {/* Source */}
           <Card>
             <CardHeader><CardTitle>{t("1. Source", "1. Quelle")}</CardTitle></CardHeader>
@@ -224,7 +240,7 @@ export default function RenamePage() {
             </CardContent>
           </Card>
 
-          {error && <p role="alert" className="text-sm text-red-500 dark:text-red-400">{error}</p>}
+          {error && <ErrorBanner message={error.message} suggestion={error.suggestion} />}
 
           {loading && (
             <ProgressBlock
@@ -244,6 +260,11 @@ export default function RenamePage() {
               <p className="text-muted-foreground">{t("Use with caution. No confirmation before execution.", "Mit Vorsicht nutzen. Keine Bestätigung vor Ausführung.")}</p>
             </div>
           </label>
+
+          <div className="text-xs text-muted-foreground text-center mt-4">
+            <ArrowRight className="h-3 w-3 inline mr-1" />
+            {t("Next: Preview will show you exactly which files go where before anything is changed.", "Nächster Schritt: Die Vorschau zeigt genau, welche Dateien wohin kommen, bevor etwas geändert wird.")}
+          </div>
 
           <Button onClick={async () => {
             if (skipPreview) {
@@ -290,6 +311,11 @@ export default function RenamePage() {
           </Button>
         </PageHeader>
         <main className="max-w-5xl mx-auto p-6 space-y-4">
+          <StepIndicator steps={[
+            { id: 'settings', label: t('Settings', 'Einstellungen'), done: true },
+            { id: 'preview', label: t('Preview', 'Vorschau'), active: true },
+            { id: 'execute', label: t('Execute', 'Ausführen') },
+          ]} />
           {/* Stats */}
           <div className="grid grid-cols-4 gap-2">
             <Card className="text-center p-3"><p className="text-xl font-bold text-green-600 dark:text-green-400">{preview.planned_count.toLocaleString()}</p><p className="text-xs text-muted-foreground">{t("Planned", "Geplant")}</p></Card>
@@ -320,7 +346,7 @@ export default function RenamePage() {
             </Card>
           )}
 
-          {error && <p role="alert" className="text-sm text-red-500 dark:text-red-400">{error}</p>}
+          {error && <ErrorBanner message={error.message} suggestion={error.suggestion} />}
 
           <Button onClick={runApply} disabled={loading || preview.planned_count === 0} className="w-full" size="lg" variant="default">
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
@@ -337,6 +363,11 @@ export default function RenamePage() {
       <>
         <PageHeader title={t("Complete!", "Fertig!")} />
         <main className="max-w-5xl mx-auto p-6 space-y-6 text-center">
+          <StepIndicator steps={[
+            { id: 'settings', label: t('Settings', 'Einstellungen'), done: true },
+            { id: 'preview', label: t('Preview', 'Vorschau'), done: true },
+            { id: 'execute', label: t('Execute', 'Ausführen'), active: true },
+          ]} />
           {/* Success */}
           <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center mx-auto">
             <Check className="h-10 w-10 text-green-600 dark:text-green-400" />

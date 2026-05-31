@@ -12,7 +12,7 @@ export function ToastContainer() {
   return (
     <div className="fixed bottom-4 right-4 z-50 space-y-2">
       {toasts.map(t => (
-        <div key={t.id} className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow-lg text-sm animate-in slide-in-from-right ${
+        <div key={t.id} className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow-lg text-sm animate-in slide-in-from-right fade-in duration-300 ${
           t.type === "success" ? "bg-green-600 text-white" :
           t.type === "error" ? "bg-red-600 text-white" :
           "bg-blue-600 text-white"

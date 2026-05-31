@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react"
 import { useT } from "@/lib/i18n"
 import { userFriendlyError } from "@/lib/error-utils"
+import { useFirstRunHint } from "@/lib/use-first-run-hint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,6 +31,7 @@ export default function WorkflowRunnerPage() {
   const [error, setError] = useState<string | null>(null)
   const [includePeople, setIncludePeople] = useState(false)
   const [includeTrip, setIncludeTrip] = useState(false)
+  const [showHint, dismissHint] = useFirstRunHint("workflow")
 
   const browseDir = useCallback(async (setter: (v: string) => void) => {
     try {
@@ -87,7 +89,7 @@ export default function WorkflowRunnerPage() {
         updateStep("organize", { status: "skipped", summary: t("No files to organize", "Keine Dateien zum Organisieren") })
       }
     } catch (e) {
-      updateStep("organize", { status: "error", summary: userFriendlyError(e) })
+      updateStep("organize", { status: "error", summary: userFriendlyError(e).message })
       setRunning(false)
       return
     }
@@ -125,7 +127,7 @@ export default function WorkflowRunnerPage() {
         updateStep("duplicates", { status: "skipped", summary: t("No duplicates found", "Keine Duplikate gefunden") })
       }
     } catch (e) {
-      updateStep("duplicates", { status: "error", summary: userFriendlyError(e) })
+      updateStep("duplicates", { status: "error", summary: userFriendlyError(e).message })
     }
 
     // Step 4: Leftovers
@@ -155,7 +157,7 @@ export default function WorkflowRunnerPage() {
         await peopleScan({ source_dirs: [targetDir], incremental: false, force_full: true })
         updateStep("people", { status: "done", summary: t("Face scan complete", "Gesichtsscan abgeschlossen") })
       } catch (e) {
-        updateStep("people", { status: "error", summary: userFriendlyError(e) })
+        updateStep("people", { status: "error", summary: userFriendlyError(e).message })
       }
     }
 
@@ -173,7 +175,7 @@ export default function WorkflowRunnerPage() {
         })
         updateStep("trip", { status: "done", summary: t("Trip created", "Reise erstellt") })
       } catch (e) {
-        updateStep("trip", { status: "error", summary: userFriendlyError(e) })
+        updateStep("trip", { status: "error", summary: userFriendlyError(e).message })
       }
     }
 
@@ -207,6 +209,13 @@ export default function WorkflowRunnerPage() {
         title={t("Workflow Runner", "Workflow-Ausführung")}
         subtitle={t("Run organize → duplicates → leftovers in sequence.", "Führen Sie Organisieren → Duplikate → Überreste in Folge aus.")}
       />
+      {showHint && (
+        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 mb-4 text-sm">
+          <p>{t("Run the full pipeline: organize files, find duplicates, and consolidate leftovers — all in one go.", "Führe die gesamte Pipeline aus: Dateien organisieren, Duplikate finden und Überreste konsolidieren — alles in einem Durchgang.")}</p>
+          <button onClick={dismissHint}
+            className="text-xs text-blue-500 dark:text-blue-400 mt-1 hover:underline">{t("Got it", "Verstanden")}</button>
+        </div>
+      )}
 
       <Card>
         <CardHeader><CardTitle className="text-base">{t("Source & Target", "Quelle & Ziel")}</CardTitle></CardHeader>

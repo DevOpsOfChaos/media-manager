@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo, memo } from "react"
 import { useNavigate } from "react-router-dom"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { useT } from "@/lib/i18n"
+import { useFirstRunHint } from "@/lib/use-first-run-hint"
 import { toast } from "@/lib/toast"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
@@ -293,6 +294,7 @@ export default function LibraryPage() {
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<LibraryBrowsePaginatedResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showHint, dismissHint] = useFirstRunHint("library")
   const [filter, setFilter] = useState("")
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(48)
@@ -768,6 +770,13 @@ export default function LibraryPage() {
         title={t("Library", "Bibliothek")}
         subtitle={t("Browse your media files with actions.", "Medien durchsuchen mit Aktionen.")}
       />
+      {showHint && (
+        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 mb-4 mx-6 text-sm">
+          <p>{t("Browse, filter, rate, and manage your organized media files. Search, sort, and tag to keep your library tidy.", "Durchstöbere, filtere, bewerte und verwalte deine organisierten Mediendateien. Suche, sortiere und tagge, um deine Bibliothek sauber zu halten.")}</p>
+          <button onClick={dismissHint}
+            className="text-xs text-blue-500 dark:text-blue-400 mt-1 hover:underline">{t("Got it", "Verstanden")}</button>
+        </div>
+      )}
       <main
         className="flex flex-1 gap-4 p-6"
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
