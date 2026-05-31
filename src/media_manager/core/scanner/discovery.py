@@ -235,12 +235,18 @@ def _scan_summary_from_streaming(options: ScanOptions) -> ScanSummary:
             summary.missing_sources.append(source_root)
             continue
 
+        source_files: list[ScannedFile] = []
         for sf in scan_media_sources_streaming(
             (source_root,),
             extensions=media_extensions,
             max_depth=max_depth,
         ):
-            summary.files.append(sf)
+            source_files.append(sf)
+        source_files.sort(key=lambda item: (
+            str(item.source_root).lower(),
+            str(item.relative_path).lower(),
+        ))
+        summary.files.extend(source_files)
+        del source_files
 
-    summary.files.sort(key=lambda item: (str(item.source_root).lower(), str(item.relative_path).lower()))
     return summary

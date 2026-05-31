@@ -9,6 +9,7 @@ MAX_SCAN_DEPTH = 3
 DEFAULT_BATCH_SIZE = 1000
 LARGE_LIBRARY_THRESHOLD = 100_000
 LARGE_BATCH_SIZE = 5000
+PLANNER_CHUNK_SIZE = 10000
 
 # ── Duplicates ───────────────────────────────────────────────────────
 SAMPLE_SIZE = 64 * 1024

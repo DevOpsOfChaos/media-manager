@@ -12,6 +12,7 @@ from media_manager.constants import SAMPLE_SIZE, HASH_CHUNK_SIZE
 
 from .core.path_filters import path_is_included_by_patterns
 from .core.perf_timer import timer
+from .core.progress_tracker import SimpleProgressTracker
 from .media_formats import media_kind_for_extension, normalize_extensions
 from .sorter import iter_media_files
 from .exiftool import read_exiftool_metadata_batch
@@ -534,15 +535,14 @@ def _scan_exact_duplicates_impl(
     else:
         _emit_progress(progress_callback, f"No exact duplicates found. Errors: {result.errors}")
     return result
-
-
 def scan_exact_duplicates_fast(
     config: DuplicateScanConfig,
     progress_callback: ProgressCallback | None = None,
     early_group_callback: Callable[[ExactDuplicateGroup], None] | None = None,
+    tracker: "SimpleProgressTracker | None" = None,
 ) -> DuplicateScanResult:
     with timer("scan_exact_duplicates_fast", _logger):
-        return _scan_exact_duplicates_fast_impl(config, progress_callback, early_group_callback=early_group_callback)
+        return _scan_exact_duplicates_fast_impl(config, progress_callback, early_group_callback=early_group_callback, tracker=tracker)
 
 
 def _scan_exact_duplicates_fast_impl(
@@ -550,6 +550,7 @@ def _scan_exact_duplicates_fast_impl(
     progress_callback: ProgressCallback | None = None,
     *,
     early_group_callback: Callable[[ExactDuplicateGroup], None] | None = None,
+    tracker: "SimpleProgressTracker | None" = None,
 ) -> DuplicateScanResult:
     result = DuplicateScanResult()
 
@@ -567,12 +568,18 @@ def _scan_exact_duplicates_fast_impl(
         f"Found {result.scanned_files} media file(s): images={result.image_file_count}, raw={result.raw_image_file_count}, videos={result.video_file_count}, audio={result.audio_file_count}.",
     )
 
+    if tracker:
+        tracker.total = max(result.scanned_files * 4, 1)
+        tracker.update(0, stage="scanning", label=f"Found {result.scanned_files} files")
+
     if result.scanned_files == 0:
         _emit_progress(progress_callback, "No media files found.")
         return result
 
     # Stage 1/3 — Size-grouping
     _emit_progress(progress_callback, f"Stage 1/3 — Size grouping ({result.scanned_files} files)...")
+    if tracker:
+        tracker.update(result.scanned_files, stage="size_grouping", label="Size grouping")
     size_groups = _group_by_size(media_files, result)
     candidates: dict[int, list[Path]] = {size: paths for size, paths in size_groups.items() if len(paths) > 1}
 
@@ -625,6 +632,8 @@ def _scan_exact_duplicates_fast_impl(
 
     # Stage 3/3 — Sample fingerprint + hash + byte-compare on date-filtered candidates
     _emit_progress(progress_callback, f"Stage 3/3 — Sample fingerprint on {candidate_count} candidates...")
+    if tracker:
+        tracker.update(result.scanned_files * 2, stage="sampling", label=f"Sample fingerprinting {candidate_count} candidates")
 
     states: dict[Path, dict] = {}
     for paths in final_candidates.values():
@@ -659,6 +668,8 @@ def _scan_exact_duplicates_fast_impl(
 
     hash_count = 0
     total_hashes = len(states)
+    if tracker:
+        tracker.update(result.scanned_files * 3, stage="hashing", label=f"Hashing {total_hashes} files")
     for idx, (path, state) in enumerate(tuple(states.items())):
         try:
             state["hash"] = compute_full_hash(path, chunk_size=config.hash_chunk_size)

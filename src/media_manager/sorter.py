@@ -29,3 +29,18 @@ def iter_media_files(source_dirs: list[Path], *, media_extensions: set[str] | fr
             collected.append(file_path)
 
     return sorted(collected, key=lambda path: str(path).lower())
+
+
+def stream_media_files(source_dirs: list[Path], *, media_extensions: set[str] | frozenset[str] | None = None):
+    seen: set[Path] = set()
+    extension_filter = None if media_extensions is None else normalize_extensions(set(media_extensions))
+
+    for source_dir in source_dirs:
+        for file_path in source_dir.rglob("*"):
+            if not is_media_file(file_path, media_extensions=extension_filter):
+                continue
+            resolved = file_path.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            yield file_path

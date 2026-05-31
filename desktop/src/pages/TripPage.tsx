@@ -27,8 +27,12 @@ function TripDetailView({ trip, onBack }: { trip: TripEntry; onBack: () => void 
   const [loadingFiles, setLoadingFiles] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
     setLoadingFiles(true)
-    libraryBrowse({ root_dir: trip.path }).then(r => { setFiles(r.files); setLoadingFiles(false) }).catch(() => setLoadingFiles(false))
+    libraryBrowse({ root_dir: trip.path }).then(r => {
+      if (!cancelled) { setFiles(r.files); setLoadingFiles(false) }
+    }).catch(() => { if (!cancelled) setLoadingFiles(false) })
+    return () => { cancelled = true }
   }, [trip.path])
 
   return (

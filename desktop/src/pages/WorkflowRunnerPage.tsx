@@ -104,7 +104,7 @@ export default function WorkflowRunnerPage() {
       if (groups.length > 0) {
         const decisions: Record<string, string> = {}
         for (const g of groups) {
-          if (g.files.length > 1) {
+          if (g.files?.length > 1) {
             decisions[`${g.file_size}:${g.full_digest}`] = g.files[0]
           }
         }

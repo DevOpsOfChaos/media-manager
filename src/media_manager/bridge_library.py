@@ -178,8 +178,8 @@ def cmd_browse() -> int:
                     "category": cat,
                     "sidecars": [],
                 })
-    except Exception:
-        logger.exception("Browse: MediaCache load failed, falling back to directory scan")
+    except (OSError, ValueError, RuntimeError, ImportError):
+        logger.error("Browse: MediaCache load failed, falling back to directory scan")
 
     if not media_files:
         media_files = _scan_directory(root, max_depth, date_from, date_to, file_types)

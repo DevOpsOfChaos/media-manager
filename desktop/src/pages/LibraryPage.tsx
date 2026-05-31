@@ -451,12 +451,14 @@ export default function LibraryPage() {
   useEffect(() => {
     if (!data || loading) return
     loadPageData(page)
+    const timers: ReturnType<typeof setTimeout>[] = []
     if (page + 1 < (data.total_pages || 1)) {
-      setTimeout(() => loadPageData(page + 1), 200)
+      timers.push(setTimeout(() => loadPageData(page + 1), 200))
     }
     if (page - 1 >= 0) {
-      setTimeout(() => loadPageData(page - 1), 400)
+      timers.push(setTimeout(() => loadPageData(page - 1), 400))
     }
+    return () => { timers.forEach(clearTimeout) }
   }, [page])
 
   useEffect(() => {

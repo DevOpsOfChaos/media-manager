@@ -26,6 +26,8 @@ from media_manager.duplicates import (
 )
 
 from media_manager.bridge_base import fail as _fail
+from media_manager.core.progress_tracker import SimpleProgressTracker
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -80,12 +82,13 @@ def cmd_preview() -> int:
     try:
         logger.info("Starting duplicate scan preview: %d source dirs", len(config.source_dirs))
         use_fast = payload.get("fast", True)
+        tracker = SimpleProgressTracker()
         if use_fast:
-            result = scan_exact_duplicates_fast(config, progress_callback=_progress_to_stderr, early_group_callback=_emit_early_group)
+            result = scan_exact_duplicates_fast(config, progress_callback=_progress_to_stderr, early_group_callback=_emit_early_group, tracker=tracker)
         else:
             result = scan_exact_duplicates(config, progress_callback=_progress_to_stderr, early_group_callback=_emit_early_group)
-    except Exception as exc:
-        logger.exception("Duplicate scan preview failed")
+    except (OSError, ValueError, RuntimeError, TypeError, ImportError) as exc:
+        logger.error("Duplicate scan preview failed: %s", exc)
         return _fail(f"Duplicate scan failed: {exc}")
 
     output: dict = {

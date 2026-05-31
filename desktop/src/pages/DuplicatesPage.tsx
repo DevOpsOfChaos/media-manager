@@ -6,6 +6,7 @@ import { useT } from "@/lib/i18n"
 import { userFriendlyError } from "@/lib/error-utils"
 import { toast } from "@/lib/toast"
 import { useSimulatedProgress } from "@/lib/use-simulated-progress"
+import { useRealProgress } from "@/lib/use-real-progress"
 import { PageHeader } from "@/components/layout/PageHeader"
 import {
   Card,
@@ -121,6 +122,7 @@ export default function DuplicatesPage() {
   ]
   const { phase: scanPhase, progress: simulatedProgress, log: scanLog, start: startDupProgress, complete: completeDupProgress } = useSimulatedProgress(DUP_PHASES)
   const { phase: similarPhase, progress: similarProgress, log: similarLog, start: startSimilarProgress, complete: completeSimilarProgress } = useSimulatedProgress(SIMILAR_PHASES)
+  const { current: _realCurrent, total: realTotal, percent: realPct, stage: realStage, label: _realLabel, logLines: realLog, etaSeconds: realEta } = useRealProgress()
 
   const [isFavorite, setIsFavorite] = useState(() => hasFavorite("duplicates"))
 
@@ -361,7 +363,7 @@ export default function DuplicatesPage() {
       const groups = scanResult.exact_groups || []
       const decisions: Record<string, string> = {}
       for (const g of groups) {
-        if (g.files.length > 1) {
+        if (g.files?.length > 1) {
           decisions[`${g.file_size}:${g.full_digest}`] = g.files[0]
         }
       }
@@ -644,11 +646,23 @@ export default function DuplicatesPage() {
 
           {error && <ErrorBanner message={error} />}
 
-          {loading && tab === "similar" && (
-            <ProgressBlock phase={similarPhase} totalPhases={4} progress={similarProgress} log={similarLog} />
-          )}
           {loading && tab !== "similar" && (
-            <ProgressBlock phase={scanPhase} totalPhases={4} progress={simulatedProgress} log={scanLog} />
+            <ProgressBlock
+              phase={realTotal > 0 ? Math.floor(realPct / 25) + 1 : scanPhase}
+              totalPhases={4}
+              progress={realTotal > 0 ? realPct : simulatedProgress}
+              log={realLog.length > 0 ? realLog : scanLog}
+              stageLabel={realStage ? realStage.replace(/_/g, " ") : undefined}
+              etaText={realEta > 0 ? `ETA ${Math.round(realEta)}s` : undefined}
+            />
+          )}
+          {loading && tab === "similar" && (
+            <ProgressBlock
+              phase={similarPhase}
+              totalPhases={4}
+              progress={similarProgress}
+              log={similarLog}
+            />
           )}
 
           {loading && liveGroups.length > 0 && (

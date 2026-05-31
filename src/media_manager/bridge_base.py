@@ -28,6 +28,25 @@ def fail(message: str, exit_code: int = 1) -> int:
     return exit_code
 
 
+def emit_progress_json(current: int, total: int, stage: str = "", label: str = "") -> None:
+    """Write a progress JSON line to stderr for the Rust host to forward."""
+    import time
+    elapsed = 0.0
+    pct = round(current / max(total, 1) * 100, 1)
+    eta = 0.0
+    payload = {
+        "kind": "progress",
+        "current": current,
+        "total": total,
+        "percent": pct,
+        "stage": stage,
+        "label": label,
+        "eta_seconds": round(eta, 1),
+        "elapsed_seconds": round(elapsed, 1),
+    }
+    print(json.dumps(payload, ensure_ascii=False), file=sys.stderr, flush=True)
+
+
 def get_app_dir() -> Path:
     """Get the media-manager application data directory."""
     return Path(os.environ.get("MEDIA_MANAGER_HOME", Path.home() / ".media-manager")).resolve()

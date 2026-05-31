@@ -69,7 +69,8 @@ pub async fn organize_preview(app: tauri::AppHandle, options: Value) -> Result<V
     emit_progress(&app, "operation:started", "Organize Preview", None);
     let json = serde_json::to_string(&options)
         .map_err(|e| format!("Failed to serialize organize options: {e}"))?;
-    let (stdout_text, _stderr_text) = bridge()?.run_module_raw(
+    let (stdout_text, _stderr_text) = bridge()?.run_module_streaming(
+        &app,
         "bridge_organize_preview",
         "",
         &[],
@@ -125,7 +126,8 @@ pub async fn duplicates_scan(app: tauri::AppHandle, config: Value) -> Result<Val
     emit_progress(&app, "operation:started", "Duplicate Scan", None);
     let json = serde_json::to_string(&config)
         .map_err(|e| format!("Failed to serialize duplicates config: {e}"))?;
-    let (stdout_text, _stderr_text) = bridge()?.run_module_raw(
+    let (stdout_text, _stderr_text) = bridge()?.run_module_streaming(
+        &app,
         "bridge_duplicates_preview",
         "",
         &[],
@@ -191,9 +193,11 @@ pub async fn rename_preview(app: tauri::AppHandle, options: Value) -> Result<Val
     emit_progress(&app, "operation:started", "Rename Preview", None);
     let json = serde_json::to_string(&options)
         .map_err(|e| format!("Failed to serialize rename options: {e}"))?;
-    let result = bridge()?.run_module("bridge_rename", "preview", &[], Some(&json));
-    emit_completion(&app, "Rename Preview", &result);
-    result
+    let (stdout_text, _stderr_text) = bridge()?.run_module_streaming(&app, "bridge_rename", "preview", &[], Some(&json))?;
+    let result: Value = serde_json::from_str(stdout_text.trim())
+        .map_err(|e| format!("Failed to parse rename result: {e}"))?;
+    emit_completion(&app, "Rename Preview", &Ok(result.clone()));
+    Ok(result)
 }
 
 #[tauri::command]
@@ -213,9 +217,11 @@ pub async fn trip_preview(app: tauri::AppHandle, options: Value) -> Result<Value
     emit_progress(&app, "operation:started", "Trip Preview", None);
     let json = serde_json::to_string(&options)
         .map_err(|e| format!("Failed to serialize: {e}"))?;
-    let result = bridge()?.run_module("bridge_trip", "preview", &[], Some(&json));
-    emit_completion(&app, "Trip Preview", &result);
-    result
+    let (stdout_text, _stderr_text) = bridge()?.run_module_streaming(&app, "bridge_trip", "preview", &[], Some(&json))?;
+    let result: Value = serde_json::from_str(stdout_text.trim())
+        .map_err(|e| format!("Failed to parse trip result: {e}"))?;
+    emit_completion(&app, "Trip Preview", &Ok(result.clone()));
+    Ok(result)
 }
 
 #[tauri::command]
@@ -261,9 +267,11 @@ pub async fn people_scan(app: tauri::AppHandle, config: Value) -> Result<Value, 
     emit_progress(&app, "operation:started", "Face Scan", None);
     let json = serde_json::to_string(&config)
         .map_err(|e| format!("Failed to serialize: {e}"))?;
-    let result = bridge()?.run_module("bridge_people", "scan", &[], Some(&json));
-    emit_completion(&app, "Face Scan", &result);
-    result
+    let (stdout_text, _stderr_text) = bridge()?.run_module_streaming(&app, "bridge_people", "scan", &[], Some(&json))?;
+    let result: Value = serde_json::from_str(stdout_text.trim())
+        .map_err(|e| format!("Failed to parse scan result: {e}"))?;
+    emit_completion(&app, "Face Scan", &Ok(result.clone()));
+    Ok(result)
 }
 
 #[tauri::command]
@@ -416,9 +424,11 @@ pub async fn doctor_check(app: tauri::AppHandle, options: Value) -> Result<Value
     emit_progress(&app, "operation:started", "Preflight Check", None);
     let json = serde_json::to_string(&options)
         .map_err(|e| format!("Failed to serialize: {e}"))?;
-    let result = bridge()?.run_module("bridge_doctor", "", &[], Some(&json));
-    emit_completion(&app, "Preflight Check", &result);
-    result
+    let (stdout_text, _stderr_text) = bridge()?.run_module_streaming(&app, "bridge_doctor", "", &[], Some(&json))?;
+    let result: Value = serde_json::from_str(stdout_text.trim())
+        .map_err(|e| format!("Failed to parse doctor result: {e}"))?;
+    emit_completion(&app, "Preflight Check", &Ok(result.clone()));
+    Ok(result)
 }
 
 // ── Library ──

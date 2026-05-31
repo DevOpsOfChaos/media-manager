@@ -73,7 +73,7 @@ def _get_system_diagnostics() -> dict:
     try:
         import multiprocessing
         info["cpu_count"] = multiprocessing.cpu_count()
-    except Exception:
+    except (ImportError, NotImplementedError, OSError, RuntimeError, ValueError):
         info["cpu_count"] = None
 
     try:
@@ -81,7 +81,7 @@ def _get_system_diagnostics() -> dict:
         usage = shutil.disk_usage(home)
         info["disk_free_gb"] = round(usage.free / (1024 ** 3), 1)
         info["disk_total_gb"] = round(usage.total / (1024 ** 3), 1)
-    except Exception:
+    except (OSError, RuntimeError, TypeError, ValueError):
         info["disk_free_gb"] = None
         info["disk_total_gb"] = None
 
@@ -96,7 +96,7 @@ def _get_exiftool_version(exiftool_path: str | None = None) -> str | None:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
             return result.stdout.strip()
-    except Exception:
+    except (OSError, subprocess.SubprocessError, RuntimeError, ValueError):
         pass
     return None
 

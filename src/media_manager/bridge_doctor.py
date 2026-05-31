@@ -50,8 +50,8 @@ def cmd_check() -> int:
 
     try:
         report = build_doctor_report(options)
-    except Exception as exc:
-        logger.exception("Doctor check failed")
+    except (OSError, ValueError, RuntimeError, TypeError, ImportError) as exc:
+        logger.error("Doctor check failed: %s", exc)
         return fail(f"Doctor check failed: {exc}")
 
     output: dict = {

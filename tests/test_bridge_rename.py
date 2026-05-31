@@ -16,7 +16,7 @@ def test_rename_preview_valid_input(tmp_path: Path, monkeypatch) -> None:
 
     monkeypatch.setattr(
         "media_manager.bridge_rename.build_rename_dry_run",
-        lambda options: type(
+        lambda options, **_: type(
             "FakeDryRun", (),
             {
                 "entries": [
@@ -102,7 +102,7 @@ def test_rename_apply_valid_input(tmp_path: Path, monkeypatch) -> None:
 
     monkeypatch.setattr(
         "media_manager.bridge_rename.build_rename_dry_run",
-        lambda options: type(
+        lambda options, **_: type(
             "FakeDryRun", (),
             {
                 "entries": [],

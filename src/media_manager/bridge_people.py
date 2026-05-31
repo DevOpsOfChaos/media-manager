@@ -19,21 +19,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from media_manager.core.people_recognition import (
-    DEFAULT_BACKEND,
-    DEFAULT_TOLERANCE,
-    PeopleScanConfig,
-    PeopleScanResult,
-    SUPPORTED_FACE_IMAGE_EXTENSIONS,
-    load_people_catalog,
-    write_people_catalog,
-    rename_person_in_catalog,
-    add_person_to_catalog,
-    add_embedding_to_person,
-    scan_people,
-)
-
-from media_manager.bridge_base import emit as _emit, fail as _fail, get_app_dir as _get_app_dir, validate_app_path as _validate_app_path
+from media_manager.bridge_base import emit as _emit, fail as _fail, get_app_dir as _get_app_dir, validate_app_path as _validate_app_path, emit_progress_json
+from media_manager.core.progress_tracker import SimpleProgressTracker
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +114,14 @@ def cmd_scan() -> int:
     except json.JSONDecodeError as exc:
         return _fail(f"Invalid JSON: {exc}")
 
+    from media_manager.core.people_recognition import (
+        DEFAULT_BACKEND,
+        DEFAULT_TOLERANCE,
+        PeopleScanConfig,
+        SUPPORTED_FACE_IMAGE_EXTENSIONS,
+        scan_people,
+    )
+
     source_dirs_raw = payload.get("source_dirs", [])
     if not source_dirs_raw:
         return _fail("source_dirs is required.")
@@ -190,9 +185,10 @@ def cmd_scan() -> int:
         )
         def _on_progress(current: int, total: int) -> None:
             _progress_to_stderr(f"Scanning faces: {current}/{total} ({current * 100 // max(total, 1)}%)")
+            emit_progress_json(current, total, stage="scanning_faces")
         result = scan_people(options, progress_callback=_on_progress)
-    except Exception as exc:
-        logger.exception("People scan failed")
+    except (OSError, ValueError, RuntimeError, TypeError, ImportError) as exc:
+        logger.error("People scan failed: %s", exc)
         _save_cache(cp, cache)
         return _fail(f"Scan failed: {exc}")
 
@@ -266,6 +262,7 @@ def cmd_catalog_info() -> int:
     catalog_path = _validate_app_path(Path(catalog_path_raw))
 
     try:
+        from media_manager.core.people_recognition import load_people_catalog
         catalog = load_people_catalog(catalog_path, load_embeddings=False)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         logger.exception("Catalog load failed: %s", catalog_path)
@@ -296,6 +293,7 @@ def cmd_catalog_list() -> int:
     catalog_path = _validate_app_path(Path(catalog_path_raw))
 
     try:
+        from media_manager.core.people_recognition import load_people_catalog
         catalog = load_people_catalog(catalog_path, load_embeddings=False)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         logger.exception("Catalog list load failed: %s", catalog_path)
@@ -339,9 +337,8 @@ def cmd_person_rename() -> int:
         return _fail("person_id and name are required")
 
     try:
+        from media_manager.core.people_recognition import load_people_catalog, rename_person_in_catalog, write_people_catalog
         catalog = load_people_catalog(catalog_path, load_embeddings=False)
-        rename_person_in_catalog(catalog, person_id=person_id, name=new_name)
-        write_people_catalog(catalog_path, catalog)
     except (OSError, json.JSONDecodeError, ValueError, KeyError) as exc:
         logger.exception("Person rename failed: %s -> %s", person_id, new_name)
         return _fail(f"Rename failed: {exc}")
@@ -367,6 +364,7 @@ def cmd_person_create() -> int:
         return _fail("name is required")
 
     try:
+        from media_manager.core.people_recognition import load_people_catalog, add_person_to_catalog, write_people_catalog
         catalog = load_people_catalog(catalog_path, load_embeddings=False)
         person = add_person_to_catalog(catalog, name=name, aliases=payload.get("aliases", []))
         write_people_catalog(catalog_path, catalog)
@@ -400,6 +398,7 @@ def cmd_person_reassign() -> int:
         return _fail("source_path and from_person_id required")
 
     try:
+        from media_manager.core.people_recognition import load_people_catalog
         catalog = load_people_catalog(catalog_path, load_embeddings=True)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         logger.exception("Catalog load failed for reassign: %s", catalog_path)
@@ -421,6 +420,8 @@ def cmd_person_reassign() -> int:
         return _fail(f"Face not found: {source_path}#{face_index}")
 
     from_person.embeddings = new_embeddings
+
+    from media_manager.core.people_recognition import add_person_to_catalog, add_embedding_to_person, write_people_catalog
 
     if to_person_id and to_person_id in catalog.persons:
         target_person = catalog.persons[to_person_id]
@@ -473,6 +474,7 @@ def cmd_person_merge() -> int:
         return _fail("Cannot merge a person into itself")
 
     try:
+        from media_manager.core.people_recognition import load_people_catalog, write_people_catalog
         catalog = load_people_catalog(catalog_path, load_embeddings=True)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         logger.exception("Failed to load catalog for merge: %s", catalog_path)

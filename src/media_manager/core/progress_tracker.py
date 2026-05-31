@@ -1,9 +1,10 @@
 """Shared progress tracker — usable by CLI (console output) and GUI (progress bar)."""
 from __future__ import annotations
 
+import json
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable
 
 
@@ -142,6 +143,88 @@ class ProgressTracker:
             ProgressPhase("cleaning_up",     95, 98),
             ProgressPhase("done",            98, 100),
         ])
+
+
+# ── Simple dataclass-based progress tracker for bridge/streaming use ──
+
+
+@dataclass(slots=True)
+class SimpleProgressTracker:
+    """Lightweight progress tracker for bridge subprocesses.
+
+    Each scanner updates `current` and `stage`.  On each update the tracker
+    writes a JSON line to *stderr* so the Rust host can emit real-time
+    progress events.
+
+    Usage:
+        tracker = SimpleProgressTracker(total=len(files))
+        for i, f in enumerate(files):
+            tracker.update(i + 1, stage="hashing")
+    """
+
+    current: int = 0
+    total: int = 0
+    stage: str = ""
+    start_time: float = field(default_factory=time.perf_counter)
+    _last_emit: float = field(default=0.0)
+    _throttle_ms: int = field(default=80)
+    _label: str = field(default="")
+
+    @property
+    def percent(self) -> float:
+        return self.current / max(self.total, 1) * 100
+
+    @property
+    def eta_seconds(self) -> float:
+        elapsed = time.perf_counter() - self.start_time
+        rate = self.current / max(elapsed, 0.1)
+        return max(0, (self.total - self.current) / max(rate, 0.1))
+
+    @property
+    def elapsed_seconds(self) -> float:
+        return time.perf_counter() - self.start_time
+
+    def update(self, current: int, stage: str = "", *, label: str = "", emit: bool = True) -> None:
+        self.current = current
+        if stage:
+            self.stage = stage
+        if label:
+            self._label = label
+        if emit:
+            self._emit_to_stderr()
+
+    def enter_phase(self, name: str, message: str = "") -> None:
+        """Compatibility alias — updates stage and label."""
+        self.update(self.current, stage=name, label=message, emit=True)
+
+    def tick_count(self, done: int, total: int, message: str = "") -> None:
+        """Compatibility alias — updates current/total with a label."""
+        self.total = max(self.total, total)
+        self.update(done, label=message, emit=True)
+
+    def done(self, message: str = "") -> None:
+        """Compatibility alias — sets current = total."""
+        self.total = max(self.total, 1)
+        self.update(self.total, stage="done", label=message, emit=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "kind": "progress",
+            "current": self.current,
+            "total": self.total,
+            "percent": round(self.percent, 1),
+            "stage": self.stage,
+            "label": self._label,
+            "eta_seconds": round(self.eta_seconds, 1),
+            "elapsed_seconds": round(self.elapsed_seconds, 1),
+        }
+
+    def _emit_to_stderr(self) -> None:
+        now = time.perf_counter()
+        if self._last_emit > 0 and self.current < self.total and (now - self._last_emit) < (self._throttle_ms / 1000.0):
+            return
+        self._last_emit = now
+        print(json.dumps(self.to_dict(), ensure_ascii=False), file=sys.stderr, flush=True)
 
 
 # ── console (CLI) progress display ──

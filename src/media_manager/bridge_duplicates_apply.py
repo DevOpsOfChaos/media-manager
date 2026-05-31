@@ -58,8 +58,8 @@ def cmd_apply() -> int:
     try:
         logger.info("Starting duplicate scan: %d source dirs", len(config.source_dirs))
         scan_result = scan_exact_duplicates(config)
-    except Exception as exc:
-        logger.exception("Duplicate scan failed")
+    except (OSError, ValueError, RuntimeError, TypeError, ImportError) as exc:
+        logger.error("Duplicate scan failed: %s", exc)
         return _fail(f"Duplicate scan failed: {exc}")
 
     # Build workflow bundle with decisions
@@ -70,16 +70,16 @@ def cmd_apply() -> int:
             operation_mode=mode,
             target_root=Path(target_root) if target_root else None,
         )
-    except Exception as exc:
-        logger.exception("Duplicate workflow build failed")
+    except (OSError, ValueError, RuntimeError, TypeError) as exc:
+        logger.error("Duplicate workflow build failed: %s", exc)
         return _fail(f"Workflow build failed: {exc}")
 
     # Execute
     try:
         logger.info("Starting duplicate workflow execution")
         result = execute_duplicate_workflow_bundle(bundle, apply=True)
-    except Exception as exc:
-        logger.exception("Duplicate execution failed")
+    except (OSError, ValueError, RuntimeError, TypeError) as exc:
+        logger.error("Duplicate execution failed: %s", exc)
         return _fail(f"Execution failed: {exc}")
 
     # Build journal entries

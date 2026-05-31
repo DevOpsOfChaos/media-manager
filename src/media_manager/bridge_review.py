@@ -70,8 +70,8 @@ def cmd_save_session() -> int:
     try:
         session_path.parent.mkdir(parents=True, exist_ok=True)
         session_path.write_text(json.dumps(session_data, indent=2, ensure_ascii=False), encoding="utf-8")
-    except Exception as exc:
-        logger.exception("Review: failed to save session")
+    except (OSError, ValueError) as exc:
+        logger.error("Review: failed to save session: %s", exc)
         return _fail(f"Failed to write session: {exc}")
 
     _emit({"status": "saved", "path": str(session_path), "decision_count": len(decisions)})
@@ -96,8 +96,8 @@ def cmd_load_session() -> int:
 
     try:
         session_data = json.loads(session_path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        logger.exception("Review: failed to load session")
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        logger.error("Review: failed to load session: %s", exc)
         return _fail(f"Failed to read session: {exc}")
 
     _emit(session_data)

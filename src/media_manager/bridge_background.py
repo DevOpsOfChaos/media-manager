@@ -34,7 +34,8 @@ def cmd_check() -> int:
         result = scan_incremental(source_dirs, state_path)
         result["status"] = "ok"
         _emit(result)
-    except Exception as e:
+    except (OSError, ValueError, RuntimeError, TypeError) as e:
+        logger.error("Background scan failed: %s", e)
         return _fail(f"Scan failed: {e}")
     return 0
 

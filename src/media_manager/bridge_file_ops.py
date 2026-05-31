@@ -90,14 +90,14 @@ def cmd_delete() -> int:
         except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
             logger.error("File delete fallback failed: %s: %s", path, exc)
             return _fail(f"Could not delete file: {exc}")
-        except Exception as exc:
-            logger.exception("File delete unexpected error: %s", path)
+        except (ImportError, OSError, ValueError, RuntimeError) as exc:
+            logger.error("File delete unexpected error: %s: %s", path, exc)
             return _fail(f"Could not delete file: {exc}")
     except (OSError, RuntimeError) as exc:
         logger.error("File delete failed: %s: %s", path, exc)
         return _fail(f"Could not delete file: {exc}")
-    except Exception as exc:
-        logger.exception("File delete unexpected error: %s", path)
+    except (ImportError, ValueError) as exc:
+        logger.error("File delete unexpected error: %s: %s", path, exc)
         return _fail(f"Could not delete file: {exc}")
 
 
@@ -163,8 +163,8 @@ def cmd_export() -> int:
     except (OSError, ValueError, RuntimeError) as exc:
         logger.error("File export failed: %s: %s", source, exc)
         return _fail(f"Export failed: {exc}")
-    except Exception as exc:
-        logger.exception("File export unexpected error: %s", source)
+    except ImportError as exc:
+        logger.error("File export unexpected error: %s: %s", source, exc)
         return _fail(f"Export failed: {exc}")
 
 
@@ -402,11 +402,8 @@ def cmd_backup() -> int:
         })
         logger.info("Backup complete: %s (%.1f MB)", backup_path, size_mb)
         return 0
-    except (OSError, ValueError, RuntimeError) as exc:
+    except (OSError, ValueError, RuntimeError, ImportError) as exc:
         logger.error("Backup failed: %s", exc)
-        return _fail(f"Backup failed: {exc}")
-    except Exception as exc:
-        logger.exception("Backup unexpected error")
         return _fail(f"Backup failed: {exc}")
 
 
@@ -455,11 +452,8 @@ def cmd_exif() -> int:
             },
         })
         return 0
-    except (OSError, RuntimeError) as exc:
+    except (OSError, RuntimeError, ValueError, ImportError) as exc:
         logger.error("EXIF read failed: %s: %s", path, exc)
-        return _fail(f"Could not read EXIF: {exc}")
-    except Exception as exc:
-        logger.exception("EXIF read unexpected error: %s", path)
         return _fail(f"Could not read EXIF: {exc}")
 
 
@@ -522,11 +516,8 @@ def cmd_watermark() -> int:
         return 0
     except ImportError:
         return _fail("Pillow required")
-    except (OSError, ValueError, RuntimeError) as exc:
+    except (OSError, ValueError, RuntimeError, ImportError) as exc:
         logger.error("Watermark failed: %s", exc)
-        return _fail(f"Watermark failed: {exc}")
-    except Exception as exc:
-        logger.exception("Watermark unexpected error")
         return _fail(f"Watermark failed: {exc}")
 
 

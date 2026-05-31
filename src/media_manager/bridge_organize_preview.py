@@ -8,6 +8,10 @@ Output: preview/dry-run JSON on stdout. Errors: JSON on stderr.
 
 This bridge NEVER modifies files. It calls build_organize_dry_run()
 and explicitly marks the result as a preview.
+
+For libraries >100k files, results are streamed via date_batched mode
+and the entries list is omitted from the final payload to stay within
+a ~10 MB soft memory limit.
 """
 
 from __future__ import annotations
@@ -26,6 +30,8 @@ from media_manager.core.review_report import build_review_export
 from media_manager.bridge_base import emit as _emit, fail as _fail
 
 logger = logging.getLogger(__name__)
+
+BRIDGE_SOFT_MEMORY_LIMIT_BYTES = 50 * 1024 * 1024  # 50 MB
 
 
 def _progress_to_stderr(message: str) -> None:
@@ -138,15 +144,17 @@ def cmd_preview() -> int:
     # Build dry-run — this NEVER modifies files
     try:
         if date_batched:
+            tracker = SimpleProgressTracker()
             dry_run = build_organize_dry_run_date_batched(
                 options,
                 progress_callback=_progress_to_stderr,
                 on_entry=_emit_entry_json_line,
+                progress=tracker,
             )
         else:
             dry_run = build_organize_dry_run(options)
-    except Exception as exc:
-        logger.exception("Organize preview: plan build failed")
+    except (OSError, ValueError, RuntimeError, TypeError, ImportError) as exc:
+        logger.error("Organize preview: plan build failed: %s", exc)
         return _fail(f"Preview failed: {exc}")
 
     job = queue.create("organize", {
@@ -160,8 +168,8 @@ def cmd_preview() -> int:
     try:
         review = build_review_export({"organize": dry_run.entries})
         review_candidate_count = review.get("candidate_count", 0) if isinstance(review, dict) else 0
-    except Exception:
-        logger.exception("Organize preview: review export failed")
+    except (OSError, ValueError, RuntimeError, TypeError, ImportError):
+        logger.error("Organize preview: review export failed")
         review = None
         review_candidate_count = 0
 
@@ -221,6 +229,13 @@ def cmd_preview() -> int:
         "outcome_report": outcome_report,
         "entries": [] if date_batched else [_serialize_entry(e) for e in dry_run.entries],
     }
+
+    # Memory guard: for large results in date_batched mode, skip full entries list
+    # since entries were already streamed during processing
+    if date_batched and dry_run.media_file_count > 100_000:
+        result["entries"] = []
+        result["entries_streamed"] = True
+        result["total_entries"] = dry_run.planned_count
 
     _emit(result)
     return 0

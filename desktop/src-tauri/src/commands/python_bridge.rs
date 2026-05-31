@@ -1,10 +1,11 @@
 use serde_json::Value;
 use std::collections::HashMap;
-use std::io::Write;
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::OnceLock;
 use std::time::Duration;
+use tauri::Emitter;
 /// Hardened Python discovery, env setup, and subprocess execution for
 /// calling `python -m media_manager.<module>` from Tauri commands.
 #[derive(Debug)]
@@ -330,9 +331,139 @@ impl PythonBridge {
 
         Err(last_error)
     }
-}
 
-// ── Python discovery ──
+    /// Run a Python bridge module with real-time progress event forwarding.
+    /// Reads stderr line-by-line; lines containing `"kind":"progress"` are emitted
+    /// as `operation:progress` events to the Tauri frontend.
+    pub fn run_module_streaming(
+        &self,
+        app: &tauri::AppHandle,
+        module: &str,
+        action: &str,
+        extra_args: &[&str],
+        stdin_json: Option<&str>,
+    ) -> Result<(String, String), String> {
+        let full_module = format!("media_manager.{module}");
+        let src_dir = self.project_root.join("src");
+
+        let mut env_vars: HashMap<String, String> =
+            std::env::vars().collect();
+
+        let separator = if cfg!(windows) { ";" } else { ":" };
+        let existing = env_vars.get("PYTHONPATH").cloned().unwrap_or_default();
+        let new_pythonpath = if existing.is_empty() {
+            src_dir.to_string_lossy().to_string()
+        } else {
+            format!("{}{separator}{existing}", src_dir.display())
+        };
+        env_vars.insert("PYTHONPATH".into(), new_pythonpath);
+
+        if let Some(ref sp) = self.settings_path {
+            env_vars.insert("MEDIA_MANAGER_SETTINGS_PATH".into(), sp.clone());
+        }
+
+        let mut args: Vec<String> = vec![
+            "-m".into(),
+            full_module,
+            action.into(),
+        ];
+        for a in extra_args {
+            args.push(a.to_string());
+        }
+
+        if let Some(ref sp) = self.settings_path {
+            args.push("--settings-path".into());
+            args.push(sp.clone());
+        }
+
+        let mut child = Command::new(&self.executable)
+            .args(&args)
+            .current_dir(&self.project_root)
+            .env_clear()
+            .envs(&env_vars)
+            .stdin(if stdin_json.is_some() {
+                Stdio::piped()
+            } else {
+                Stdio::null()
+            })
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| {
+                format!(
+                    "Failed to spawn Python ({}): {e}\n\
+                     Project root: {}\n\
+                     Hint: Set MEDIA_MANAGER_PYTHON to the correct python executable.",
+                    self.executable,
+                    self.project_root.display(),
+                )
+            })?;
+
+        if let Some(input) = stdin_json {
+            if let Some(mut stdin) = child.stdin.take() {
+                stdin
+                    .write_all(input.as_bytes())
+                    .map_err(|e| format!("Failed to write stdin: {e}"))?;
+            }
+        }
+
+        let stderr_reader = child.stderr.take()
+            .map(|s| BufReader::new(s));
+
+        if let Some(reader) = stderr_reader {
+            let app_handle = app.clone();
+            std::thread::spawn(move || {
+                for line in reader.lines() {
+                    if let Ok(line) = line {
+                        let trimmed = line.trim();
+                        if let Ok(val) = serde_json::from_str::<Value>(trimmed) {
+                            if val.get("kind").and_then(|v| v.as_str()) == Some("progress") {
+                                let _ = app_handle.emit("operation:progress", &val);
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        let output = child
+            .wait_with_output()
+            .map_err(|e| format!("Python process error: {e}"))?;
+
+        if !output.status.success() {
+            let stderr_text = String::from_utf8_lossy(&output.stderr)
+                .trim()
+                .to_string();
+            let detail = if stderr_text.is_empty() {
+                format!("exit code {}", output.status.code().unwrap_or(-1))
+            } else {
+                if let Ok(err_val) = serde_json::from_str::<Value>(&stderr_text) {
+                    err_val
+                        .get("error")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(&stderr_text)
+                        .to_string()
+                } else {
+                    stderr_text
+                }
+            };
+            return Err(format!(
+                "Python bridge error ({module} {action}): {detail}"
+            ));
+        }
+
+        let stdout_text = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr_text = String::from_utf8_lossy(&output.stderr).to_string();
+
+        if stdout_text.trim().is_empty() {
+            return Err(format!(
+                "Python bridge returned empty output ({module} {action})."
+            ));
+        }
+
+        Ok((stdout_text, stderr_text))
+    }
+}
 
 fn find_python() -> Result<String, String> {
     // 1. Explicit override

@@ -21,6 +21,11 @@ const RenamePage = lazy(() => import("./pages/RenamePage"))
 const FaceTimelinePage = lazy(() => import("./pages/FaceTimelinePage"))
 const AboutPage = lazy(() => import("./pages/AboutPage"))
 
+setTimeout(() => {
+  import("./pages/LibraryPage")
+  import("./pages/OrganizePage")
+}, 2000)
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <BrowserRouter>

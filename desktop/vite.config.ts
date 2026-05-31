@@ -41,6 +41,12 @@ export default defineConfig(async () => ({
     fs: { allow: [".."] },
   },
   build: {
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks: {

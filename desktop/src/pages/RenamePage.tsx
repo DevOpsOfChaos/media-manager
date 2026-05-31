@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { FolderOpen, Play, Check, ChevronRight, ChevronLeft, Loader2, Heart, Coffee, RotateCcw, Zap } from "lucide-react"
 import { ProgressBlock } from "@/components/shared/ProgressBlock"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useRealProgress } from "@/lib/use-real-progress"
 
 const STEPS = ["settings", "preview", "execute"] as const
 type Step = typeof STEPS[number]
@@ -65,6 +66,7 @@ export default function RenamePage() {
     { nameEn: "Phase 3/3 — Building plan", nameDe: "Phase 3/3 — Plan erstellen", endAt: 95, increment: 0.3 },
   ]
   const { phase: scanPhase, progress: simulatedProgress, log: scanLog, start: startRenameProgress, complete: completeRenameProgress } = useSimulatedProgress(RENAME_PHASES)
+  const { percent: realPct, stage: realStage, logLines: realLog, total: realTotal, etaSeconds: realEta } = useRealProgress()
 
   const browseDir = async () => {
     try {
@@ -225,7 +227,14 @@ export default function RenamePage() {
           {error && <p role="alert" className="text-sm text-red-500 dark:text-red-400">{error}</p>}
 
           {loading && (
-            <ProgressBlock phase={scanPhase} totalPhases={3} progress={simulatedProgress} log={scanLog} />
+            <ProgressBlock
+              phase={realTotal > 0 ? Math.floor(realPct / 34) + 1 : scanPhase}
+              totalPhases={3}
+              progress={realTotal > 0 ? realPct : simulatedProgress}
+              log={realLog.length > 0 ? realLog : scanLog}
+              stageLabel={realStage ? realStage.replace(/_/g, " ") : undefined}
+              etaText={realEta > 0 ? `ETA ${Math.round(realEta)}s` : undefined}
+            />
           )}
 
           <label className="flex items-center gap-2 text-xs cursor-pointer border rounded p-2 bg-muted/30">

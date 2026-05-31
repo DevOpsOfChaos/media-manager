@@ -23,11 +23,6 @@ from media_manager.constants import MAX_SIMILAR_IMAGES, MAX_SIMILAR_PAIRS
 
 logger = logging.getLogger(__name__)
 
-from media_manager.similar_images import (
-    SimilarImageScanConfig,
-    scan_similar_images,
-)
-
 
 def _serialize_member(member) -> dict:
     return {
@@ -72,12 +67,11 @@ def cmd_preview() -> int:
         max_images = MAX_SIMILAR_IMAGES
 
     # Guardrail: count image files before scanning
-    from media_manager.sorter import iter_media_files
+    from media_manager.sorter import stream_media_files
     from media_manager.media_formats import list_supported_similar_image_extensions
     supported = list_supported_similar_image_extensions()
     source_paths = [Path(p) for p in source_dirs_raw]
-    image_files = iter_media_files(source_paths, media_extensions=supported)
-    image_count = len(image_files)
+    image_count = sum(1 for _ in stream_media_files(source_paths, media_extensions=supported))
     # Estimate pair count: n*(n-1)/2
     estimated_pairs = image_count * (image_count - 1) // 2 if image_count > 1 else 0
 
@@ -124,6 +118,8 @@ def cmd_preview() -> int:
     if not isinstance(hash_sizes, list) or len(hash_sizes) == 0:
         hash_sizes = [8]
 
+    from media_manager.similar_images import SimilarImageScanConfig, scan_similar_images
+
     config = SimilarImageScanConfig(
         source_dirs=source_paths,
         hash_size=payload.get("hash_size", 8),
@@ -136,8 +132,8 @@ def cmd_preview() -> int:
     try:
         logger.info("Similar image scan: %d source dirs, %d image files", len(config.source_dirs), image_count)
         result = scan_similar_images(config, progress_callback=_progress_to_stderr)
-    except Exception as exc:
-        logger.exception("Similar image scan failed")
+    except (OSError, ValueError, RuntimeError, TypeError, ImportError) as exc:
+        logger.error("Similar image scan failed: %s", exc)
         return _fail(f"Similar image scan failed: {exc}")
 
     output: dict = {

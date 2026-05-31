@@ -42,8 +42,8 @@ def cmd_preview() -> int:
     try:
         logger.info("Starting undo preview: %s", journal_path)
         result = execute_undo_journal(journal_path, apply=False)
-    except Exception as exc:
-        logger.exception("Undo preview failed")
+    except (OSError, ValueError, RuntimeError, TypeError, ImportError) as exc:
+        logger.error("Undo preview failed: %s", exc)
         return _fail(f"Undo preview failed: {exc}")
 
     output: dict = {
@@ -96,8 +96,8 @@ def cmd_apply() -> int:
     try:
         logger.info("Starting undo apply: %s", journal_path)
         result = execute_undo_journal(journal_path, apply=True)
-    except Exception as exc:
-        logger.exception("Undo apply failed")
+    except (OSError, ValueError, RuntimeError, TypeError, ImportError) as exc:
+        logger.error("Undo apply failed: %s", exc)
         return _fail(f"Undo apply failed: {exc}")
 
     output: dict = {

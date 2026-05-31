@@ -15,6 +15,10 @@ from media_manager.core.scanner.models import ScannedFile
 
 from .models import RenameDryRun, RenameMemberTarget, RenamePlanEntry, RenamePlannerOptions
 from .templates import render_rename_filename
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from media_manager.core.progress_tracker import SimpleProgressTracker
 
 _ASSOCIATED_SIDECAR_EXTENSIONS = (".xmp", ".aae")
 
@@ -200,7 +204,8 @@ def _group_plan_entry(options: RenamePlannerOptions, group, scanned_index: dict[
     )
 
 
-def build_rename_dry_run(options: RenamePlannerOptions, progress_callback=None, cancel_event=None) -> RenameDryRun:
+def build_rename_dry_run(options: RenamePlannerOptions, progress_callback=None, cancel_event=None,
+                         tracker: "SimpleProgressTracker | None" = None) -> RenameDryRun:
     source_roots = [str(d) for d in options.source_dirs]
     scan_summary = None
     try:
@@ -238,6 +243,10 @@ def build_rename_dry_run(options: RenamePlannerOptions, progress_callback=None, 
     total = len(scan_summary.files)
     batch_size = options.batch_size if options.batch_size > 0 else total
 
+    if tracker:
+        tracker.total = max(total, 1)
+        tracker.update(0, stage="scanning", label=f"Found {total} files")
+
     if not options.include_associated_files:
         file_list = list(scan_summary.files)
         total = len(file_list)
@@ -263,6 +272,8 @@ def build_rename_dry_run(options: RenamePlannerOptions, progress_callback=None, 
 
             if progress_callback:
                 progress_callback(batch_end, total)
+            if tracker:
+                tracker.update(batch_end, stage="building_plan", label=f"Building plan {batch_end}/{total}")
     else:
         augmented_files = _augment_with_sidecar_siblings(
             list(scan_summary.files),

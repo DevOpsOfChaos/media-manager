@@ -20,7 +20,7 @@ from media_manager.core.date_resolver import resolve_capture_datetime
 from media_manager.core.file_identity import files_have_identical_content
 from media_manager.core.media_groups import build_media_groups
 from media_manager.core.metadata.inspect import inspect_media_files_batch
-from media_manager.constants import LARGE_BATCH_SIZE, LARGE_LIBRARY_THRESHOLD, DATE_TAG_PRIORITY
+from media_manager.constants import LARGE_BATCH_SIZE, LARGE_LIBRARY_THRESHOLD, PLANNER_CHUNK_SIZE, DATE_TAG_PRIORITY
 
 if TYPE_CHECKING:
     from media_manager.core.progress_tracker import ProgressTracker
@@ -418,6 +418,10 @@ def _build_organize_dry_run_impl(options: OrganizePlannerOptions, progress_callb
                 progress_callback(idx, total)
             if progress and (idx % progress_interval == 0 or idx == total):
                 progress.tick_count(idx, total, f"Resolving dates... {idx:,}/{total:,}")
+
+        del new_date_entries, scanned_by_path, inspections
+        if 'group_uncached' in dir():
+            del group_uncached
     else:
         file_list = list(scan_summary.files)
         total = len(file_list)
@@ -496,6 +500,7 @@ def _build_organize_dry_run_impl(options: OrganizePlannerOptions, progress_callb
                 cache.set_dates_batch(new_date_entries)
             except (OSError, KeyError) as exc:
                 logger.debug("Metadata parse failed: %s", exc)
+        del new_date_entries
 
         # ── Phase: building plan ──
         if progress:
@@ -503,70 +508,82 @@ def _build_organize_dry_run_impl(options: OrganizePlannerOptions, progress_callb
 
         _target_is_empty = not any(options.target_root.iterdir()) if options.target_root.exists() else True
 
-        # ── Process all files, single progress pass ──
-        for i, scanned_file in enumerate(file_list):
-            if cancel_event and cancel_event.is_set():
-                break
-            inspection = inspections.get(scanned_file.path)
-            try:
-                resolution = resolve_capture_datetime(
-                    scanned_file.path, inspection=inspection,
-                    exiftool_path=options.exiftool_path,
-                    date_source=options.date_source,
-                )
-                target_relative_dir = render_organize_directory(
-                    options.pattern, resolution, source_root=scanned_file.source_root,
-                )
-                original_target_path = options.target_root / target_relative_dir / scanned_file.path.name
-                # Same-path check BEFORE rename (rename would otherwise hide same-path)
-                if _normalized_path_key(scanned_file.path) == _normalized_path_key(original_target_path):
-                    status = "skipped"
-                    reason = "source already matches the planned target path"
-                    target_path = original_target_path
-                    group_target_paths = {scanned_file.path: original_target_path}
-                else:
-                    if _target_is_empty:
-                        target_path = original_target_path
-                    elif options.conflict_policy == "rename":
-                        target_path = _generate_unique_target_path(original_target_path, scanned_file.path, preview=True)
-                    else:
-                        target_path = original_target_path
-                    group_target_paths = {scanned_file.path: target_path}
-                    status, reason = _evaluate_group_plan_state(
-                        group_target_paths, conflict_policy=options.conflict_policy,
+        use_chunks = total > PLANNER_CHUNK_SIZE
+        effective_chunk = PLANNER_CHUNK_SIZE if use_chunks else total
+
+        for chunk_start in range(0, total, effective_chunk or 1):
+            chunk_end = min(chunk_start + effective_chunk, total)
+            chunk_files = file_list[chunk_start:chunk_end]
+
+            for i, scanned_file in enumerate(chunk_files):
+                global_i = chunk_start + i
+                if cancel_event and cancel_event.is_set():
+                    break
+                inspection = inspections.get(scanned_file.path)
+                try:
+                    resolution = resolve_capture_datetime(
+                        scanned_file.path, inspection=inspection,
+                        exiftool_path=options.exiftool_path,
+                        date_source=options.date_source,
                     )
-                    if target_path != original_target_path:
-                        reason = "planned (renamed to avoid conflict)"
-            except Exception as exc:
+                    target_relative_dir = render_organize_directory(
+                        options.pattern, resolution, source_root=scanned_file.source_root,
+                    )
+                    original_target_path = options.target_root / target_relative_dir / scanned_file.path.name
+                    if _normalized_path_key(scanned_file.path) == _normalized_path_key(original_target_path):
+                        status = "skipped"
+                        reason = "source already matches the planned target path"
+                        target_path = original_target_path
+                        group_target_paths = {scanned_file.path: original_target_path}
+                    else:
+                        if _target_is_empty:
+                            target_path = original_target_path
+                        elif options.conflict_policy == "rename":
+                            target_path = _generate_unique_target_path(original_target_path, scanned_file.path, preview=True)
+                        else:
+                            target_path = original_target_path
+                        group_target_paths = {scanned_file.path: target_path}
+                        status, reason = _evaluate_group_plan_state(
+                            group_target_paths, conflict_policy=options.conflict_policy,
+                        )
+                        if target_path != original_target_path:
+                            reason = "planned (renamed to avoid conflict)"
+                except Exception as exc:
+                    dry_run.entries.append(
+                        OrganizePlanEntry(
+                            scanned_file=scanned_file, resolution=None, operation_mode=options.operation_mode,
+                            status="error", reason=str(exc), target_relative_dir=None, target_path=None,
+                            media_group=None, group_target_paths={},
+                        )
+                    )
+                    idx += 1
+                    continue
+
                 dry_run.entries.append(
                     OrganizePlanEntry(
-                        scanned_file=scanned_file, resolution=None, operation_mode=options.operation_mode,
-                        status="error", reason=str(exc), target_relative_dir=None, target_path=None,
-                        media_group=None, group_target_paths={},
+                        scanned_file=scanned_file, resolution=resolution,
+                        operation_mode=options.operation_mode, status=status, reason=reason,
+                        target_relative_dir=target_relative_dir, target_path=target_path,
+                        media_group=None, group_target_paths=group_target_paths,
                     )
                 )
                 idx += 1
-                continue
 
-            dry_run.entries.append(
-                OrganizePlanEntry(
-                    scanned_file=scanned_file, resolution=resolution,
-                    operation_mode=options.operation_mode, status=status, reason=reason,
-                    target_relative_dir=target_relative_dir, target_path=target_path,
-                    media_group=None, group_target_paths=group_target_paths,
-                )
-            )
-            idx += 1
+                if progress_callback and idx % progress_interval == 0:
+                    progress_callback(idx, total)
+                if progress and idx % progress_interval == 0:
+                    progress.tick_count(idx, total, f"Building plan... {idx:,}/{total:,}")
 
-            if progress_callback and idx % progress_interval == 0:
-                progress_callback(idx, total)
-            if progress and idx % progress_interval == 0:
-                progress.tick_count(idx, total, f"Building plan... {idx:,}/{total:,}")
+            del chunk_files
 
         if progress_callback:
             progress_callback(idx, total)
         if progress:
             progress.tick_count(total, total, f"Building plan... {total:,}/{total:,}")
+
+        del file_list, file_paths, inspections
+        if 'uncached' in dir():
+            del uncached
 
     # Final progress tick (in case total wasn't hit exactly)
     if progress_callback and idx != total:

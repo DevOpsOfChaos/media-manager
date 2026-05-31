@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useT } from "@/lib/i18n"
 import { useSimulatedProgress } from "@/lib/use-simulated-progress"
+import { useRealProgress } from "@/lib/use-real-progress"
 import { useOrganizeStore } from "@/stores/organize-store"
 import { useProgress } from "@/lib/progress-context"
 import { organizePreview, organizeApply } from "@/lib/tauri-bridge"
@@ -70,6 +71,7 @@ export default function OrganizePage() {
     { nameEn: "Phase 3/3 — Building plan", nameDe: "Phase 3/3 — Plan erstellen", endAt: 95, increment: 0.3 },
   ]
   const { phase: scanPhase, progress: simulatedProgress, log: scanLog, start: startOrgProgress, complete: completeOrgProgress } = useSimulatedProgress(ORG_PHASES)
+  const { percent: realPct, stage: realStage, logLines: realLog, total: realTotal, etaSeconds: realEta } = useRealProgress()
 
   const browseDir = async (target: "source" | "target") => {
     try {
@@ -259,7 +261,14 @@ export default function OrganizePage() {
 
           {loading && (
             <>
-              <ProgressBlock phase={scanPhase} totalPhases={3} progress={simulatedProgress} log={scanLog} />
+              <ProgressBlock
+                phase={realTotal > 0 ? Math.floor(realPct / 34) + 1 : scanPhase}
+                totalPhases={3}
+                progress={realTotal > 0 ? realPct : simulatedProgress}
+                log={realLog.length > 0 ? realLog : scanLog}
+                stageLabel={realStage ? realStage.replace(/_/g, " ") : undefined}
+                etaText={realEta > 0 ? `ETA ${Math.round(realEta)}s` : undefined}
+              />
               {batchProgress && (
                 <div className="text-xs text-muted-foreground mt-2">
                   <span>{t("Processing", "Verarbeite")}: {batchProgress.batch}</span>

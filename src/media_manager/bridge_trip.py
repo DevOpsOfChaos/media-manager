@@ -64,8 +64,8 @@ def cmd_preview() -> int:
     try:
         logger.info("Starting trip plan preview: %s", options.label)
         plan = build_trip_dry_run(options)
-    except Exception as exc:
-        logger.exception("Trip preview: plan failed")
+    except (OSError, ValueError, RuntimeError, TypeError, ImportError) as exc:
+        logger.error("Trip preview: plan failed: %s", exc)
         return _fail(f"Trip plan failed: {exc}")
 
     _emit({
@@ -103,8 +103,8 @@ def cmd_apply() -> int:
         plan = build_trip_dry_run(options)
         logger.info("Starting trip apply execution: %s", options.label)
         result = execute_trip_plan(plan, apply=True)
-    except Exception as exc:
-        logger.exception("Trip apply: execution failed")
+    except (OSError, ValueError, RuntimeError, TypeError, ImportError) as exc:
+        logger.error("Trip apply: execution failed: %s", exc)
         return _fail(f"Trip execution failed: {exc}")
 
     _emit({

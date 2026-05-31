@@ -5,18 +5,21 @@ interface ProgressBlockProps {
   totalPhases: number
   progress: number
   log: string[]
+  stageLabel?: string
+  etaText?: string
 }
 
-export function ProgressBlock({ phase, totalPhases, progress, log }: ProgressBlockProps) {
+export function ProgressBlock({ phase, totalPhases, progress, log, stageLabel, etaText }: ProgressBlockProps) {
+  const displayPct = Math.max(progress, 1)
   return (
     <div className="space-y-3 p-4">
       <div className="flex items-center gap-2">
         <Loader2 className="h-4 w-4 animate-spin" />
-        <span className="text-sm">Processing...</span>
+        <span className="text-sm">{stageLabel || "Processing..."}</span>
       </div>
       <div className="h-2 bg-muted rounded-full overflow-hidden">
         <div className="h-full bg-blue-500 dark:bg-blue-400 rounded-full transition-all duration-700"
-          style={{ width: `${Math.max(progress, 1)}%` }} />
+          style={{ width: `${displayPct}%` }} />
       </div>
       <div className="flex gap-1">
         {Array.from({ length: totalPhases }).map((_, i) => (
@@ -25,7 +28,7 @@ export function ProgressBlock({ phase, totalPhases, progress, log }: ProgressBlo
       </div>
       <div className="flex justify-between text-xs text-muted-foreground">
         <span>Phase {Math.min(phase, totalPhases)}/{totalPhases}</span>
-        <span>{Math.round(progress)}%</span>
+        <span>{Math.round(progress)}%{etaText ? ` · ${etaText}` : ""}</span>
       </div>
       <div className="max-h-24 overflow-y-auto bg-muted/20 rounded p-2 space-y-0.5">
         {log.map((msg, i) => (

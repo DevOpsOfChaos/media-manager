@@ -13,7 +13,9 @@ from media_manager.core.path_filters import path_is_included_by_patterns
 from media_manager.media_formats import list_supported_similar_image_extensions, normalize_extensions
 from media_manager.sorter import iter_media_files
 
-_embedding_cache: dict[str, list[float]] = {}
+import weakref
+
+_embedding_cache = weakref.WeakValueDictionary()
 
 def get_cached_embedding(image_path: str) -> list[float] | None:
     return _embedding_cache.get(image_path)

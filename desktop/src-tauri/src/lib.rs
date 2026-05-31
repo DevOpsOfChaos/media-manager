@@ -111,5 +111,8 @@ pub fn run() {
             autostart::set_autostart,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|e| {
+            eprintln!("FATAL: Failed to run tauri application: {e}");
+            std::process::exit(1);
+        });
 }

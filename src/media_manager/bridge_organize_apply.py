@@ -138,8 +138,8 @@ def cmd_apply() -> int:
     # Build plan
     try:
         plan = build_organize_dry_run(options)
-    except Exception as exc:
-        logger.exception("Organize apply: plan build failed")
+    except (OSError, ValueError, RuntimeError, TypeError, ImportError) as exc:
+        logger.error("Organize apply: plan build failed: %s", exc)
         return _fail(f"Plan build failed: {exc}\nTraceback:\n{traceback.format_exc()}")
 
     if plan.planned_count == 0:
@@ -148,8 +148,8 @@ def cmd_apply() -> int:
     # Execute
     try:
         result = execute_organize_plan(plan, checkpoint_path=checkpoint_path, resume=resume)
-    except Exception as exc:
-        logger.exception("Organize apply: execution failed")
+    except (OSError, ValueError, RuntimeError, TypeError) as exc:
+        logger.error("Organize apply: execution failed: %s", exc)
         return _fail(f"Execution failed: {exc}\nTraceback:\n{traceback.format_exc()}")
 
     # Cleanup empty directories if requested
@@ -159,8 +159,8 @@ def cmd_apply() -> int:
             try:
                 dirs = remove_empty_directories(sd, "")
                 removed_dirs.extend([str(d) for d in dirs])
-            except Exception:
-                logger.exception("Organize apply: cleanup empty dirs failed")
+            except (OSError, ValueError, RuntimeError):
+                logger.error("Organize apply: cleanup empty dirs failed")
 
     # Build journal entries
     journal_entries = _build_journal_entries(result)

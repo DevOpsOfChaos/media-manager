@@ -20,6 +20,17 @@ export interface ProgressState {
   eta: number
 }
 
+export interface ProgressEvent {
+  kind: "progress"
+  current: number
+  total: number
+  percent: number
+  stage: string
+  label: string
+  eta_seconds: number
+  elapsed_seconds: number
+}
+
 export interface ActiveJob {
   job_id: string
   job_type: string

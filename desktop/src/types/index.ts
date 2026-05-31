@@ -35,6 +35,7 @@ export type {
   ProgressPhase,
   ProgressCallback,
   ProgressState,
+  ProgressEvent,
   ActiveJob,
 } from "./progress"
 
