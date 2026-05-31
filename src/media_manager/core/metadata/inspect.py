@@ -116,7 +116,9 @@ def extract_deep_metadata(file_path: Path) -> dict:
     """Extract ALL metadata layers: EXIF, IPTC, XMP, MakerNotes."""
     meta, success, _, _ = read_exiftool_metadata(file_path, include_time_tags=True)
     if not success or not meta:
-        return {"error": "No metadata found"}
+        meta = _read_pillow_metadata(file_path)
+        if not meta:
+            return {"error": "No metadata found"}
 
     try:
         w = float(str(meta.get("ImageWidth", 0)))
@@ -181,6 +183,32 @@ def extract_deep_metadata(file_path: Path) -> dict:
         },
         "raw_tags_count": len(meta),
     }
+
+
+def _read_pillow_metadata(file_path: Path) -> dict[str, object]:
+    """Read basic image metadata when ExifTool is unavailable."""
+    try:
+        from PIL import ExifTags, Image
+    except ImportError:
+        return {}
+
+    try:
+        with Image.open(file_path) as image:
+            metadata: dict[str, object] = {
+                "ImageWidth": image.width,
+                "ImageHeight": image.height,
+            }
+            exif = image.getexif()
+            if not exif:
+                return metadata
+
+            tag_names = ExifTags.TAGS
+            for tag_id, value in exif.items():
+                tag_name = tag_names.get(tag_id, str(tag_id))
+                metadata[str(tag_name)] = value
+            return metadata
+    except (OSError, ValueError, TypeError):
+        return {}
 
 
 def compute_metadata_score(meta: dict) -> dict:
