@@ -9,11 +9,11 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { FolderOpen, FolderSync, Scan, Users, MapPin, Eye, X, Clock, Plus, Trash2, Zap } from "lucide-react"
+import { FolderOpen, FolderSync, Scan, Users, MapPin, Eye, X, Clock, Plus, Trash2, Zap, Activity } from "lucide-react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { CameraImport } from "@/components/shared/CameraImport"
 import { OnboardingTour } from "@/components/shared/OnboardingTour"
-import { backgroundScan } from "@/lib/tauri-bridge"
+import { backgroundScan, healthScanDirectory, smartAlbumsSuggest } from "@/lib/tauri-bridge"
 import { sendNotification, isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification"
 
 export default function DashboardPage() {
@@ -28,6 +28,18 @@ export default function DashboardPage() {
   const needsBackup = !lastBackup || (Date.now() - new Date(lastBackup).getTime()) > 7 * 24 * 60 * 60 * 1000
 
   const [showTour, setShowTour] = useState(() => localStorage.getItem("onboarding_complete") !== "true")
+
+  const [healthResult, setHealthResult] = useState<any>(null)
+
+  const [smartAlbums, setSmartAlbums] = useState<any[]>([])
+
+  useEffect(() => {
+    const src = localStorage.getItem("default_source_dir")
+    if (!src) return
+    smartAlbumsSuggest({ source_dir: src, max_files: 500 })
+      .then(r => setSmartAlbums(r.suggestions?.slice(0, 4) || []))
+      .catch(() => {})
+  }, [])
 
   const [bgMode, setBgMode] = useState(() => {
     if (localStorage.getItem("background_launched") === "true") return true
@@ -253,6 +265,59 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Health Scan */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Activity className="h-4 w-4" /> {t("File Health", "Datei-Gesundheit")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {healthResult ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${healthResult.health_score >= 90 ? 'bg-green-500' : healthResult.health_score >= 70 ? 'bg-amber-500' : 'bg-red-500'}`} />
+                <span className="text-sm font-bold">{healthResult.health_score}%</span>
+                <span className="text-xs text-muted-foreground">{t("healthy", "gesund")}</span>
+              </div>
+              {healthResult.unhealthy_count > 0 && (
+                <p className="text-xs text-red-500">{healthResult.unhealthy_count} {t("issues found", "Probleme gefunden")}</p>
+              )}
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" onClick={async () => {
+              const src = localStorage.getItem("default_source_dir")
+              if (!src) return
+              const r = await healthScanDirectory({ source_dir: src, max_files: 500 })
+              setHealthResult(r)
+            }}>{t("Scan health", "Gesundheit prüfen")}</Button>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Smart Albums */}
+      {smartAlbums.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <FolderSync className="h-4 w-4" /> {t("Smart Albums", "Smart-Alben")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2">
+              {smartAlbums.map((album, i) => (
+                <Card key={i} className="cursor-pointer hover:border-primary/30 p-2"
+                  onClick={() => navigate("/library")}>
+                  <p className="text-sm font-medium">{album.name}</p>
+                  <p className="text-xs text-muted-foreground">{album.file_count} {t("photos", "Fotos")}</p>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex justify-center">
         <Button variant="outline" size="sm" onClick={() => setShowTour(true)}>
           {t("Start tour", "Tour starten")}

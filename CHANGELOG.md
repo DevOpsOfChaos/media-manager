@@ -5,6 +5,12 @@ All notable changes to Media Manager.
 ## [Unreleased]
 
 ### Added
+- Magic bytes detection: identify file types by content signature (ignores extension)
+- Deep metadata extraction: EXIF, IPTC, XMP, MakerNotes with completeness scoring
+- Auto-tagging engine: generate semantic tags from camera, date, GPS, ISO, focal data
+- File health checker: detect corrupted/truncated JPEGs (missing SOI/EOI) and PNGs (missing IEND)
+- Smart album suggestions: date-cluster and camera-based album groupings from metadata
+- 18 new bridge commands for Tauri desktop integration (deep-meta, auto-tag, health, smart-albums, magic)
 - Workflow runner page: run organize → duplicates in one sequence
 - Face timeline page: browse photos of a person over time
 - Quick-rename with batch-export support

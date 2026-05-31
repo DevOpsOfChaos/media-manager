@@ -747,6 +747,9 @@ export interface EnrichedFile {
   faces?: Array<{ person_id: string; name: string; box?: { x: number; y: number; w: number; h: number } }>
   colors?: string[] | null
   has_duplicates?: boolean
+  auto_tags?: string[]
+  magic_type?: string
+  magic_mismatch?: boolean
 }
 
 /** Fetch all enriched metadata (EXIF, GPS, faces, colors, duplicates) for a single file. */
@@ -875,9 +878,14 @@ export interface SmartAlbumSuggestion {
   confidence: number
 }
 
+export interface SmartAlbumsResult {
+  suggestions: SmartAlbumSuggestion[]
+}
+
 /** Analyze file metadata and suggest smart album groupings (date clusters, camera). */
 export async function smartAlbumsSuggest(options: {
-  files_meta: Array<Record<string, unknown>>
-}): Promise<SmartAlbumSuggestion[]> {
+  source_dir: string
+  max_files?: number
+}): Promise<SmartAlbumsResult> {
   return invoke("smart_albums_suggest", { options })
 }

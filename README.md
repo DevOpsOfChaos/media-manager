@@ -6,6 +6,11 @@ Open-source media organization tool with CLI and a Tauri + React + TypeScript de
 
 ## Features
 
+- **Magic bytes detection** — identify file types by content signature, ignoring extensions
+- **Deep metadata extraction** — EXIF, IPTC, XMP, MakerNotes with completeness scoring
+- **Auto-tagging** — generate semantic tags (camera, date, GPS, ISO, season, focal range)
+- **File health checker** — detect corrupted/truncated JPEGs, PNGs by structural validation
+- **Smart album suggestions** — date-cluster and camera-based album groupings
 - **Organize by date** — automatically sort media into date-based folder structures
 - **Rename with templates** — batch rename using EXIF date, camera model, and custom patterns
 - **Exact duplicates** — byte-level detection across photos, RAW, video, and audio

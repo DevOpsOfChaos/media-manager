@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
-import { fileOpen, fileReveal, fileDelete, fileRename, fileExport, enrichFile, magicDetect, type EnrichedFile, type LibraryBrowsePaginatedResult, type MagicDetectResult } from "@/lib/tauri-bridge"
+import { fileOpen, fileReveal, fileDelete, fileRename, fileExport, enrichFile, magicDetect, healthCheckFile, type EnrichedFile, type LibraryBrowsePaginatedResult, type MagicDetectResult, type FileHealthResult } from "@/lib/tauri-bridge"
+import { cachedCall, dedupedCall } from "@/lib/api-cache"
 
 import { FolderOpen, FolderSync, Loader2, MoreVertical, Trash2, Pencil, ExternalLink, ChevronLeft, ChevronRight, Tag, Check, Play, X, FolderSearch, MapPin, ArrowLeftRight, SlidersHorizontal, Download, Mail, HardDrive, Film, Music, File } from "lucide-react"
 import {
@@ -42,6 +43,9 @@ import { PickRejectBar, type FlagState } from "@/components/shared/PickRejectBar
 import { EmailShare } from "@/components/shared/EmailShare"
 import { trackRecentlyViewed } from "@/components/shared/RecentFiles"
 import { WatchdogIndicator } from "@/components/shared/WatchdogIndicator"
+import { MetadataScoreBadge } from "@/components/shared/MetadataScoreBadge"
+import { HealthIndicator } from "@/components/shared/HealthIndicator"
+import { ExtensionMismatchWarning } from "@/components/shared/ExtensionMismatchWarning"
 
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48, 96]
@@ -344,6 +348,8 @@ export default function LibraryPage() {
 
   const [magicResult, setMagicResult] = useState<MagicDetectResult | null>(null)
 
+  const [healthResult, setHealthResult] = useState<FileHealthResult | null>(null)
+
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [exifFilters, setExifFilters] = useState<{
     camera?: string
@@ -384,7 +390,9 @@ export default function LibraryPage() {
   useEffect(() => {
     if (!selectedFile) { setEnrichedData(null); return }
     let cancelled = false
-    enrichFile(selectedFile.path).then(data => {
+    dedupedCall(`enrich:${selectedFile.path}`, () =>
+      cachedCall(`enrich:${selectedFile.path}`, () => enrichFile(selectedFile.path))
+    ).then(data => {
       if (!cancelled) setEnrichedData(data)
     }).catch(() => {
       if (!cancelled) setEnrichedData(null)
@@ -399,6 +407,17 @@ export default function LibraryPage() {
       if (!cancelled) setMagicResult(data)
     }).catch(() => {
       if (!cancelled) setMagicResult(null)
+    })
+    return () => { cancelled = true }
+  }, [selectedFile])
+
+  useEffect(() => {
+    if (!selectedFile) { setHealthResult(null); return }
+    let cancelled = false
+    healthCheckFile(selectedFile.path).then(data => {
+      if (!cancelled) setHealthResult(data)
+    }).catch(() => {
+      if (!cancelled) setHealthResult(null)
     })
     return () => { cancelled = true }
   }, [selectedFile])
@@ -710,6 +729,38 @@ export default function LibraryPage() {
       return next
     })
   }, [])
+
+  const metadataScore = useMemo(() => {
+    if (!enrichedData) return { score: 0, grade: "D" }
+    let present = 0
+    let total = 0
+    const exif = enrichedData.exif
+    if (exif) {
+      total += 8
+      if (exif.camera) present++
+      if (exif.lens) present++
+      if (exif.iso != null) present++
+      if (exif.aperture) present++
+      if (exif.shutter) present++
+      if (exif.focal_length) present++
+      if (exif.date_taken) present++
+      if (exif.megapixels != null) present++
+    }
+    if (enrichedData.gps) { total++; present++ }
+    if (enrichedData.faces && enrichedData.faces.length > 0) { total++; present++ }
+    if (enrichedData.colors && enrichedData.colors.length > 0) { total++; present++ }
+    if (enrichedData.auto_tags && enrichedData.auto_tags.length > 0) { total++; present++ }
+    const score = total > 0 ? Math.round((present / total) * 100) : 0
+    const grade = score >= 90 ? "A" : score >= 75 ? "B" : score >= 50 ? "C" : "D"
+    return { score, grade }
+  }, [enrichedData])
+
+  const healthScore = useMemo(() => {
+    if (!healthResult) return { score: 100, issues: 0 }
+    const issues = healthResult.issues.length + healthResult.warnings.length
+    const score = healthResult.healthy ? (issues === 0 ? 100 : 80) : Math.max(0, 60 - issues * 10)
+    return { score, issues }
+  }, [healthResult])
 
   return (
     <>
@@ -1146,6 +1197,10 @@ export default function LibraryPage() {
               <X className="h-4 w-4" />
             </button>
           </div>
+          <div className="flex items-center gap-4">
+            <MetadataScoreBadge score={metadataScore.score} grade={metadataScore.grade} />
+            <HealthIndicator score={healthScore.score} issues={healthScore.issues} />
+          </div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
             <span className="text-muted-foreground">{t("Name", "Name")}</span>
             <span className="truncate">{selectedFile.name}</span>
@@ -1153,9 +1208,10 @@ export default function LibraryPage() {
             <span className="flex items-center gap-1 truncate">
               {selectedFile.category || selectedFile.suffix}
               {magicResult?.mismatch && (
-                <Badge variant="destructive" className="text-xs">
-                  {t("Extension mismatch!", "Erweiterung stimmt nicht!")}
-                </Badge>
+                <ExtensionMismatchWarning
+                  extension={magicResult.extension || selectedFile.suffix}
+                  detectedType={magicResult.mime_type || magicResult.description || "unknown"}
+                />
               )}
             </span>
             <span className="text-muted-foreground">{t("Size", "Größe")}</span>
@@ -1196,6 +1252,16 @@ export default function LibraryPage() {
                 {enrichedData.exif.focal_length && <><span className="text-muted-foreground">{t("Focal", "Brennweite")}</span><span>{String(enrichedData.exif.focal_length)}mm</span></>}
                 {enrichedData.exif.date_taken && <><span className="text-muted-foreground">{t("Date", "Datum")}</span><span className="truncate">{String(enrichedData.exif.date_taken)}</span></>}
                 {enrichedData.exif.megapixels != null && <><span className="text-muted-foreground">MP</span><span>{String(enrichedData.exif.megapixels)}</span></>}
+              </div>
+            </div>
+          )}
+          {enrichedData?.auto_tags && enrichedData.auto_tags.length > 0 && (
+            <div className="mt-3 pt-3 border-t">
+              <span className="text-xs font-semibold">{t("Auto Tags", "Auto-Tags")}</span>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {enrichedData.auto_tags.map(tag => (
+                  <Badge key={tag} variant="secondary" className="text-[9px]">{tag.replace(':', ': ')}</Badge>
+                ))}
               </div>
             </div>
           )}
@@ -1241,6 +1307,20 @@ export default function LibraryPage() {
               />
             </div>
           </div>
+          {enrichedData?.auto_tags && enrichedData.auto_tags.length > 0 && (
+            <div className="mt-3 pt-3 border-t">
+              <span className="text-xs text-muted-foreground">{t("Auto tags", "Auto-Tags")}</span>
+              <div className="mt-1">
+                <TagCloud
+                  tags={enrichedData.auto_tags}
+                  onTagClick={(tag) => {
+                    setTagFilter(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])
+                  }}
+                  max={15}
+                />
+              </div>
+            </div>
+          )}
           {enrichedData?.gps?.lat != null && enrichedData.gps.lon != null && (
             <div className="mt-3 pt-3 border-t">
               <span className="text-xs text-muted-foreground">{t("GPS", "GPS")}</span>
